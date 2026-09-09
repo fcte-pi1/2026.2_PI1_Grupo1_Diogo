@@ -107,25 +107,25 @@ A partir da análise do cenário atual das competições da categoria Micromouse
 
 | **Nome**                               | **Matrícula** | **Curso**              | **E-mail**                  | **Funções**         |
 | -------------------------------------- | ------------- | ---------------------- | --------------------------- | ------------------- |
-| Alice Rodrigues Mariano                | 242004475     | Engenharia de Software | aliceromar21@gmail.com      |                     |
-| Davi Carneiro de Moura                 | 241012187     | Engenharia de Software | davicm2011.11@gmail.com     |                     |
-| Eduardo Oliveira Valadares             | 231026311     | Engenharia de Software | eduov2004@gmail.com         |                     |
+| Alice Rodrigues Mariano                | 242004475     | Engenharia de Software | aliceromar21@gmail.com      | Software            |
+| Davi Carneiro de Moura                 | 241012187     | Engenharia de Software | davicm2011.11@gmail.com     | Estrutura           |
+| Eduardo Oliveira Valadares             | 231026311     | Engenharia de Software | eduov2004@gmail.com         | Estrutura           |
 | Gabriel Côrtes de Sousa                | 251009158     | Engenharia Aeroespacial| bielcs07@gmail.com          | Gerente de Estrutura|
-| Gabriel de Araújo Cotrim               | 242004662     | Engenharia Eletrônica  | gabrielcotrim2016@gmail.com |                     |
-| Gabriel Escramin Lourenço              | 251039569     | Engenharia de Software | escramingabriel@gmail.com   |                     |
+| Gabriel de Araújo Cotrim               | 242004662     | Engenharia Eletrônica  | gabrielcotrim2016@gmail.com | Eletrônica          |
+| Gabriel Escramin Lourenço              | 251039569     | Engenharia de Software | escramingabriel@gmail.com   | Energia             |
 | Gustavo Oki de Freitas Rodrigues Leite | 231034716     | Engenharia de Software | gustavooki2004@gmail.com    | Gerente Geral       |
-| João Paulo da Silva Pereira            | 241025784     | Engenharia de Software | jotasv2005@gmail.com        |                     |
-| Kaleb de Souza Macedo                  | 231026975     | Engenharia de Software | kmacedo0279@gmail.com       |                     |
-| Kelyton de Lucas Moraes Santos         | 241012033     | Engenharia de Software | kelytonlucas@gmail.com      |                     |
-| Lucas Alves Oliveira dos Santos        | 231027159     | Engenharia de Software | lucasalves2005@gmail.com    |                     |
+| João Paulo da Silva Pereira            | 241025784     | Engenharia de Software | jotasv2005@gmail.com        | Estrutura           |
+| Kaleb de Souza Macedo                  | 231026975     | Engenharia de Software | kmacedo0279@gmail.com       | Energia             |
+| Kelyton de Lucas Moraes Santos         | 241012033     | Engenharia de Software | kelytonlucas@gmail.com      | Eletrônica          |
+| Lucas Alves Oliveira dos Santos        | 231027159     | Engenharia de Software | lucasalves2005@gmail.com    | Software            |
 | Mateus Fernandes Dantas                | 251026248     | Engenharia de Software | mateusfdantas2007@gmail.com | Gerente de Energia  |
 | Matias Cantuária Marin                 | 251026210     | Engenharia Eletrônica  | matiasmarin89@gmail.com     |Gerente de Eletrônica|
-| Natan José França                      | 241011537     | Engenharia de Software | natan.j.franca@gmail.com    |                     |
-| Rafael Costa Carvalho                  | 251015262     | Engenharia Automotiva  | rafaratinho2@gmail.com      |                     |
-| Renan Batista Gonçalves Pariz          | 222006392     | Engenharia de Software | renanpariz.0@gmail.com      |                     |
-| Ricardo Eduardo da Silva Leal          | 242015405     | Engenharia de Software | 242015405@aluno.unb.br      |                     |
+| Natan José França                      | 241011537     | Engenharia de Software | natan.j.franca@gmail.com    | Software            |
+| Rafael Costa Carvalho                  | 251015262     | Engenharia Automotiva  | rafaratinho2@gmail.com      | Estrutura           |
+| Renan Batista Gonçalves Pariz          | 222006392     | Engenharia de Software | renanpariz.0@gmail.com      | Eletrônica          |
+| Ricardo Eduardo da Silva Leal          | 242015405     | Engenharia de Software | 242015405@aluno.unb.br      | Eletrônica          |
 | Samuel Nogueira Caetano                | 231027186     | Engenharia de Software | samueln.caetano42@gmail.com | Gerente de Software |
-| Thiago Viriato Accioly                 | 231029340     | Engenharia de Software | thiagoacciolyv@gmail.com    |                     |
+| Thiago Viriato Accioly                 | 231029340     | Engenharia de Software | thiagoacciolyv@gmail.com    | Energia             |
 
 **Orientador: Prof.º Diogo Caetano Garcia**
 
