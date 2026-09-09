@@ -158,6 +158,44 @@ O total previsto para os componentes estruturais do projeto é de aproximadament
 
 A pesquisa de preços para os componentes online (como rodas e roda boba) foi realizada em setembro de 2026, consultando as plataformas Google Shopping, Mercado Livre e Shopee.
 
+**Frente de Hardware**
+
+O total previsto com os itens recomendados para a eletrônica embarcada do projeto é de aproximadamente R$ 690,04, já incluído o imposto incidente sobre os componentes importados. O levantamento adotou uma estratégia de compra mista: apenas os sensores de distância e os motores são importados, por apresentarem diferença de preço superior a três vezes em relação às lojas nacionais, enquanto todos os demais componentes são adquiridos no Brasil, com pronta entrega. Os componentes levantados são:
+
+* **Microcontrolador ESP32 (2 un., R$ 85,22):** responsável pelo processamento do algoritmo Flood Fill e pela transmissão da telemetria por Wi-Fi ao sistema web. Adotada a versão de 30 pinos, cujos pinos ausentes em relação à de 38 correspondem à interface da memória flash interna e não são utilizáveis como GPIO.
+
+* **Sensores de distância VL53L1X (7 un., R$ 154,00):** sensores de tempo de voo (ToF) a laser, dispostos nas posições frontal, diagonais e laterais, usados para detecção das paredes do labirinto. A tecnologia ToF foi escolhida no lugar de sensores infravermelhos de reflexão porque a medida independe da cor da superfície, condição relevante em um labirinto de paredes brancas e chão preto, e porque dispensa a calibração individual que a alternativa exigiria — etapa que representaria risco direto ao objetivo de concluir cada labirinto na primeira tentativa. É o item de maior peso no orçamento (22% do total).
+
+* **Sensor inercial MPU-6050 (2 un., R$ 43,50):** giroscópio e acelerômetro usados para controle de curvas e correção de trajetória. 
+
+* **Sensor INA219 (1 un., R$ 15,00):** medição de tensão, corrente e potência, atendendo diretamente ao requisito de exibir o consumo de bateria na telemetria em tempo real.
+
+* **Motores DC N20 com encoder e redução (3 un., R$ 90,00):** acionamento e odometria. Os encoders viabilizam a contagem de células percorridas e o cálculo da velocidade média. 
+
+* **Ponte H DRV8833 (2 un., R$ 20,72):** driver de acionamento dos motores, escolhido pela baixa queda de tensão, pelas proteções internas e pelo tamanho compatível com a restrição de 16,5 cm do robô. 
+
+* **Conversor DC-DC MP1584 (2 un., R$ 12,00):** rebaixa os 7,4 V da bateria LiPo para o barramento de 5 V da eletrônica. 
+
+* **Prototipagem e interface (R$ 84,85):** perfboards, protoboard, kit de jumpers, DIP switch para seleção do tipo de labirinto e chaves liga-desliga. 
+
+* **Montagem, consumíveis e proteção (R$ 117,00):** parafusos e espaçadores M2/M3, LEDs e resistores, pin headers, espaguete termorretrátil, capacitores de desacoplamento, fita dupla-face, abraçadeiras, cola instantânea, buzzer de depuração e o circuito de proteção contra inversão de polaridade. 
+
+* **ICMS sobre os itens importados (R$ 67,75):** alíquota de 20% do Distrito Federal, calculada sobre os R$ 271,00 de mercadoria importada. O Imposto de Importação federal é zero para remessas de até US$ 50, condição respeitada pelo fracionamento do pedido.
+
+Não estão incluídos neste total os itens já orçados por outras frentes — bateria LiPo e conectores (Energia), rodas, roda boba, chassi e ferragens (Estruturas) — nem o estanho de solda e o fio, cedidos por um integrante da equipe.
+
+**Plano de contingência:** Caso a remessa internacional não chegue a tempo dos testes de bancada previstos para a semana 6, os quatro componentes importados precisam ser recomprados no Brasil, e nenhum cenário de substituição cabe no teto de R$ 700,00:
+
+| Cenário | Descrição | Total |
+| :--- | :--- | :--- |
+| A — Integral | Mesma lista, tudo comprado no Brasil | R$ 1.210,09 |
+| B — Com VL53L0X | Troca do sensor ToF pelo VL53L0X, demais itens mantidos | R$ 877,59 |
+| C — Mínimo | VL53L0X, 5 sensores, 2 motores, sem unidades de reserva | R$ 711,79
+
+A diferença vem quase toda de dois itens: o sensor VL53L1X custa R$ 66,40 em loja nacional contra cerca de R$ 22 importado, e o motor N20 com encoder custa por volta de R$ 113 aqui contra cerca de R$ 30. Caso a contingência seja acionada, a frente de hardware recomenda o cenário B, com pedido de suplementação de R$ 177,59, preservando as unidades de reserva. A troca pelo VL53L0X implica perda do controle de região de interesse do sensor, a ser compensada por colimadores mecânicos no chassi, o que exige articulação com a frente de estruturas. 
+
+Os preços dos componentes nacionais foram consultados diretamente nas lojas MakerHero e Eletrogate em setembro de 2026; os valores de importação representam faixas de plataformas internacionais no mesmo período. Os custos de frete não estão considerados.
+
 ---
 
 ### Duração Estimada (horas)
