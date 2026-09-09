@@ -146,6 +146,18 @@ O total previsto com os itens recomendados para a alimentação do projeto é de
 
 Os valores informados representam o preço de compra avulsa em plataformas online, pesquisados em setembro de 2026, sem considerar os custos com frete.
 
+**Frente de Estruturas**
+
+O total previsto para os componentes estruturais do projeto é de aproximadamente R$ 160,00 a R$ 220,00. O levantamento considerou as seguintes estimativas para peças e materiais:
+
+* **Chassi:** A ser fabricado via impressão 3D utilizando filamento PETG, com custo estimado entre R$ 80,00 e R$ 100,00. Esse valor inclui o custo da impressão e do material, contando com uma margem de redundância para cobrir prováveis reimpressões da peça.
+* **Rodas:** A faixa de preço varia de R$ 10,00 a R$ 50,00. O custo final dependerá das especificações dos motores e do chassi, sendo possível optar por versões mais simples e baratas ou modelos mais caros.
+* **Roda boba:** Custo estimado entre R$ 4,00 e R$ 7,00. 
+* **Parafusos, porcas e arruelas:** Custo previsto de aproximadamente R$ 15,00. Por serem fáceis de encontrar, podem ser comprados presencialmente em lojas de materiais de construção, dispensando a compra online.
+* **MDF/Balsa:** Material destinado à confecção da pista (labirinto), com valor estimado de R$ 50,00. Assim como as ferragens, pode ser adquirido em lojas físicas de materiais de construção. Parte desse custo pode ser abatida, pois um dos membros da equipe possui pedaços de madeira em casa disponíveis para uso.
+
+A pesquisa de preços para os componentes online (como rodas e roda boba) foi realizada em setembro de 2026, consultando as plataformas Google Shopping, Mercado Livre e Shopee.
+
 ---
 
 ### Duração Estimada (horas)
