@@ -173,7 +173,7 @@ A pesquisa de preços para os componentes online (como rodas e roda boba) foi re
 **Distribuição por fase do projeto**
 
 | Fase | Período | Atividades de Hardware |
-| :--- | :--- | :--- | :--- |
+| :--- | :--- | :--- |
 | **Planejamento e Requisitos** | Sem. 1-3 | TAP, levantamento de requisitos de hardware, definição da arquitetura eletrônica, pesquisa de componentes e orçamento. |
 | **Projeto Conceitual de Hardware** | Sem. 4-5 | Diagrama de blocos, esquemático elétrico, mapa de pinos do ESP32, definição do barramento I2C, dimensionamento de corrente e simulação de circuitos. |
 | **Aquisição e Testes de Bancada** | Sem. 6-8 | Compra dos componentes, validação individual dos módulos em protoboard, reendereçamento dos sensores ToF, testes de acionamento e leitura de encoders. |
