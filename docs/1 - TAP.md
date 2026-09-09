@@ -111,19 +111,19 @@ A partir da análise do cenário atual das competições da categoria Micromouse
 | Davi Carneiro de Moura                 | 241012187     | Engenharia de Software | davicm2011.11@gmail.com     | Estrutura           |
 | Eduardo Oliveira Valadares             | 231026311     | Engenharia de Software | eduov2004@gmail.com         | Estrutura           |
 | Gabriel Côrtes de Sousa                | 251009158     | Engenharia Aeroespacial| bielcs07@gmail.com          | Gerente de Estrutura|
-| Gabriel de Araújo Cotrim               | 242004662     | Engenharia Eletrônica  | gabrielcotrim2016@gmail.com | Eletrônica          |
+| Gabriel de Araújo Cotrim               | 242004662     | Engenharia Eletrônica  | gabrielcotrim2016@gmail.com | Hardware          |
 | Gabriel Escramin Lourenço              | 251039569     | Engenharia de Software | escramingabriel@gmail.com   | Energia             |
 | Gustavo Oki de Freitas Rodrigues Leite | 231034716     | Engenharia de Software | gustavooki2004@gmail.com    | Gerente Geral       |
 | João Paulo da Silva Pereira            | 241025784     | Engenharia de Software | jotasv2005@gmail.com        | Estrutura           |
 | Kaleb de Souza Macedo                  | 231026975     | Engenharia de Software | kmacedo0279@gmail.com       | Energia             |
-| Kelyton de Lucas Moraes Santos         | 241012033     | Engenharia de Software | kelytonlucas@gmail.com      | Eletrônica          |
+| Kelyton de Lucas Moraes Santos         | 241012033     | Engenharia de Software | kelytonlucas@gmail.com      | Hardware          |
 | Lucas Alves Oliveira dos Santos        | 231027159     | Engenharia de Software | lucasalves2005@gmail.com    | Software            |
 | Mateus Fernandes Dantas                | 251026248     | Engenharia de Software | mateusfdantas2007@gmail.com | Gerente de Energia  |
 | Matias Cantuária Marin                 | 251026210     | Engenharia Eletrônica  | matiasmarin89@gmail.com     |Gerente de Eletrônica|
 | Natan José França                      | 241011537     | Engenharia de Software | natan.j.franca@gmail.com    | Software            |
 | Rafael Costa Carvalho                  | 251015262     | Engenharia Automotiva  | rafaratinho2@gmail.com      | Estrutura           |
-| Renan Batista Gonçalves Pariz          | 222006392     | Engenharia de Software | renanpariz.0@gmail.com      | Eletrônica          |
-| Ricardo Eduardo da Silva Leal          | 242015405     | Engenharia de Software | 242015405@aluno.unb.br      | Eletrônica          |
+| Renan Batista Gonçalves Pariz          | 222006392     | Engenharia de Software | renanpariz.0@gmail.com      | Hardware          |
+| Ricardo Eduardo da Silva Leal          | 242015405     | Engenharia de Software | 242015405@aluno.unb.br      | Hardware          |
 | Samuel Nogueira Caetano                | 231027186     | Engenharia de Software | samueln.caetano42@gmail.com | Gerente de Software |
 | Thiago Viriato Accioly                 | 231029340     | Engenharia de Software | thiagoacciolyv@gmail.com    | Energia             |
 
@@ -161,6 +161,26 @@ A pesquisa de preços para os componentes online (como rodas e roda boba) foi re
 ---
 
 ### Duração Estimada (horas)
+
+**Hardware**
+
+**Premissas do cálculo**
+* Período: 02/09/2026 a 02/12/2026 (13 semanas).
+* Equipe de hardware: 5 membros (Gerente de Hardware + 4 integrantes), correspondendo à área de eletrônica dentro do grupo multidisciplinar de 19 integrantes.
+* Regime: estudantes em período letivo regular, com dedicação média de **4 a 6 horas/semana** por membro ao projeto, adotando-se 5 horas/semana como valor de referência. Este tempo é adicional às duas aulas práticas semanais da disciplina.
+* Carga estimada de trabalho extraclasse: correspondendo a **25 horas/semana** somadas as cinco pessoas. As horas das aulas práticas são adicionais a esse total.
+
+**Distribuição por fase do projeto**
+
+| Fase | Período | Atividades de Hardware |
+| :--- | :--- | :--- | :--- |
+| **Planejamento e Requisitos** | Sem. 1-3 | TAP, levantamento de requisitos de hardware, definição da arquitetura eletrônica, pesquisa de componentes e orçamento. |
+| **Projeto Conceitual de Hardware** | Sem. 4-5 | Diagrama de blocos, esquemático elétrico, mapa de pinos do ESP32, definição do barramento I2C, dimensionamento de corrente e simulação de circuitos. |
+| **Aquisição e Testes de Bancada** | Sem. 6-8 | Compra dos componentes, validação individual dos módulos em protoboard, reendereçamento dos sensores ToF, testes de acionamento e leitura de encoders. |
+| **Montagem e Integração Eletrônica** | Sem. 9-10 | Montagem definitiva em perfboard, soldagem, chicote de fiação, acomodação no chassi e ajuste da alimentação. |
+| **Testes de Hardware** | Sem. 11-12 | Testes de sensores, ponte H e encoders, medição de consumo com o INA219, depuração e correção de falhas. |
+| **Testes de Integração e Finalização** | Sem. 13 | Suporte à integração com software, energia e estruturas, ajustes finais e preparação da apresentação final. |
+| **Total** | **13 semanas** | |
 
 #### Software
 
