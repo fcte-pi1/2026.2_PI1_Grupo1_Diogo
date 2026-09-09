@@ -92,29 +92,40 @@ Diante desse problema, o projeto apresenta-se como uma **oportunidade** que just
 > 3. número de idosos classificados como público-alvo no DF e no estado de Goiás,
 > 4. nº de empresas de segurança registradas no DF etc.
 
+A partir da análise do cenário atual das competições da categoria Micromouse e do mercado de robótica em geral, identificou-se o seguinte conjunto de indicadores que fundamentam o desenvolvimento de um micromouse com foco educacional:
+
+1. Segundo Cai et al. (2010), o Micromouse conta com um histórico de mais de três décadas de competições realizadas mundialmente, sendo guiado por regras padronizadas pelo IEEE;
+2. De acordo com a Precedence Research (2023), o mercado global de robôs móveis autônomos (AMR) tem projeção para alcançar a marca de US$ 29,66 bilhões até 2034, registrando uma taxa de crescimento anual composta (CAGR) de 22,31%;
+3. Segundo relatório da Cognitive Market Research (2026), o mercado global de robótica educacional deve dar um salto de US$ 1,54 bilhão em 2025 para US$ 10,39 bilhões até 2033, o que representa um expressivo CAGR de 26,87%;
+4. Conforme apontado por Al-Sarawi et al. (2020), o mercado global da Internet das Coisas (IoT) possui previsão de expansão de US$ 245 bilhões em 2020 para US$ 8,13 trilhões em 2030, demonstrando um CAGR de 39%;
+5. Segundo a Polaris Market Research (2022), o segmento global de robôs de limpeza foi avaliado em US$ 8,3 bilhões no ano de 2021, mantendo uma projeção de crescimento constante e acelerado até 2030;
+6. De acordo com Chung et al. (2021), a exposição de estudantes a competições de robótica faz com que 95% deles manifestem interesse em seguir carreiras nas áreas de STEM (Ciência, Tecnologia, Engenharia e Matemática);
+7. Conforme levantamento de Santos, Curvelo e Gonçalves (2025), o Brasil figura no 2º lugar mundial em volume de publicações científicas voltadas à formação de professores para o ensino de robótica, evidenciando um mercado institucional e acadêmico altamente receptivo;
+8. Segundo Chung et al. (2021), a viabilidade técnica de plataformas de telemetria e monitoramento web foi comprovada ao viabilizar a participação sincronizada e remota de 153 equipes e 360 estudantes em campeonatos mundiais online.
+
 ### Membros da Equipe
 
 | **Nome**                               | **Matrícula** | **Curso**              | **E-mail**                  | **Funções**         |
 | -------------------------------------- | ------------- | ---------------------- | --------------------------- | ------------------- |
-| Alice Rodrigues Mariano                | 242004475     |                        | aliceromar21@gmail.com      |                     |
-| Davi Carneiro de Moura                 | 241012187     |                        | davicm2011.11@gmail.com     |                     |
-| Eduardo Oliveira Valadares             | 231026311     |                        | eduov2004@gmail.com         |                     |
-| Gabriel Côrtes de Sousa                | 251009158     |                        | bielcs07@gmail.com          |                     |
-| Gabriel de Araújo Cotrim               | 242004662     |                        | gabrielcotrim2016@gmail.com |                     |
-| Gabriel Escramin Lourenço              | 251039569     |                        | escramingabriel@gmail.com   |                     |
-| Gustavo Oki de Freitas Rodrigues Leite | 231034716     |                        | gustavooki2004@gmail.com    |                     |
-| João Paulo da Silva Pereira            | 241025784     |                        | jotasv2005@gmail.com        |                     |
-| Kaleb de Souza Macedo                  | 231026975     |                        | kmacedo0279@gmail.com       |                     |
-| Kelyton de Lucas Moraes Santos         | 241012033     |                        | kelytonlucas@gmail.com      |                     |
-| Lucas Alves Oliveira dos Santos        | 231027159     |                        | lucasalves2005@gmail.com    |                     |
-| Mateus Fernandes Dantas                | 251026248     |                        | mateusfdantas2007@gmail.com |                     |
-| Matias Cantuária Marin                 | 251026210     |                        | matiasmarin89@gmail.com     |                     |
-| Natan José França                      | 241011537     |                        | natan.j.franca@gmail.com    |                     |
-| Rafael Costa Carvalho                  | 251015262     |                        | rafaratinho2@gmail.com      |                     |
-| Renan Batista Gonçalves Pariz          | 222006392     |                        | renanpariz.0@gmail.com      |                     |
-| Ricardo Eduardo da Silva Leal          | 242015405     |                        | 242015405@aluno.unb.br      |                     |
+| Alice Rodrigues Mariano                | 242004475     | Engenharia de Software | aliceromar21@gmail.com      |                     |
+| Davi Carneiro de Moura                 | 241012187     | Engenharia de Software | davicm2011.11@gmail.com     |                     |
+| Eduardo Oliveira Valadares             | 231026311     | Engenharia de Software | eduov2004@gmail.com         |                     |
+| Gabriel Côrtes de Sousa                | 251009158     | Engenharia Aeroespacial| bielcs07@gmail.com          | Gerente de Estrutura|
+| Gabriel de Araújo Cotrim               | 242004662     | Engenharia Eletrônica  | gabrielcotrim2016@gmail.com |                     |
+| Gabriel Escramin Lourenço              | 251039569     | Engenharia de Software | escramingabriel@gmail.com   |                     |
+| Gustavo Oki de Freitas Rodrigues Leite | 231034716     | Engenharia de Software | gustavooki2004@gmail.com    | Gerente Geral       |
+| João Paulo da Silva Pereira            | 241025784     | Engenharia de Software | jotasv2005@gmail.com        |                     |
+| Kaleb de Souza Macedo                  | 231026975     | Engenharia de Software | kmacedo0279@gmail.com       |                     |
+| Kelyton de Lucas Moraes Santos         | 241012033     | Engenharia de Software | kelytonlucas@gmail.com      |                     |
+| Lucas Alves Oliveira dos Santos        | 231027159     | Engenharia de Software | lucasalves2005@gmail.com    |                     |
+| Mateus Fernandes Dantas                | 251026248     | Engenharia de Software | mateusfdantas2007@gmail.com | Gerente de Energia  |
+| Matias Cantuária Marin                 | 251026210     | Engenharia Eletrônica  | matiasmarin89@gmail.com     |Gerente de Eletrônica|
+| Natan José França                      | 241011537     | Engenharia de Software | natan.j.franca@gmail.com    |                     |
+| Rafael Costa Carvalho                  | 251015262     | Engenharia Automotiva  | rafaratinho2@gmail.com      |                     |
+| Renan Batista Gonçalves Pariz          | 222006392     | Engenharia de Software | renanpariz.0@gmail.com      |                     |
+| Ricardo Eduardo da Silva Leal          | 242015405     | Engenharia de Software | 242015405@aluno.unb.br      |                     |
 | Samuel Nogueira Caetano                | 231027186     | Engenharia de Software | samueln.caetano42@gmail.com | Gerente de Software |
-| Thiago Viriato Accioly                 | 231029340     |                        | thiagoacciolyv@gmail.com    |                     |
+| Thiago Viriato Accioly                 | 231029340     | Engenharia de Software | thiagoacciolyv@gmail.com    |                     |
 
 **Orientador: Prof.º Diogo Caetano Garcia**
 
@@ -123,6 +134,17 @@ Diante desse problema, o projeto apresenta-se como uma **oportunidade** que just
 ### Orçamento Estimado (R$)
 
 > A ser definido com base no levantamento de componentes eletrônicos (ESP32, sensores IR, motores DC com encoder, chassi, bateria LiPo), materiais para a pista de testes 4×4 e demais insumos. Cada membro contribuirá proporcionalmente à realidade individual da equipe.
+
+**Frente de Energia**
+
+O total previsto com os itens recomendados para a alimentação do projeto é de aproximadamente R$ 141,00 a R$ 166,00. Este valor engloba as opções que apresentaram a melhor relação entre preço, marca e avaliação de compradores. Os componentes levantados são:
+
+* **Baterias LiPo 2S 7,4 V:** A recomendação para baterias de 700 a 1100 mAh é a LiPo Ultra 7,4V 1100mAh 2S 20C, custando R$ 132,00. Para capacidades menores, entre 300 e 550 mAh, recomenda-se a Tattu 550mAh 2S 95C R-Line por R$ 51,84.
+* **Conector XT30:** O par (macho e fêmea) em compra avulsa custa R$ 5,22.
+* **Conector XT60:** O par (macho e fêmea) possui preço variando entre R$ 3,61 e R$ 4,66. Como esse plugue já acompanha a maior parte das baterias LiPo de fábrica no Brasil, a compra avulsa pode não ser necessária, reduzindo o orçamento.
+* **Conector JST-XH:** Utilizado como conector de balanceamento, um kit com 10 pares custa R$ 28,90. Geralmente este item já acompanha a bateria.
+
+Os valores informados representam o preço de compra avulsa em plataformas online, pesquisados em setembro de 2026, sem considerar os custos com frete.
 
 ---
 
