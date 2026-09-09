@@ -1,7 +1,5 @@
 # Termo de Abertura do Projeto
 
-> **Termo de abertura do projeto / Project Charter.**
-> Um documento publicado pelo iniciador ou patrocinador do projeto que autoriza formalmente a existência de um projeto e fornece ao gerente do projeto a autoridade para aplicar os recursos organizacionais nas atividades do projeto.
 
 ---
 
@@ -9,20 +7,12 @@
 
 ### Dados do projeto
 
-- **Nome do Projeto:** [nome]
+- **Nome do Projeto:** Rato Borrachudo
 - **Data de Início:** 02/09/2026
 - **Data de Término:** 02/12/2026
 - **Patrocinador:** Universidade de Brasília
 
 ### Objetivos
-
-> O que a grupo pretende obter com a realização do projeto. Descrever o que se pretende realizar para resolver o problema central ou explorar a oportunidade identificada. Para a correta definição do objetivo siga a regra "SMART":
->
-> - **_Specific_ (específico):** Deve ser redigido de forma clara, concisa e compreensiva;
-> - **_Measurable_ (mensurável):** O objetivo específico deve ser mensurável, ou seja, possível de ser medido por meio de um ou mais indicadores;
-> - **_Agreed_ (acordado):** Deve ser acordado com as partes interessadas, ou seja, as áreas envolvidas na empresa: P&D, Produção, Comercial, Marketing, Financeira, Jurídica, Manutenção, ambiental, entre outras;
-> - **_Realistic_ (realista):** Deve estar centrado na realidade, no que é possível de ser feito considerando as premissas e restrições existentes, como: orçamento e tempo;
-> - **_Time Bound_ (Limitado no tempo):** Deve ter um prazo determinado para sua finalização.
 
 Este projeto tem como propósito central criar um Micromouse totalmente autônomo projetado para mapear e solucionar três configurações de labirintos, **4×4 células (72×72 cm²)**, **8×4 células (144×72 cm²)** e **12×4 células (216×72 cm²)**, sem qualquer intervenção humana, partindo de um beco sem saída em um canto e alcançando o canto diametralmente oposto. Para assegurar o cumprimento dessa meta, foram definidos os seguintes parâmetros SMART:
 
@@ -31,24 +21,6 @@ Este projeto tem como propósito central criar um Micromouse totalmente autônom
 - **Acordado:** O desenvolvimento está estritamente alinhado às normas e exigências estipuladas pelos professores da disciplina de Projeto Integrador 1 (PI1), respeitando as restrições físicas do robô, as especificações do labirinto e os marcos avaliativos do semestre;
 - **Realista:** A execução aplica metodologias de engenharia simultânea e o algoritmo de busca **Flood Fill**, adequado à capacidade computacional do microcontrolador escolhido e ao tempo disponível no semestre letivo 2026/2. O desenvolvimento em fases progressivas (simulação em PC → simulação de microcontrolador → hardware real) reduz riscos e viabiliza entregas contínuas;
 - **Temporal:** O protótipo funcional e sua respectiva documentação deverão ser finalizados, entregues e aprovados até 02/12/2026, respeitando rigorosamente todos os marcos do calendário acadêmico (TAP, Requisitos, EAP, Projeto Conceitual, Cronograma, Testes de Software, Testes de Integração e Apresentação Final).
-
----
-
-### Algoritmo de Navegação — Flood Fill
-
-O algoritmo adotado para a navegação autônoma do Micromouse é o **Flood Fill**.
-
-#### Como funciona
-
-O Flood Fill opera por propagação de distâncias a partir da célula objetivo. O processo ocorre em três etapas cíclicas durante toda a navegação:
-
-1. **INUNDAÇÃO (Flood)** - Célula objetivo recebe distância 0. Cada célula adjacente sem parede recebe +1. Propaga como água enchendo um espaço.
-2. **DECISÃO (Move)** - O robô se desloca para a célula vizinha com menor valor de distância calculado.
-3. **ATUALIZAÇÃO (Update)** - Sensores detectam novas paredes. O mapa é atualizado e o flood fill é reexecutado.
-
-#### Implementação no projeto
-
-O Flood Fill será implementado em C++ no firmware embarcado seguindo arquitetura em camadas, com separação clara entre o algoritmo (independente de hardware) e os drivers de sensores e motores. Isso permite testar e validar o algoritmo integralmente em simulação no PC antes da integração com o hardware físico.
 
 ---
 
@@ -73,8 +45,6 @@ O público-alvo divide-se entre beneficiários diretos e indiretos:
 
 ### Descrição do Problema
 
-> Informar o problema ou a oportunidade (necessidade) que justifica o porquê de o projeto ser realizado. Por exemplo: atende uma demanda específica do consumidor final; supre uma necessidade do mercado comercializador; é um diferencial X para o órgão regulamentador.
-
 O desenvolvimento do projeto [nome] é motivado pela necessidade de solucionar um problema latente na formação em engenharia: a **lacuna entre o conhecimento acadêmico isolado e os desafios multidisciplinares exigidos pelo mercado de tecnologia**. Atualmente, há uma carência de plataformas que permitam a aplicação prática e integrada de disciplinas fundamentais, como Hardware, Estruturas, Software e Eficiência Energética.
 
 Diante desse problema, o projeto apresenta-se como uma **oportunidade** que justifica sua realização em duas frentes principais:
@@ -85,14 +55,6 @@ Diante desse problema, o projeto apresenta-se como uma **oportunidade** que just
 * **Oportunidade no Mercado Comercializador (Escalabilidade Tecnológica):**
   Além do viés acadêmico, o projeto atende a uma crescente demanda comercial por tecnologias autônomas. A arquitetura desenvolvida (focada em sensoriamento, mapeamento de ambientes e tomada de decisão) supre a necessidade da indústria por bases tecnológicas escaláveis. Esses conceitos são exatamente os mesmos exigidos pelo mercado para o desenvolvimento de inovações práticas voltadas ao consumidor final, como eletrodomésticos autônomos (robôs aspiradores), brinquedos inteligentes, robôs educacionais e sistemas de entretenimento interativo.
 
-### Indicadores
-
-> Listar até 10 indicadores que determinam o mercado consumidor do produto desenvolvido: exemplo:
->
-> 1. nº de alunos da FGA que utilizam ônibus às 18:00;
-> 2. nº de usuários do restaurante universitários,
-> 3. número de idosos classificados como público-alvo no DF e no estado de Goiás,
-> 4. nº de empresas de segurança registradas no DF etc.
 
 A partir da análise do cenário atual das competições da categoria Micromouse e do mercado de robótica em geral, identificou-se o seguinte conjunto de indicadores que fundamentam o desenvolvimento de um micromouse com foco educacional:
 
@@ -134,8 +96,6 @@ A partir da análise do cenário atual das competições da categoria Micromouse
 ---
 
 ### Orçamento Estimado (R$)
-
-> A ser definido com base no levantamento de componentes eletrônicos (ESP32, sensores IR, motores DC com encoder, chassi, bateria LiPo), materiais para a pista de testes 4×4 e demais insumos. Cada membro contribuirá proporcionalmente à realidade individual da equipe.
 
 **Frente de Energia**
 
