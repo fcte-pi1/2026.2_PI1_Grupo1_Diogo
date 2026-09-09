@@ -161,14 +161,13 @@ A pesquisa de preços para os componentes online (como rodas e roda boba) foi re
 ---
 
 ### Duração Estimada (horas)
+* Período: 02/09/2026 a 02/12/2026 (13 semanas).
 
 **Hardware**
 
-**Premissas do cálculo**
-* Período: 02/09/2026 a 02/12/2026 (13 semanas).
-* Equipe de hardware: 5 membros (Gerente de Hardware + 4 integrantes), correspondendo à área de eletrônica dentro do grupo multidisciplinar de 19 integrantes.
-* Regime: estudantes em período letivo regular, com dedicação média de **4 a 6 horas/semana** por membro ao projeto, adotando-se 5 horas/semana como valor de referência. Este tempo é adicional às duas aulas práticas semanais da disciplina.
-* Carga estimada de trabalho extraclasse: correspondendo a **25 horas/semana** somadas as cinco pessoas. As horas das aulas práticas são adicionais a esse total.
+- **Equipe de hardware:** **5 membros** (Gerente de Hardware + 4 integrantes), correspondendo à área de eletrônica dentro do grupo multidisciplinar de 19 integrantes.
+- **Regime:** estudantes em período letivo regular, com dedicação média de **4 a 6 horas/semana** por membro ao projeto, adotando-se 5 horas/semana como valor de referência. Este tempo é adicional às duas aulas práticas semanais da disciplina.
+- **Carga estimada de trabalho extraclasse:** correspondendo a **25 horas/semana** somadas as cinco pessoas. As horas das aulas práticas são adicionais a esse total.
 
 **Distribuição por fase do projeto**
 
@@ -184,9 +183,6 @@ A pesquisa de preços para os componentes online (como rodas e roda boba) foi re
 
 #### Software
 
-##### Premissas do cálculo
-
-- **Período:** 02/09/2026 a 02/12/2026 — **13 semanas**
 - **Equipe de software:** **5 membros** (Gerente de Software + 4 desenvolvedores), correspondendo à área de software dentro do grupo multidisciplinar de 19 integrantes
 - **Regime:** estudantes em período letivo regular, com dedicação média de **10 horas/semana** por membro ao projeto
 
