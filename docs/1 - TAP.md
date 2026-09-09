@@ -54,9 +54,11 @@ O Flood Fill será implementado em C++ no firmware embarcado seguindo arquitetur
 
 ### Público-Alvo
 
-> Pessoas, empresas, instituições etc. que podem usufruir dos produtos, serviços e resultados gerados pelo projeto, cujos requisitos (tópico abaixo) devem atender as suas necessidades. Podem ser internas ou externas à organização, mas, merecem destaque especial, pois, o projeto está sendo feito para atendê-los de forma direta ou indireta.
+O público-alvo deste projeto abrange principalmente **estudantes, professores, pesquisadores, equipes de robótica e instituições de ensino das áreas de Computação, Engenharia, Eletrônica, Automação, Sistemas Embarcados e Robótica**, podendo também alcançar estudantes de cursos técnicos e tecnológicos relacionados a essas áreas. O produto possui caráter predominantemente educacional e foi concebido para possibilitar a aplicação prática e integrada de conhecimentos de programação, algoritmos, sistemas embarcados, eletrônica, sensores, automação, estruturas e eficiência energética.
 
-O público-alvo deste projeto abrange pessoas, instituições e empresas que podem usufruir dos produtos e resultados gerados, dividindo-se entre beneficiários diretos e indiretos:
+Considerando instituições com perfil compatível para receber e utilizar a solução, identificam-se como potenciais beneficiárias a **Universidade de Brasília (UnB), o Instituto Federal de Brasília (IFB), a Universidade Federal de Goiás (UFG), a Universidade Federal de Mato Grosso do Sul (UFMS)**, entre outras universidades, institutos federais, escolas técnicas e centros de formação profissional. Considerando apenas essas instituições, o produto apresenta um alcance institucional potencial superior a 70 mil pessoas, incluindo estudantes, professores, pesquisadores e demais integrantes da comunidade acadêmica. Esse número representa o público potencialmente alcançado pelas instituições, não significando que todas essas pessoas utilizarão diretamente o produto.
+
+O público-alvo divide-se entre beneficiários diretos e indiretos:
 
 #### Público-Alvo Direto
 
