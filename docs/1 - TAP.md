@@ -164,6 +164,23 @@ Os preços dos componentes nacionais foram consultados diretamente nas lojas Mak
 ### Duração Estimada (horas)
 * Período: 02/09/2026 a 02/12/2026 (13 semanas).
 
+**Estrutura**
+- **Equipe de estrutura:** **5 membros** (Gerente de Estrutura + 4 integrantes), correspondendo à área de estruturas dentro do grupo multidisciplinar de 19 integrantes.
+- **Regime:** estudantes em período letivo regular, com dedicação média de **3 a 4  horas/semana** por membro ao projeto, adotando-se 54 horas/semana como valor de referência. Este tempo é adicional às duas aulas práticas semanais da disciplina.
+- **Carga estimada de trabalho extraclasse:** correspondendo a **20 horas/semana** somadas as cinco pessoas. As horas das aulas práticas são adicionais a esse total.
+
+**Distribuição por fase do projeto**
+
+| Fase | Período | Atividades de Hardware |
+| :--- | :--- | :--- |
+| **Planejamento e Requisitos** | Sem. 1-3 | TAP, levantamento de requisitos de estruturas, definição de materiais e chassi, pesquisa de componentes e orçamento. |
+| **Projeto Conceitual de Estrutura** | Sem. 4-5 | Definição do chassi, realização do CAD e desenhos técnicos, plano de montagem dos componentes eletrônicos e de energia. |
+| **Aquisição e Testes de Estrutura** | Sem. 6-8 | Compra dos componentes, impressão do chassi, validação do chassi, componentes e encaixes |
+| **Montagem e Integração Eletrônica** | Sem. 9-10 | Montagem definitiva da base, fixação dos motores, componentes, sensores. Construção final da pista de testes de MDF. |
+| **Testes de Estruturas** | Sem. 11-12 | Teste do protótipo físico para testes focados na aderência das rodas, alinhamento direcional, estabilidade do centro de massa e resistência contra impactos nas paredes do labirinto. |
+| **Testes de Integração e Finalização** | Sem. 13 | Integração com outras áreas e preparação da apresentação bem como ajustes finos às estruturas. |
+| **Total** | **13 semanas** | |
+
 **Hardware**
 
 - **Equipe de hardware:** **5 membros** (Gerente de Hardware + 4 integrantes), correspondendo à área de eletrônica dentro do grupo multidisciplinar de 19 integrantes.
