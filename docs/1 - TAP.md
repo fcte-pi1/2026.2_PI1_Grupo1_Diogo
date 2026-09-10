@@ -175,6 +175,7 @@ Os preços dos componentes nacionais foram consultados diretamente nas lojas Mak
 | Fase | Período | Atividades de Hardware |
 | :--- | :--- | :--- |
 | **Planejamento e Requisitos** | Sem. 1-3 | TAP, levantamento de requisitos de hardware, definição da arquitetura eletrônica, pesquisa de componentes e orçamento. |
+| **Planejamento energético**            | Sem. 1-3       | Calculos para eficiência energética e para compatibilidade da estrutura do carrinho                                                       |
 | **Projeto Conceitual de Hardware** | Sem. 4-5 | Diagrama de blocos, esquemático elétrico, mapa de pinos do ESP32, definição do barramento I2C, dimensionamento de corrente e simulação de circuitos. |
 | **Aquisição e Testes de Bancada** | Sem. 6-8 | Compra dos componentes, validação individual dos módulos em protoboard, reendereçamento dos sensores ToF, testes de acionamento e leitura de encoders. |
 | **Montagem e Integração Eletrônica** | Sem. 9-10 | Montagem definitiva em perfboard, soldagem, chicote de fiação, acomodação no chassi e ajuste da alimentação. |
