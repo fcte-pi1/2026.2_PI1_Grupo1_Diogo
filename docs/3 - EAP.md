@@ -1,12 +1,7 @@
 # Estrutura Analítica de Produto (EAP)
 
-A EAP representa a decomposição hierárquica do escopo total do trabalho a ser executado pela equipe do projeto a fim de alcançar os objetivos e criar entregas exigidas.
+Abaixo é apresentada a Estrutura Analítica de Produto (EAP) desenvolvida para o projeto do Micromouse ("Rato Borrachudo"). O diagrama organiza e decompõe o escopo total do sistema em suas entregas e pacotes de trabalho fundamentais, abrangendo as frentes: Documentação, Estruturas, Hardware, Energia e Software, garantindo a rastreabilidade e a integração de todos os subsistemas sem associação a fases temporais ou atividades de execução.
 
-- A EAP deve ser apresentada contemplando somente as entregas e pacotes de trabalho.
-- A EAP não deve ter associação as fases do projeto
-- A EAP não deve conter atividades.
-- Inserir a imagem da representação da EAP.
+![EAP do Micromouse](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/blob/main/docs/figs/EAP.jpeg?raw=true)
 
-A figura abaixo ilustra uma EAP genérica de um sistema de aeronaves:
-
-![Calendário 2026/2](https://github.com/fcte-pi1/template/blob/main/docs/figs/Exemplo-de-EAP-com-Entregas-Principais-1263x780.png?raw=true)
+<p align="center"><b>Figura 1</b> - Estrutura Analítica de Produto (EAP) do Sistema Micromouse Autônomo</p>
