@@ -1,0 +1,74 @@
+classDiagram
+    class Corrida {
+        +UUID id
+        +string idCorridaRobo
+        +string boot
+        +TipoLabirinto labirinto
+        +int numeroTentativa
+        +StatusCorrida status
+        +MotivoTermino motivo
+        +long tInicioMs
+        +long tFimMs
+        +aplicar(msg) Evento[]
+        +encerrar(resultado, tFim)
+        +interromper(motivo)
+        +tempoConclusaoMs() int
+        +podeTransitarPara(status) bool
+    }
+    class EstadoMapa {
+        +int largura
+        +int altura
+        +Map paredes
+        +Posicao posicao
+        +int celulasDesdeSnapshot
+        +registrarCelula(x, y, paredes)
+        +moverPara(posicao)
+        +snapshot(seqCorte) Snapshot
+    }
+    class Trajeto {
+        +Passagem[] passagens
+        +int transicoes
+        +int revisitas
+        +adicionar(seq, x, y, t)
+        +distanciaM() float
+    }
+    class Metricas {
+        +velocidadeMedia(transicoes, dtMs)$ float
+        +tempoConclusao(tInicio, tFim)$ int
+    }
+    class SerieEnergia {
+        +float tensaoInicial
+        +float tensaoFinal
+        +bool alertaArmado
+        +registrar(tensao) Alerta
+        +deltaV() float
+        +carga(curva) float
+    }
+    class CurvaCarga {
+        +Ponto[] pontos
+        +cargaPara(tensao) float
+    }
+    class JanelaSequencia {
+        +int ultimoContiguo
+        +Set pendentes
+        +registrar(seq) bool
+        +ack() int
+    }
+    class ValidadorDominio {
+        +validar(msg, corrida) Resultado
+    }
+    class StatusCorrida {
+        <<enumeration>>
+        EM_ANDAMENTO
+        CONCLUIDA
+        FALHOU
+        INTERROMPIDA
+    }
+    Corrida *-- EstadoMapa
+    Corrida *-- Trajeto
+    Corrida *-- SerieEnergia
+    Corrida *-- JanelaSequencia
+    Corrida --> StatusCorrida
+    SerieEnergia --> CurvaCarga
+    Trajeto ..> Metricas
+    ValidadorDominio ..> Corrida

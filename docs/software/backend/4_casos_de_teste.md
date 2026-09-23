@@ -1,6 +1,6 @@
 # Roteiro de Testes Funcionais — Backend
 
-**Versão:** 1.0
+**Versão:** 1.1 — alinhada ao Guia da Equipe de Software (21/09/2026)
 **Issue:** [#258 — 4.2 Casos de teste do backend](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/258)
 **Escopo:** casos de teste funcionais do backend, derivados dos critérios de aceite dos RF-72 a RF-98 e das [HU-BE-01 a HU-BE-27](1_historias_de_usuario.md). Quando o RF traz um critério de aceite, ele é o **resultado esperado** do caso de teste, com os mesmos números. Uma seção final cobre os RNF verificáveis por teste.
 
@@ -13,53 +13,53 @@ Estes casos guiam a automação E2E exigida no documento [`7.4 - Testes de softw
 | Item | Definição |
 |:--|:--|
 | **AMB — ambiente padrão** | Backend e PostgreSQL 16 subidos por `docker compose up`, banco com as migrações aplicadas e sem corridas. Dispositivo `sim-01` cadastrado com token `T-VALIDO`. Operador `op1` cadastrado. Apresentação "Teste" ativa. |
-| **SIM** | Simulador de robô (`src/backend/simulador`). Envia `hello` e mensagens do protocolo v1 com `seq`, `t` e taxa configuráveis. Permite derrubar e retomar a conexão, reiniciar (novo `boot`), silenciar o pong e reenviar a partir do último `ack`. |
+| **SIM** | Simulador de robô (`src/backend/simulador`). Envia `hello` e mensagens do protocolo v1 com `seq`, `t` e taxa configuráveis. Permite derrubar e retomar a conexão, reiniciar (novo `boot`), silenciar o pong e reenviar o buffer retido. Como o robô real, o SIM é **emissor unidirecional**: nenhum passo do SIM depende de ler respostas do backend. Os `ack` recebidos são apenas registrados para verificação. |
 | **PNL** | Cliente de painel de teste: conecta em `/ws/painel`, se inscreve e grava cada mensagem recebida com o horário de chegada. Pode simular um consumidor lento (não lê o socket). |
 | **SQL** | Consultas diretas ao banco para verificar o estado persistido. |
 | **Nível** | **E2E** = SIM → backend → PNL/HTTP · **INT** = serviço + PostgreSQL real · **UNI** = domínio puro |
 
 ## Matriz de rastreabilidade
 
-| Caso de teste | RF | HU | Prioridade | Nível |
+| Caso de teste | RF/RNF | HU | Prioridade | Nível |
 |:--|:--|:--|:--:|:--:|
-| CT-BE-01 | [RF-72](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/152) | HU-BE-01 | P0 | E2E |
-| CT-BE-02 | [RF-72](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/152) | HU-BE-01 | P0 | E2E |
-| CT-BE-03 | [RF-73](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/153), [RF-92](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/172) | HU-BE-02, HU-BE-21 | P0 | E2E |
-| CT-BE-04 | [RF-74](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/154), [RF-77](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/157) | HU-BE-03, HU-BE-06 | P0 | E2E |
-| CT-BE-05 | [RF-75](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/155) | HU-BE-04 | P0 | E2E |
-| CT-BE-06 | [RF-76](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/156) | HU-BE-05 | P0 | E2E |
-| CT-BE-07 | [RF-76](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/156) | HU-BE-05 | P0 | E2E |
-| CT-BE-08 | [RF-77](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/157) | HU-BE-06 | P0 | E2E |
-| CT-BE-09 | [RF-78](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/158) | HU-BE-07 | P0 | E2E |
-| CT-BE-10 | [RF-79](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/159) | HU-BE-08 | P0 | INT |
-| CT-BE-11 | [RF-80](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/160) | HU-BE-09 | P0 | E2E |
-| CT-BE-12 | [RF-81](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/161) | HU-BE-10 | P0 | E2E |
-| CT-BE-13 | [RF-81](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/161), [RF-87](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/167) | HU-BE-10, HU-BE-16 | P0 | E2E |
-| CT-BE-14 | [RF-81](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/161) | HU-BE-10 | P0 | E2E |
-| CT-BE-15 | [RF-82](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/162) | HU-BE-11 | P0 | E2E |
-| CT-BE-16 | [RF-83](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/163) | HU-BE-12 | P0 | E2E |
-| CT-BE-17 | [RF-84](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/164) | HU-BE-13 | P0 | E2E |
-| CT-BE-18 | [RF-85](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/165) | HU-BE-14 | P0 | E2E |
-| CT-BE-19 | [RF-86](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/166) | HU-BE-15 | P1 | E2E |
-| CT-BE-20 | [RF-87](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/167) | HU-BE-16 | P0 | E2E |
-| CT-BE-21 | [RF-88](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/168) | HU-BE-17 | P0 | E2E |
-| CT-BE-22 | [RF-89](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/169) | HU-BE-18 | P0 | E2E |
-| CT-BE-23 | [RF-90](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/170) | HU-BE-19 | P0 | E2E |
-| CT-BE-24 | [RF-91](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/171) | HU-BE-20 | P1 | E2E |
-| CT-BE-25 | [RF-92](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/172) | HU-BE-21 | P0 | E2E |
-| CT-BE-26 | [RF-93](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/173) | HU-BE-22 | P0 | E2E |
-| CT-BE-27 | [RF-94](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/174) | HU-BE-23 | P1 | E2E |
-| CT-BE-28 | [RF-95](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/175) | HU-BE-24 | P0 | E2E |
-| CT-BE-29 | [RF-96](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/176) | HU-BE-25 | P1 | E2E |
-| CT-BE-30 | [RF-97](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/177) | HU-BE-26 | P1 | E2E |
-| CT-BE-31 | [RF-98](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/178) | HU-BE-27 | P2 | E2E |
-| CT-BE-32 | RNF-48 | HU-BE-17, HU-BE-19 | P0 | E2E |
-| CT-BE-33 | RNF-49, RNF-51 | HU-BE-08, HU-BE-17 | P0 | E2E |
-| CT-BE-34 | RNF-52 | HU-BE-09, HU-BE-10 | P0 | E2E |
-| CT-BE-35 | RNF-54 | HU-BE-25 | P0 | INT |
-| CT-BE-36 | RNF-56 | HU-BE-04 a HU-BE-06 | P0 | E2E |
-| CT-BE-37 | RNF-57 | HU-BE-01 | P1 | E2E |
-| CT-BE-38 | RNF-58 | — | P1 | Manual |
+| CT-BE-01 | [RF-72](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/152) | [HU-BE-01](1_historias_de_usuario.md#hu-be-01--conectar-somente-robôs-autorizados) | Must have | E2E |
+| CT-BE-02 | [RF-72](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/152) | [HU-BE-01](1_historias_de_usuario.md#hu-be-01--conectar-somente-robôs-autorizados) | Must have | E2E |
+| CT-BE-03 | [RF-73](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/153), [RF-92](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/172) | [HU-BE-02](1_historias_de_usuario.md#hu-be-02--saber-rapidamente-quando-o-robô-perdeu-o-sinal), [HU-BE-21](1_historias_de_usuario.md#hu-be-21--ver-no-painel-a-perda-e-a-retomada-de-sinal) | Must have | E2E |
+| CT-BE-04 | [RF-74](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/154), [RF-77](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/157) | [HU-BE-03](1_historias_de_usuario.md#hu-be-03--confirmar-ao-robô-o-que-já-foi-gravado), [HU-BE-06](1_historias_de_usuario.md#hu-be-06--não-duplicar-dados-reenviados) | Must have | E2E |
+| CT-BE-05 | [RF-75](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/155) | [HU-BE-04](1_historias_de_usuario.md#hu-be-04--rejeitar-mensagens-malformadas-sem-derrubar-a-conexão) | Must have | E2E |
+| CT-BE-06 | [RF-76](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/156) | [HU-BE-05](1_historias_de_usuario.md#hu-be-05--rejeitar-dados-fisicamente-impossíveis) | Must have | E2E |
+| CT-BE-07 | [RF-76](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/156) | [HU-BE-05](1_historias_de_usuario.md#hu-be-05--rejeitar-dados-fisicamente-impossíveis) | Must have | E2E |
+| CT-BE-08 | [RF-77](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/157) | [HU-BE-06](1_historias_de_usuario.md#hu-be-06--não-duplicar-dados-reenviados) | Must have | E2E |
+| CT-BE-09 | [RF-78](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/158) | [HU-BE-07](1_historias_de_usuario.md#hu-be-07--registrar-a-corrida-sem-ação-manual) | Must have | E2E |
+| CT-BE-10 | [RF-79](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/159) | [HU-BE-08](1_historias_de_usuario.md#hu-be-08--guardar-o-registro-bruto-e-inalterável-da-corrida) | Must have | INT |
+| CT-BE-11 | [RF-80](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/160) | [HU-BE-09](1_historias_de_usuario.md#hu-be-09--preservar-o-estado-do-mapa-periodicamente) | Must have | E2E |
+| CT-BE-12 | [RF-81](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/161) | [HU-BE-10](1_historias_de_usuario.md#hu-be-10--encerrar-ou-marcar-como-interrompida-cada-corrida) | Must have | E2E |
+| CT-BE-13 | [RF-81](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/161), [RF-87](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/167) | [HU-BE-10](1_historias_de_usuario.md#hu-be-10--encerrar-ou-marcar-como-interrompida-cada-corrida), [HU-BE-16](1_historias_de_usuario.md#hu-be-16--saber-o-resultado-da-corrida-e-o-motivo) | Must have | E2E |
+| CT-BE-14 | [RF-81](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/161) | [HU-BE-10](1_historias_de_usuario.md#hu-be-10--encerrar-ou-marcar-como-interrompida-cada-corrida) | Must have | E2E |
+| CT-BE-15 | [RF-82](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/162) | [HU-BE-11](1_historias_de_usuario.md#hu-be-11--obter-o-tempo-oficial-de-conclusão) | Must have | E2E |
+| CT-BE-16 | [RF-83](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/163) | [HU-BE-12](1_historias_de_usuario.md#hu-be-12--acompanhar-a-velocidade-média) | Must have | E2E |
+| CT-BE-17 | [RF-84](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/164) | [HU-BE-13](1_historias_de_usuario.md#hu-be-13--reconstituir-o-trajeto-percorrido) | Must have | E2E |
+| CT-BE-18 | [RF-85](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/165) | [HU-BE-14](1_historias_de_usuario.md#hu-be-14--avaliar-o-consumo-de-bateria-da-corrida) | Must have | E2E |
+| CT-BE-19 | [RF-86](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/166) | [HU-BE-15](1_historias_de_usuario.md#hu-be-15--ser-alertado-de-bateria-baixa) | Should have | E2E |
+| CT-BE-20 | [RF-87](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/167) | [HU-BE-16](1_historias_de_usuario.md#hu-be-16--saber-o-resultado-da-corrida-e-o-motivo) | Must have | E2E |
+| CT-BE-21 | [RF-88](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/168) | [HU-BE-17](1_historias_de_usuario.md#hu-be-17--receber-só-as-atualizações-da-corrida-acompanhada) | Must have | E2E |
+| CT-BE-22 | [RF-89](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/169) | [HU-BE-18](1_historias_de_usuario.md#hu-be-18--entrar-no-meio-da-corrida-e-ver-o-estado-completo) | Must have | E2E |
+| CT-BE-23 | [RF-90](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/170) | [HU-BE-19](1_historias_de_usuario.md#hu-be-19--receber-dados-contínuos-em-ritmo-controlado) | Must have | E2E |
+| CT-BE-24 | [RF-91](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/171) | [HU-BE-20](1_historias_de_usuario.md#hu-be-20--não-deixar-um-painel-lento-prejudicar-os-demais) | Should have | E2E |
+| CT-BE-25 | [RF-92](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/172) | [HU-BE-21](1_historias_de_usuario.md#hu-be-21--ver-no-painel-a-perda-e-a-retomada-de-sinal) | Must have | E2E |
+| CT-BE-26 | [RF-93](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/173) | [HU-BE-22](1_historias_de_usuario.md#hu-be-22--consultar-o-histórico-de-corridas) | Must have | E2E |
+| CT-BE-27 | [RF-94](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/174) | [HU-BE-23](1_historias_de_usuario.md#hu-be-23--rever-uma-corrida-passo-a-passo) | Should have | E2E |
+| CT-BE-28 | [RF-95](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/175) | [HU-BE-24](1_historias_de_usuario.md#hu-be-24--ver-o-ranking-por-tipo-de-labirinto) | Must have | E2E |
+| CT-BE-29 | [RF-96](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/176) | [HU-BE-25](1_historias_de_usuario.md#hu-be-25--anular-uma-corrida-inválida) | Should have | E2E |
+| CT-BE-30 | [RF-97](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/177) | [HU-BE-26](1_historias_de_usuario.md#hu-be-26--identificar-a-primeira-tentativa-em-cada-labirinto) | Should have | E2E |
+| CT-BE-31 | [RF-98](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/178) | [HU-BE-27](1_historias_de_usuario.md#hu-be-27--exportar-os-dados-de-uma-corrida) | Could have | E2E |
+| CT-BE-32 | [RNF-48](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/226) | [HU-BE-17](1_historias_de_usuario.md#hu-be-17--receber-só-as-atualizações-da-corrida-acompanhada), [HU-BE-19](1_historias_de_usuario.md#hu-be-19--receber-dados-contínuos-em-ritmo-controlado) | Must have | E2E |
+| CT-BE-33 | [RNF-49](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/227), [RNF-51](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/229) | [HU-BE-08](1_historias_de_usuario.md#hu-be-08--guardar-o-registro-bruto-e-inalterável-da-corrida), [HU-BE-17](1_historias_de_usuario.md#hu-be-17--receber-só-as-atualizações-da-corrida-acompanhada) | Must have | E2E |
+| CT-BE-34 | [RNF-52](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/230) | [HU-BE-09](1_historias_de_usuario.md#hu-be-09--preservar-o-estado-do-mapa-periodicamente), [HU-BE-10](1_historias_de_usuario.md#hu-be-10--encerrar-ou-marcar-como-interrompida-cada-corrida) | Must have | E2E |
+| CT-BE-35 | [RNF-54](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/232) | [HU-BE-25](1_historias_de_usuario.md#hu-be-25--anular-uma-corrida-inválida) | Must have | INT |
+| CT-BE-36 | [RNF-56](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/234) | [HU-BE-04](1_historias_de_usuario.md#hu-be-04--rejeitar-mensagens-malformadas-sem-derrubar-a-conexão) a [HU-BE-06](1_historias_de_usuario.md#hu-be-06--não-duplicar-dados-reenviados) | Must have | E2E |
+| CT-BE-37 | [RNF-57](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/235) | [HU-BE-01](1_historias_de_usuario.md#hu-be-01--conectar-somente-robôs-autorizados) | Should have | E2E |
+| CT-BE-38 | [RNF-58](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/236) | — | Should have | Manual |
 
 > RNF-50 é verificado pelo CT-BE-04, RNF-55 pelos CT-BE-02 e CT-BE-29, e RNF-53 pela própria execução desta suíte com o SIM, somada ao relatório de cobertura.
 
@@ -69,18 +69,18 @@ Estes casos guiam a automação E2E exigida no documento [`7.4 - Testes de softw
 
 ### CT-BE-01 — Aceitar conexão de dispositivo autorizado
 
-- **Rastreabilidade:** RF-72 · HU-BE-01 (CA1)
+- **Rastreabilidade:** [RF-72](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/152) · [HU-BE-01](1_historias_de_usuario.md#hu-be-01--conectar-somente-robôs-autorizados) (CA1)
 - **Objetivo:** verificar que um dispositivo com token válido e versão suportada é autenticado.
 - **Pré-condições:** AMB.
 - **Procedimentos:**
   1. SIM abre a conexão em `/ws/telemetria`.
   2. SIM envia `hello {dispositivo: "sim-01", token: "T-VALIDO", v: 1, boot: "b1"}`.
   3. SIM envia `inicio_corrida` (`seq` 1, `labirinto` 4x4).
-- **Resultado esperado:** SIM recebe `hello_ok` e depois `ack` com `seq = 1`. Existe um `evento_conexao` do tipo `CONECTADO` para `sim-01`.
+- **Resultado esperado:** a conexão continua aberta, existe um `evento_conexao` do tipo `CONECTADO` para `sim-01` e uma corrida `EM_ANDAMENTO` foi criada. O backend enviou `ack` com `seq = 1` (registrado pelo SIM, que não precisa processá-lo).
 
 ### CT-BE-02 — Recusar token inválido e versão não suportada
 
-- **Rastreabilidade:** RF-72 · HU-BE-01 (CA2, CA3, CA4) · RNF-55
+- **Rastreabilidade:** [RF-72](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/152) · [HU-BE-01](1_historias_de_usuario.md#hu-be-01--conectar-somente-robôs-autorizados) (CA2, CA3, CA4) · [RNF-55](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/233)
 - **Objetivo:** verificar que fontes não autorizadas ou incompatíveis não conseguem gravar dados.
 - **Pré-condições:** AMB.
 - **Procedimentos:**
@@ -89,15 +89,15 @@ Estes casos guiam a automação E2E exigida no documento [`7.4 - Testes de softw
   3. Nova conexão: SIM envia `celula` sem enviar `hello` antes.
   4. Nova conexão: SIM não envia nada por 6 s.
 - **Resultado esperado:**
-  1. `hello_erro (TOKEN_INVALIDO)` e conexão encerrada.
-  2. `hello_erro (VERSAO_NAO_SUPORTADA)` e conexão encerrada.
+  1. Conexão fechada pelo backend com código `4001` (`TOKEN_INVALIDO`).
+  2. Conexão fechada pelo backend com código `4002` (`VERSAO_NAO_SUPORTADA`).
   3. Conexão encerrada.
   4. Conexão encerrada em até 5 s.
   - Em todos os cenários, `SELECT count(*) FROM corrida` = 0 e cada tentativa aparece no log.
 
 ### CT-BE-03 — Detectar perda de conexão por heartbeat
 
-- **Rastreabilidade:** RF-73, RF-92 · HU-BE-02, HU-BE-21
+- **Rastreabilidade:** [RF-73](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/153), [RF-92](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/172) · [HU-BE-02](1_historias_de_usuario.md#hu-be-02--saber-rapidamente-quando-o-robô-perdeu-o-sinal), [HU-BE-21](1_historias_de_usuario.md#hu-be-21--ver-no-painel-a-perda-e-a-retomada-de-sinal)
 - **Objetivo:** verificar a detecção de silêncio em 3 s e a notificação ao painel.
 - **Pré-condições:** AMB. SIM autenticado com corrida em andamento. PNL inscrito na corrida.
 - **Procedimentos:**
@@ -107,23 +107,22 @@ Estes casos guiam a automação E2E exigida no documento [`7.4 - Testes de softw
 
 ### CT-BE-04 — Confirmação cumulativa e reenvio após queda de 60 s
 
-- **Rastreabilidade:** RF-74, RF-77 · HU-BE-03, HU-BE-06 · RNF-50
+- **Rastreabilidade:** [RF-74](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/154), [RF-77](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/157) · [HU-BE-03](1_historias_de_usuario.md#hu-be-03--confirmar-ao-robô-o-que-já-foi-gravado), [HU-BE-06](1_historias_de_usuario.md#hu-be-06--não-duplicar-dados-reenviados) · [RNF-50](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/228)
 - **Objetivo:** verificar que queda e reenvio em lote não geram lacunas nem duplicatas.
 - **Pré-condições:** AMB. SIM autenticado, corrida iniciada.
 - **Procedimentos:**
-  1. SIM envia `seq` 1 a 120 e aguarda `ack 120`.
+  1. SIM envia `seq` 1 a 120 (buffer circular configurado para 60 s).
   2. SIM derruba a conexão e acumula `seq` 121 a 400 por 60 s.
-  3. SIM reconecta com o mesmo `boot` e lê os `acks` do `hello_ok`.
-  4. SIM reenvia `seq` 110 a 400 (sobreposição proposital de 110–120).
+  3. SIM reconecta com o mesmo `boot`, envia `hello` e, sem esperar resposta, reenvia todo o buffer retido: `seq` 101 a 400 (a sobreposição de 101–120 é esperada, porque o robô não sabe o que já foi gravado).
 - **Resultado esperado:**
   - **(critério do RF-74)** Após uma queda de conexão de até 60 s seguida de reenvio em lote, o banco deve conter cada mensagem exatamente uma vez e a confirmação final deve corresponder à última mensagem recebida, sem lacunas nem duplicatas.
-  - `hello_ok` informa `seq 120`.
   - `SELECT count(*), count(DISTINCT seq), min(seq), max(seq) FROM mensagem WHERE corrida_id = X` retorna `400, 400, 1, 400`.
-  - O último `ack` recebido é `400` e o contador de duplicadas aumentou em 11.
+  - O último `ack` enviado pelo backend é `400`, o contador de duplicadas aumentou em 20 e `corrida.seqs_faltantes = 0`.
+  - **Variante (reenvio desativado no SIM):** após reconectar, o SIM continua a partir de `seq` 401. Resultado: nenhuma duplicata, `seqs_faltantes = 280` (lacunas 121–400 sinalizadas, RNF-50).
 
 ### CT-BE-05 — Rejeitar mensagem fora do esquema sem encerrar a conexão
 
-- **Rastreabilidade:** RF-75 · HU-BE-04
+- **Rastreabilidade:** [RF-75](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/155) · [HU-BE-04](1_historias_de_usuario.md#hu-be-04--rejeitar-mensagens-malformadas-sem-derrubar-a-conexão)
 - **Objetivo:** verificar a validação de esquema e a continuidade da conexão.
 - **Pré-condições:** AMB. SIM autenticado com corrida em andamento (último `seq` = 10).
 - **Procedimentos:**
@@ -135,7 +134,7 @@ Estes casos guiam a automação E2E exigida no documento [`7.4 - Testes de softw
 
 ### CT-BE-06 — Rejeitar coordenada fora do labirinto
 
-- **Rastreabilidade:** RF-76 · HU-BE-05 (CA1)
+- **Rastreabilidade:** [RF-76](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/156) · [HU-BE-05](1_historias_de_usuario.md#hu-be-05--rejeitar-dados-fisicamente-impossíveis) (CA1)
 - **Objetivo:** verificar a regra de domínio sobre os limites do labirinto.
 - **Pré-condições:** AMB. Corrida 4x4 em andamento.
 - **Procedimentos:** SIM envia `celula {x: 5, y: 2}` e, em seguida, `celula {x: 3, y: 3}`.
@@ -143,7 +142,7 @@ Estes casos guiam a automação E2E exigida no documento [`7.4 - Testes de softw
 
 ### CT-BE-07 — Rejeitar tipo de labirinto, tensão e tempo inválidos
 
-- **Rastreabilidade:** RF-76 · HU-BE-05 (CA2 a CA4)
+- **Rastreabilidade:** [RF-76](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/156) · [HU-BE-05](1_historias_de_usuario.md#hu-be-05--rejeitar-dados-fisicamente-impossíveis) (CA2 a CA4)
 - **Objetivo:** verificar as demais regras de domínio.
 - **Pré-condições:** AMB.
 - **Procedimentos:**
@@ -154,7 +153,7 @@ Estes casos guiam a automação E2E exigida no documento [`7.4 - Testes de softw
 
 ### CT-BE-08 — Mensagem duplicada é confirmada, mas não gravada nem distribuída
 
-- **Rastreabilidade:** RF-77 · HU-BE-06
+- **Rastreabilidade:** [RF-77](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/157) · [HU-BE-06](1_historias_de_usuario.md#hu-be-06--não-duplicar-dados-reenviados)
 - **Objetivo:** verificar a idempotência por (corrida, `seq`).
 - **Pré-condições:** AMB. Corrida em andamento. PNL inscrito.
 - **Procedimentos:** SIM envia `celula seq 30` três vezes seguidas.
@@ -162,7 +161,7 @@ Estes casos guiam a automação E2E exigida no documento [`7.4 - Testes de softw
 
 ### CT-BE-09 — Criação automática e idempotente da corrida
 
-- **Rastreabilidade:** RF-78 · HU-BE-07
+- **Rastreabilidade:** [RF-78](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/158) · [HU-BE-07](1_historias_de_usuario.md#hu-be-07--registrar-a-corrida-sem-ação-manual)
 - **Objetivo:** verificar a criação sem ação manual e a unicidade do par (dispositivo, id do robô).
 - **Pré-condições:** AMB. PNL inscrito no canal `ao_vivo`.
 - **Procedimentos:**
@@ -173,7 +172,7 @@ Estes casos guiam a automação E2E exigida no documento [`7.4 - Testes de softw
 
 ### CT-BE-10 — Registro append-only
 
-- **Rastreabilidade:** RF-79 · HU-BE-08
+- **Rastreabilidade:** [RF-79](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/159) · [HU-BE-08](1_historias_de_usuario.md#hu-be-08--guardar-o-registro-bruto-e-inalterável-da-corrida)
 - **Objetivo:** verificar que as mensagens aceitas são gravadas completas e não podem ser alteradas.
 - **Pré-condições:** AMB. Uma corrida com 50 mensagens aceitas.
 - **Procedimentos:**
@@ -184,7 +183,7 @@ Estes casos guiam a automação E2E exigida no documento [`7.4 - Testes de softw
 
 ### CT-BE-11 — Snapshot a cada 20 células e ao fim
 
-- **Rastreabilidade:** RF-80 · HU-BE-09
+- **Rastreabilidade:** [RF-80](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/160) · [HU-BE-09](1_historias_de_usuario.md#hu-be-09--preservar-o-estado-do-mapa-periodicamente)
 - **Objetivo:** verificar a política de snapshot.
 - **Pré-condições:** AMB. Corrida 8x4 em andamento.
 - **Procedimentos:** SIM envia 45 mensagens `celula` intercaladas com `posicao` e depois `fim_corrida`.
@@ -192,7 +191,7 @@ Estes casos guiam a automação E2E exigida no documento [`7.4 - Testes de softw
 
 ### CT-BE-12 — Encerramento normal da corrida
 
-- **Rastreabilidade:** RF-81 · HU-BE-10 (CA3)
+- **Rastreabilidade:** [RF-81](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/161) · [HU-BE-10](1_historias_de_usuario.md#hu-be-10--encerrar-ou-marcar-como-interrompida-cada-corrida) (CA3)
 - **Objetivo:** verificar o encerramento ao receber `fim_corrida`.
 - **Pré-condições:** AMB. Corrida em andamento.
 - **Procedimentos:** SIM envia `fim_corrida {resultado: "sucesso"}`.
@@ -200,7 +199,7 @@ Estes casos guiam a automação E2E exigida no documento [`7.4 - Testes de softw
 
 ### CT-BE-13 — Interrupção por 120 s sem sinal e lote tardio
 
-- **Rastreabilidade:** RF-81, RF-87 · HU-BE-10 (CA2, CA4), HU-BE-16 (CA2)
+- **Rastreabilidade:** [RF-81](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/161), [RF-87](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/167) · [HU-BE-10](1_historias_de_usuario.md#hu-be-10--encerrar-ou-marcar-como-interrompida-cada-corrida) (CA2, CA4), [HU-BE-16](1_historias_de_usuario.md#hu-be-16--saber-o-resultado-da-corrida-e-o-motivo) (CA2)
 - **Objetivo:** verificar a interrupção por silêncio e a reversão por lote tardio.
 - **Pré-condições:** AMB. Corrida em andamento com `t_inicio = 1000`.
 - **Procedimentos:**
@@ -211,7 +210,7 @@ Estes casos guiam a automação E2E exigida no documento [`7.4 - Testes de softw
 
 ### CT-BE-14 — Interrupção por reinício do robô
 
-- **Rastreabilidade:** RF-81 · HU-BE-10 (CA1, CA5)
+- **Rastreabilidade:** [RF-81](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/161) · [HU-BE-10](1_historias_de_usuario.md#hu-be-10--encerrar-ou-marcar-como-interrompida-cada-corrida) (CA1, CA5)
 - **Objetivo:** verificar a detecção de reinício pelo `boot`.
 - **Pré-condições:** AMB. Corrida em andamento, criada na conexão com `boot = "b1"`.
 - **Procedimentos:** SIM encerra a conexão e reconecta imediatamente com `boot = "b2"` (instante T0).
@@ -219,7 +218,7 @@ Estes casos guiam a automação E2E exigida no documento [`7.4 - Testes de softw
 
 ### CT-BE-15 — Tempo de conclusão pelo relógio do robô
 
-- **Rastreabilidade:** RF-82 · HU-BE-11
+- **Rastreabilidade:** [RF-82](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/162) · [HU-BE-11](1_historias_de_usuario.md#hu-be-11--obter-o-tempo-oficial-de-conclusão)
 - **Objetivo:** verificar que o tempo oficial ignora a latência de rede.
 - **Pré-condições:** AMB. SIM configurado com atraso de rede artificial variável (0 a 800 ms).
 - **Procedimentos:** SIM envia `inicio_corrida` com `t = 1000`, algumas mensagens e `fim_corrida` com `t = 95500`.
@@ -227,7 +226,7 @@ Estes casos guiam a automação E2E exigida no documento [`7.4 - Testes de softw
 
 ### CT-BE-16 — Velocidade média
 
-- **Rastreabilidade:** RF-83 · HU-BE-12
+- **Rastreabilidade:** [RF-83](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/163) · [HU-BE-12](1_historias_de_usuario.md#hu-be-12--acompanhar-a-velocidade-média)
 - **Objetivo:** verificar a fórmula e a atualização a cada célula.
 - **Pré-condições:** AMB. PNL inscrito. Corrida com `t_inicio = 0`.
 - **Procedimentos:** SIM envia 31 `celula` (30 transições) espaçadas até `t = 45000` e depois `fim_corrida` em `t = 45000`.
@@ -235,7 +234,7 @@ Estes casos guiam a automação E2E exigida no documento [`7.4 - Testes de softw
 
 ### CT-BE-17 — Trajeto ordenado com revisitas
 
-- **Rastreabilidade:** RF-84 · HU-BE-13
+- **Rastreabilidade:** [RF-84](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/164) · [HU-BE-13](1_historias_de_usuario.md#hu-be-13--reconstituir-o-trajeto-percorrido)
 - **Objetivo:** verificar a derivação do trajeto.
 - **Pré-condições:** AMB. Corrida 4x4 em andamento.
 - **Procedimentos:** o percurso real é (0,0) `seq 1` → (0,1) `seq 2` → (1,1) `seq 3` → (0,1) `seq 4` → (0,2) `seq 5`. SIM envia na ordem `seq` 1, 2, 4, 5, 3 (a 3 chega por último, como num reenvio) e depois consulta `GET /api/corridas/{id}`.
@@ -243,7 +242,7 @@ Estes casos guiam a automação E2E exigida no documento [`7.4 - Testes de softw
 
 ### CT-BE-18 — Métricas de energia
 
-- **Rastreabilidade:** RF-85 · HU-BE-14
+- **Rastreabilidade:** [RF-85](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/165) · [HU-BE-14](1_historias_de_usuario.md#hu-be-14--avaliar-o-consumo-de-bateria-da-corrida)
 - **Objetivo:** verificar tensão inicial e final, ΔV e carga estimada.
 - **Pré-condições:** AMB com a curva padrão (8,4 V → 100 %; 7,6 V → 50 %; 7,0 V → 10 %; 6,0 V → 0 %).
 - **Procedimentos:** SIM envia `energia` com as tensões 8,2 / 8,0 / 7,8 / 7,6 V e depois `fim_corrida`.
@@ -251,7 +250,7 @@ Estes casos guiam a automação E2E exigida no documento [`7.4 - Testes de softw
 
 ### CT-BE-19 — Alerta de tensão baixa com histerese
 
-- **Rastreabilidade:** RF-86 · HU-BE-15
+- **Rastreabilidade:** [RF-86](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/166) · [HU-BE-15](1_historias_de_usuario.md#hu-be-15--ser-alertado-de-bateria-baixa)
 - **Objetivo:** verificar a emissão única do alerta abaixo de 7,0 V.
 - **Pré-condições:** AMB. PNL inscrito.
 - **Procedimentos:** SIM envia as tensões 7,2 → 6,9 → 6,8 → 7,05 → 6,9 → 7,2 → 6,9 V.
@@ -259,7 +258,7 @@ Estes casos guiam a automação E2E exigida no documento [`7.4 - Testes de softw
 
 ### CT-BE-20 — Status FALHOU com motivo e transição proibida
 
-- **Rastreabilidade:** RF-87 · HU-BE-16
+- **Rastreabilidade:** [RF-87](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/167) · [HU-BE-16](1_historias_de_usuario.md#hu-be-16--saber-o-resultado-da-corrida-e-o-motivo)
 - **Objetivo:** verificar o status, o motivo e a máquina de status.
 - **Pré-condições:** AMB. PNL inscrito.
 - **Procedimentos:**
@@ -269,7 +268,7 @@ Estes casos guiam a automação E2E exigida no documento [`7.4 - Testes de softw
 
 ### CT-BE-21 — Distribuição por inscrição e canal ao vivo
 
-- **Rastreabilidade:** RF-88 · HU-BE-17
+- **Rastreabilidade:** [RF-88](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/168) · [HU-BE-17](1_historias_de_usuario.md#hu-be-17--receber-só-as-atualizações-da-corrida-acompanhada)
 - **Objetivo:** verificar o isolamento entre inscrições.
 - **Pré-condições:** AMB. Dois SIM (`sim-01` e `sim-02`) com corridas A e B em andamento. PNL-1 inscrito em A, PNL-2 em B, PNL-3 em `ao_vivo`.
 - **Procedimentos:**
@@ -280,7 +279,7 @@ Estes casos guiam a automação E2E exigida no documento [`7.4 - Testes de softw
 
 ### CT-BE-22 — Snapshot consistente para inscrição no meio da corrida
 
-- **Rastreabilidade:** RF-89 · HU-BE-18
+- **Rastreabilidade:** [RF-89](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/169) · [HU-BE-18](1_historias_de_usuario.md#hu-be-18--entrar-no-meio-da-corrida-e-ver-o-estado-completo)
 - **Objetivo:** verificar que o painel que entra depois converge para o mesmo estado.
 - **Pré-condições:** AMB. PNL-A inscrito desde o início da corrida.
 - **Procedimentos:**
@@ -292,7 +291,7 @@ Estes casos guiam a automação E2E exigida no documento [`7.4 - Testes de softw
 
 ### CT-BE-23 — Limite de 10 atualizações contínuas/s sem perder eventos discretos
 
-- **Rastreabilidade:** RF-90 · HU-BE-19
+- **Rastreabilidade:** [RF-90](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/170) · [HU-BE-19](1_historias_de_usuario.md#hu-be-19--receber-dados-contínuos-em-ritmo-controlado)
 - **Objetivo:** verificar o *throttle* de contínuos e a preservação dos discretos.
 - **Pré-condições:** AMB. PNL inscrito.
 - **Procedimentos:**
@@ -302,7 +301,7 @@ Estes casos guiam a automação E2E exigida no documento [`7.4 - Testes de softw
 
 ### CT-BE-24 — Controle de fluxo de painel lento
 
-- **Rastreabilidade:** RF-91 · HU-BE-20
+- **Rastreabilidade:** [RF-91](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/171) · [HU-BE-20](1_historias_de_usuario.md#hu-be-20--não-deixar-um-painel-lento-prejudicar-os-demais)
 - **Objetivo:** verificar o descarte de contínuos e a desconexão do painel lento.
 - **Pré-condições:** AMB. PNL-lento (não lê o socket) e PNL-normal inscritos na mesma corrida.
 - **Procedimentos:** SIM envia `posicao`, `energia` e `celula` com *payloads* grandes até o `bufferedAmount` do PNL-lento passar de 1 MB, e mantém a situação por 12 s.
@@ -310,17 +309,17 @@ Estes casos guiam a automação E2E exigida no documento [`7.4 - Testes de softw
 
 ### CT-BE-25 — Notificação de perda e retomada de sinal
 
-- **Rastreabilidade:** RF-92 · HU-BE-21
+- **Rastreabilidade:** [RF-92](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/172) · [HU-BE-21](1_historias_de_usuario.md#hu-be-21--ver-no-painel-a-perda-e-a-retomada-de-sinal)
 - **Objetivo:** verificar os prazos de notificação.
 - **Pré-condições:** AMB. PNL inscrito.
 - **Procedimentos:**
   1. Provocar a perda de sinal como no CT-BE-03 e registrar o instante da detecção (evento `SINAL_PERDIDO`).
-  2. SIM reconecta com o mesmo `boot` e registra o instante do `hello_ok`.
-- **Resultado esperado:** PNL recebe `sinal PERDIDO` até 1 s após a detecção e `sinal RETOMADO` até 1 s após o `hello_ok`.
+  2. SIM reconecta com o mesmo `boot` e envia `hello`. Registrar o instante em que o backend aceita o `hello` (evento `SINAL_RETOMADO`).
+- **Resultado esperado:** PNL recebe `sinal PERDIDO` até 1 s após a detecção e `sinal RETOMADO` até 1 s após a aceitação do `hello`.
 
 ### CT-BE-26 — Listagem com filtros e paginação
 
-- **Rastreabilidade:** RF-93 · HU-BE-22
+- **Rastreabilidade:** [RF-93](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/173) · [HU-BE-22](1_historias_de_usuario.md#hu-be-22--consultar-o-histórico-de-corridas)
 - **Objetivo:** verificar filtros, paginação e desempenho da listagem.
 - **Pré-condições:** AMB com 200 corridas geradas por *seed*: 4x4, 8x4 e 12x4, com status variados, distribuídas em 3 dias.
 - **Procedimentos:**
@@ -331,7 +330,7 @@ Estes casos guiam a automação E2E exigida no documento [`7.4 - Testes de softw
 
 ### CT-BE-27 — Linha do tempo para replay
 
-- **Rastreabilidade:** RF-94 · HU-BE-23
+- **Rastreabilidade:** [RF-94](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/174) · [HU-BE-23](1_historias_de_usuario.md#hu-be-23--rever-uma-corrida-passo-a-passo)
 - **Objetivo:** verificar a completude e a ordem da linha do tempo.
 - **Pré-condições:** AMB. Corrida concluída com 500 mensagens, algumas recebidas fora de ordem.
 - **Procedimentos:** `GET /api/corridas/{id}/linha-do-tempo` e reproduzir as mensagens num `EstadoMapa` vazio.
@@ -339,7 +338,7 @@ Estes casos guiam a automação E2E exigida no documento [`7.4 - Testes de softw
 
 ### CT-BE-28 — Ranking exclui corridas anuladas e não concluídas
 
-- **Rastreabilidade:** RF-95 · HU-BE-24
+- **Rastreabilidade:** [RF-95](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/175) · [HU-BE-24](1_historias_de_usuario.md#hu-be-24--ver-o-ranking-por-tipo-de-labirinto)
 - **Objetivo:** verificar os filtros, a ordenação e o prazo de atualização do ranking.
 - **Pré-condições:** AMB. No 4x4: corrida A `CONCLUIDA` (60 s), corrida B `CONCLUIDA` (50 s, anulada), corrida C `FALHOU`. PNL inscrito em `ao_vivo`.
 - **Procedimentos:**
@@ -350,7 +349,7 @@ Estes casos guiam a automação E2E exigida no documento [`7.4 - Testes de softw
 
 ### CT-BE-29 — Anulação autenticada com justificativa
 
-- **Rastreabilidade:** RF-96 · HU-BE-25 · RNF-55
+- **Rastreabilidade:** [RF-96](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/176) · [HU-BE-25](1_historias_de_usuario.md#hu-be-25--anular-uma-corrida-inválida) · [RNF-55](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/233)
 - **Objetivo:** verificar a anulação, a autenticação e a auditoria.
 - **Pré-condições:** AMB. Corrida A `CONCLUIDA` no ranking 4x4.
 - **Procedimentos:**
@@ -364,7 +363,7 @@ Estes casos guiam a automação E2E exigida no documento [`7.4 - Testes de softw
 
 ### CT-BE-30 — Numeração de tentativas por tipo de labirinto
 
-- **Rastreabilidade:** RF-97 · HU-BE-26
+- **Rastreabilidade:** [RF-97](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/177) · [HU-BE-26](1_historias_de_usuario.md#hu-be-26--identificar-a-primeira-tentativa-em-cada-labirinto)
 - **Objetivo:** verificar a numeração sequencial por (apresentação, tipo).
 - **Pré-condições:** AMB com a apresentação "Teste" ativa e sem corridas.
 - **Procedimentos:** SIM executa, em sequência: 4x4 (falha), 4x4 (sucesso), 8x4 (interrompida), 4x4 (sucesso, depois anulada). Em seguida, abrir a apresentação "Final" e executar 4x4.
@@ -372,7 +371,7 @@ Estes casos guiam a automação E2E exigida no documento [`7.4 - Testes de softw
 
 ### CT-BE-31 — Exportação em JSON e CSV
 
-- **Rastreabilidade:** RF-98 · HU-BE-27
+- **Rastreabilidade:** [RF-98](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/178) · [HU-BE-27](1_historias_de_usuario.md#hu-be-27--exportar-os-dados-de-uma-corrida)
 - **Objetivo:** verificar o conteúdo e o formato das exportações.
 - **Pré-condições:** AMB. Corrida concluída com 300 mensagens.
 - **Procedimentos:** `GET .../exportacao?formato=json` e `GET .../exportacao?formato=csv`.
@@ -384,7 +383,7 @@ Estes casos guiam a automação E2E exigida no documento [`7.4 - Testes de softw
 
 ### CT-BE-32 — Latência servidor → painel e ponta a ponta
 
-- **Rastreabilidade:** RNF-48 · HU-BE-17, HU-BE-19
+- **Rastreabilidade:** [RNF-48](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/226) · [HU-BE-17](1_historias_de_usuario.md#hu-be-17--receber-só-as-atualizações-da-corrida-acompanhada), [HU-BE-19](1_historias_de_usuario.md#hu-be-19--receber-dados-contínuos-em-ritmo-controlado)
 - **Objetivo:** medir as latências p95.
 - **Pré-condições:** AMB. 1 SIM a 20 mensagens/s e 5 PNL inscritos, na mesma rede local.
 - **Procedimentos:** executar a corrida por 5 min. O backend registra o instante de recepção e o de envio de cada mensagem. SIM e PNL registram o envio e a recepção com relógios sincronizados (mesma máquina ou NTP local).
@@ -392,7 +391,7 @@ Estes casos guiam a automação E2E exigida no documento [`7.4 - Testes de softw
 
 ### CT-BE-33 — Carga sustentada sem bloqueio do event loop
 
-- **Rastreabilidade:** RNF-49, RNF-51 · HU-BE-08, HU-BE-17
+- **Rastreabilidade:** [RNF-49](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/227), [RNF-51](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/229) · [HU-BE-08](1_historias_de_usuario.md#hu-be-08--guardar-o-registro-bruto-e-inalterável-da-corrida), [HU-BE-17](1_historias_de_usuario.md#hu-be-17--receber-só-as-atualizações-da-corrida-acompanhada)
 - **Objetivo:** verificar a capacidade e a responsividade do backend sob carga.
 - **Pré-condições:** AMB. SIM a 50 mensagens/s. 10 PNL inscritos.
 - **Procedimentos:** manter a carga por 5 min. Durante o teste, pedir 3 exportações CSV e consultar `/health` a cada 5 s.
@@ -400,7 +399,7 @@ Estes casos guiam a automação E2E exigida no documento [`7.4 - Testes de softw
 
 ### CT-BE-34 — Recuperação após reinício do backend
 
-- **Rastreabilidade:** RNF-52 · HU-BE-09, HU-BE-10
+- **Rastreabilidade:** [RNF-52](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/230) · [HU-BE-09](1_historias_de_usuario.md#hu-be-09--preservar-o-estado-do-mapa-periodicamente), [HU-BE-10](1_historias_de_usuario.md#hu-be-10--encerrar-ou-marcar-como-interrompida-cada-corrida)
 - **Objetivo:** verificar a retomada da corrida em até 5 s sem perdas.
 - **Pré-condições:** AMB. Corrida em andamento com 250 mensagens.
 - **Procedimentos:**
@@ -411,7 +410,7 @@ Estes casos guiam a automação E2E exigida no documento [`7.4 - Testes de softw
 
 ### CT-BE-35 — Imutabilidade da corrida finalizada
 
-- **Rastreabilidade:** RNF-54 · HU-BE-25
+- **Rastreabilidade:** [RNF-54](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/232) · [HU-BE-25](1_historias_de_usuario.md#hu-be-25--anular-uma-corrida-inválida)
 - **Objetivo:** verificar que uma corrida finalizada só pode ser anulada.
 - **Pré-condições:** AMB. Corrida `CONCLUIDA`.
 - **Procedimentos:**
@@ -422,7 +421,7 @@ Estes casos guiam a automação E2E exigida no documento [`7.4 - Testes de softw
 
 ### CT-BE-36 — Observabilidade
 
-- **Rastreabilidade:** RNF-56 · HU-BE-04 a HU-BE-06
+- **Rastreabilidade:** [RNF-56](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/234) · [HU-BE-04](1_historias_de_usuario.md#hu-be-04--rejeitar-mensagens-malformadas-sem-derrubar-a-conexão) a [HU-BE-06](1_historias_de_usuario.md#hu-be-06--não-duplicar-dados-reenviados)
 - **Objetivo:** verificar logs estruturados, `/health` e contadores.
 - **Pré-condições:** AMB.
 - **Procedimentos:** SIM envia 10 mensagens válidas, 2 inválidas e 3 duplicadas. Depois, consultar `GET /health` e o log.
@@ -430,7 +429,7 @@ Estes casos guiam a automação E2E exigida no documento [`7.4 - Testes de softw
 
 ### CT-BE-37 — Compatibilidade com a versão anterior do protocolo
 
-- **Rastreabilidade:** RNF-57 · HU-BE-01
+- **Rastreabilidade:** [RNF-57](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/235) · [HU-BE-01](1_historias_de_usuario.md#hu-be-01--conectar-somente-robôs-autorizados)
 - **Objetivo:** verificar que o backend aceita a versão atual e a anterior.
 - **Pré-condições:** AMB com o backend suportando as versões N e N−1 (em teste, uma versão fictícia `v0` publicada em `protocolo/`).
 - **Procedimentos:** SIM executa uma corrida completa em `v: 1` e outra em `v: 0`, e depois tenta `v: -1`.
@@ -438,7 +437,7 @@ Estes casos guiam a automação E2E exigida no documento [`7.4 - Testes de softw
 
 ### CT-BE-38 — Implantação com um único comando
 
-- **Rastreabilidade:** RNF-58
+- **Rastreabilidade:** [RNF-58](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/236)
 - **Objetivo:** verificar a implantação num notebook limpo.
 - **Pré-condições:** notebook com Docker instalado, sem o repositório e sem imagens do projeto em cache. Rede com acesso ao registro de imagens, ou imagens previamente salvas em pendrive para uso em rede isolada.
 - **Procedimentos:** clonar o repositório, copiar `.env.example` para `.env`, executar `docker compose up -d` e cronometrar até `/health` responder `200`.

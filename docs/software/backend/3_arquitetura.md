@@ -1,6 +1,6 @@
 # Arquitetura do Backend — Visões e Modelo de Dados
 
-**Versão:** 1.0
+**Versão:** 1.1 — alinhada ao Guia da Equipe de Software (21/09/2026)
 **Issue:** [#253 — 3.3 Visões do backend + modelo de dados (MER + DER)](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/253)
 **Escopo:** arquitetura do backend no modelo 4+1 adaptado pela disciplina (visões lógica, de processos, de implementação e de dados). A visão de implantação do sistema completo fica na [#255](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/255). A seção [Implantação](#6-implantação-contribuição-para-a-255) traz apenas a parte do backend.
 
@@ -18,11 +18,25 @@ O backend é o **ponto central de verdade** do sistema web do Micromouse. Ele:
 4. **Distribui** o estado ao vivo aos painéis com volume e ordem controlados.
 5. **Expõe** histórico, replay, ranking, anulação e exportação por uma API HTTP.
 
-O backend **não** controla o robô. Toda decisão de navegação é do firmware. O único dado de controle que ele devolve ao robô é o `ack` de persistência (ver [Pontos em aberto](#pontos-em-aberto)).
+O backend **não** controla o robô. Toda decisão de navegação é do firmware, e o robô é um **emissor unidirecional** (ver 2.1).
 
 ## 2. Decisões de arquitetura
 
-### 2.1 Padrão: monólito modular orientado a eventos, em camadas
+### 2.1 Decisões herdadas do TAP e dos requisitos
+
+Estas decisões vêm do TAP e dos requisitos aprovados. Conforme o *Guia da Equipe de Software* (§4), elas não são reabertas aqui, apenas documentadas e justificadas na forma como o backend as atende.
+
+| Decisão herdada | Como o backend a atende |
+|:--|:--|
+| **Wi-Fi em modo estação (STA)** | O robô é cliente da rede local e abre a conexão com o backend. O backend só escuta: nunca inicia conexão com o robô. |
+| **WebSocket, com o robô como emissor unidirecional** | O protocolo **não exige que o robô processe nenhuma mensagem de aplicação**. A autenticação (RF-72) usa o `hello`, que o robô *envia*: se falhar, o backend simplesmente fecha a conexão (código 4001/4002). O `ack` do RF-74 é enviado, mas é **informativo**: a integridade após quedas (RNF-50) é garantida pela idempotência do backend (RF-77) somada ao reenvio do buffer retido pelo robô ao reconectar, que também é só emissão. O ping/pong do heartbeat (RF-73) é um *frame* de controle respondido automaticamente pela pilha WebSocket do ESP32, sem lógica de aplicação. |
+| **Rede local isolada, sem dependências externas** | Backend e banco rodam em contêineres no notebook do operador. Nenhuma chamada sai da rede local, e todas as bibliotecas ficam empacotadas na imagem. |
+| **Seis campos obrigatórios da telemetria** | Tipo de labirinto → `inicio_corrida.labirinto`. Trajeto → derivado das mensagens `celula` (RF-84). Consumo de bateria → mensagens `energia` e métricas do RF-85. Velocidade média → RF-83. Tempo → relógio do robô (RF-82). Desafio cumprido → status `CONCLUIDA` (RF-87). |
+| **Consultar um labirinto específico ou todos** | Filtro `tipo` opcional em `GET /api/corridas` (RF-93) e ranking por `labirinto` (RF-95), com índice por `tipo_labirinto` (seção 7.3). |
+
+> **Premissa de interface com o firmware:** para que não haja lacunas após uma queda (critério do RF-74), o robô precisa manter um buffer circular com pelo menos 60 s de mensagens e reenviá-lo inteiro ao reconectar. Isso é compatível com a emissão unidirecional. Se o robô não reenviar, o backend continua sem duplicatas e **sinaliza** a lacuna em `corrida.seqs_faltantes`, o que atende ao RNF-50 ("0 lacunas não sinalizadas").
+
+### 2.2 Padrão: monólito modular orientado a eventos, em camadas
 
 Um único processo Node.js, dividido em módulos com fronteiras explícitas (ingestão, corrida, derivação, distribuição e consulta) e organizado em camadas (**adaptadores → aplicação → domínio**, com a **infraestrutura** implementando as portas). Os módulos se comunicam por um barramento de eventos em memória.
 
@@ -34,7 +48,7 @@ Um único processo Node.js, dividido em módulos com fronteiras explícitas (ing
 
 **Por que isso funciona aqui:** com um processo único, o estado vivo de cada corrida fica em memória e é atualizado de forma serial pelo *event loop*. Isso resolve de graça a consistência do snapshot para quem entra no meio da corrida (RF-89): o corte e a inscrição acontecem no mesmo *tick*, sem locks. Como o domínio é puro (sem I/O), validação e derivação podem ser testadas de forma unitária.
 
-### 2.2 Stack
+### 2.3 Stack
 
 | Camada | Escolha | Situação | Justificativa |
 |:--|:--|:--|:--|
@@ -52,7 +66,22 @@ Um único processo Node.js, dividido em módulos com fronteiras explícitas (ing
 
 > A formalização da stack é da [#251](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/251). Os itens marcados como "Proposta" são a recomendação da frente de backend.
 
-### 2.3 Protocolo de telemetria v1 (proposta)
+### 2.4 Banco de dados: relacional (PostgreSQL) × não relacional (MongoDB)
+
+O guia pede que a escolha seja justificada frente a três requisitos: *append-only*, *snapshots* e consultas por labirinto. A comparação considera também idempotência e imutabilidade, que são as garantias mais críticas do backend.
+
+| Requisito | PostgreSQL (relacional) | MongoDB (documentos) |
+|:--|:--|:--|
+| **Append-only** (RF-79) | *Trigger* `BEFORE UPDATE OR DELETE` que aborta a operação, mais permissão apenas de `INSERT`/`SELECT` para o usuário da aplicação. A garantia fica **no banco**, não só no código. | Não há *trigger* síncrono que bloqueie `update`/`delete`. A garantia depende de papéis customizados e da disciplina do código. |
+| **Idempotência** (RF-77, RNF-50) | Chave primária composta `(corrida_id, seq)` + `INSERT … ON CONFLICT DO NOTHING` em lote: atômico e sem leitura prévia. | Índice único composto + `insertMany({ordered:false})`, tratando o erro 11000 como duplicata. Funciona, mas com o tratamento de erro espalhado pelo código. |
+| **Snapshots** (RF-80, RNF-52) | Tabela `snapshot_mapa` com o estado em `JSONB`: a flexibilidade de documento dentro do modelo relacional, com FK para a corrida e unicidade `(corrida, seq_corte)`. | Natural: o snapshot já é um documento. |
+| **Consultas por labirinto** e ranking (RF-93, RF-95) | Índice `(tipo_labirinto, status, iniciada_em)`, `RANK() OVER (PARTITION BY tipo_labirinto …)` e `LEFT JOIN anulacao`: uma *view* de poucas linhas. | *Aggregation pipeline* com `$setWindowFields` e `$lookup` para excluir anuladas: possível, porém mais verboso. |
+| **Imutabilidade da corrida finalizada** (RNF-54) | *Trigger* que recusa `UPDATE`/`DELETE` quando o status é `CONCLUIDA` ou `FALHOU`. | Só na aplicação. |
+| **Integridade entre entidades** | Chaves estrangeiras (corrida ↔ mensagem ↔ passagem, anulação ↔ operador). | Referências manuais, sem integridade garantida. |
+
+**Conclusão:** os dados do projeto são fortemente relacionais (corrida → mensagens → projeções; anulação → operador) e as garantias críticas (append-only, idempotência e imutabilidade) podem ser impostas **pelo próprio banco**. O único ponto em que o modelo de documentos seria mais natural, o snapshot, é resolvido com `JSONB`. Por isso a escolha é o **PostgreSQL**, e a persistência é documentada por MER e DER (seção 7).
+
+### 2.5 Protocolo de telemetria v1 (proposta)
 
 Todas as mensagens são JSON sobre WebSocket. O esquema oficial será publicado em `src/backend/protocolo/v1/` (RNF-57), e o backend aceita a versão atual e a anterior.
 
@@ -70,7 +99,7 @@ Todas as mensagens são JSON sobre WebSocket. O esquema oficial será publicado 
 
 **Envelope comum** (exceto `hello`): `{ "v": 1, "tipo": "...", "corrida": "<id gerado pelo robô>", "seq": <int ≥ 1 por corrida>, "t": <ms no relógio do robô> }`
 
-**Backend → Robô:** `hello_ok { acks: [{corrida, seq}] }` · `hello_erro { motivo }` · `ack { corrida, seq }` · *ping* (frame de controle do WebSocket).
+**Backend → Robô:** `ack { corrida, seq }` (informativo: o robô **não é obrigado a processá-lo**) · *ping* (frame de controle do WebSocket, respondido pela pilha de rede do ESP32) · fechamento da conexão com código `4001` (token inválido) ou `4002` (versão não suportada). Nenhuma resposta de aplicação é exigida do robô.
 
 **Painel ↔ Backend** (`/ws/painel`, somente leitura — RNF-55)
 
@@ -105,50 +134,9 @@ Todas as mensagens são JSON sobre WebSocket. O esquema oficial será publicado 
 
 ### 3.1 Módulos e dependências
 
-```mermaid
-flowchart LR
-    subgraph ADAPT["Adaptadores"]
-        WT["ws-telemetria<br/>GatewayTelemetria · MonitorHeartbeat"]
-        WP["ws-painel<br/>GatewayPainel · ControleFluxo"]
-        HTTP["http<br/>Rotas REST · Auth · /health"]
-    end
-    subgraph APP["Aplicação"]
-        ING["ServicoIngestao"]
-        COR["ServicoCorrida"]
-        DIS["ServicoDistribuicao<br/>Inscrições · LimitadorTaxa"]
-        CON["ServicoConsulta"]
-        ANU["ServicoAnulacao"]
-    end
-    subgraph DOM["Domínio (puro, sem I/O)"]
-        VAL["Validação<br/>(esquema + domínio)"]
-        CORR["Corrida<br/>(máquina de status)"]
-        DER["Derivação<br/>EstadoMapa · Trajeto · Métricas · Energia"]
-        SEQ["JanelaSequencia<br/>(ack contíguo)"]
-    end
-    subgraph INFRA["Infraestrutura"]
-        REPO["Repositórios PostgreSQL"]
-        LOTE["GravadorLote"]
-        BUS["BarramentoEventos"]
-        OBS["Logger · Contadores"]
-    end
+![Visão lógica — módulos e dependências](diagramas/arq-01-modulos.svg)
 
-    WT --> ING
-    WP --> DIS
-    HTTP --> CON
-    HTTP --> ANU
-    ING --> VAL
-    ING --> COR
-    ING --> LOTE
-    COR --> CORR
-    COR --> DER
-    COR --> SEQ
-    COR --> BUS
-    BUS --> DIS
-    CON --> REPO
-    ANU --> REPO
-    LOTE --> REPO
-    ING --> OBS
-```
+<sub>Fonte editável: [`diagramas/arq-01-modulos.puml`](diagramas/arq-01-modulos.puml)</sub>
 
 | Módulo | Responsabilidade | RF/RNF |
 |:--|:--|:--|
@@ -164,100 +152,15 @@ flowchart LR
 
 ### 3.2 Modelo de domínio
 
-```mermaid
-classDiagram
-    class Corrida {
-        +UUID id
-        +string idCorridaRobo
-        +string boot
-        +TipoLabirinto labirinto
-        +int numeroTentativa
-        +StatusCorrida status
-        +MotivoTermino motivo
-        +long tInicioMs
-        +long tFimMs
-        +aplicar(msg) Evento[]
-        +encerrar(resultado, tFim)
-        +interromper(motivo)
-        +tempoConclusaoMs() int
-        +podeTransitarPara(status) bool
-    }
-    class EstadoMapa {
-        +int largura
-        +int altura
-        +Map paredes
-        +Posicao posicao
-        +int celulasDesdeSnapshot
-        +registrarCelula(x, y, paredes)
-        +moverPara(posicao)
-        +snapshot(seqCorte) Snapshot
-    }
-    class Trajeto {
-        +Passagem[] passagens
-        +int transicoes
-        +int revisitas
-        +adicionar(seq, x, y, t)
-        +distanciaM() float
-    }
-    class Metricas {
-        +velocidadeMedia(transicoes, dtMs)$ float
-        +tempoConclusao(tInicio, tFim)$ int
-    }
-    class SerieEnergia {
-        +float tensaoInicial
-        +float tensaoFinal
-        +bool alertaArmado
-        +registrar(tensao) Alerta
-        +deltaV() float
-        +carga(curva) float
-    }
-    class CurvaCarga {
-        +Ponto[] pontos
-        +cargaPara(tensao) float
-    }
-    class JanelaSequencia {
-        +int ultimoContiguo
-        +Set pendentes
-        +registrar(seq) bool
-        +ack() int
-    }
-    class ValidadorDominio {
-        +validar(msg, corrida) Resultado
-    }
-    class StatusCorrida {
-        <<enumeration>>
-        EM_ANDAMENTO
-        CONCLUIDA
-        FALHOU
-        INTERROMPIDA
-    }
-    Corrida *-- EstadoMapa
-    Corrida *-- Trajeto
-    Corrida *-- SerieEnergia
-    Corrida *-- JanelaSequencia
-    Corrida --> StatusCorrida
-    SerieEnergia --> CurvaCarga
-    Trajeto ..> Metricas
-    ValidadorDominio ..> Corrida
-```
+![Visão lógica — modelo de domínio](diagramas/arq-02-modelo-dominio.svg)
+
+<sub>Fonte editável: [`diagramas/arq-02-modelo-dominio.mmd`](diagramas/arq-02-modelo-dominio.mmd)</sub>
 
 **Máquina de status da corrida (RF-81, RF-87, RNF-54):**
 
-```mermaid
-stateDiagram-v2
-    [*] --> EM_ANDAMENTO: inicio_corrida / 1ª mensagem
-    EM_ANDAMENTO --> CONCLUIDA: fim_corrida (sucesso)
-    EM_ANDAMENTO --> FALHOU: fim_corrida (falha)
-    EM_ANDAMENTO --> INTERROMPIDA: 120 s sem sinal / reinício do robô
-    INTERROMPIDA --> CONCLUIDA: lote tardio com fim (sucesso)
-    INTERROMPIDA --> FALHOU: lote tardio com fim (falha)
-    CONCLUIDA --> [*]
-    FALHOU --> [*]
-    note right of CONCLUIDA
-        Finalizada e imutável.
-        Só pode ser anulada (tabela à parte).
-    end note
-```
+![Máquina de status da corrida](diagramas/arq-03-status-corrida.svg)
+
+<sub>Fonte editável: [`diagramas/arq-03-status-corrida.mmd`](diagramas/arq-03-status-corrida.mmd)</sub>
 
 > Só uma corrida `INTERROMPIDA` por `SEM_SINAL` aceita lote tardio. Uma interrompida por `REINICIO_ROBO` é definitiva, porque o robô que reiniciou perdeu o buffer.
 
@@ -283,124 +186,33 @@ stateDiagram-v2
 
 ### 4.2 Ingestão, persistência, confirmação e distribuição
 
-```mermaid
-sequenceDiagram
-    autonumber
-    participant R as Robô
-    participant GT as GatewayTelemetria
-    participant IN as ServicoIngestao
-    participant GL as GravadorLote
-    participant DB as PostgreSQL
-    participant CO as ServicoCorrida
-    participant DI as ServicoDistribuicao
-    participant P as Painéis inscritos
+![Sequência — ingestão, persistência, confirmação e distribuição](diagramas/arq-04-seq-ingestao.svg)
 
-    R->>GT: celula {corrida, seq=41, t, x, y, paredes}
-    GT->>IN: mensagem
-    IN->>IN: validar esquema (Ajv) e domínio
-    alt inválida
-        IN-->>GT: rejeitar(motivo) + log + contador
-    else (corrida, seq) já visto
-        IN-->>GT: ack(ultimoContiguo) + contador de duplicadas
-    else nova
-        IN->>GL: enfileirar
-        Note over GL: aguarda até 10 ms ou 50 mensagens
-        GL->>DB: BEGIN · INSERT … ON CONFLICT DO NOTHING · COMMIT
-        DB-->>GL: ok
-        GL->>CO: aplicar lote (ordem de seq)
-        CO->>CO: atualizar EstadoMapa, Trajeto e métricas
-        par confirmação
-            CO-->>GT: ack {corrida, seq=41}
-            GT-->>R: ack
-        and distribuição
-            CO->>DI: evento celula + métricas
-            DI-->>P: evento (imediato) / contínuo (≤ 10/s)
-        end
-    end
-```
+<sub>Fonte editável: [`diagramas/arq-04-seq-ingestao.mmd`](diagramas/arq-04-seq-ingestao.mmd)</sub>
 
 ### 4.3 Queda de conexão e reenvio (RF-74, RF-77, RNF-50)
 
-```mermaid
-sequenceDiagram
-    autonumber
-    participant R as Robô
-    participant B as Backend
-    participant DB as PostgreSQL
-    participant P as Painéis
+![Sequência — queda de conexão e reenvio](diagramas/arq-05-seq-queda-reenvio.svg)
 
-    R->>B: seq 1..120 (persistidas, ack=120)
-    Note over R,B: Wi-Fi cai: seq 121..400 ficam no buffer do robô
-    B->>B: 3 s sem pong → sinal PERDIDO
-    B-->>P: sinal PERDIDO (≤ 1 s)
-    R->>B: reconecta · hello (mesmo boot)
-    B-->>R: hello_ok {acks: [{corrida, 120}]}
-    B-->>P: sinal RETOMADO
-    R->>B: reenvio em lote seq 110..400
-    B->>DB: INSERT … ON CONFLICT DO NOTHING (110..120 ignoradas)
-    B-->>R: ack 400
-    Note over DB: cada seq exatamente uma vez · sem lacunas
-```
+<sub>Fonte editável: [`diagramas/arq-05-seq-queda-reenvio.mmd`](diagramas/arq-05-seq-queda-reenvio.mmd)</sub>
 
 ### 4.4 Painel que entra no meio da corrida (RF-89)
 
-```mermaid
-sequenceDiagram
-    autonumber
-    participant P as Painel novo
-    participant DI as ServicoDistribuicao
-    participant CO as Estado da corrida (memória)
+![Sequência — painel que entra no meio da corrida](diagramas/arq-06-seq-inscricao-meio.svg)
 
-    P->>DI: inscrever {corrida}
-    Note over DI,CO: mesmo tick do event loop: sem mensagem intercalada
-    DI->>CO: snapshot()
-    CO-->>DI: {mapa, posicao, metricas, status, seq_corte=300}
-    DI->>DI: adicionar P aos inscritos
-    DI-->>P: snapshot (seq_corte=300)
-    CO->>DI: evento seq=301
-    DI-->>P: evento seq=301
-```
+<sub>Fonte editável: [`diagramas/arq-06-seq-inscricao-meio.mmd`](diagramas/arq-06-seq-inscricao-meio.mmd)</sub>
 
 ### 4.5 Recuperação após reinício do backend (RNF-52)
 
-```mermaid
-sequenceDiagram
-    autonumber
-    participant B as Backend (reiniciando)
-    participant DB as PostgreSQL
-    participant R as Robô
+![Sequência — recuperação após reinício do backend](diagramas/arq-07-seq-recuperacao.svg)
 
-    B->>DB: SELECT corridas EM_ANDAMENTO
-    loop cada corrida
-        B->>DB: último snapshot_mapa
-        B->>DB: mensagens com seq > seq_corte, em ordem
-        B->>B: reconstruir EstadoMapa, Trajeto, métricas e JanelaSequencia
-    end
-    Note over B: pronto em ≤ 5 s · começa a aceitar conexões
-    R->>B: reconecta · hello
-    B-->>R: hello_ok {acks: último contíguo}
-    R->>B: reenvia o que não foi confirmado
-```
+<sub>Fonte editável: [`diagramas/arq-07-seq-recuperacao.mmd`](diagramas/arq-07-seq-recuperacao.mmd)</sub>
 
 ### 4.6 Fim da corrida e ranking (RF-82, RF-87, RF-95)
 
-```mermaid
-sequenceDiagram
-    autonumber
-    participant R as Robô
-    participant CO as ServicoCorrida
-    participant DB as PostgreSQL
-    participant DI as ServicoDistribuicao
-    participant P as Painéis
+![Sequência — fim da corrida e ranking](diagramas/arq-08-seq-fim-corrida.svg)
 
-    R->>CO: fim_corrida {resultado: sucesso, t=95500}
-    CO->>CO: tempo = 95500 − 1000 = 94,5 s · fixar velocidade e energia
-    CO->>DB: UPDATE corrida (status CONCLUIDA, métricas finais) + snapshot final
-    CO->>DI: evento status CONCLUIDA
-    DI-->>P: evento status · ao_vivo
-    DI-->>P: leaderboard {labirinto: 4x4} (≤ 1 s)
-    P->>DI: GET /api/leaderboard?labirinto=4x4
-```
+<sub>Fonte editável: [`diagramas/arq-08-seq-fim-corrida.mmd`](diagramas/arq-08-seq-fim-corrida.mmd)</sub>
 
 ---
 
@@ -441,20 +253,9 @@ src/backend/
 
 ## 6. Implantação (contribuição para a #255)
 
-```mermaid
-flowchart LR
-    subgraph LAN["Rede Wi-Fi local isolada (RNF-41)"]
-        ESP["ESP32 (robô)<br/>modo estação"]
-        subgraph NB["Notebook do operador — docker compose"]
-            BE["backend (Node.js)<br/>:8080 HTTP + WS"]
-            PG[("postgres:16<br/>volume persistente")]
-        end
-        BR["Navegadores dos painéis"]
-    end
-    ESP -- "WS /ws/telemetria" --> BE
-    BR -- "WS /ws/painel + HTTP /api" --> BE
-    BE -- "TCP 5432" --> PG
-```
+![Implantação — parte do backend](diagramas/arq-09-implantacao.svg)
+
+<sub>Fonte editável: [`diagramas/arq-09-implantacao.mmd`](diagramas/arq-09-implantacao.mmd)</sub>
 
 `docker compose up` sobe o banco, aplica as migrações e inicia o backend (RNF-58: ≤ 2 min num notebook limpo com as imagens já baixadas). Os segredos (token dos dispositivos, senha do operador, chave JWT) vêm de `.env`, que nunca é versionado.
 
@@ -505,131 +306,9 @@ flowchart LR
 
 ### 7.2 Diagrama Entidade-Relacionamento (DER — PostgreSQL)
 
-```mermaid
-erDiagram
-    DISPOSITIVO ||--o{ CORRIDA : executa
-    APRESENTACAO |o--o{ CORRIDA : agrupa
-    CORRIDA ||--o{ MENSAGEM : registra
-    MENSAGEM ||--o| PASSAGEM_CELULA : origina
-    MENSAGEM ||--o| LEITURA_ENERGIA : origina
-    CORRIDA ||--o{ SNAPSHOT_MAPA : possui
-    CORRIDA ||--o| ANULACAO : sofre
-    OPERADOR ||--o{ ANULACAO : realiza
-    DISPOSITIVO ||--o{ EVENTO_CONEXAO : gera
-    CORRIDA |o--o{ EVENTO_CONEXAO : afetada_por
-    DISPOSITIVO |o--o{ MENSAGEM_REJEITADA : envia
+![DER — PostgreSQL](diagramas/arq-10-der.svg)
 
-    DISPOSITIVO {
-        uuid id PK
-        text identificador UK
-        text nome
-        text token_hash "hash argon2 do token"
-        boolean ativo
-        timestamptz criado_em
-    }
-    OPERADOR {
-        uuid id PK
-        text login UK
-        text nome
-        text senha_hash
-        timestamptz criado_em
-    }
-    APRESENTACAO {
-        uuid id PK
-        text nome
-        date data
-        boolean ativa "no máximo uma ativa"
-        timestamptz criada_em
-    }
-    CORRIDA {
-        uuid id PK
-        uuid dispositivo_id FK "UK com id_corrida_robo"
-        text id_corrida_robo
-        text boot
-        uuid apresentacao_id FK "nulo fora de apresentação"
-        tipo_labirinto tipo_labirinto "4x4, 8x4, 12x4"
-        int numero_tentativa
-        status_corrida status
-        motivo_termino motivo_termino
-        text detalhe_termino
-        smallint versao_protocolo
-        bigint t_inicio_robo_ms
-        bigint t_fim_robo_ms
-        int tempo_conclusao_ms
-        int transicoes_celula
-        numeric distancia_m "gerada: transicoes x 0,18"
-        numeric velocidade_media_mps
-        int revisitas
-        numeric tensao_inicial_v
-        numeric tensao_final_v
-        numeric delta_v
-        numeric carga_inicial_pct
-        numeric carga_final_pct
-        int ultimo_seq_contiguo
-        int seqs_faltantes
-        timestamptz iniciada_em
-        timestamptz encerrada_em
-    }
-    MENSAGEM {
-        uuid corrida_id PK, FK
-        int seq PK
-        tipo_mensagem tipo
-        bigint t_robo_ms
-        smallint versao_protocolo
-        jsonb payload
-        timestamptz recebida_em
-    }
-    PASSAGEM_CELULA {
-        uuid corrida_id PK, FK
-        int seq PK, FK
-        int ordem
-        smallint x
-        smallint y
-        smallint paredes "bits N=1 L=2 S=4 O=8"
-        bigint t_robo_ms
-        boolean revisita
-    }
-    LEITURA_ENERGIA {
-        uuid corrida_id PK, FK
-        int seq PK, FK
-        bigint t_robo_ms
-        numeric tensao_v
-        numeric corrente_a
-        numeric potencia_w
-    }
-    SNAPSHOT_MAPA {
-        bigint id PK
-        uuid corrida_id FK "UK com seq_corte"
-        int seq_corte
-        int celulas_visitadas
-        jsonb estado "paredes, posição e métricas"
-        timestamptz criado_em
-    }
-    ANULACAO {
-        uuid corrida_id PK, FK
-        uuid operador_id FK
-        text motivo "NOT NULL, não vazio"
-        timestamptz anulada_em
-    }
-    EVENTO_CONEXAO {
-        bigint id PK
-        uuid dispositivo_id FK
-        uuid corrida_id FK
-        tipo_evento_conexao tipo
-        text boot
-        timestamptz ocorrido_em
-    }
-    MENSAGEM_REJEITADA {
-        bigint id PK
-        uuid dispositivo_id FK
-        text corrida_robo
-        int seq
-        text motivo_codigo
-        text detalhe
-        jsonb payload
-        timestamptz recebida_em
-    }
-```
+<sub>Fonte editável: [`diagramas/arq-10-der.mmd`](diagramas/arq-10-der.mmd)</sub>
 
 **Tipos enumerados**
 
@@ -704,7 +383,7 @@ WHERE c.status = 'CONCLUIDA' AND a.corrida_id IS NULL;
 
 | # | Ponto | Impacto | Encaminhamento sugerido |
 |:--|:--|:--|:--|
-| 1 | **Conflito RF-53 × RF-72/RF-74.** O [RF-53](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/133) do firmware diz que o robô opera "exclusivamente como emissor", sem processar mensagens de entrada. Já o RF-72 exige um *handshake* e o RF-74 exige que o robô leia o `ack` para liberar o buffer. | Sem `ack`, o robô não sabe o que reenviar após uma queda, e o RNF-50 (0 lacunas após 60 s de queda) fica sem mecanismo. | Revisar o RF-53 com a frente de firmware para: *"o robô não processa comandos de navegação vindos da web; processa apenas `hello_ok`/`hello_erro` e `ack` do protocolo de telemetria"*. O ping/pong é de nível de transporte (tratado pela biblioteca WebSocket) e não conflita com o RF-53. **Decisão atual: modelar com `ack`** e resolver o conflito na [#249](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/249). |
+| 1 | **Reenvio do buffer retido pelo firmware.** O robô é emissor unidirecional ([RF-53](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/133), decisão herdada, ver 2.1). O critério do RF-74 ("sem lacunas após queda de até 60 s") só é atingido se o robô guardar pelo menos 60 s de mensagens e reenviá-las ao reconectar. | Sem o reenvio, o backend continua sem duplicatas e sinaliza as lacunas (atende ao RNF-50), mas o critério "sem lacunas" do RF-74 não é cumprido. | Alinhar com a frente de firmware ([#246](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/246)) a inclusão do buffer circular com reenvio ao reconectar. É só emissão, sem conflito com o RF-53. |
 | 2 | Curva tensão → carga (RF-85) | Valores da carga estimada | Validar os pontos da curva padrão com a frente de Energia. |
 | 3 | Formalização da stack | Frameworks marcados como "Proposta" | Registrar na [#251](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/251). |
 | 4 | Conteúdo exato do protocolo v1 | Campos das mensagens de telemetria | Alinhar com o [RF-52](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/132) (carga útil do firmware) e publicar os esquemas em `src/backend/protocolo/v1/`. |

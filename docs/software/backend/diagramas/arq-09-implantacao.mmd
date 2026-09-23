@@ -1,0 +1,12 @@
+flowchart LR
+    subgraph LAN["Rede Wi-Fi local isolada (RNF-41)"]
+        ESP["ESP32 (robô)<br/>modo estação"]
+        subgraph NB["Notebook do operador — docker compose"]
+            BE["backend (Node.js)<br/>:8080 HTTP + WS"]
+            PG[("postgres:16<br/>volume persistente")]
+        end
+        BR["Navegadores dos painéis"]
+    end
+    ESP -- "WS /ws/telemetria" --> BE
+    BR -- "WS /ws/painel + HTTP /api" --> BE
+    BE -- "TCP 5432" --> PG

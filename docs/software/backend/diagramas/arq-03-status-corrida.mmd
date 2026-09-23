@@ -1,0 +1,13 @@
+stateDiagram-v2
+    [*] --> EM_ANDAMENTO: inicio_corrida / 1ª mensagem
+    EM_ANDAMENTO --> CONCLUIDA: fim_corrida (sucesso)
+    EM_ANDAMENTO --> FALHOU: fim_corrida (falha)
+    EM_ANDAMENTO --> INTERROMPIDA: 120 s sem sinal / reinício do robô
+    INTERROMPIDA --> CONCLUIDA: lote tardio com fim (sucesso)
+    INTERROMPIDA --> FALHOU: lote tardio com fim (falha)
+    CONCLUIDA --> [*]
+    FALHOU --> [*]
+    note right of CONCLUIDA
+        Finalizada e imutável.
+        Só pode ser anulada (tabela à parte).
+    end note

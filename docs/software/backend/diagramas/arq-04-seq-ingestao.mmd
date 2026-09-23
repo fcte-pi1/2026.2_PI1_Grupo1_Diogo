@@ -1,0 +1,33 @@
+sequenceDiagram
+    autonumber
+    participant R as Robô
+    participant GT as GatewayTelemetria
+    participant IN as ServicoIngestao
+    participant GL as GravadorLote
+    participant DB as PostgreSQL
+    participant CO as ServicoCorrida
+    participant DI as ServicoDistribuicao
+    participant P as Painéis inscritos
+
+    R->>GT: celula {corrida, seq=41, t, x, y, paredes}
+    GT->>IN: mensagem
+    IN->>IN: validar esquema (Ajv) e domínio
+    alt inválida
+        IN-->>GT: rejeitar(motivo) + log + contador
+    else (corrida, seq) já visto
+        IN-->>GT: ack(ultimoContiguo) + contador de duplicadas
+    else nova
+        IN->>GL: enfileirar
+        Note over GL: aguarda até 10 ms ou 50 mensagens
+        GL->>DB: BEGIN · INSERT … ON CONFLICT DO NOTHING · COMMIT
+        DB-->>GL: ok
+        GL->>CO: aplicar lote (ordem de seq)
+        CO->>CO: atualizar EstadoMapa, Trajeto e métricas
+        par confirmação
+            CO-->>GT: ack {corrida, seq=41}
+            GT-->>R: ack (informativo)
+        and distribuição
+            CO->>DI: evento celula + métricas
+            DI-->>P: evento (imediato) / contínuo (≤ 10/s)
+        end
+    end

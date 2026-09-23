@@ -1,0 +1,123 @@
+erDiagram
+    DISPOSITIVO ||--o{ CORRIDA : executa
+    APRESENTACAO |o--o{ CORRIDA : agrupa
+    CORRIDA ||--o{ MENSAGEM : registra
+    MENSAGEM ||--o| PASSAGEM_CELULA : origina
+    MENSAGEM ||--o| LEITURA_ENERGIA : origina
+    CORRIDA ||--o{ SNAPSHOT_MAPA : possui
+    CORRIDA ||--o| ANULACAO : sofre
+    OPERADOR ||--o{ ANULACAO : realiza
+    DISPOSITIVO ||--o{ EVENTO_CONEXAO : gera
+    CORRIDA |o--o{ EVENTO_CONEXAO : afetada_por
+    DISPOSITIVO |o--o{ MENSAGEM_REJEITADA : envia
+
+    DISPOSITIVO {
+        uuid id PK
+        text identificador UK
+        text nome
+        text token_hash "hash argon2 do token"
+        boolean ativo
+        timestamptz criado_em
+    }
+    OPERADOR {
+        uuid id PK
+        text login UK
+        text nome
+        text senha_hash
+        timestamptz criado_em
+    }
+    APRESENTACAO {
+        uuid id PK
+        text nome
+        date data
+        boolean ativa "no máximo uma ativa"
+        timestamptz criada_em
+    }
+    CORRIDA {
+        uuid id PK
+        uuid dispositivo_id FK "UK com id_corrida_robo"
+        text id_corrida_robo
+        text boot
+        uuid apresentacao_id FK "nulo fora de apresentação"
+        tipo_labirinto tipo_labirinto "4x4, 8x4, 12x4"
+        int numero_tentativa
+        status_corrida status
+        motivo_termino motivo_termino
+        text detalhe_termino
+        smallint versao_protocolo
+        bigint t_inicio_robo_ms
+        bigint t_fim_robo_ms
+        int tempo_conclusao_ms
+        int transicoes_celula
+        numeric distancia_m "gerada: transicoes x 0,18"
+        numeric velocidade_media_mps
+        int revisitas
+        numeric tensao_inicial_v
+        numeric tensao_final_v
+        numeric delta_v
+        numeric carga_inicial_pct
+        numeric carga_final_pct
+        int ultimo_seq_contiguo
+        int seqs_faltantes
+        timestamptz iniciada_em
+        timestamptz encerrada_em
+    }
+    MENSAGEM {
+        uuid corrida_id PK, FK
+        int seq PK
+        tipo_mensagem tipo
+        bigint t_robo_ms
+        smallint versao_protocolo
+        jsonb payload
+        timestamptz recebida_em
+    }
+    PASSAGEM_CELULA {
+        uuid corrida_id PK, FK
+        int seq PK, FK
+        int ordem
+        smallint x
+        smallint y
+        smallint paredes "bits N=1 L=2 S=4 O=8"
+        bigint t_robo_ms
+        boolean revisita
+    }
+    LEITURA_ENERGIA {
+        uuid corrida_id PK, FK
+        int seq PK, FK
+        bigint t_robo_ms
+        numeric tensao_v
+        numeric corrente_a
+        numeric potencia_w
+    }
+    SNAPSHOT_MAPA {
+        bigint id PK
+        uuid corrida_id FK "UK com seq_corte"
+        int seq_corte
+        int celulas_visitadas
+        jsonb estado "paredes, posição e métricas"
+        timestamptz criado_em
+    }
+    ANULACAO {
+        uuid corrida_id PK, FK
+        uuid operador_id FK
+        text motivo "NOT NULL, não vazio"
+        timestamptz anulada_em
+    }
+    EVENTO_CONEXAO {
+        bigint id PK
+        uuid dispositivo_id FK
+        uuid corrida_id FK
+        tipo_evento_conexao tipo
+        text boot
+        timestamptz ocorrido_em
+    }
+    MENSAGEM_REJEITADA {
+        bigint id PK
+        uuid dispositivo_id FK
+        text corrida_robo
+        int seq
+        text motivo_codigo
+        text detalhe
+        jsonb payload
+        timestamptz recebida_em
+    }
