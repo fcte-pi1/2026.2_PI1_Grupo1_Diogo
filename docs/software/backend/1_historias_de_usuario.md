@@ -28,7 +28,7 @@ Termos como `hello`, `ack`, `seq`, "snapshot" e os status de corrida seguem o pr
 
 ## Backlog do Produto — Backend
 
-> Formato idêntico ao do [`4.4 - Projeto conceitual de software.md`](../../4.4%20-%20Projeto%20conceitual%20de%20software.md) (um bloco por RF/Épico). A coluna **ID** passa a ser o link da issue da HU no GitHub Projects assim que as issues forem criadas (label `HU`, sub-issue do RF). A prioridade segue a escala MoSCoW de [`2 - Requisitos.md`](../../2%20-%20Requisitos.md).
+> Formato idêntico ao do [`4.4 - Projeto conceitual de software.md`](../../4.4%20-%20Projeto%20conceitual%20de%20software.md) (um bloco por RF/Épico). A coluna **ID** é o link da issue da HU no GitHub Projects (label `HU`, sub-issue do RF correspondente). A prioridade segue a escala MoSCoW de [`2 - Requisitos.md`](../../2%20-%20Requisitos.md).
 
 ### Requisitos Funcionais
 
@@ -36,163 +36,163 @@ Termos como `hello`, `ack`, `seq`, "snapshot" e os status de corrida seguem o pr
 
 | ID (Link Github Projects) | Título | Prioridade |
 |:------| :-- | :--- |
-| HU-BE-01 | Conectar somente robôs autorizados | Must have |
+| [HU-BE-01](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/262) | Conectar somente robôs autorizados | Must have |
 
 <u>[RF-73](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/153)/Épico: Detecção de perda de conexão por heartbeat</u>
 
 | ID (Link Github Projects) | Título | Prioridade |
 |:------| :-- | :--- |
-| HU-BE-02 | Saber rapidamente quando o robô perdeu o sinal | Must have |
+| [HU-BE-02](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/263) | Saber rapidamente quando o robô perdeu o sinal | Must have |
 
 <u>[RF-74](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/154)/Épico: Confirmação cumulativa de mensagens (ack)</u>
 
 | ID (Link Github Projects) | Título | Prioridade |
 |:------| :-- | :--- |
-| HU-BE-03 | Confirmar ao robô o que já foi gravado | Must have |
+| [HU-BE-03](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/264) | Confirmar ao robô o que já foi gravado | Must have |
 
 <u>[RF-75](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/155)/Épico: Validação de mensagens contra o esquema do protocolo</u>
 
 | ID (Link Github Projects) | Título | Prioridade |
 |:------| :-- | :--- |
-| HU-BE-04 | Rejeitar mensagens malformadas sem derrubar a conexão | Must have |
+| [HU-BE-04](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/265) | Rejeitar mensagens malformadas sem derrubar a conexão | Must have |
 
 <u>[RF-76](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/156)/Épico: Validação das regras de domínio</u>
 
 | ID (Link Github Projects) | Título | Prioridade |
 |:------| :-- | :--- |
-| HU-BE-05 | Rejeitar dados fisicamente impossíveis | Must have |
+| [HU-BE-05](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/266) | Rejeitar dados fisicamente impossíveis | Must have |
 
 <u>[RF-77](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/157)/Épico: Idempotência por corrida e número de sequência</u>
 
 | ID (Link Github Projects) | Título | Prioridade |
 |:------| :-- | :--- |
-| HU-BE-06 | Não duplicar dados reenviados | Must have |
+| [HU-BE-06](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/267) | Não duplicar dados reenviados | Must have |
 
 <u>[RF-78](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/158)/Épico: Criação automática e idempotente da corrida</u>
 
 | ID (Link Github Projects) | Título | Prioridade |
 |:------| :-- | :--- |
-| HU-BE-07 | Registrar a corrida sem ação manual | Must have |
+| [HU-BE-07](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/268) | Registrar a corrida sem ação manual | Must have |
 
 <u>[RF-79](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/159)/Épico: Persistência append-only das mensagens da corrida</u>
 
 | ID (Link Github Projects) | Título | Prioridade |
 |:------| :-- | :--- |
-| HU-BE-08 | Guardar o registro bruto e inalterável da corrida | Must have |
+| [HU-BE-08](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/269) | Guardar o registro bruto e inalterável da corrida | Must have |
 
 <u>[RF-80](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/160)/Épico: Snapshot periódico do estado do mapa</u>
 
 | ID (Link Github Projects) | Título | Prioridade |
 |:------| :-- | :--- |
-| HU-BE-09 | Preservar o estado do mapa periodicamente | Must have |
+| [HU-BE-09](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/270) | Preservar o estado do mapa periodicamente | Must have |
 
 <u>[RF-81](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/161)/Épico: Encerramento e marcação de corridas interrompidas</u>
 
 | ID (Link Github Projects) | Título | Prioridade |
 |:------| :-- | :--- |
-| HU-BE-10 | Encerrar ou marcar como interrompida cada corrida | Must have |
+| [HU-BE-10](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/271) | Encerrar ou marcar como interrompida cada corrida | Must have |
 
 <u>[RF-82](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/162)/Épico: Cálculo do tempo de conclusão pelo relógio do robô</u>
 
 | ID (Link Github Projects) | Título | Prioridade |
 |:------| :-- | :--- |
-| HU-BE-11 | Obter o tempo oficial de conclusão | Must have |
+| [HU-BE-11](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/272) | Obter o tempo oficial de conclusão | Must have |
 
 <u>[RF-83](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/163)/Épico: Cálculo da velocidade média da corrida</u>
 
 | ID (Link Github Projects) | Título | Prioridade |
 |:------| :-- | :--- |
-| HU-BE-12 | Acompanhar a velocidade média | Must have |
+| [HU-BE-12](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/273) | Acompanhar a velocidade média | Must have |
 
 <u>[RF-84](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/164)/Épico: Derivação do trajeto ordenado por sequência</u>
 
 | ID (Link Github Projects) | Título | Prioridade |
 |:------| :-- | :--- |
-| HU-BE-13 | Reconstituir o trajeto percorrido | Must have |
+| [HU-BE-13](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/274) | Reconstituir o trajeto percorrido | Must have |
 
 <u>[RF-85](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/165)/Épico: Derivação de métricas da série de tensão da bateria</u>
 
 | ID (Link Github Projects) | Título | Prioridade |
 |:------| :-- | :--- |
-| HU-BE-14 | Avaliar o consumo de bateria da corrida | Must have |
+| [HU-BE-14](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/275) | Avaliar o consumo de bateria da corrida | Must have |
 
 <u>[RF-86](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/166)/Épico: Alerta de tensão baixa aos painéis</u>
 
 | ID (Link Github Projects) | Título | Prioridade |
 |:------| :-- | :--- |
-| HU-BE-15 | Ser alertado de bateria baixa | Should have |
+| [HU-BE-15](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/276) | Ser alertado de bateria baixa | Should have |
 
 <u>[RF-87](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/167)/Épico: Status do desafio com motivo de término</u>
 
 | ID (Link Github Projects) | Título | Prioridade |
 |:------| :-- | :--- |
-| HU-BE-16 | Saber o resultado da corrida e o motivo | Must have |
+| [HU-BE-16](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/277) | Saber o resultado da corrida e o motivo | Must have |
 
 <u>[RF-88](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/168)/Épico: Distribuição de atualizações por inscrição de corrida</u>
 
 | ID (Link Github Projects) | Título | Prioridade |
 |:------| :-- | :--- |
-| HU-BE-17 | Receber só as atualizações da corrida acompanhada | Must have |
+| [HU-BE-17](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/278) | Receber só as atualizações da corrida acompanhada | Must have |
 
 <u>[RF-89](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/169)/Épico: Snapshot consistente para inscrição no meio da corrida</u>
 
 | ID (Link Github Projects) | Título | Prioridade |
 |:------| :-- | :--- |
-| HU-BE-18 | Entrar no meio da corrida e ver o estado completo | Must have |
+| [HU-BE-18](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/279) | Entrar no meio da corrida e ver o estado completo | Must have |
 
 <u>[RF-90](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/170)/Épico: Limite de taxa de atualizações contínuas por painel</u>
 
 | ID (Link Github Projects) | Título | Prioridade |
 |:------| :-- | :--- |
-| HU-BE-19 | Receber dados contínuos em ritmo controlado | Must have |
+| [HU-BE-19](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/280) | Receber dados contínuos em ritmo controlado | Must have |
 
 <u>[RF-91](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/171)/Épico: Controle de fluxo por painel sobrecarregado</u>
 
 | ID (Link Github Projects) | Título | Prioridade |
 |:------| :-- | :--- |
-| HU-BE-20 | Não deixar um painel lento prejudicar os demais | Should have |
+| [HU-BE-20](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/281) | Não deixar um painel lento prejudicar os demais | Should have |
 
 <u>[RF-92](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/172)/Épico: Notificação de perda e retomada de sinal do robô</u>
 
 | ID (Link Github Projects) | Título | Prioridade |
 |:------| :-- | :--- |
-| HU-BE-21 | Ver no painel a perda e a retomada de sinal | Must have |
+| [HU-BE-21](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/282) | Ver no painel a perda e a retomada de sinal | Must have |
 
 <u>[RF-93](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/173)/Épico: Listagem de corridas com filtros e paginação</u>
 
 | ID (Link Github Projects) | Título | Prioridade |
 |:------| :-- | :--- |
-| HU-BE-22 | Consultar o histórico de corridas | Must have |
+| [HU-BE-22](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/283) | Consultar o histórico de corridas | Must have |
 
 <u>[RF-94](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/174)/Épico: Linha do tempo completa da corrida para replay</u>
 
 | ID (Link Github Projects) | Título | Prioridade |
 |:------| :-- | :--- |
-| HU-BE-23 | Rever uma corrida passo a passo | Should have |
+| [HU-BE-23](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/284) | Rever uma corrida passo a passo | Should have |
 
 <u>[RF-95](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/175)/Épico: Leaderboard por tipo de labirinto</u>
 
 | ID (Link Github Projects) | Título | Prioridade |
 |:------| :-- | :--- |
-| HU-BE-24 | Ver o ranking por tipo de labirinto | Must have |
+| [HU-BE-24](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/285) | Ver o ranking por tipo de labirinto | Must have |
 
 <u>[RF-96](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/176)/Épico: Anulação de corrida pelo operador</u>
 
 | ID (Link Github Projects) | Título | Prioridade |
 |:------| :-- | :--- |
-| HU-BE-25 | Anular uma corrida inválida | Should have |
+| [HU-BE-25](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/286) | Anular uma corrida inválida | Should have |
 
 <u>[RF-97](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/177)/Épico: Numeração de tentativas por tipo de labirinto</u>
 
 | ID (Link Github Projects) | Título | Prioridade |
 |:------| :-- | :--- |
-| HU-BE-26 | Identificar a primeira tentativa em cada labirinto | Should have |
+| [HU-BE-26](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/287) | Identificar a primeira tentativa em cada labirinto | Should have |
 
 <u>[RF-98](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/178)/Épico: Exportação de corrida em JSON e CSV</u>
 
 | ID (Link Github Projects) | Título | Prioridade |
 |:------| :-- | :--- |
-| HU-BE-27 | Exportar os dados de uma corrida | Could have |
+| [HU-BE-27](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/288) | Exportar os dados de uma corrida | Could have |
 
 ### Requisitos Não-Funcionais
 
@@ -216,6 +216,7 @@ Termos como `hello`, `ack`, `seq`, "snapshot" e os status de corrida seguem o pr
 
 ### HU-BE-01 — Conectar somente robôs autorizados
 
+- **Issue:** [#262](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/262)
 - **RF:** [RF-72](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/152) · **Prioridade:** Must have (P0) · **RNF:** RNF-55, RNF-57
 - **História:** Eu, como **operador**, quero que o backend aceite telemetria apenas de robôs cadastrados que falem uma versão de protocolo suportada, para que nenhum dispositivo estranho na rede local contamine os resultados da apresentação.
 - **Critérios de aceitação:**
@@ -228,6 +229,7 @@ Termos como `hello`, `ack`, `seq`, "snapshot" e os status de corrida seguem o pr
 
 ### HU-BE-02 — Saber rapidamente quando o robô perdeu o sinal
 
+- **Issue:** [#263](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/263)
 - **RF:** [RF-73](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/153) · **Prioridade:** Must have (P0)
 - **História:** Eu, como **operador**, quero que o backend perceba em poucos segundos que o robô parou de se comunicar, para saber se o problema está no Wi-Fi e não confundir silêncio com o robô parado.
 - **Critérios de aceitação:**
@@ -239,6 +241,7 @@ Termos como `hello`, `ack`, `seq`, "snapshot" e os status de corrida seguem o pr
 
 ### HU-BE-03 — Confirmar ao robô o que já foi gravado
 
+- **Issue:** [#264](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/264)
 - **RF:** [RF-74](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/154) · **Prioridade:** Must have (P0) · **RNF:** RNF-50
 - **História:** Eu, como **equipe de firmware**, quero que o backend confirme cumulativamente o que já gravou e aceite reenvios sem duplicar nada, para que o ESP32 possa simplesmente reenviar seu buffer depois de uma queda de Wi-Fi, sem precisar processar respostas.
 - **Critérios de aceitação:**
@@ -253,6 +256,7 @@ Termos como `hello`, `ack`, `seq`, "snapshot" e os status de corrida seguem o pr
 
 ### HU-BE-04 — Rejeitar mensagens malformadas sem derrubar a conexão
 
+- **Issue:** [#265](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/265)
 - **RF:** [RF-75](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/155) · **Prioridade:** Must have (P0) · **RNF:** RNF-56, RNF-57
 - **História:** Eu, como **equipe de firmware**, quero que mensagens fora do esquema sejam rejeitadas com o motivo registrado, sem derrubar a conexão, para diagnosticar bugs de serialização no ESP32 sem perder o restante da corrida.
 - **Critérios de aceitação:**
@@ -264,6 +268,7 @@ Termos como `hello`, `ack`, `seq`, "snapshot" e os status de corrida seguem o pr
 
 ### HU-BE-05 — Rejeitar dados fisicamente impossíveis
 
+- **Issue:** [#266](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/266)
 - **RF:** [RF-76](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/156) · **Prioridade:** Must have (P0) · **RNF:** RNF-56
 - **História:** Eu, como **avaliador**, quero que o backend descarte dados impossíveis (célula fora do labirinto, tensão absurda, tempo voltando), para que o mapa e as métricas exibidas sejam confiáveis.
 - **Critérios de aceitação:**
@@ -276,6 +281,7 @@ Termos como `hello`, `ack`, `seq`, "snapshot" e os status de corrida seguem o pr
 
 ### HU-BE-06 — Não duplicar dados reenviados
 
+- **Issue:** [#267](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/267)
 - **RF:** [RF-77](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/157) · **Prioridade:** Must have (P0) · **RNF:** RNF-50, RNF-56
 - **História:** Eu, como **equipe de firmware**, quero poder reenviar mensagens sem medo de duplicá-las, para que a estratégia de reenvio após queda seja simples e segura.
 - **Critérios de aceitação:**
@@ -287,6 +293,7 @@ Termos como `hello`, `ack`, `seq`, "snapshot" e os status de corrida seguem o pr
 
 ### HU-BE-07 — Registrar a corrida sem ação manual
 
+- **Issue:** [#268](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/268)
 - **RF:** [RF-78](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/158) · **Prioridade:** Must have (P0)
 - **História:** Eu, como **operador**, quero que a corrida seja criada automaticamente quando o robô começa a enviar dados, para não precisar operar o sistema durante a apresentação e não correr o risco de perder uma tentativa por esquecimento.
 - **Critérios de aceitação:**
@@ -299,6 +306,7 @@ Termos como `hello`, `ack`, `seq`, "snapshot" e os status de corrida seguem o pr
 
 ### HU-BE-08 — Guardar o registro bruto e inalterável da corrida
 
+- **Issue:** [#269](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/269)
 - **RF:** [RF-79](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/159) · **Prioridade:** Must have (P0) · **RNF:** RNF-49, RNF-51, RNF-54
 - **História:** Eu, como **avaliador**, quero que toda mensagem aceita fique guardada tal como chegou, sem edições posteriores, para que qualquer resultado possa ser auditado e reconstituído.
 - **Critérios de aceitação:**
@@ -310,6 +318,7 @@ Termos como `hello`, `ack`, `seq`, "snapshot" e os status de corrida seguem o pr
 
 ### HU-BE-09 — Preservar o estado do mapa periodicamente
 
+- **Issue:** [#270](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/270)
 - **RF:** [RF-80](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/160) · **Prioridade:** Must have (P0) · **RNF:** RNF-52
 - **História:** Eu, como **operador**, quero que o estado do mapa seja salvo periodicamente, para que o sistema se recupere rápido de um reinício e para que painéis novos recebam o mapa sem reprocessar a corrida inteira.
 - **Critérios de aceitação:**
@@ -321,6 +330,7 @@ Termos como `hello`, `ack`, `seq`, "snapshot" e os status de corrida seguem o pr
 
 ### HU-BE-10 — Encerrar ou marcar como interrompida cada corrida
 
+- **Issue:** [#271](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/271)
 - **RF:** [RF-81](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/161) · **Prioridade:** Must have (P0) · **RNF:** RNF-52
 - **História:** Eu, como **operador**, quero que toda corrida termine com um status definido, mesmo quando o robô reinicia ou some da rede, para que não fiquem corridas "penduradas" no histórico.
 - **Critérios de aceitação:**
@@ -334,6 +344,7 @@ Termos como `hello`, `ack`, `seq`, "snapshot" e os status de corrida seguem o pr
 
 ### HU-BE-11 — Obter o tempo oficial de conclusão
 
+- **Issue:** [#272](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/272)
 - **RF:** [RF-82](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/162) · **Prioridade:** Must have (P0)
 - **História:** Eu, como **avaliador**, quero que o tempo de conclusão seja medido pelo relógio do próprio robô, para que atrasos de Wi-Fi não prejudiquem nem beneficiem nenhuma tentativa.
 - **Critérios de aceitação:**
@@ -344,6 +355,7 @@ Termos como `hello`, `ack`, `seq`, "snapshot" e os status de corrida seguem o pr
 
 ### HU-BE-12 — Acompanhar a velocidade média
 
+- **Issue:** [#273](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/273)
 - **RF:** [RF-83](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/163) · **Prioridade:** Must have (P0)
 - **História:** Eu, como **avaliador**, quero ver a velocidade média do robô atualizada a cada célula, para comparar o desempenho entre tentativas.
 - **Critérios de aceitação:**
@@ -355,6 +367,7 @@ Termos como `hello`, `ack`, `seq`, "snapshot" e os status de corrida seguem o pr
 
 ### HU-BE-13 — Reconstituir o trajeto percorrido
 
+- **Issue:** [#274](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/274)
 - **RF:** [RF-84](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/164) · **Prioridade:** Must have (P0)
 - **História:** Eu, como **equipe de frontend**, quero receber o trajeto já ordenado, com o tempo de cada passagem e as revisitas marcadas, para desenhá-lo no painel sem reimplementar regras de negócio.
 - **Critérios de aceitação:**
@@ -366,6 +379,7 @@ Termos como `hello`, `ack`, `seq`, "snapshot" e os status de corrida seguem o pr
 
 ### HU-BE-14 — Avaliar o consumo de bateria da corrida
 
+- **Issue:** [#275](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/275)
 - **RF:** [RF-85](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/165) · **Prioridade:** Must have (P0)
 - **História:** Eu, como **operador**, quero saber a tensão inicial, a tensão final, a queda de tensão e a carga estimada de cada corrida, para decidir se a bateria aguenta mais uma tentativa.
 - **Critérios de aceitação:**
@@ -379,6 +393,7 @@ Termos como `hello`, `ack`, `seq`, "snapshot" e os status de corrida seguem o pr
 
 ### HU-BE-15 — Ser alertado de bateria baixa
 
+- **Issue:** [#276](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/276)
 - **RF:** [RF-86](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/166) · **Prioridade:** Should have (P1)
 - **História:** Eu, como **operador**, quero ser alertado quando a bateria cair abaixo de um limite seguro, para interromper a tentativa antes de danificar a LiPo ou de o robô falhar por falta de energia.
 - **Critérios de aceitação:**
@@ -389,6 +404,7 @@ Termos como `hello`, `ack`, `seq`, "snapshot" e os status de corrida seguem o pr
 
 ### HU-BE-16 — Saber o resultado da corrida e o motivo
 
+- **Issue:** [#277](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/277)
 - **RF:** [RF-87](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/167) · **Prioridade:** Must have (P0)
 - **História:** Eu, como **avaliador**, quero ver o status de cada corrida e o motivo do término, para distinguir uma falha do robô de um problema de comunicação.
 - **Critérios de aceitação:**
@@ -400,6 +416,7 @@ Termos como `hello`, `ack`, `seq`, "snapshot" e os status de corrida seguem o pr
 
 ### HU-BE-17 — Receber só as atualizações da corrida acompanhada
 
+- **Issue:** [#278](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/278)
 - **RF:** [RF-88](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/168) · **Prioridade:** Must have (P0) · **RNF:** RNF-48, RNF-51
 - **História:** Eu, como **equipe de frontend**, quero que o painel receba apenas as atualizações da corrida em que se inscreveu, além de um canal geral de corridas ao vivo, para não processar dados irrelevantes.
 - **Critérios de aceitação:**
@@ -411,6 +428,7 @@ Termos como `hello`, `ack`, `seq`, "snapshot" e os status de corrida seguem o pr
 
 ### HU-BE-18 — Entrar no meio da corrida e ver o estado completo
 
+- **Issue:** [#279](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/279)
 - **RF:** [RF-89](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/169) · **Prioridade:** Must have (P0)
 - **História:** Eu, como **avaliador**, quero abrir o painel no meio de uma corrida e ver o mapa exatamente como ele está, para acompanhar a tentativa sem ter estado presente desde o início.
 - **Critérios de aceitação:**
@@ -421,6 +439,7 @@ Termos como `hello`, `ack`, `seq`, "snapshot" e os status de corrida seguem o pr
 
 ### HU-BE-19 — Receber dados contínuos em ritmo controlado
 
+- **Issue:** [#280](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/280)
 - **RF:** [RF-90](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/170) · **Prioridade:** Must have (P0) · **RNF:** RNF-48, RNF-49
 - **História:** Eu, como **equipe de frontend**, quero receber no máximo 10 atualizações contínuas por segundo, sempre com o valor mais recente, sem perder nenhum evento discreto, para manter o painel fluido (RNF-38) sem deixar de mostrar nenhuma célula.
 - **Critérios de aceitação:**
@@ -431,6 +450,7 @@ Termos como `hello`, `ack`, `seq`, "snapshot" e os status de corrida seguem o pr
 
 ### HU-BE-20 — Não deixar um painel lento prejudicar os demais
 
+- **Issue:** [#281](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/281)
 - **RF:** [RF-91](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/171) · **Prioridade:** Should have (P1)
 - **História:** Eu, como **operador**, quero que um painel com rede ruim não acumule memória nem atrase os outros, para que o sistema continue estável durante a apresentação.
 - **Critérios de aceitação:**
@@ -442,6 +462,7 @@ Termos como `hello`, `ack`, `seq`, "snapshot" e os status de corrida seguem o pr
 
 ### HU-BE-21 — Ver no painel a perda e a retomada de sinal
 
+- **Issue:** [#282](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/282)
 - **RF:** [RF-92](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/172) · **Prioridade:** Must have (P0)
 - **História:** Eu, como **avaliador**, quero ver no painel quando o robô perdeu e recuperou o sinal, para entender por que os dados pararam de chegar.
 - **Critérios de aceitação:**
@@ -452,6 +473,7 @@ Termos como `hello`, `ack`, `seq`, "snapshot" e os status de corrida seguem o pr
 
 ### HU-BE-22 — Consultar o histórico de corridas
 
+- **Issue:** [#283](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/283)
 - **RF:** [RF-93](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/173) · **Prioridade:** Must have (P0)
 - **História:** Eu, como **avaliador**, quero listar as corridas filtrando por tipo de labirinto, status e período, para encontrar rapidamente uma tentativa específica.
 - **Critérios de aceitação:**
@@ -464,6 +486,7 @@ Termos como `hello`, `ack`, `seq`, "snapshot" e os status de corrida seguem o pr
 
 ### HU-BE-23 — Rever uma corrida passo a passo
 
+- **Issue:** [#284](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/284)
 - **RF:** [RF-94](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/174) · **Prioridade:** Should have (P1)
 - **História:** Eu, como **operador**, quero obter a linha do tempo completa de uma corrida, para reproduzi-la no painel e analisar onde o robô errou.
 - **Critérios de aceitação:**
@@ -475,6 +498,7 @@ Termos como `hello`, `ack`, `seq`, "snapshot" e os status de corrida seguem o pr
 
 ### HU-BE-24 — Ver o ranking por tipo de labirinto
 
+- **Issue:** [#285](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/285)
 - **RF:** [RF-95](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/175) · **Prioridade:** Must have (P0)
 - **História:** Eu, como **avaliador**, quero ver o ranking de cada tipo de labirinto só com corridas válidas, para comparar as tentativas de forma justa.
 - **Critérios de aceitação:**
@@ -486,6 +510,7 @@ Termos como `hello`, `ack`, `seq`, "snapshot" e os status de corrida seguem o pr
 
 ### HU-BE-25 — Anular uma corrida inválida
 
+- **Issue:** [#286](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/286)
 - **RF:** [RF-96](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/176) · **Prioridade:** Should have (P1) · **RNF:** RNF-54, RNF-55
 - **História:** Eu, como **operador**, quero anular uma corrida com justificativa (ex.: houve toque manual), para retirá-la do ranking sem apagar o histórico.
 - **Critérios de aceitação:**
@@ -498,6 +523,7 @@ Termos como `hello`, `ack`, `seq`, "snapshot" e os status de corrida seguem o pr
 
 ### HU-BE-26 — Identificar a primeira tentativa em cada labirinto
 
+- **Issue:** [#287](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/287)
 - **RF:** [RF-97](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/177) · **Prioridade:** Should have (P1)
 - **História:** Eu, como **avaliador**, quero ver o número de cada tentativa por tipo de labirinto dentro da apresentação, porque o TAP valoriza a conclusão na primeira tentativa.
 - **Critérios de aceitação:**
@@ -509,6 +535,7 @@ Termos como `hello`, `ack`, `seq`, "snapshot" e os status de corrida seguem o pr
 
 ### HU-BE-27 — Exportar os dados de uma corrida
 
+- **Issue:** [#288](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/288)
 - **RF:** [RF-98](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/178) · **Prioridade:** Could have (P2) · **RNF:** RNF-49
 - **História:** Eu, como **operador**, quero exportar uma corrida em JSON e CSV, para usar os dados no relatório final e em planilhas.
 - **Critérios de aceitação:**
