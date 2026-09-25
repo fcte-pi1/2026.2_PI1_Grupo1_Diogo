@@ -11,13 +11,13 @@
 
 ## 1. Contexto e escopo
 
-Este documento apresenta **três das cinco visões 4+1** aplicadas ao subsistema de **firmware** (ESP32): **lógica**, **de processos** e **de implementação**. As visões de **dados** (MER/DER) e de **implantação** são tratadas nas atividades 3.3 e 3.5, respectivamente. As decisões de stack são as do documento `4.4.5 - Decisão de Stack`: C++ com **PlatformIO/Arduino-ESP32 sobre FreeRTOS**, arquitetura em **camadas com máquina de estados finita (FSM)** e bibliotecas dedicadas de sensores/atuadores.
+Este documento apresenta **três das cinco visões 4+1** aplicadas ao subsistema de **firmware** (ESP32): **lógica**, **de processos** e **de implementação**. As visões de **dados** (MER/DER) e de **implantação** são tratadas nas atividades 3.3 e 3.5, respectivamente. As decisões de stack são as do documento `arquitetura-stack.md`: C++ com **PlatformIO/Arduino-ESP32 sobre FreeRTOS**, arquitetura de **monólito modular em camadas** (tendo a máquina de estados finita (FSM) como núcleo de controle e tarefas FreeRTOS para o paralelismo) e bibliotecas dedicadas de sensores/atuadores.
 
 Os diagramas estão em **Mermaid**, renderizado nativamente pelo GitHub.
 
 ## 2. Visão Lógica
 
-A visão lógica mostra a decomposição do firmware em **módulos/classes** e suas responsabilidades. A organização é em camadas: **HAL/Drivers** (acesso ao hardware) → **Domínio** (sensoriamento, mapa, navegação, movimento, odometria, telemetria) → **Controle** (máquina de estados e inicialização).
+A visão lógica mostra a decomposição do firmware em **módulos/classes** e suas responsabilidades. Trata-se de um **monólito modular em camadas**: **HAL/Drivers** (acesso ao hardware) -> **Domínio** (sensoriamento, mapa, navegação, movimento, odometria, telemetria) -> **Controle** (máquina de estados e inicialização).
 
 ```mermaid
 classDiagram
@@ -127,7 +127,7 @@ classDiagram
 | FloodFill                                                                            | Propagação de valores e escolha da próxima célula                                            | RF-38, RF-39, RF-40  |
 | Navigator                                                                            | Orquestra o ciclo de navegação e o recálculo de rota                                         | RF-40, RF-41         |
 | MotionController                                                                     | PWM, PID, correção de trajetória, curvas                                                     | RF-42 a RF-46        |
-| Odometry                                                                             | Pulsos → distância, células, velocidade média                                                | RF-47 a RF-50        |
+| Odometry                                                                             | Pulsos -> distância, células, velocidade média                                               | RF-47 a RF-50        |
 | TelemetryEmitter                                                                     | Monta e envia a carga útil (emissor unidirecional)                                           | RF-52, RF-53         |
 | Drivers (ToFArray, IMU, PowerMonitor, MotorDriver, Encoders, LocalInterface, I2CBus) | Acesso ao hardware                                                                           | -                    |
 
@@ -164,7 +164,7 @@ flowchart TB
 
 **Características dos processos:**
 
-- **Núcleo de Navegação (alta prioridade):** executa a FSM e o ciclo de sensoriamento → mapeamento → Flood Fill → movimento em cadência determinística. É o caminho crítico de tempo real.
+- **Núcleo de Navegação (alta prioridade):** executa a FSM e o ciclo de sensoriamento -> mapeamento -> Flood Fill -> movimento em cadência determinística. É o caminho crítico de tempo real.
 - **Emissor de Telemetria (baixa prioridade):** consome _snapshots_ de uma fila e lê o estado compartilhado para montar e enviar a carga útil. Se o Wi-Fi cair, esta tarefa apenas acumula/descarta sem afetar a navegação (RNF-33); a telemetria retoma sozinha ao reconectar.
 - **ISR dos encoders:** rotinas de interrupção contam pulsos sem perda mesmo em alta velocidade (RF-47), atualizando contadores no estado compartilhado.
 - **Sincronização:** _queue_ FreeRTOS para os _snapshots_ e _mutex_ para o estado compartilhado, evitando condição de corrida entre as tarefas e a ISR.
@@ -222,7 +222,7 @@ flowchart TB
 - **`test/`** contém os testes automatizados (Unity), executáveis via `pio test -e native`, alinhados aos casos CT-FW-12, CT-FW-13 e CT-FW-32 do roteiro de testes (`4.4.6`).
 - **Dependências** são declaradas no `platformio.ini` (`lib_deps`) e resolvidas pelo gerenciador do PlatformIO.
 
-## 5. Rastreabilidade (visão → requisitos)
+## 5. Rastreabilidade (visão -> requisitos)
 
 | Visão                                  | Requisitos que fundamentam                    |
 | :------------------------------------- | :-------------------------------------------- |
