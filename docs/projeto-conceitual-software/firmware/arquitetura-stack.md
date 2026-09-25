@@ -43,7 +43,7 @@ O padrão MVC/MVP se aplica a sistemas com interface e interação de usuário; 
 
 | Subfrente    | Linguagem                             | Justificativa                                                                                                                                                                                                                                                                                                                                                                                         |
 | :----------- | :------------------------------------ | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Firmware** | **C++** (padrão do ecossistema ESP32) | Acesso de baixo nível a I²C, PWM/LEDC, interrupções de encoder (RF-42, RF-47) e controle determinístico de tempo real, com amplo suporte de bibliotecas para os sensores do projeto.                                                                                                                                                                                                                  |
+| **Firmware** | **C++** (padrão do ecossistema ESP32) | Acesso de baixo nível a I2C, PWM/LEDC, interrupções de encoder (RF-42, RF-47) e controle determinístico de tempo real, com amplo suporte de bibliotecas para os sensores do projeto.                                                                                                                                                                                                                  |
 | **Backend**  | **TypeScript** sobre **Node.js**      | Os requisitos já pressupõem Node: _event loop_ não bloqueante (RNF-49), simulador de robô **em Node** (RNF-53) e implantação com um comando (RNF-58). O modelo assíncrono orientado a eventos do Node é ideal para muitas conexões WebSocket simultâneas (RNF-51). O TypeScript adiciona tipagem estática, que reduz erros ao lidar com o esquema do protocolo e as regras de domínio (RF-75, RF-76). |
 | **Frontend** | **TypeScript** (+ HTML/CSS)           | Mesma linguagem do backend reduz troca de contexto e permite compartilhar os tipos do protocolo. Tipagem estática ajuda na consistência dos dados de telemetria exibidos.                                                                                                                                                                                                                             |
 
@@ -62,7 +62,7 @@ O padrão MVC/MVP se aplica a sistemas com interface e interação de usuário; 
 - **`ws`**: servidor WebSocket leve, para ingestão do robô e distribuição aos painéis (RF-72, RF-88).
 - **Fastify** (ou Express): API REST de consulta - histórico, filtros, paginação, _leaderboard_ (RF-93, RF-95).
 - **Ajv** (JSON Schema): validação de cada mensagem contra o esquema da versão do protocolo (RF-75).
-- **better-sqlite3**: acesso ao banco (ver seção 6).
+- **PostgreSQL**: acesso ao banco.
 - **Testes:** **Vitest** (ou Jest) + o **simulador de robô em Node** (RNF-53), com cobertura ≥ 80% nos módulos de validação e derivação.
 
 **Frontend (web)**
@@ -71,19 +71,6 @@ O padrão MVC/MVP se aplica a sistemas com interface e interação de usuário; 
 - **Canvas 2D**: renderização da malha do labirinto e do trajeto (RF-60, RF-61) - melhor desempenho que SVG para atualização contínua e retenção de 6.000 amostras (RNF-38, RNF-40).
 - **uPlot**: gráficos de consumo (tensão/corrente/potência) leves e rápidos (RF-68); alternativa mais simples: Chart.js.
 - **Zustand (ou Context API):** estado da aplicação e buffer da tentativa.
-
-## 6. Banco de dados e persistência
-
-**Decisão: banco relacional - SQLite** (via `better-sqlite3`), com o esquema a ser detalhado em **MER/DER na atividade 3.3**.
-
-**Justificativa:**
-
-- Os dados têm forte estrutura relacional e regras de integridade: log _append-only_ por corrida (RF-79), _snapshots_ periódicos (RF-80), idempotência por (corrida, sequência) (RF-77), imutabilidade da corrida finalizada (RNF-54) e consultas com filtros, paginação e _leaderboard_ ordenado (RF-93, RF-95). Restrições e ordenação são naturais em SQL.
-- **SQLite** é _serverless_ e de arquivo único: atende à implantação com um único comando em ≤ 2 min (RNF-58) e à operação em rede local isolada (RNF-41), sem instalar/gerenciar um servidor de banco.
-- A escala é pequena (1 robô, ~10 painéis; ~6.000 registros por tentativa a 10 Hz), bem dentro da capacidade do SQLite, com latência adequada aos alvos (RNF-48).
-- Sendo **relacional**, o entregável de persistência é **MER + DER** (conforme o 4.4), coerente com o escopo da atividade 3.3.
-
-Alternativa considerada: **PostgreSQL** - mais robusto e concorrente, porém exige servidor e configuração, contrariando a simplicidade de implantação; fica como opção caso a equipe queira um banco cliente-servidor. **NoSQL/documento** (ex.: MongoDB) foi descartado: embora o fluxo _append-only_ combine com log de eventos, as consultas relacionais (leaderboard, filtros, integridade/imutabilidade) e a exigência de implantação simples favorecem o relacional embarcado.
 
 ## 7. Protocolo de comunicação
 
