@@ -1,0 +1,108 @@
+@startuml atividades-A-recepcao-persistencia
+' Diagrama de Atividades — Raia do Backend (A): recepção, validação e persistência
+' Issue #247 · Fonte editável; a imagem exportada é o .svg de mesmo nome.
+' Renderizar: java -jar plantuml.jar -tsvg atividades-A-recepcao-persistencia.puml
+!pragma useVerticalIf on
+skinparam defaultFontName Arial
+skinparam shadowing false
+skinparam ActivityBackgroundColor #F8FAFC
+skinparam ActivityBorderColor #334155
+skinparam ActivityDiamondBackgroundColor #FFF7ED
+skinparam SwimlaneTitleFontStyle bold
+title Diagrama de Atividades — Backend (A): recepção, validação e persistência
+
+|Robô (firmware)|
+start
+:Conectar ao backend
+(WebSocket /ws/telemetria);
+:Enviar **hello**
+(dispositivo, token, v, boot); <<output>>
+note left
+  O robô é **emissor unidirecional**:
+  apenas envia, nunca aguarda
+  resposta do backend.
+end note
+
+|Backend|
+:Receber hello (até 5 s); <<input>>
+if (Token válido e versão\nde protocolo suportada?) then (não)
+  :Registrar rejeição
+  (log + mensagem_rejeitada);
+  :Encerrar conexão
+  (close 4001 / 4002);
+  stop
+else (sim)
+endif
+:Registrar evento CONECTADO;
+if (Mesmo dispositivo, boot diferente\ne corrida EM_ANDAMENTO?) then (sim)
+  :Marcar corrida anterior
+  INTERROMPIDA (REINICIO_ROBO);
+  :Notificar painéis; <<output>>
+else (não)
+endif
+
+fork
+  :Monitorar sinal
+  (ver Diagrama B);
+fork again
+  |Robô (firmware)|
+  repeat
+    :Enviar mensagem de corrida
+    (v, tipo, corrida, seq, t, dados); <<output>>
+    |Backend|
+    :Receber mensagem; <<input>>
+    if (Válida no esquema\nda versão declarada?) then (não)
+      :Registrar rejeição com motivo
+      e incrementar contador;
+    elseif (Respeita as regras\nde domínio?) then (não)
+      :Registrar rejeição com motivo
+      e incrementar contador;
+    elseif ((corrida, seq)\njá persistido?) then (sim)
+      :Incrementar contador de duplicadas
+      e reenviar ack cumulativo;
+    else (mensagem nova)
+      if (Corrida conhecida?) then (não)
+        :Criar corrida de forma idempotente
+        (UUID, nº de tentativa);
+      else (sim)
+      endif
+      :Adicionar ao lote de gravação;
+      :Persistir lote em transação
+      (append-only, ON CONFLICT DO NOTHING);
+      note right
+        Saída: linhas em **mensagem**
+        (PostgreSQL)
+      end note
+      :Aplicar ao estado em memória, em ordem de seq
+      (mapa, trajeto, métricas, energia);
+      fork
+        :Enviar ack cumulativo
+        (maior seq contíguo); <<output>>
+      fork again
+        :Publicar eventos aos
+        painéis inscritos; <<output>>
+        |Painel (frontend)|
+        :Atualizar mapa, métricas
+        e indicadores; <<input>>
+        |Backend|
+      fork again
+        if (+20 células desde\no último snapshot?) then (sim)
+          :Persistir snapshot do mapa;
+        else (não)
+        endif
+      end fork
+      if (Mensagem é fim_corrida?) then (sim)
+        :Fixar métricas finais e status
+        CONCLUÍDA ou FALHOU;
+        :Persistir snapshot final;
+        :Recalcular leaderboard
+        do tipo de labirinto;
+        :Notificar painéis: leaderboard; <<output>>
+      else (não)
+      endif
+    endif
+  repeat while (Conexão aberta?) is (sim) not (não)
+end fork
+:Registrar evento DESCONECTADO;
+stop
+@enduml

@@ -1,0 +1,19 @@
+sequenceDiagram
+    autonumber
+    participant R as Robô (emissor unidirecional)
+    participant B as Backend
+    participant DB as PostgreSQL
+    participant P as Painéis
+
+    R->>B: seq 1..120 (persistidas)
+    Note over R,B: Wi-Fi cai: seq 121..400 ficam no buffer circular do robô (≥ 60 s)
+    B->>B: 3 s sem pong → sinal PERDIDO
+    B-->>P: sinal PERDIDO (≤ 1 s)
+    R->>B: reconecta · hello (mesmo boot)
+    B-->>P: sinal RETOMADO
+    R->>B: reenvia todo o buffer retido (seq 101..400)
+    B->>DB: INSERT … ON CONFLICT DO NOTHING (101..120 já existem)
+    B->>B: contador de duplicadas += 20
+    B-->>R: ack 400 (informativo, o robô não precisa processar)
+    Note over DB: cada seq exatamente uma vez · sem lacunas
+    Note over B,DB: se o robô não reenviar, a lacuna 121..400<br/>fica registrada em corrida.seqs_faltantes<br/>(RNF-50: lacuna sinalizada)

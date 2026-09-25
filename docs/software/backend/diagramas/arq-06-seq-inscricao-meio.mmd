@@ -1,0 +1,14 @@
+sequenceDiagram
+    autonumber
+    participant P as Painel novo
+    participant DI as ServicoDistribuicao
+    participant CO as Estado da corrida (memória)
+
+    P->>DI: inscrever {corrida}
+    Note over DI,CO: mesmo tick do event loop: sem mensagem intercalada
+    DI->>CO: snapshot()
+    CO-->>DI: {mapa, posicao, metricas, status, seq_corte=300}
+    DI->>DI: adicionar P aos inscritos
+    DI-->>P: snapshot (seq_corte=300)
+    CO->>DI: evento seq=301
+    DI-->>P: evento seq=301

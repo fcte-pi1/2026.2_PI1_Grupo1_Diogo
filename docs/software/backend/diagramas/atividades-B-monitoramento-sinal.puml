@@ -1,0 +1,64 @@
+@startuml atividades-B-monitoramento-sinal
+' Diagrama de Atividades — Raia do Backend (B): monitoramento de sinal
+' Issue #247 · Fonte editável; a imagem exportada é o .svg de mesmo nome.
+' Renderizar: java -jar plantuml.jar -tsvg atividades-B-monitoramento-sinal.puml
+!pragma useVerticalIf on
+skinparam defaultFontName Arial
+skinparam shadowing false
+skinparam ActivityBackgroundColor #F8FAFC
+skinparam ActivityBorderColor #334155
+skinparam ActivityDiamondBackgroundColor #FFF7ED
+skinparam SwimlaneTitleFontStyle bold
+title Diagrama de Atividades — Backend (B): monitoramento de sinal e interrupção
+
+|Backend|
+start
+repeat
+  :Enviar ping a cada 1 s
+  (frame de controle do WebSocket);
+  note right
+    O pong é respondido pela pilha
+    WebSocket do ESP32 (transporte),
+    sem lógica de aplicação no robô.
+  end note
+repeat while (Pong ou mensagem\nnos últimos 3 s?) is (sim) not (não)
+:Declarar sinal perdido;
+fork
+  :Registrar evento SINAL_PERDIDO;
+fork again
+  :Notificar painéis:
+  sinal PERDIDO (até 1 s); <<output>>
+  |Painel (frontend)|
+  :Exibir "sem sinal"; <<input>>
+  |Backend|
+end fork
+
+switch (Robô reconectou\nem até 120 s?)
+case (sim, mesmo boot)
+  :Registrar SINAL_RETOMADO;
+  :Notificar painéis:
+  sinal RETOMADO; <<output>>
+  :Retomar recepção (Diagrama A);
+  note right
+    O robô reenvia seu buffer retido.
+    Duplicatas são descartadas
+    pela idempotência (RF-77).
+  end note
+case (sim, boot diferente)
+  :Tratar como reinício do robô
+  (Diagrama A);
+case (não: 120 s sem sinal)
+  :Marcar corrida INTERROMPIDA
+  (SEM_SINAL);
+  :Notificar painéis e canal
+  de corridas ao vivo; <<output>>
+  if (Chega depois um lote tardio\ncom fim_corrida?) then (sim)
+    :Persistir lote e calcular tempo
+    pelo relógio do robô;
+    :Status CONCLUÍDA ou FALHOU
+    e recalcular leaderboard;
+  else (não)
+  endif
+endswitch
+stop
+@enduml

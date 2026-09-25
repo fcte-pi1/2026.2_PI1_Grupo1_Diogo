@@ -1,0 +1,15 @@
+sequenceDiagram
+    autonumber
+    participant R as Robô
+    participant CO as ServicoCorrida
+    participant DB as PostgreSQL
+    participant DI as ServicoDistribuicao
+    participant P as Painéis
+
+    R->>CO: fim_corrida {resultado: sucesso, t=95500}
+    CO->>CO: tempo = 95500 − 1000 = 94,5 s · fixar velocidade e energia
+    CO->>DB: UPDATE corrida (status CONCLUIDA, métricas finais) + snapshot final
+    CO->>DI: evento status CONCLUIDA
+    DI-->>P: evento status · ao_vivo
+    DI-->>P: leaderboard {labirinto: 4x4} (≤ 1 s)
+    P->>DI: GET /api/leaderboard?labirinto=4x4

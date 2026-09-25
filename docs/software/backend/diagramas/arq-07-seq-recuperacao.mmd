@@ -1,0 +1,17 @@
+sequenceDiagram
+    autonumber
+    participant B as Backend (reiniciando)
+    participant DB as PostgreSQL
+    participant R as Robô (emissor unidirecional)
+
+    B->>DB: SELECT corridas EM_ANDAMENTO
+    loop cada corrida
+        B->>DB: último snapshot_mapa
+        B->>DB: mensagens com seq > seq_corte, em ordem
+        B->>B: reconstruir EstadoMapa, Trajeto, métricas e JanelaSequencia
+    end
+    Note over B: pronto em ≤ 5 s · começa a aceitar conexões
+    R->>B: reconecta · hello (mesmo boot)
+    R->>B: reenvia o buffer retido
+    B->>DB: INSERT … ON CONFLICT DO NOTHING
+    Note over B,DB: o que já estava gravado é descartado como duplicata · sem lacunas

@@ -1,0 +1,54 @@
+@startuml arq-01-modulos
+' Visão lógica do backend — módulos e dependências entre camadas (Issue #253)
+' Renderizar: java -jar plantuml.jar -charset UTF-8 -tsvg arq-01-modulos.puml
+skinparam defaultFontName Arial
+skinparam shadowing false
+skinparam componentStyle rectangle
+skinparam packageStyle rectangle
+skinparam ArrowColor #334155
+top to bottom direction
+
+package "Adaptadores (entrada)" as ADAPT #EFF6FF {
+  [ws-telemetria\nGatewayTelemetria · MonitorHeartbeat] as WT
+  [ws-painel\nGatewayPainel · ControleFluxo] as WP
+  [http\nRotas REST · Auth · /health] as HTTP
+}
+
+package "Aplicação (casos de uso)" as APP #F0FDF4 {
+  [ServicoIngestao] as ING
+  [ServicoCorrida] as COR
+  [ServicoDistribuicao\nInscrições · LimitadorTaxa] as DIS
+  [ServicoConsulta] as CON
+  [ServicoAnulacao] as ANU
+}
+
+package "Domínio (puro, sem I/O)" as DOM #FFF7ED {
+  [Validação\nesquema + domínio] as VAL
+  [Corrida\nmáquina de status] as CORR
+  [Derivação\nEstadoMapa · Trajeto · Métricas · Energia] as DER
+  [JanelaSequencia\nack contíguo] as SEQ
+}
+
+package "Infraestrutura (implementa as portas)" as INFRA #F8FAFC {
+  [GravadorLote] as LOTE
+  [Repositórios PostgreSQL] as REPO
+  [BarramentoEventos] as BUS
+  [Logger · Contadores] as OBS
+}
+
+WT --> ING
+WP --> DIS
+HTTP --> CON
+HTTP --> ANU
+ING --> COR
+ING --> VAL
+COR --> CORR
+COR --> DER
+COR --> SEQ
+ING ..> LOTE : porta
+CON ..> REPO : porta
+ANU ..> REPO : porta
+COR ..> BUS : publica
+BUS ..> DIS : eventos da corrida
+LOTE --> REPO
+@enduml
