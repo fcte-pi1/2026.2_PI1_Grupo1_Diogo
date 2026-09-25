@@ -44,15 +44,15 @@ Cada caso contém: **Código** (CT-FW-XX) - **Nome** - **Rastreabilidade** (RF +
   3. Repetir induzindo falha (ex.: GPIO essencial em curto/aberto conhecido).
 - **Resultado esperado:** no boot normal, o log confirma auto-teste OK antes de qualquer acesso a periférico; sob falha, o firmware **não** prossegue à inicialização dos periféricos e sinaliza a falha (LED/buzzer).
 
-**CT-FW-02 - Reendereçamento dos sensores ToF no I²C**
+**CT-FW-02 - Reendereçamento dos sensores ToF no I2C**
 
 - **Rastreabilidade:** RF-28 - [#108](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/108) - HU-02
-- **Objetivo:** confirmar que os sete VL53L1X recebem endereços I²C únicos.
+- **Objetivo:** confirmar que os sete VL53L1X recebem endereços I2C únicos.
 - **Pré-condições:** sete ToF conectados com seus pinos XSHUT no barramento; monitor serial.
 - **Procedimento:**
   1. Energizar.
   2. Acompanhar o log de reendereçamento.
-  3. Executar varredura I²C após a inicialização.
+  3. Executar varredura I2C após a inicialização.
 - **Resultado esperado:** o log mostra desativação por XSHUT, ativação individual e gravação de endereço com confirmação a cada passo; a varredura final acusa **7 endereços distintos**. Endereço duplicado ou sensor mudo gera falha de inicialização.
 
 **CT-FW-03 - Verificação de comunicação com IMU e INA219**
