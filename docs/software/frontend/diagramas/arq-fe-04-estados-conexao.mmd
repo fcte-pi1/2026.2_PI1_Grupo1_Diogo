@@ -1,0 +1,26 @@
+%% Visão lógica do frontend — máquina de estados da conexão painel ↔ backend (Issue #254)
+%% Renderizar: npx -p @mermaid-js/mermaid-cli mmdc -c mermaid-config.json -b white -i arq-fe-04-estados-conexao.mmd -s 2 -o arq-fe-04-estados-conexao.png
+stateDiagram-v2
+    direction LR
+    [*] --> RECONECTANDO : página carregada
+
+    state RECONECTANDO {
+        direction LR
+        [*] --> Tentando
+        Tentando --> Aguardando : onerror / onclose
+        Aguardando --> Tentando : backoff expira
+    }
+
+    RECONECTANDO --> CONECTADO : onopen / inscrições
+    CONECTADO --> RECONECTANDO : onclose ou 3 s sem mensagens (watchdog)
+    RECONECTANDO --> DESCONECTADO : evento offline do navegador
+    CONECTADO --> DESCONECTADO : evento offline do navegador
+    DESCONECTADO --> RECONECTANDO : evento online do navegador
+
+    note right of RECONECTANDO
+        Backoff: 0,25 → 0,5 → 1 → 2 s (teto 2 s, RNF-39)
+    end note
+    note right of CONECTADO
+        Rótulo exibido em CONECTADO depende do sinal do robô:
+        OK → "Conectado" · PERDIDO → "Sem sinal do robô"
+    end note

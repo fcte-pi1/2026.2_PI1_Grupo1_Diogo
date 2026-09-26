@@ -1,0 +1,116 @@
+%% Visão lógica do frontend — modelo de estado e classes do domínio (Issue #254)
+%% Renderizar: npx -p @mermaid-js/mermaid-cli mmdc -c mermaid-config.json -b white -i arq-fe-02-modelo-estado.mmd -s 2 -o arq-fe-02-modelo-estado.png
+classDiagram
+    direction TB
+
+    class Store {
+        conexao : EstadoConexao
+        aoVivo : EstadoExecucao
+        detalhe : EstadoExecucao
+        historico : EstadoHistorico
+        alertas : Alerta[]
+        aplicarMensagem(msg)
+        aplicarSnapshot(snap)
+        carregarHistorico(filtro, pagina)
+        carregarDetalhe(id)
+    }
+
+    class EstadoConexao {
+        status : CONECTADO | RECONECTANDO | DESCONECTADO
+        sinalRobo : OK | PERDIDO | DESCONHECIDO
+        tentativas : int
+        ultimaMensagemEm : ms
+    }
+
+    class EstadoExecucao {
+        corridaId : string
+        modo : AO_VIVO | HISTORICO
+        labirinto : 4x4 | 8x4 | 12x4
+        status : StatusCorrida
+        motivoTermino : string
+        ultimoSeq : int
+        metricas : Metricas
+        depuracao : LeiturasBrutas
+    }
+
+    class ModeloLabirinto {
+        colunas : 4 | 8 | 12
+        linhas : 4
+        paredesHorizontais : EstadoParede[]
+        paredesVerticais : EstadoParede[]
+        criar(tipo) ModeloLabirinto
+        aplicarCelula(x, y, paredes) ModeloLabirinto
+        estadoParede(x, y, lado) EstadoParede
+    }
+
+    class Trajeto {
+        passagens : Passagem[]
+        inserir(passagem) Trajeto
+        posicaoAtual() Celula
+        visitasDe(x, y) int
+    }
+
+    class Passagem {
+        seq : int
+        x : int
+        y : int
+        tRoboMs : int
+        revisita : bool
+    }
+
+    class SerieEnergia {
+        t : Float64Array
+        tensaoV : Float64Array
+        correnteA : Float64Array
+        potenciaW : Float64Array
+        tamanho : int
+        adicionar(amostra)
+        mesclar(amostras)
+        paraUPlot() AlignedData
+    }
+
+    class RelogioTentativa {
+        inicioRoboMs : int
+        ancoraRoboMs : int
+        ancoraLocalMs : number
+        congeladoMs : int
+        ultimoExibidoMs : int
+        tempoExibido(agoraLocal) int
+    }
+
+    class Metricas {
+        velocidadeMediaMps : number
+        tempoConclusaoMs : int
+        celulasPercorridas : int
+        tensaoV : number
+        correnteA : number
+        potenciaW : number
+        cargaEstimadaPct : number
+        variacaoTensaoV : number
+    }
+
+    class EstadoHistorico {
+        filtro : 4x4 | 8x4 | 12x4 | TODOS
+        pagina : int
+        itens : ResumoCorrida[]
+        carregando : bool
+        erro : string
+    }
+
+    class EstadoParede {
+        <<enumeration>>
+        DESCONHECIDA
+        PRESENTE
+        AUSENTE
+    }
+
+    Store *-- EstadoConexao
+    Store *-- "0..2" EstadoExecucao : aoVivo / detalhe
+    Store *-- EstadoHistorico
+    EstadoExecucao *-- ModeloLabirinto
+    EstadoExecucao *-- Trajeto
+    EstadoExecucao *-- SerieEnergia
+    EstadoExecucao *-- RelogioTentativa
+    EstadoExecucao *-- Metricas
+    Trajeto *-- "0..*" Passagem
+    ModeloLabirinto ..> EstadoParede

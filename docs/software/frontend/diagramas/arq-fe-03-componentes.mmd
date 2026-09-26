@@ -1,0 +1,27 @@
+%% Visão lógica do frontend — árvore de componentes por tela (Issue #254)
+%% Renderizar: npx -p @mermaid-js/mermaid-cli mmdc -c mermaid-config.json -b white -i arq-fe-03-componentes.mmd -s 2 -o arq-fe-03-componentes.png
+%%{init: {"flowchart": {"wrappingWidth": 560}}}%%
+flowchart LR
+    APP["App<br/>(layout + rotas)"]
+    CAB["Cabecalho<br/>IndicadorConexao (RF-59)<br/>navegação Ao vivo / Histórico"]
+
+    APP --> CAB
+    APP --> R1["rota /<br/>PaginaAoVivo"]
+    APP --> R3["rota /historico/:id<br/>PaginaDetalhe"]
+    APP --> R2["rota /historico<br/>PaginaHistorico"]
+
+    R1 -- "fonte = aoVivo" --> VE
+    R3 -- "fonte = detalhe (RF-67)" --> VE
+    R3 --> EXP["BotaoExportar<br/>(RF-71)"]
+
+    R2 --> FIL["FiltroLabirinto<br/>(RF-66)"]
+    R2 --> TAB["TabelaHistorico + Paginacao<br/>(RF-65)"]
+
+    VE["VisualizacaoExecucao — mesma composição nas duas fontes:<br/>• BannerStatus: desafio cumprido · falha · sem sinal · tensão baixa (RF-63, RF-69)<br/>• LabirintoCanvas: grade · paredes · trajeto · robô (RF-60, RF-61, RF-62)<br/>• PainelMetricas: 6 × CartaoMetrica + Cronometro (RF-57, RF-64)<br/>• GraficoConsumo (uPlot) (RF-68)<br/>• PainelDepuracao: área secundária recolhível (RF-70)"]
+
+    classDef pag fill:#EFF6FF,stroke:#3B82F6,color:#0F172A
+    classDef cmp fill:#F8FAFC,stroke:#64748B,color:#0F172A
+    classDef ve fill:#F0FDF4,stroke:#22C55E,color:#0F172A,text-align:left
+    class R1,R2,R3 pag
+    class APP,CAB,EXP,FIL,TAB cmp
+    class VE ve
