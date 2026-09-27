@@ -1,0 +1,63 @@
+%% Visão lógica do frontend — camadas, módulos e fluxo unidirecional (Issue #254)
+%% Renderizar: npx -p @mermaid-js/mermaid-cli mmdc -c mermaid-config.json -b white -i arq-fe-01-camadas.mmd -s 2 -o arq-fe-01-camadas.png
+flowchart TB
+    subgraph VIEW["Apresentação (view): componentes React"]
+        direction LR
+        PAG["Páginas<br/>PaginaAoVivo · PaginaHistorico · PaginaDetalhe"]
+        VIS["VisualizacaoExecucao<br/>(reutilizada no ao vivo e no detalhe)"]
+        CMP["Componentes<br/>LabirintoCanvas · PainelMetricas · Cronometro<br/>GraficoConsumo · IndicadorConexao · BannerStatus<br/>TabelaHistorico · FiltroLabirinto · PainelDepuracao · BotaoExportar"]
+    end
+
+    subgraph VM["View-model: hooks e seletores"]
+        direction LR
+        HK["useExecucao(fonte) · useConexao<br/>useHistorico · useDetalhe · useCronometro"]
+        FMT["formatacao<br/>unidades · tempo · rótulos de status"]
+    end
+
+    subgraph EST["Estado (store Zustand)"]
+        direction LR
+        SL["Fatias: conexao · aoVivo · detalhe<br/>historico · alertas"]
+        ACT["Ações<br/>aplicarMensagem · aplicarSnapshot<br/>carregarHistorico · carregarDetalhe"]
+    end
+
+    subgraph DOM["Domínio (TypeScript puro, sem React e sem I/O)"]
+        direction LR
+        ML["ModeloLabirinto"]
+        TR["Trajeto"]
+        SE["SerieEnergia"]
+        RL["RelogioTentativa"]
+        RED["redutores<br/>(mensagem → novo estado)"]
+    end
+
+    subgraph ADP["Adaptadores (I/O)"]
+        direction LR
+        WS["ClientePainelWS<br/>conexão · backoff · inscrições · despacho"]
+        API["ClienteApi<br/>fetch: listagem · detalhe · exportação"]
+        QD["AgendadorQuadro<br/>requestAnimationFrame"]
+    end
+
+    BE[("Backend<br/>/ws/painel · /api")]
+
+    PAG --> VIS --> CMP
+    CMP -- "lê via seletores" --> HK
+    CMP -- "formata" --> FMT
+    CMP -- "interação do usuário" --> ACT
+    HK -- "assina fatias" --> SL
+    ACT -- "calcula o novo estado" --> RED
+    RED --> ML & TR & SE & RL
+    ACT -- "porta de consulta" --> API
+    WS -- "despacha mensagens" --> ACT
+    QD -- "sinaliza quadro" --> CMP
+    WS <-- "WebSocket (JSON)" --> BE
+    API -- "HTTP (JSON)" --> BE
+
+    classDef view fill:#EFF6FF,stroke:#3B82F6,color:#0F172A
+    classDef vm fill:#F5F3FF,stroke:#8B5CF6,color:#0F172A
+    classDef est fill:#F0FDF4,stroke:#22C55E,color:#0F172A
+    classDef dom fill:#FFF7ED,stroke:#F97316,color:#0F172A
+    classDef adp fill:#F8FAFC,stroke:#64748B,color:#0F172A
+    class PAG,VIS,CMP view
+    class HK,FMT vm
+    class SL,ACT est
+    class ML,TR,SE,RL,RED dom
+    class WS,API,QD adp

@@ -1,0 +1,23 @@
+%% Visão de processos do frontend — fluxo de uma atualização ao vivo (Issue #254)
+%% Renderizar: npx -p @mermaid-js/mermaid-cli mmdc -c mermaid-config.json -b white -i arq-fe-05-seq-atualizacao.mmd -s 2 -o arq-fe-05-seq-atualizacao.png
+sequenceDiagram
+    autonumber
+    participant BE as Backend
+    participant WS as ClientePainelWS
+    participant ST as Store (fatia aoVivo)
+    participant DO as Domínio (redutores)
+    participant QD as AgendadorQuadro (rAF)
+    participant UI as Componentes (React, Canvas, uPlot)
+
+    BE->>WS: evento {celula, seq} ou continuo {posicao, energia}
+    WS->>WS: JSON.parse e discriminação por tipo
+    WS->>ST: aplicarMensagem(msg)
+    ST->>DO: reduzir(estado, msg)
+    Note over DO: seq ≤ ultimoSeq → descarta (idempotência)<br/>celula → ModeloLabirinto.aplicarCelula + Trajeto.inserir<br/>continuo → posição, Metricas, SerieEnergia.adicionar
+    DO-->>ST: novo estado (versão + 1)
+    ST->>QD: marcar alteração
+    Note over ST,QD: mensagens seguintes no mesmo quadro<br/>só atualizam o estado (sem desenhar)
+    QD->>UI: próximo quadro (≤ 16,7 ms)
+    UI->>ST: seletores leem só as fatias alteradas
+    UI->>UI: cartões · canvas · gráfico
+    Note over BE,UI: dado aceito pelo backend → visível em ≈ 1 quadro, bem abaixo dos 500 ms do RNF-37

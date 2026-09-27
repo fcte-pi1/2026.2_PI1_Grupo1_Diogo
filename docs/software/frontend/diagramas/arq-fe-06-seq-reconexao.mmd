@@ -1,0 +1,31 @@
+%% Visão de processos do frontend — reconexão e ressincronização no meio da corrida (Issue #254)
+%% Renderizar: npx -p @mermaid-js/mermaid-cli mmdc -c mermaid-config.json -b white -i arq-fe-06-seq-reconexao.mmd -s 2 -o arq-fe-06-seq-reconexao.png
+sequenceDiagram
+    autonumber
+    participant UI as Painel (componentes)
+    participant WS as ClientePainelWS
+    participant API as ClienteApi
+    participant ST as Store
+    participant BE as Backend
+
+    Note over WS,BE: queda da conexão durante uma corrida
+    WS->>ST: conexao.status = RECONECTANDO
+    ST-->>UI: indicador "Reconectando" (RF-59)
+    loop backoff 0,25 → 0,5 → 1 → 2 s (teto 2 s, RNF-39)
+        WS->>BE: new WebSocket(/ws/painel)
+    end
+    BE-->>WS: onopen
+    WS->>ST: conexao.status = CONECTADO
+    WS->>BE: inscrever {canal: ao_vivo}
+    API->>BE: GET /api/corridas?status=EM_ANDAMENTO
+    BE-->>API: corrida em andamento (id, labirinto)
+    WS->>BE: inscrever {corrida}
+    BE-->>WS: snapshot {mapa, posicao, metricas, status, seq_corte = N}
+    WS->>ST: aplicarSnapshot → substitui mapa, posição, métricas e status
+    API->>BE: GET /api/corridas/{id}
+    BE-->>API: trajeto e leituras de energia até agora
+    API->>ST: mesclar trajeto por seq e energia por tempo do robô
+    Note over ST: o snapshot não traz trajeto nem série de energia:<br/>a mescla por seq/t preenche o que o painel perdeu
+    BE-->>WS: evento seq = N + 1, N + 2 …
+    WS->>ST: aplicarMensagem (seq ≤ ultimoSeq é descartado)
+    ST-->>UI: tela ressincronizada
