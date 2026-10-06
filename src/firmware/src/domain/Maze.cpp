@@ -72,4 +72,7 @@ void MazeMap::initKnownPerimeter() {
     }
 }
 
+bool MazeMap::isBlocked(const Position& pos, Direction dir) const {
+    return getWall(pos, dir) == Wall::Present;
+}
 }  // namespace micromouse::domain
