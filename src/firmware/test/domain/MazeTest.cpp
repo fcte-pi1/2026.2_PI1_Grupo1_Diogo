@@ -23,6 +23,13 @@ TEST(MazeMap, InternalWallsAreUnknownInitially) {
     EXPECT_EQ(medium.getWall({1, 1}, Direction::West), Wall::Unknown);
 };
 
+TEST(MazeMap, RejectsNonPositiveDimensions) {
+    EXPECT_THROW(MazeMap(0, 4), std::invalid_argument);
+    EXPECT_THROW(MazeMap(4, 0), std::invalid_argument);
+    EXPECT_THROW(MazeMap(-1, 4), std::invalid_argument);
+    EXPECT_THROW(MazeMap(4, -1), std::invalid_argument);
+};
+
 TEST(MazeMap, SetWallIsConsistentOnBothSides) {
     MazeMap medium(4, 8);
 
