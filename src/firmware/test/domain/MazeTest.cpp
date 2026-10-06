@@ -23,6 +23,26 @@ TEST(MazeMap, InternalWallsAreUnknownInitially) {
     EXPECT_EQ(medium.getWall({1, 1}, Direction::West), Wall::Unknown);
 };
 
+TEST(MazeMap, SetWallIsConsistentOnBothSides) {
+    MazeMap medium(4, 8);
+
+    medium.setWall({1, 1}, Direction::North, Wall::Present);
+    EXPECT_EQ(medium.getWall({1, 1}, Direction::North), Wall::Present);
+    EXPECT_EQ(medium.getWall({0, 1}, Direction::South), Wall::Present);
+
+    medium.setWall({1, 1}, Direction::East, Wall::Open);
+    EXPECT_EQ(medium.getWall({1, 1}, Direction::East), Wall::Open);
+    EXPECT_EQ(medium.getWall({1, 2}, Direction::West), Wall::Open);
+
+    medium.setWall({1, 1}, Direction::South, Wall::Present);
+    EXPECT_EQ(medium.getWall({1, 1}, Direction::South), Wall::Present);
+    EXPECT_EQ(medium.getWall({2, 1}, Direction::North), Wall::Present);
+
+    medium.setWall({1, 1}, Direction::West, Wall::Open);
+    EXPECT_EQ(medium.getWall({1, 1}, Direction::West), Wall::Open);
+    EXPECT_EQ(medium.getWall({1, 0}, Direction::East), Wall::Open);
+};
+
 TEST(MazeMap, _){};
 
 }  // namespace
