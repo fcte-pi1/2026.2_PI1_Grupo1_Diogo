@@ -69,7 +69,5 @@ TEST(MazeMap, IsBlockedOnlyBlocksWhenWallPresent) {
     EXPECT_TRUE(medium.isBlocked({1, 1}, Direction::North));  // Present
 };
 
-TEST(MazeMap, _){};
-
 }  // namespace
 }  // namespace micromouse::domain
