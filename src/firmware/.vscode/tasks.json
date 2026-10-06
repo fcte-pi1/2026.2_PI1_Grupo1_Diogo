@@ -1,0 +1,44 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "CMake: configurar (debug)",
+            "type": "shell",
+            "command": "cmake --preset debug",
+            "options": { "cwd": "${workspaceFolder}" },
+            "problemMatcher": []
+        },
+        {
+            "label": "CMake: compilar (debug)",
+            "type": "shell",
+            "command": "cmake --build --preset debug",
+            "options": { "cwd": "${workspaceFolder}" },
+            "dependsOn": "CMake: configurar (debug)",
+            "group": { "kind": "build", "isDefault": true },
+            "problemMatcher": ["$gcc"]
+        },
+        {
+            "label": "Executar firmware",
+            "type": "shell",
+            "command": "${workspaceFolder}/build/debug/firmware",
+            "dependsOn": "CMake: compilar (debug)",
+            "problemMatcher": []
+        },
+        {
+            "label": "CTest: executar testes (debug)",
+            "type": "shell",
+            "command": "ctest --preset debug",
+            "options": { "cwd": "${workspaceFolder}" },
+            "dependsOn": "CMake: compilar (debug)",
+            "group": { "kind": "test", "isDefault": true },
+            "problemMatcher": []
+        },
+        {
+            "label": "Cobertura: gerar relatório (gcovr)",
+            "type": "shell",
+            "command": "cmake --preset coverage && cmake --build --preset coverage --target coverage",
+            "options": { "cwd": "${workspaceFolder}" },
+            "problemMatcher": ["$gcc"]
+        }
+    ]
+}
