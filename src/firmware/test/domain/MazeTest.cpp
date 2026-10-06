@@ -15,19 +15,19 @@ TEST(MazeMap, StoresDimensionsOnConstruction) {
     EXPECT_EQ(medium.getColumns(), 8);
 }
 
+TEST(MazeMap, RejectsNonPositiveDimensions) {
+    EXPECT_THROW(MazeMap(0, 4), std::invalid_argument);
+    EXPECT_THROW(MazeMap(4, 0), std::invalid_argument);
+    EXPECT_THROW(MazeMap(-1, 4), std::invalid_argument);
+    EXPECT_THROW(MazeMap(4, -1), std::invalid_argument);
+};
+
 TEST(MazeMap, InternalWallsAreUnknownInitially) {
     MazeMap medium(4, 8);
     EXPECT_EQ(medium.getWall({1, 1}, Direction::North), Wall::Unknown);
     EXPECT_EQ(medium.getWall({1, 1}, Direction::East), Wall::Unknown);
     EXPECT_EQ(medium.getWall({1, 1}, Direction::South), Wall::Unknown);
     EXPECT_EQ(medium.getWall({1, 1}, Direction::West), Wall::Unknown);
-};
-
-TEST(MazeMap, RejectsNonPositiveDimensions) {
-    EXPECT_THROW(MazeMap(0, 4), std::invalid_argument);
-    EXPECT_THROW(MazeMap(4, 0), std::invalid_argument);
-    EXPECT_THROW(MazeMap(-1, 4), std::invalid_argument);
-    EXPECT_THROW(MazeMap(4, -1), std::invalid_argument);
 };
 
 TEST(MazeMap, SetWallIsConsistentOnBothSides) {
@@ -58,6 +58,15 @@ TEST(MazeMap, InitKnownPerimeterMarksBorders) {
     EXPECT_EQ(medium.getWall({0, 0}, Direction::West), Wall::Present);
     EXPECT_EQ(medium.getWall({0, 7}, Direction::East), Wall::Present);
     EXPECT_EQ(medium.getWall({1, 1}, Direction::North), Wall::Unknown);
+};
+
+TEST(MazeMap, IsBlockedOnlyBlocksWhenWallPresent) {
+    MazeMap medium(4, 8);
+    EXPECT_FALSE(medium.isBlocked({1, 1}, Direction::North));  // Unknown
+    medium.setWall({1, 1}, Direction::North, Wall::Open);
+    EXPECT_FALSE(medium.isBlocked({1, 1}, Direction::North));  // Open
+    medium.setWall({1, 1}, Direction::North, Wall::Present);
+    EXPECT_TRUE(medium.isBlocked({1, 1}, Direction::North));  // Present
 };
 
 TEST(MazeMap, _){};
