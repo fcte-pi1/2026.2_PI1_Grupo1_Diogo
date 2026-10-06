@@ -1,5 +1,6 @@
 #include "domain/Maze.hpp"
 
+#include <algorithm>
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -55,5 +56,20 @@ Wall& MazeMap::edge(const Position& pos, Direction dir) {
 Wall MazeMap::getWall(const Position& pos, Direction dir) const { return edge(pos, dir); }
 
 void MazeMap::setWall(const Position& pos, Direction dir, Wall state) { edge(pos, dir) = state; }
+
+void MazeMap::initKnownPerimeter() {
+    std::fill(horizontalEdges_.begin(), horizontalEdges_.end(), Wall::Unknown);
+    std::fill(verticalEdges_.begin(), verticalEdges_.end(), Wall::Unknown);
+
+    for (int col = 0; col < columns_; ++col) {
+        setWall({0, col}, Direction::North, Wall::Present);
+        setWall({rows_ - 1, col}, Direction::South, Wall::Present);
+    }
+
+    for (int row = 0; row < rows_; ++row) {
+        setWall({row, 0}, Direction::West, Wall::Present);
+        setWall({row, columns_ - 1}, Direction::East, Wall::Present);
+    }
+}
 
 }  // namespace micromouse::domain
