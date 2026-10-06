@@ -110,14 +110,15 @@ cmake --build --preset release
 
 Os presets já definem estas opções. Elas também podem ser passadas manualmente com `-D`:
 
-| Opção                      | Padrão | Descrição                        |
-| -------------------------- | ------ | -------------------------------- |
-| `FIRMWARE_BUILD_TESTS`     | `ON`   | Compila os testes com GoogleTest |
-| `FIRMWARE_ENABLE_COVERAGE` | `OFF`  | Instrumenta o código para o gcov |
+| Opção                         | Padrão | Descrição                              |
+| ----------------------------- | ------ | -------------------------------------- |
+| `FIRMWARE_BUILD_TESTS`        | `ON`   | Compila os testes com GoogleTest       |
+| `FIRMWARE_ENABLE_COVERAGE`    | `OFF`  | Instrumenta o código para o gcov       |
+| `FIRMWARE_WARNINGS_AS_ERRORS` | `OFF`  | Trata warnings do compilador como erro |
 
 ## Usando no VS Code
 
-Ao abrir a pasta `src/firmware/` no VS Code, instale as extensões recomendadas (_C/C++_, _CMake Tools_ e _CMake_). O projeto é configurado automaticamente com o preset `debug`.
+Ao abrir a pasta `src/firmware/` no VS Code, instale as extensões recomendadas (_C/C++_ e _CMake Tools_). O projeto é configurado automaticamente com o preset `debug`.
 
 Tarefas disponíveis em **Terminal → Run Task**:
 
