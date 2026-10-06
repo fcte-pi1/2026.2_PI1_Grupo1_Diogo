@@ -32,6 +32,7 @@ public:
     [[nodiscard]] int getColumns() const noexcept;
     [[nodiscard]] Wall getWall(const Position& pos, Direction dir) const;
     void setWall(const Position& pos, Direction dir, Wall state);
+    void initKnownPerimeter();
 };
 
 }  // namespace micromouse::domain
