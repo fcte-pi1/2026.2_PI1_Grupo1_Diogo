@@ -1,0 +1,27 @@
+{
+  "version": "0.2",
+  "language": "en,pt,pt_BR",
+  "words": [
+    "clangformat",
+    "cmake",
+    "CMakeLists",
+    "cpptools",
+    "ctest",
+    "CTEST",
+    "Descricao",
+    "funcao",
+    "gcov",
+    "gcovr",
+    "gmock",
+    "GMOCK",
+    "indentação",
+    "MSVC",
+    "stdlib",
+    "Wall",
+    "Wconversion",
+    "Werror",
+    "Wextra",
+    "Wpedantic",
+    "Wshadow"
+  ]
+}
