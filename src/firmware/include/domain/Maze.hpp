@@ -5,13 +5,29 @@
 
 namespace micromouse::domain {
 
-enum class Direction { North, East, South, West };
-enum class Wall { Unknown, Open, Present };
+enum class Direction {
+    North,  //
+    East,   //
+    South,  //
+    West    //
+};
+
+enum class Wall {
+    Unknown,  //
+    Open,     //
+    Present   //
+};
 
 struct Position {
     int row{};
-    int col{};
+    int column{};
 };
+
+bool operator==(const Position& left, const Position& right) noexcept;
+
+int rowDelta(Direction direction) noexcept;
+int colDelta(Direction direction) noexcept;
+Direction opposite(Direction direction) noexcept;
 
 class MazeMap {
 private:
@@ -20,20 +36,23 @@ private:
     std::vector<Wall> horizontalEdges_;  // (rows+1) x cols
     std::vector<Wall> verticalEdges_;    // rows x (cols+1)
 
-    [[nodiscard]] std::size_t horizontalIndex(int row, int col) const noexcept;
-    [[nodiscard]] std::size_t verticalIndex(int row, int col) const noexcept;
-    [[nodiscard]] const Wall& edge(const Position& pos, Direction dir) const;
-    [[nodiscard]] Wall& edge(const Position& pos, Direction dir);
+    [[nodiscard]] std::size_t horizontalIndex(int row, int column) const noexcept;
+    [[nodiscard]] std::size_t verticalIndex(int row, int column) const noexcept;
+    [[nodiscard]] const Wall& edge(const Position& position, Direction direction) const;
+    [[nodiscard]] Wall& edge(const Position& position, Direction direction);
 
 public:
     MazeMap(int rows, int columns);
 
     [[nodiscard]] int getRows() const noexcept;
     [[nodiscard]] int getColumns() const noexcept;
-    [[nodiscard]] Wall getWall(const Position& pos, Direction dir) const;
-    void setWall(const Position& pos, Direction dir, Wall state);
+    [[nodiscard]] bool contains(const Position& position) const noexcept;
+
+    [[nodiscard]] Wall getWall(const Position& position, Direction direction) const;
+    void setWall(const Position& position, Direction direction, Wall state);
+    [[nodiscard]] bool isBlocked(const Position& position, Direction direction) const;
+
     void initKnownPerimeter();
-    [[nodiscard]] bool isBlocked(const Position& pos, Direction dir) const;
 };
 
 }  // namespace micromouse::domain
