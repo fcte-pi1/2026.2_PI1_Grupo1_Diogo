@@ -1,0 +1,5 @@
+# Artefatos de compilação do CMake
+build/
+
+# O .gitignore da raiz ignora .vscode; aqui versionamos a configuração compartilhada
+!.vscode/
