@@ -17,8 +17,8 @@
   "files.exclude": {
     "build/": true,
     ".clang-format": true,
-    "cspell.json": false,
-    "CMakePresets.json": false,
-    "CMakeLists.txt": false
+    "cspell.json": true,
+    "CMakePresets.json": true,
+    "**/CMakeLists.txt": false
   }
 }
