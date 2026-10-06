@@ -50,6 +50,16 @@ TEST(MazeMap, SetWallIsConsistentOnBothSides) {
     EXPECT_EQ(medium.getWall({1, 0}, Direction::East), Wall::Open);
 };
 
+TEST(MazeMap, InitKnownPerimeterMarksBorders) {
+    MazeMap medium(4, 8);
+    medium.initKnownPerimeter();
+    EXPECT_EQ(medium.getWall({0, 0}, Direction::North), Wall::Present);
+    EXPECT_EQ(medium.getWall({3, 0}, Direction::South), Wall::Present);
+    EXPECT_EQ(medium.getWall({0, 0}, Direction::West), Wall::Present);
+    EXPECT_EQ(medium.getWall({0, 7}, Direction::East), Wall::Present);
+    EXPECT_EQ(medium.getWall({1, 1}, Direction::North), Wall::Unknown);
+};
+
 TEST(MazeMap, _){};
 
 }  // namespace
