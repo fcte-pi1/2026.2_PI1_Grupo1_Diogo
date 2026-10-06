@@ -45,15 +45,29 @@ if(FIRMWARE_ENABLE_COVERAGE)
 endif()
 
 # Library with firmware logic
-add_library(hello src/hello.cpp)
-target_include_directories(hello PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
-target_link_libraries(hello PRIVATE firmware_warnings)
+add_library(firmware_logic STATIC
+    src/domain/Maze.cpp
+)
+
+target_include_directories(firmware_logic PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+
+target_link_libraries(firmware_logic PRIVATE
+    firmware_warnings
+)
 
 # Main executable
-add_executable(firmware src/main.cpp)
-target_link_libraries(firmware PRIVATE hello firmware_warnings)
+add_executable(firmware
+    src/main.cpp
+)
+
+target_link_libraries(firmware PRIVATE
+    firmware_logic
+    firmware_warnings
+)
 
 if(FIRMWARE_BUILD_TESTS)
     enable_testing()
-    add_subdirectory(tests)
+    add_subdirectory(test)
 endif()
