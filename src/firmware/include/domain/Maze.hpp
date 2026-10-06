@@ -33,6 +33,7 @@ public:
     [[nodiscard]] Wall getWall(const Position& pos, Direction dir) const;
     void setWall(const Position& pos, Direction dir, Wall state);
     void initKnownPerimeter();
+    [[nodiscard]] bool isBlocked(const Position& pos, Direction dir) const;
 };
 
 }  // namespace micromouse::domain
