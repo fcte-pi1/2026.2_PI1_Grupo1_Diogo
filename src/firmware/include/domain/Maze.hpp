@@ -22,6 +22,8 @@ private:
 
     [[nodiscard]] std::size_t horizontalIndex(int row, int col) const noexcept;
     [[nodiscard]] std::size_t verticalIndex(int row, int col) const noexcept;
+    [[nodiscard]] const Wall& edge(const Position& pos, Direction dir) const;
+    [[nodiscard]] Wall& edge(const Position& pos, Direction dir);
 
 public:
     MazeMap(int rows, int columns);
