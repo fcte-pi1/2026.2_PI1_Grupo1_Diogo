@@ -1,0 +1,46 @@
+name: Firmware CI
+
+on:
+  push:
+    paths:
+      - 'src/firmware/**'
+      - '.github/workflows/firmware.yml'
+  pull_request:
+    paths:
+      - 'src/firmware/**'
+      - '.github/workflows/firmware.yml'
+
+defaults:
+  run:
+    working-directory: src/firmware
+
+jobs:
+  build-test:
+    name: Build, test and coverage
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install gcovr
+        run: pipx install gcovr
+
+      - name: Configure and build (debug, warnings as errors)
+        run: |
+          cmake --preset debug -DFIRMWARE_WARNINGS_AS_ERRORS=ON
+          cmake --build --preset debug
+
+      - name: Run tests
+        run: ctest --preset debug
+
+      - name: Coverage (fails under 80% line coverage)
+        run: |
+          cmake --preset coverage
+          cmake --build --preset coverage --target coverage
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: src/firmware/build/coverage/coverage/
+          if-no-files-found: ignore
