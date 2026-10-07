@@ -1,0 +1,92 @@
+# Ambiente de DESENVOLVIMENTO do sistema web do Micromouse (backend + frontend + banco).
+#   cp .env.example .env
+#   docker compose up --build
+# Painel: http://localhost:5173 · API/WS: http://localhost:8080 · Postgres: localhost:5432
+# Detalhes em DESENVOLVIMENTO.md. O firmware não faz parte deste ambiente.
+
+name: rato-borrachudo
+
+x-node-dev: &node-dev
+  restart: unless-stopped
+  environment: &node-env
+    CHOKIDAR_USEPOLLING: ${CHOKIDAR_USEPOLLING:-false}
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?defina no .env}
+      POSTGRES_USER: ${POSTGRES_USER:?defina no .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?defina no .env}
+      DB_APP_PASSWORD: ${DB_APP_PASSWORD:?defina no .env}
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./infra/postgres/initdb:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  backend:
+    <<: *node-dev
+    build:
+      context: ./src/backend
+      target: dev
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      <<: *node-env
+      NODE_ENV: development
+      PORT: 8080
+      LOG_LEVEL: ${LOG_LEVEL:-debug}
+      JWT_SECRET: ${JWT_SECRET:?defina no .env}
+      # Dono do banco: migrações e seed
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      # Papel restrito da aplicação (arquitetura do backend, §7.3)
+      DATABASE_URL_APP: postgres://rato_app:${DB_APP_PASSWORD}@db:5432/${POSTGRES_DB}
+      SEED_DISPOSITIVO_TOKEN: ${SEED_DISPOSITIVO_TOKEN:-T-VALIDO}
+      SEED_OPERADOR_SENHA: ${SEED_OPERADOR_SENHA:-op1-dev}
+    # Sincroniza as dependências com o package-lock (rápido quando nada mudou),
+    # aplica as migrações e sobe com hot reload.
+    command: sh -c "npm install && npm run migrate up && npm run dev"
+    ports:
+      - "${BACKEND_PORT:-8080}:8080"
+    volumes:
+      - ./src/backend:/app
+      - backend_node_modules:/app/node_modules
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:8080/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 20s
+
+  frontend:
+    <<: *node-dev
+    build:
+      context: ./src
+      dockerfile: frontend/Dockerfile
+      target: dev
+    depends_on:
+      backend:
+        condition: service_healthy
+    environment:
+      <<: *node-env
+      VITE_PROXY_TARGET: http://backend:8080
+    command: sh -c "npm install && npm run dev"
+    ports:
+      - "${FRONTEND_PORT:-5173}:5173"
+    volumes:
+      - ./src/frontend:/workspace/frontend
+      - ./src/backend/protocolo:/workspace/backend/protocolo:ro
+      - frontend_node_modules:/workspace/frontend/node_modules
+
+volumes:
+  pgdata:
+  backend_node_modules:
+  frontend_node_modules:
