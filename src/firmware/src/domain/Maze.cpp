@@ -55,6 +55,7 @@ Direction opposite(Direction direction) noexcept {
         case Direction::West:
             return Direction::East;
     }
+    __builtin_unreachable();
 }
 
 MazeMap::MazeMap(int rows, int columns)
@@ -91,6 +92,7 @@ const Wall& MazeMap::edge(const Position& position, Direction direction) const {
         case Direction::East:
             return verticalEdges_[verticalIndex(position.row, position.column + 1)];
     }
+    __builtin_unreachable();
 }
 
 Wall& MazeMap::edge(const Position& position, Direction direction) {

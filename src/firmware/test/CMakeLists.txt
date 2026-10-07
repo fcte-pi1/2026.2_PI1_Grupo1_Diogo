@@ -15,6 +15,7 @@ FetchContent_MakeAvailable(googletest)
 
 add_executable(firmware_tests
     domain/MazeTest.cpp
+    domain/FloodFillTest.cpp
 )
 
 target_link_libraries(firmware_tests PRIVATE
