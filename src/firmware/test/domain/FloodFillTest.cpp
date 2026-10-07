@@ -91,6 +91,16 @@ TEST(FloodFill, ParedeDesviaOCaminho) {
     EXPECT_EQ(floodFill.getDistance({0, 2}), FloodFill::kUnreachable);  // bloqueado
 }
 
+TEST(FloodFill, NextDirectionEscolheMenorComDesempate) {
+    MazeMap small(4, 4);
+    FloodFill floodFill(small);
+    floodFill.computeFloodFill({{0, 0}});
+    // Em {1,1}: Norte -> {0,1} = 1 e Oeste -> {1,0} = 1 empatam; Norte vem antes.
+    EXPECT_EQ(floodFill.nextDirection({1, 1}), Direction::North);
+    // No próprio objetivo não há avanço.
+    EXPECT_FALSE(floodFill.nextDirection({0, 0}).has_value());
+}
+
 TEST(FloodFill, _) {}
 
 }  // namespace
