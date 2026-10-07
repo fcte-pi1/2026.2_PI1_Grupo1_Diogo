@@ -63,4 +63,32 @@ std::uint8_t FloodFill::getDistance(const Position& position) const {
     return distances_[index(position)];
 }
 
+std::optional<Direction> FloodFill::nextDirection(const Position& position) const {
+    const std::uint8_t currentDistance = getDistance(position);
+
+    if (currentDistance == 0 || currentDistance == kUnreachable)  //
+        return std::nullopt;
+
+    std::optional<Direction> bestDirection;
+    std::uint8_t bestDistance = currentDistance;  // Só avança para distância ESTRITAMENTE menor
+
+    for (Direction direction : kScanOrder) {
+        if (maze_.isBlocked(position, direction))  //
+            continue;
+
+        const Position adj = neighbor(position, direction);
+
+        if (!maze_.contains(adj))  //
+            continue;
+
+        const std::uint8_t adjDistance = getDistance(adj);
+
+        if (adjDistance < bestDistance) {  // '<' (não '<='): o primeiro na ordem N,E,S,W vence
+            bestDirection = direction;
+            bestDistance = adjDistance;
+        }
+    }
+    return bestDirection;
+};
+
 }  // namespace micromouse::domain
