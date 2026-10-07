@@ -101,6 +101,21 @@ TEST(FloodFill, NextDirectionEscolheMenorComDesempate) {
     EXPECT_FALSE(floodFill.nextDirection({0, 0}).has_value());
 }
 
+TEST(FloodFill, RecalculoResetaValoresObsoletos) {
+    MazeMap maze(3, 3);
+    FloodFill floodFill(maze);
+    floodFill.computeFloodFill({{0, 0}});
+
+    EXPECT_EQ(floodFill.getDistance({0, 2}), 2);  // inicialmente alcançável
+
+    maze.setWall({0, 2}, Direction::West, Wall::Present);   // bloqueia {0,2}
+    maze.setWall({0, 2}, Direction::South, Wall::Present);  // bloqueia {0,2}
+
+    floodFill.computeFloodFill({{0, 0}});
+
+    EXPECT_EQ(floodFill.getDistance({0, 2}), FloodFill::kUnreachable);  // agora bloqueado
+}
+
 TEST(FloodFill, _) {}
 
 }  // namespace
