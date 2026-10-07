@@ -29,7 +29,9 @@ std::size_t FloodFill::index(const Position& position) const noexcept {
 }
 
 void FloodFill::computeFloodFill(const std::vector<Position>& targets) {
+    std::fill(distances_.begin(), distances_.end(), kUnreachable);
     std::queue<Position> frontier;
+
     for (const Position& target : targets) {
         if (!maze_.contains(target))  //
             continue;
@@ -60,6 +62,9 @@ void FloodFill::computeFloodFill(const std::vector<Position>& targets) {
 }
 
 std::uint8_t FloodFill::getDistance(const Position& position) const {
+    if (!maze_.contains(position))  //
+        return kUnreachable;
+
     return distances_[index(position)];
 }
 
