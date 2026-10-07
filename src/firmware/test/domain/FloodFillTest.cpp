@@ -39,14 +39,14 @@ Logo: {0, 3} = canto superior direito; {3, 0} = canto inferior esquerdo.
 namespace micromouse::domain {
 namespace {
 
-TEST(FloodFill, ObjetivoTemDistanciaZero) {
+TEST(FloodFill, GoalHasDistanceZero) {
     MazeMap small(4, 4);
     FloodFill floodFill(small);
     floodFill.computeFloodFill({{0, 0}});
     EXPECT_EQ(floodFill.getDistance({0, 0}), 0);
 }
 
-TEST(FloodFill, PropagaUmPassoParaVizinha) {
+TEST(FloodFill, PropagatesOneStepToNeighbor) {
     MazeMap small(4, 4);
     FloodFill floodFill(small);
     floodFill.computeFloodFill({{0, 0}});
@@ -54,7 +54,7 @@ TEST(FloodFill, PropagaUmPassoParaVizinha) {
     EXPECT_EQ(floodFill.getDistance({1, 0}), 1);
 }
 
-TEST(FloodFill, LabirintoAbertoDaDistanciaManhattan) {
+TEST(FloodFill, OpenMazeGivesManhattanDistance) {
     MazeMap small(4, 4);
     FloodFill floodFill(small);
     floodFill.computeFloodFill({{0, 0}});
@@ -81,7 +81,7 @@ A borda externa e sempre parede. So duas arestas internas sao fechadas:
 
 Caminho ate {0,1}: {0,0} -> {0,1} (dist 1). {0,2} nao tem vizinho acessível.
 */
-TEST(FloodFill, ParedeDesviaOCaminho) {
+TEST(FloodFill, WallDivertsThePath) {
     MazeMap maze(3, 3);
     maze.setWall({0, 2}, Direction::West, Wall::Present);
     maze.setWall({0, 2}, Direction::South, Wall::Present);
@@ -91,7 +91,7 @@ TEST(FloodFill, ParedeDesviaOCaminho) {
     EXPECT_EQ(floodFill.getDistance({0, 2}), FloodFill::kUnreachable);  // bloqueado
 }
 
-TEST(FloodFill, NextDirectionEscolheMenorComDesempate) {
+TEST(FloodFill, NextDirectionChoosesSmallestWithTieBreak) {
     MazeMap small(4, 4);
     FloodFill floodFill(small);
     floodFill.computeFloodFill({{0, 0}});
@@ -101,7 +101,7 @@ TEST(FloodFill, NextDirectionEscolheMenorComDesempate) {
     EXPECT_FALSE(floodFill.nextDirection({0, 0}).has_value());
 }
 
-TEST(FloodFill, RecalculoResetaValoresObsoletos) {
+TEST(FloodFill, RecomputeResetsStaleValues) {
     MazeMap maze(3, 3);
     FloodFill floodFill(maze);
     floodFill.computeFloodFill({{0, 0}});
@@ -115,8 +115,6 @@ TEST(FloodFill, RecalculoResetaValoresObsoletos) {
 
     EXPECT_EQ(floodFill.getDistance({0, 2}), FloodFill::kUnreachable);  // agora bloqueado
 }
-
-TEST(FloodFill, _) {}
 
 }  // namespace
 }  // namespace micromouse::domain
