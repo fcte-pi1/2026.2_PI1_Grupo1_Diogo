@@ -5,6 +5,17 @@
 # Adicione outros arquivos a serem ignorados aqui
 # ...
 
+# Node / software (backend e frontend)
+node_modules/
+dist/
+coverage/
+playwright-report/
+test-results/
+*.tsbuildinfo
+.env
+.env.*
+!.env.example
+
 # LaTeX
 
 relatorio.pdf
