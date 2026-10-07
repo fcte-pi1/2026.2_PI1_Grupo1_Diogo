@@ -14,10 +14,14 @@ set(BUILD_GMOCK OFF CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(googletest)
 
 add_executable(firmware_tests
-    test_hello.cpp
+    domain/MazeTest.cpp
 )
 
-target_link_libraries(firmware_tests PRIVATE hello firmware_warnings GTest::gtest_main)
+target_link_libraries(firmware_tests PRIVATE
+    firmware_logic
+    firmware_warnings
+    GTest::gtest_main
+)
 
 include(GoogleTest)
 gtest_discover_tests(firmware_tests)

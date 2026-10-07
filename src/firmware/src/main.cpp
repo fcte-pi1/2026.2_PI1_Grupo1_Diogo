@@ -1,6 +1,1 @@
-#include "hello.hpp"
-
-int main() {
-    firmware::say_hello();
-    return 0;
-}
+int main() { return 0; }

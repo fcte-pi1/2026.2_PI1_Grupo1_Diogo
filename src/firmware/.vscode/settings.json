@@ -19,7 +19,7 @@
     ".clang-format": true,
     "cspell.json": true,
     "CMakePresets.json": true,
-    "**/CMakeLists.txt": true,
+    // "**/CMakeLists.txt": true,
     "README.md": true,
     "GUIA_DESENVOLVIMENTO.md": true,
     ".gitignore": true
