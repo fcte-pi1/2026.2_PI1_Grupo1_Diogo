@@ -47,6 +47,7 @@ endif()
 # Library with firmware logic
 add_library(firmware_logic STATIC
     src/domain/Maze.cpp
+    src/domain/FloodFill.cpp
 )
 
 target_include_directories(firmware_logic PUBLIC
