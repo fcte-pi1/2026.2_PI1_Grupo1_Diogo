@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <optional>
 #include <vector>
 
 #include "domain/Maze.hpp"
@@ -18,5 +19,6 @@ public:
     explicit FloodFill(const MazeMap& maze);
     void computeFloodFill(const std::vector<Position>& targets);
     [[nodiscard]] std::uint8_t getDistance(const Position& position) const;
+    [[nodiscard]] std::optional<Direction> nextDirection(const Position& position) const;
 };
 }  // namespace micromouse::domain
