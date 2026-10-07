@@ -1,0 +1,22 @@
+/* Tokens de design (variáveis CSS). Fontes do sistema: nenhuma fonte remota (RNF-41). */
+:root {
+  --fonte-base: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --fonte-mono: ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+  /* RNF-46: os seis dados obrigatórios usam no mínimo 24 px em 1920 × 1080. */
+  --fonte-dado: 1.5rem;
+
+  --cor-fundo: #0f1419;
+  --cor-superficie: #1a2129;
+  --cor-borda: #2b3540;
+  --cor-texto: #e6edf3;
+  --cor-texto-suave: #8b98a5;
+  --cor-ok: #3fb950;
+  --cor-alerta: #d29922;
+  --cor-erro: #f85149;
+
+  --espaco-1: 0.25rem;
+  --espaco-2: 0.5rem;
+  --espaco-3: 1rem;
+  --espaco-4: 1.5rem;
+  --raio: 8px;
+}

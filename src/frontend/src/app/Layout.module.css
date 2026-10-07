@@ -1,0 +1,34 @@
+.cabecalho {
+  display: flex;
+  align-items: center;
+  gap: var(--espaco-4);
+  padding: var(--espaco-3) var(--espaco-4);
+  background: var(--cor-superficie);
+  border-bottom: 1px solid var(--cor-borda);
+  flex-wrap: wrap;
+}
+
+.titulo {
+  margin: 0;
+  font-size: 1.125rem;
+}
+
+.navegacao {
+  display: flex;
+  gap: var(--espaco-3);
+  flex: 1;
+}
+
+.navegacao a {
+  text-decoration: none;
+  color: var(--cor-texto-suave);
+}
+
+.navegacao a[aria-current='page'] {
+  color: var(--cor-texto);
+  font-weight: 600;
+}
+
+.conteudo {
+  padding: var(--espaco-4);
+}

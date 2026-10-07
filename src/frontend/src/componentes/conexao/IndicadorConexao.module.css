@@ -1,0 +1,21 @@
+.indicador {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--espaco-2);
+  font-size: 0.875rem;
+}
+
+.ponto {
+  width: 0.625rem;
+  height: 0.625rem;
+  border-radius: 50%;
+  background: var(--cor-alerta);
+}
+
+.ponto[data-estado='CONECTADO'] {
+  background: var(--cor-ok);
+}
+
+.ponto[data-estado='DESCONECTADO'] {
+  background: var(--cor-erro);
+}
