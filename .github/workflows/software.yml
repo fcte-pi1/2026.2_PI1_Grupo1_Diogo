@@ -1,0 +1,89 @@
+name: Software CI
+
+on:
+  push:
+    paths:
+      - 'src/backend/**'
+      - 'src/frontend/**'
+      - '.github/workflows/software.yml'
+  pull_request:
+    paths:
+      - 'src/backend/**'
+      - 'src/frontend/**'
+      - '.github/workflows/software.yml'
+
+jobs:
+  backend:
+    name: Backend — lint, testes e build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src/backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: src/backend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint and formatting
+        run: |
+          npm run lint
+          npm run format:check
+
+      - name: Dependency rules
+        run: npm run depcruise
+
+      - name: Unit tests with coverage
+        run: npm run test:cobertura
+
+      - name: Integration tests (PostgreSQL via Testcontainers)
+        run: npm run test:integracao
+
+      - name: Build
+        run: npm run build
+
+  frontend:
+    name: Frontend — lint, testes e build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src/frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: src/frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint, dependency rules and formatting
+        run: |
+          npm run lint
+          npm run format:check
+
+      - name: Unit and component tests with coverage
+        run: npm run test:cobertura
+
+      - name: Build (typecheck + vite build)
+        run: npm run build
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-coverage
+          path: src/frontend/coverage/
+          if-no-files-found: ignore
