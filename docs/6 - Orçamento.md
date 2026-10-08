@@ -35,23 +35,23 @@
 | Cola instantânea (cianoacrilato)                                     | 1 un      | 10,00             |                    |
 | Buzzer ativo 5 V                                                     | 1         | 4,00              |                    |
 | *Frente Energia*                                                     |           | *57,06*           |                    |
-| Bateria LiPo 2S 7,4 V Tattu 550 mAh 2S 95C R-Line                    | 1         | 51,84             |                    |
+| Bateria Lipo 2s 7.4v 1500 Mah 30c                                    | 1         | 137,75            |                    |
 | Conector XT30 (par)                                                  | 1 (par)   | 5,22              |                    |
 | *Frente Estruturas*                                                  |           | *277,00*          |                    |
 | Filamento PETG para fabricação do chassi                             | 1 rolo de 1 kg | 70,00        |                    |
 | Rodas StickyMAX S20 (32 mm)                                          | 2         | 100,00            |                    |
 | Roda boba W420                                                       | 1         | 7,00              |                    |
 | MDF/balsa para confecção do labirinto                                | A definir | 100,00            |                    |
-| **TOTAL**                          |           | **1.028,46**      |                    |
+| **TOTAL**                          |           | **1.231,04**      |                    |
 
 ## Resumo por frente
 
 | Frente      | Previsto (R$) |
 |-------------|---------------|
-| Hardware    | 694,40        |
-| Energia     | 57,06         |
+| Hardware    | 699,04        |
+| Energia     | 155,00         |
 | Estruturas  | 277,00        |
-| **Total**   | **1.028,46**  |
+| **Total**   | **1.231,04**  |
 
 ## Observações
 
