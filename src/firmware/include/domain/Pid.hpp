@@ -9,12 +9,13 @@ struct PidGains {
 };
 
 class Pid {
+private:
+    PidGains gains_;
+    double integral_{0.0};
+
 public:
     explicit Pid(const PidGains& gains);
     double update(double error, double dt);
-
-private:
-    PidGains gains_;
 };
 
 }  // namespace micromouse::domain
