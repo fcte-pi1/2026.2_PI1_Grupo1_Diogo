@@ -1,5 +1,7 @@
 #include "domain/DipDecoder.hpp"
 
+#include <stdexcept>
+
 namespace micromouse::domain {
 
 namespace {
@@ -20,6 +22,8 @@ Dimensions decodeType(bool dip1, bool dip2) {
             return {MazeType::Medium8x4, 4, 8};
         case 2:
             return {MazeType::Large12x4, 4, 12};
+        case 3:
+            throw std::invalid_argument("DipDecoder: Reserved combination of dip1 and dip2");
     }
 
     __builtin_unreachable();
