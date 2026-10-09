@@ -60,6 +60,21 @@ TEST(Navigator, AvancaRetoSemGiroQuandoAlinhado) {
     EXPECT_EQ(robot.turns(), 0);
 }
 
+TEST(Navigator, GiraQuandoPrecisaMudarDeSentido) {
+    MazeMap known(4, 8);
+    MazeMap truth(4, 8);
+    truth.initKnownPerimeter();
+    SimulatedRobot robot(truth, {0, 0}, Direction::North);
+
+    Navigator navigator(known, robot, robot, {0, 0}, Direction::North, {{3, 7}});
+    navigator.step();
+
+    EXPECT_EQ(navigator.getHeading(), Direction::East);
+    EXPECT_EQ(robot.rights(), 1);
+    EXPECT_EQ(robot.advances(), 1);
+    EXPECT_EQ(navigator.getPosition(), (Position{0, 1}));
+}
+
 TEST(Navigator, _) {}
 
 }  // namespace
