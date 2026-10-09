@@ -23,9 +23,10 @@ private:
     FloodFill flood_;
     ISensorPort& sensor_;
     IMotionPort& motion_;
-    Position pos_;
+    Position position_;
     Direction heading_;
     std::vector<Position> goals_;
+    void senseAndRecord();
 
 public:
     Navigator(MazeMap& maze, ISensorPort& sensor, IMotionPort& motion, Position start,
@@ -34,6 +35,7 @@ public:
     [[nodiscard]] Position getPosition() const noexcept;
     [[nodiscard]] Direction getHeading() const noexcept;
     [[nodiscard]] bool reachedGoal() const noexcept;
+    void step();
 };
 
 }  // namespace micromouse::use_cases
