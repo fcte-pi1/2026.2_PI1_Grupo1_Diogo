@@ -23,6 +23,7 @@ add_executable(firmware_tests
     domain/OdometryTest.cpp
     domain/DipDecoderTest.cpp
     domain/PidTest.cpp
+    controller/MotionControllerTest.cpp
 )
 
 target_include_directories(firmware_tests PRIVATE
