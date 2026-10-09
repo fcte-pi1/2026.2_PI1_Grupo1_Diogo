@@ -10,7 +10,11 @@ namespace {
 
 using test::SpySignal;
 
-TEST(SessionManager, _) {}
+TEST(SessionManager, ComecaEmIdle) {
+    SpySignal signal;
+    SessionManager stateMachine(signal);
+    EXPECT_EQ(stateMachine.getCurrentPhase(), SessionPhase::Idle);
+}
 
 }  // namespace
 
