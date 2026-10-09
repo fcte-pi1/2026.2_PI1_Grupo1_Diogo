@@ -6,6 +6,7 @@
 namespace micromouse::use_cases {
 
 using domain::colDelta;
+using domain::opposite;
 using domain::rowDelta;
 using domain::turnLeft;
 using domain::turnRight;
@@ -37,6 +38,18 @@ void Navigator::senseAndRecord() {
     maze_.setWall(position_, turnRight(heading_), wall.right ? Wall::Present : Wall::Open);
 }
 
+void Navigator::applyTurnTo(Direction target) {
+    if (target == heading_) return;
+    if (target == turnRight(heading_)) {
+        motion_.turnRight();
+    } else if (target == turnLeft(heading_)) {
+        motion_.turnLeft();
+    } else {
+        motion_.turnAround();
+    }
+    heading_ = target;
+}
+
 void Navigator::step() {
     senseAndRecord();
     flood_.computeFloodFill(goals_);
@@ -47,8 +60,17 @@ void Navigator::step() {
 
     if (!nextDir) return;
 
+    applyTurnTo(*nextDir);
     motion_.advanceCell();
     position_ = {position_.row + rowDelta(heading_), position_.column + colDelta(heading_)};
+}
+
+bool Navigator::run(int maxSteps) {
+    for (int i = 0; i < maxSteps; ++i) {
+        if (reachedGoal()) return true;
+        step();
+    }
+    return reachedGoal();
 }
 
 }  // namespace micromouse::use_cases
