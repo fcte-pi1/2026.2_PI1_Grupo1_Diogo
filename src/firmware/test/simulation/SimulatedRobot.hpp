@@ -40,14 +40,23 @@ public:
         heading_ = domain::turnLeft(heading_);
         ++left_;
     }
+
     void turnRight() override {
         heading_ = domain::turnRight(heading_);
         ++right_;
     }
+
     void turnAround() override {
         heading_ = domain::opposite(heading_);
         ++around_;
     }
+
+    [[nodiscard]] Position position() const { return position_; }
+    [[nodiscard]] Direction heading() const { return heading_; }
+    [[nodiscard]] int advances() const { return advances_; }
+    [[nodiscard]] int turns() const { return left_ + right_ + around_; }
+    [[nodiscard]] int rights() const { return right_; }
+    [[nodiscard]] int lefts() const { return left_; }
 };
 
 }  // namespace micromouse::test
