@@ -22,6 +22,26 @@ TEST(Odometry, ComecaZerado) {
     EXPECT_DOUBLE_EQ(odometry.distanceMm(), 0.0);
 }
 
+TEST(Odometry, UmaVoltaPercorreUmaCircunferencia) {
+    Odometry odometry(makeConfig());
+    odometry.onEncoderPulses(360);
+    EXPECT_NEAR(odometry.distanceMm(), M_PI * 32.0, 1e-9);
+    EXPECT_EQ(odometry.pulses(), 360);
+}
+
+TEST(Odometry, PulsosAcumulamEEscalam) {
+    Odometry odometry(makeConfig());
+    odometry.onEncoderPulses(90);
+    odometry.onEncoderPulses(90);
+    EXPECT_NEAR(odometry.distanceMm(), (M_PI * 32.0) / 2.0, 1e-9);
+}
+
+TEST(Odometry, ContaCelulasPeloPiso) {
+    Odometry odometry(makeConfig());
+    odometry.onEncoderPulses(4 * 360);
+    EXPECT_EQ(odometry.cellsTraveled(), 2);
+}
+
 TEST(Odometry, _) {}
 
 }  // namespace
