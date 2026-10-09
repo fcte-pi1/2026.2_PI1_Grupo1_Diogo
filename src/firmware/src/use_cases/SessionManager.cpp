@@ -45,4 +45,11 @@ void SessionManager::backAtStart() {
         enter(SessionPhase::FastRun);
     }
 }
+
+void SessionManager::fault() {
+    if (phase_ != SessionPhase::Finished && phase_ != SessionPhase::Fault) {
+        enter(SessionPhase::Fault);
+    }
+}
+
 }  // namespace micromouse::use_cases
