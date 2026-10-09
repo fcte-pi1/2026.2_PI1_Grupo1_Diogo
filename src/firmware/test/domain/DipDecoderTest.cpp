@@ -37,7 +37,12 @@ TEST(DipDecoder, GrandePelaLargura) {
     EXPECT_EQ(setup.goal, (Position{0, 11}));
 }
 
-TEST(DipDecoder, _) {}
+TEST(DipDecoder, CantoDireitoInverteObjetivo) {
+    DipDecoder decoder;
+    const MazeSetup setup = decoder.decode(false, false, true);
+    EXPECT_EQ(setup.start, (Position{3, 3}));
+    EXPECT_EQ(setup.goal, (Position{0, 0}));
+}
 
 }  // namespace
 
