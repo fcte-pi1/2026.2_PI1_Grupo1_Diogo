@@ -61,7 +61,7 @@ target_link_libraries(firmware_logic PRIVATE
 # Main executable
 add_executable(firmware
     src/main.cpp
-    src/usecases/Navigator.cpp
+    src/use_cases/Navigator.cpp
 )
 
 target_link_libraries(firmware PRIVATE
