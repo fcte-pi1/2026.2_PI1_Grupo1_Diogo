@@ -5,6 +5,8 @@
 
 namespace micromouse::use_cases {
 
+using domain::colDelta;
+using domain::rowDelta;
 using domain::turnLeft;
 using domain::turnRight;
 using domain::Wall;
@@ -35,6 +37,18 @@ void Navigator::senseAndRecord() {
     maze_.setWall(position_, turnRight(heading_), wall.right ? Wall::Present : Wall::Open);
 }
 
-void Navigator::step() { senseAndRecord(); }
+void Navigator::step() {
+    senseAndRecord();
+    flood_.computeFloodFill(goals_);
+
+    if (reachedGoal()) return;
+
+    const std::optional<Direction> nextDir = flood_.nextDirection(position_);
+
+    if (!nextDir) return;
+
+    motion_.advanceCell();
+    position_ = {position_.row + rowDelta(heading_), position_.column + colDelta(heading_)};
+}
 
 }  // namespace micromouse::use_cases
