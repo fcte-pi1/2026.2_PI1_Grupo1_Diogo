@@ -18,7 +18,7 @@ add_executable(firmware_tests
     domain/FloodFillTest.cpp
     simulation/SimulatedRobot.hpp
     use_cases/NavigatorTest.cpp
-    spy/SpySignalPort.cpp
+    spy/SpySignalPort.hpp
     use_cases/SessionManagerTest.cpp
 )
 
