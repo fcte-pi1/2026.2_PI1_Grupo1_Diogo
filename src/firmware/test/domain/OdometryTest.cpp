@@ -16,40 +16,40 @@ WheelConfig makeConfig() {
     };
 }
 
-TEST(Odometry, ComecaZerado) {
+TEST(Odometry, StartsAtZero) {
     Odometry odometry(makeConfig());
     EXPECT_EQ(odometry.pulses(), 0);
     EXPECT_DOUBLE_EQ(odometry.distanceMm(), 0.0);
 }
 
-TEST(Odometry, UmaVoltaPercorreUmaCircunferencia) {
+TEST(Odometry, OneTurnTravelsOneCircumference) {
     Odometry odometry(makeConfig());
     odometry.onEncoderPulses(360);
     EXPECT_NEAR(odometry.distanceMm(), M_PI * 32.0, 1e-9);
     EXPECT_EQ(odometry.pulses(), 360);
 }
 
-TEST(Odometry, PulsosAcumulamEEscalam) {
+TEST(Odometry, PulsesAccumulateAndScale) {
     Odometry odometry(makeConfig());
     odometry.onEncoderPulses(90);
     odometry.onEncoderPulses(90);
     EXPECT_NEAR(odometry.distanceMm(), (M_PI * 32.0) / 2.0, 1e-9);
 }
 
-TEST(Odometry, ContaCelulasPeloPiso) {
+TEST(Odometry, CountsCellsWithFloorDivision) {
     Odometry odometry(makeConfig());
     odometry.onEncoderPulses(4 * 360);
     EXPECT_EQ(odometry.cellsTraveled(), 2);
 }
 
-TEST(Odometry, VelocidadeMediaEGuardaDivisaoPorZero) {
+TEST(Odometry, AverageSpeedGuardsAgainstDivisionByZero) {
     Odometry odometry(makeConfig());
     odometry.onEncoderPulses(360);
     EXPECT_NEAR(odometry.averageSpeedMmPerS(0.5), (M_PI * 32.0) / 0.5, 1e-9);
     EXPECT_DOUBLE_EQ(odometry.averageSpeedMmPerS(0.0), 0.0);
 }
 
-TEST(Odometry, ReComPulsosNegativos) {
+TEST(Odometry, ReversesWithNegativePulses) {
     Odometry odometry(makeConfig());
     odometry.onEncoderPulses(360);
     odometry.onEncoderPulses(-180);
@@ -57,7 +57,7 @@ TEST(Odometry, ReComPulsosNegativos) {
     EXPECT_EQ(odometry.pulses(), 180);
 }
 
-TEST(Odometry, ResetZera) {
+TEST(Odometry, ResetZeroesState) {
     Odometry odometry(makeConfig());
     odometry.onEncoderPulses(1000);
     odometry.reset();
@@ -65,7 +65,7 @@ TEST(Odometry, ResetZera) {
     EXPECT_DOUBLE_EQ(odometry.distanceMm(), 0.0);
 }
 
-TEST(Odometry, RejeitaConfiguracaoInvalida) {
+TEST(Odometry, RejectsInvalidConfiguration) {
     EXPECT_THROW(Odometry({0.0, 360, 180.0}), std::invalid_argument);
     EXPECT_THROW(Odometry({32.0, 0, 180.0}), std::invalid_argument);
     EXPECT_THROW(Odometry({32.0, 360, -1.0}), std::invalid_argument);
