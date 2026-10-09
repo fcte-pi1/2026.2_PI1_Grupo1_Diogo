@@ -16,6 +16,15 @@ TEST(SessionManager, ComecaEmIdle) {
     EXPECT_EQ(stateMachine.getCurrentPhase(), SessionPhase::Idle);
 }
 
+TEST(SessionManager, StartVaiParaSelfTest) {
+    SpySignal signal;
+    SessionManager stateMachine(signal);
+    stateMachine.start();
+    EXPECT_EQ(stateMachine.getCurrentPhase(), SessionPhase::SelfTest);
+}
+
+TEST(SessionManager, _) {}
+
 }  // namespace
 
 }  // namespace micromouse::use_cases
