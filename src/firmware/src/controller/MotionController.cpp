@@ -1,5 +1,7 @@
 #include "controller/MotionController.hpp"
 
+#include <algorithm>
+
 namespace micromouse::controller {
 
 MotionController::MotionController(const domain::PidGains& gains, double baseSpeed, double maxSpeed)
@@ -9,7 +11,11 @@ MotionController::MotionController(const domain::PidGains& gains, double baseSpe
 
 WheelSpeeds MotionController::correct(double error, double deltaTimeSeconds) {
     const double steeringCorrection = pid_.update(error, deltaTimeSeconds);
-    return {baseSpeed_ - steeringCorrection, baseSpeed_ + steeringCorrection};
+    const double leftSpeed = std::clamp(baseSpeed_ - steeringCorrection, 0.0, maxSpeed_);
+    const double rightSpeed = std::clamp(baseSpeed_ + steeringCorrection, 0.0, maxSpeed_);
+    return {leftSpeed, rightSpeed};
 }
+
+void MotionController::reset() noexcept { pid_.reset(); }
 
 }  // namespace micromouse::controller
