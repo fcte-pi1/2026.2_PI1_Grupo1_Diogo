@@ -25,4 +25,6 @@ double Odometry::averageSpeedMmPerS(double elapsedSeconds) const {
     return std::fabs(distanceMm()) / elapsedSeconds;
 }
 
+void Odometry::reset() noexcept { pulses_ = 0; }
+
 }  // namespace micromouse::domain
