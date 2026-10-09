@@ -8,7 +8,7 @@ namespace {
 
 using ports::ISignalPort;
 
-enum class Phase {};
+enum class SessionPhase {};
 
 class SessionManager {
 private:
