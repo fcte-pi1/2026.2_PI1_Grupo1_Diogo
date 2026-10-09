@@ -3,8 +3,12 @@
 namespace micromouse::ports {
 
 class IMotionPort {
-private:
 public:
+    virtual ~IMotionPort() = default;
+    virtual void advanceCell() = 0;
+    virtual void turnLeft() = 0;
+    virtual void turnRight() = 0;
+    virtual void turnAround() = 0;
 };
 
 }  // namespace micromouse::ports
