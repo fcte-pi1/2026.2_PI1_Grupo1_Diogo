@@ -13,6 +13,20 @@ TEST(MotionController, ErroZeroMantemVelocidadeBase) {
     EXPECT_DOUBLE_EQ(speed.right, 100.0);
 }
 
+TEST(MotionControllerTest, ErroGeraDiferencialSimetrico) {
+    MotionController controller({1.0, 0.0, 0.0}, 100.0, 200.0);
+    const WheelSpeeds speed = controller.correct(10.0, 0.1);
+    EXPECT_DOUBLE_EQ(speed.left, 90.0);
+    EXPECT_DOUBLE_EQ(speed.right, 110.0);
+}
+
+TEST(MotionControllerTest, SaturaNoLimiteDoMotor) {
+    MotionController controller({50.0, 0.0, 0.0}, 100.0, 120.0);
+    const WheelSpeeds speed = controller.correct(10.0, 0.1);
+    EXPECT_DOUBLE_EQ(speed.left, 0.0);
+    EXPECT_DOUBLE_EQ(speed.right, 120.0);
+}
+
 TEST(MotionController, _) {}
 
 }  // namespace
