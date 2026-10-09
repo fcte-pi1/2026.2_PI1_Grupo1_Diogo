@@ -4,11 +4,23 @@
 
 namespace micromouse::controller {
 
-struct WheelSpeeds {};
+using domain::Pid;
+using domain::PidGains;
+
+struct WheelSpeeds {
+    double left{};
+    double right{};
+};
 
 class MotionController {
 private:
+    Pid pid_;
+    double baseSpeed_;
+    double maxSpeed_;
+
 public:
+    MotionController(const domain::PidGains& gains, double baseSpeed, double maxSpeed);
+    [[nodiscard]] WheelSpeeds correct(double error, double deltaTimeSeconds);
 };
 
 }  // namespace micromouse::controller
