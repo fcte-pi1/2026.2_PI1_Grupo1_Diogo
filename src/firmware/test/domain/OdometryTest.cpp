@@ -49,6 +49,22 @@ TEST(Odometry, VelocidadeMediaEGuardaDivisaoPorZero) {
     EXPECT_DOUBLE_EQ(odometry.averageSpeedMmPerS(0.0), 0.0);
 }
 
+TEST(Odometry, ReComPulsosNegativos) {
+    Odometry odometry(makeConfig());
+    odometry.onEncoderPulses(360);
+    odometry.onEncoderPulses(-180);
+    EXPECT_NEAR(odometry.distanceMm(), (M_PI * 32.0) / 2.0, 1e-9);
+    EXPECT_EQ(odometry.pulses(), 180);
+}
+
+TEST(Odometry, ResetZera) {
+    Odometry odometry(makeConfig());
+    odometry.onEncoderPulses(1000);
+    odometry.reset();
+    EXPECT_EQ(odometry.pulses(), 0);
+    EXPECT_DOUBLE_EQ(odometry.distanceMm(), 0.0);
+}
+
 TEST(Odometry, _) {}
 
 }  // namespace
