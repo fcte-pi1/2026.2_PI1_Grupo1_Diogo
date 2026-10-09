@@ -44,6 +44,14 @@ TEST(DipDecoder, CantoDireitoInverteObjetivo) {
     EXPECT_EQ(setup.goal, (Position{0, 0}));
 }
 
+TEST(DipDecoder, CombinacaoReservadaLanca) {
+    DipDecoder decoder;
+    EXPECT_THROW(decoder.decode(true, true, false), std::invalid_argument);
+    EXPECT_THROW(decoder.decode(true, true, true), std::invalid_argument);
+}
+
+TEST(DipDecoder, _) {}
+
 }  // namespace
 
 }  // namespace micromouse::domain
