@@ -17,6 +17,12 @@ TEST(Pid, IntegralAcumula) {
     EXPECT_DOUBLE_EQ(pid.update(2.0, 0.1), 2.0);
 }
 
+TEST(Pid, DerivativoReageAVariacao) {
+    Pid pid({0.0, 0.0, 4.0});
+    EXPECT_DOUBLE_EQ(pid.update(1.0, 0.1), 0.0);
+    EXPECT_DOUBLE_EQ(pid.update(3.0, 0.1), 80.0);
+}
+
 }  // namespace
 
 }  // namespace micromouse::domain
