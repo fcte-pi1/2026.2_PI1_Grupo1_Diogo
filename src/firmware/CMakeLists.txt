@@ -51,6 +51,7 @@ add_library(firmware_logic STATIC
     src/use_cases/Navigator.cpp
     src/use_cases/SessionManager.cpp
     src/domain/Odometry.cpp
+    src/domain/DipDecoder.cpp
 )
 
 target_include_directories(firmware_logic PUBLIC
