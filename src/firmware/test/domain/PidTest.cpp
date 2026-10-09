@@ -6,24 +6,24 @@ namespace micromouse::domain {
 
 namespace {
 
-TEST(Pid, ProporcionalPuro) {
+TEST(Pid, PureProportional) {
     Pid pid({2.0, 0.0, 0.0});
     EXPECT_DOUBLE_EQ(pid.update(3.0, 0.1), 6.0);
 }
 
-TEST(Pid, IntegralAcumula) {
+TEST(Pid, IntegralAccumulates) {
     Pid pid({0.0, 5.0, 0.0});
     EXPECT_DOUBLE_EQ(pid.update(2.0, 0.1), 1.0);
     EXPECT_DOUBLE_EQ(pid.update(2.0, 0.1), 2.0);
 }
 
-TEST(Pid, DerivativoReageAVariacao) {
+TEST(Pid, DerivativeReactsToChange) {
     Pid pid({0.0, 0.0, 4.0});
     EXPECT_DOUBLE_EQ(pid.update(1.0, 0.1), 0.0);
     EXPECT_DOUBLE_EQ(pid.update(3.0, 0.1), 80.0);
 }
 
-TEST(PidTest, ResetZeraEstado) {
+TEST(PidTest, ResetClearsState) {
     Pid pid({1.0, 1.0, 1.0});
     pid.update(10.0, 0.1);
     pid.update(10.0, 0.1);
@@ -31,11 +31,11 @@ TEST(PidTest, ResetZeraEstado) {
     EXPECT_DOUBLE_EQ(pid.update(5.0, 0.1), 5.5);
 }
 
-TEST(PidTest, DtInvalidoEhIgnorado) {
+TEST(PidTest, InvalidDtIsIgnored) {
     Pid pid({0.0, 1.0, 0.0});
-    EXPECT_DOUBLE_EQ(pid.update(5.0, 0.0), 0.0);   // ignorado
-    EXPECT_DOUBLE_EQ(pid.update(5.0, -1.0), 0.0);  // ignorado
-    EXPECT_DOUBLE_EQ(pid.update(2.0, 0.1), 0.2);   // funciona normalmente
+    EXPECT_DOUBLE_EQ(pid.update(5.0, 0.0), 0.0);
+    EXPECT_DOUBLE_EQ(pid.update(5.0, -1.0), 0.0);
+    EXPECT_DOUBLE_EQ(pid.update(2.0, 0.1), 0.2);
 }
 
 }  // namespace
