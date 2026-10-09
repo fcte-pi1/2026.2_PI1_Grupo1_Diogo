@@ -18,6 +18,8 @@ public:
 
     [[nodiscard]] long pulses() const noexcept;
     [[nodiscard]] double distanceMm() const;
+    void onEncoderPulses(long ticks) noexcept;
+    [[nodiscard]] int cellsTraveled() const;
 };
 
 }  // namespace micromouse::domain
