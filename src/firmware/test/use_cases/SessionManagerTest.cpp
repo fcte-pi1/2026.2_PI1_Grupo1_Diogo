@@ -23,6 +23,16 @@ TEST(SessionManager, StartVaiParaSelfTest) {
     EXPECT_EQ(stateMachine.getCurrentPhase(), SessionPhase::SelfTest);
 }
 
+TEST(SessionManager, SelfTestOkVaiExplorarESinalizaPronto) {
+    SpySignal signal;
+    SessionManager stateMachine(signal);
+    stateMachine.start();
+    stateMachine.onSelfTestResult(true);
+    EXPECT_EQ(stateMachine.getCurrentPhase(), SessionPhase::Exploring);
+    EXPECT_EQ(signal.ready, 1);
+    EXPECT_EQ(signal.error, 0);
+}
+
 TEST(SessionManager, _) {}
 
 }  // namespace
