@@ -21,6 +21,7 @@ public:
     void onEncoderPulses(long ticks) noexcept;
     [[nodiscard]] int cellsTraveled() const;
     [[nodiscard]] double averageSpeedMmPerS(double elapsedSeconds) const;
+    void reset() noexcept;
 };
 
 }  // namespace micromouse::domain
