@@ -10,20 +10,20 @@ namespace {
 
 using test::SpySignal;
 
-TEST(SessionManager, ComecaEmIdle) {
+TEST(SessionManager, StartsInIdle) {
     SpySignal signal;
     SessionManager stateMachine(signal);
     EXPECT_EQ(stateMachine.getCurrentPhase(), SessionPhase::Idle);
 }
 
-TEST(SessionManager, StartVaiParaSelfTest) {
+TEST(SessionManager, StartGoesToSelfTest) {
     SpySignal signal;
     SessionManager stateMachine(signal);
     stateMachine.start();
     EXPECT_EQ(stateMachine.getCurrentPhase(), SessionPhase::SelfTest);
 }
 
-TEST(SessionManager, SelfTestOkVaiExplorarESinalizaPronto) {
+TEST(SessionManager, SelfTestOkGoesToExploringAndSignalsReady) {
     SpySignal signal;
     SessionManager stateMachine(signal);
     stateMachine.start();
@@ -33,7 +33,7 @@ TEST(SessionManager, SelfTestOkVaiExplorarESinalizaPronto) {
     EXPECT_EQ(signal.error, 0);
 }
 
-TEST(SessionManager, SelfTestFalhaVaiParaFaultESinalizaErro) {
+TEST(SessionManager, SelfTestFailureGoesToFaultAndSignalsError) {
     SpySignal signal;
     SessionManager stateMachine(signal);
     stateMachine.start();
@@ -43,7 +43,7 @@ TEST(SessionManager, SelfTestFalhaVaiParaFaultESinalizaErro) {
     EXPECT_EQ(signal.error, 1);
 }
 
-TEST(SessionManager, ReachedGoalNaExploracaoVaiRetornar) {
+TEST(SessionManager, ReachedGoalDuringExplorationGoesToReturning) {
     SpySignal signal;
     SessionManager stateMachine(signal);
     stateMachine.start();
@@ -52,7 +52,7 @@ TEST(SessionManager, ReachedGoalNaExploracaoVaiRetornar) {
     EXPECT_EQ(stateMachine.getCurrentPhase(), SessionPhase::Returning);
 }
 
-TEST(SessionManager, FluxoCompletoAteFinished) {
+TEST(SessionManager, FullFlowUntilFinished) {
     SpySignal signal;
     SessionManager stateMachine(signal);
     stateMachine.start();
@@ -65,7 +65,7 @@ TEST(SessionManager, FluxoCompletoAteFinished) {
     EXPECT_EQ(stateMachine.getCurrentPhase(), SessionPhase::Finished);
 }
 
-TEST(SessionManager, FaultInterrompeFaseAtiva) {
+TEST(SessionManager, FaultInterruptsActivePhase) {
     SpySignal signal;
     SessionManager stateMachine(signal);
     stateMachine.start();
@@ -76,7 +76,16 @@ TEST(SessionManager, FaultInterrompeFaseAtiva) {
     EXPECT_EQ(signal.error, 1);
 }
 
-TEST(SessionManager, _) {}
+TEST(SessionManager, OutOfOrderEventsAreIgnored) {
+    SpySignal signal;
+    SessionManager stateMachine(signal);
+    stateMachine.reachedGoal();
+    stateMachine.backAtStart();
+    EXPECT_EQ(stateMachine.getCurrentPhase(), SessionPhase::Idle);
+    EXPECT_EQ(signal.ready, 0);
+    EXPECT_EQ(signal.running, 0);
+    EXPECT_EQ(signal.error, 0);
+}
 
 }  // namespace
 
