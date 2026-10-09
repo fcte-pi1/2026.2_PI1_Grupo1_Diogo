@@ -50,6 +50,7 @@ add_library(firmware_logic STATIC
     src/domain/FloodFill.cpp
     src/use_cases/Navigator.cpp
     src/use_cases/SessionManager.cpp
+    src/domain/Odometry.cpp
 )
 
 target_include_directories(firmware_logic PUBLIC
