@@ -75,6 +75,21 @@ TEST(Navigator, GiraQuandoPrecisaMudarDeSentido) {
     EXPECT_EQ(navigator.getPosition(), (Position{0, 1}));
 }
 
+TEST(Navigator, AlcancaObjetivoEmLabirintoAberto) {
+    MazeMap known(4, 8);
+    MazeMap truth(4, 8);
+    truth.initKnownPerimeter();
+    SimulatedRobot robot(truth, {0, 0}, Direction::North);
+
+    Navigator navigator(known, robot, robot, {0, 0}, Direction::North, {{3, 7}});
+    const bool success = navigator.run(200);
+
+    EXPECT_TRUE(success);
+    EXPECT_TRUE(navigator.reachedGoal());
+    EXPECT_EQ(navigator.getPosition(), (Position{3, 7}));
+    EXPECT_EQ(robot.advances(), 10);  // caminho mínimo = 3 + 7 = 10 movimentos
+}
+
 TEST(Navigator, _) {}
 
 }  // namespace
