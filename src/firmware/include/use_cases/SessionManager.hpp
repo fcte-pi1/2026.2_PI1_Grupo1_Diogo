@@ -4,17 +4,26 @@
 
 namespace micromouse::use_cases {
 
-namespace {
-
 using ports::ISignalPort;
 
-enum class SessionPhase {};
+enum class SessionPhase {
+    Idle,       //
+    SelfTest,   //
+    Exploring,  //
+    Returning,  //
+    FastRun,    //
+    Finished,   //
+    Fault       //
+};
 
 class SessionManager {
 private:
-public:
-};
+    ISignalPort& signal_;
+    SessionPhase phase_{SessionPhase::Idle};
 
-}  // namespace
+public:
+    explicit SessionManager(ISignalPort& signal);
+    [[nodiscard]] SessionPhase getCurrentPhase() const noexcept;
+};
 
 }  // namespace micromouse::use_cases
