@@ -20,4 +20,9 @@ int Odometry::cellsTraveled() const {
     return static_cast<int>(std::fabs(distanceMm()) / wheelConfig_.cellSizeMm);
 }
 
+double Odometry::averageSpeedMmPerS(double elapsedSeconds) const {
+    if (!(elapsedSeconds > 0.0)) return 0.0;
+    return std::fabs(distanceMm()) / elapsedSeconds;
+}
+
 }  // namespace micromouse::domain
