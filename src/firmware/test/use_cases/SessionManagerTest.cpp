@@ -43,6 +43,15 @@ TEST(SessionManager, SelfTestFalhaVaiParaFaultESinalizaErro) {
     EXPECT_EQ(signal.error, 1);
 }
 
+TEST(SessionManager, ReachedGoalNaExploracaoVaiRetornar) {
+    SpySignal signal;
+    SessionManager stateMachine(signal);
+    stateMachine.start();
+    stateMachine.onSelfTestResult(true);
+    stateMachine.reachedGoal();
+    EXPECT_EQ(stateMachine.getCurrentPhase(), SessionPhase::Returning);
+}
+
 TEST(SessionManager, _) {}
 
 }  // namespace
