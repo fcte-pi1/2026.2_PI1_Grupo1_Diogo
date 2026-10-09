@@ -2,11 +2,16 @@
 
 namespace micromouse::ports {
 
-struct WallsAhead {};
+struct WallsAhead {
+    bool front{};
+    bool left{};
+    bool right{};
+};
 
 class ISensorPort {
-private:
 public:
+    virtual ~ISensorPort() = default;
+    [[nodiscard]] virtual WallsAhead sense() const = 0;
 };
 
 }  // namespace micromouse::ports
