@@ -14,4 +14,10 @@ double Pid::update(double error, double deltaTimeSeconds) {
            gains_.derivativeGain * derivative;
 }
 
+void Pid::reset() noexcept {
+    accumulatedError_ = 0.0;
+    previousError_ = 0.0;
+    hasPreviousError_ = false;
+}
+
 }  // namespace micromouse::domain
