@@ -42,6 +42,13 @@ TEST(Odometry, ContaCelulasPeloPiso) {
     EXPECT_EQ(odometry.cellsTraveled(), 2);
 }
 
+TEST(Odometry, VelocidadeMediaEGuardaDivisaoPorZero) {
+    Odometry odometry(makeConfig());
+    odometry.onEncoderPulses(360);
+    EXPECT_NEAR(odometry.averageSpeedMmPerS(0.5), (M_PI * 32.0) / 0.5, 1e-9);
+    EXPECT_DOUBLE_EQ(odometry.averageSpeedMmPerS(0.0), 0.0);
+}
+
 TEST(Odometry, _) {}
 
 }  // namespace
