@@ -18,6 +18,8 @@ add_executable(firmware_tests
     domain/FloodFillTest.cpp
     simulation/SimulatedRobot.hpp
     use_cases/NavigatorTest.cpp
+    spy/SpySignalPort.cpp
+    use_cases/SessionManagerTest.cpp
 )
 
 target_include_directories(firmware_tests PRIVATE
