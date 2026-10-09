@@ -20,6 +20,7 @@ public:
     [[nodiscard]] double distanceMm() const;
     void onEncoderPulses(long ticks) noexcept;
     [[nodiscard]] int cellsTraveled() const;
+    [[nodiscard]] double averageSpeedMmPerS(double elapsedSeconds) const;
 };
 
 }  // namespace micromouse::domain
