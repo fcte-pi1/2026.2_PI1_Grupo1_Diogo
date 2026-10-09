@@ -21,6 +21,7 @@ add_executable(firmware_tests
     spy/SpySignalPort.hpp
     use_cases/SessionManagerTest.cpp
     domain/OdometryTest.cpp
+    domain/DipDecoderTest.cpp
 )
 
 target_include_directories(firmware_tests PRIVATE
