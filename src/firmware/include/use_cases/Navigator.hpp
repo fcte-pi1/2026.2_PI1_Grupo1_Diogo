@@ -5,7 +5,7 @@
 #include "ports/MotionPort.hpp"
 #include "ports/SensorPort.hpp"
 
-namespace micromouse::usecases {
+namespace micromouse::use_cases {
 
 using domain::Direction;
 using domain::FloodFill;
@@ -20,4 +20,4 @@ private:
 public:
 };
 
-}  // namespace micromouse::usecases
+}  // namespace micromouse::use_cases
