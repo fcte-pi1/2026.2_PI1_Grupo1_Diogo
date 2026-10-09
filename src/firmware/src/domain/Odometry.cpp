@@ -1,14 +1,31 @@
 #include "domain/Odometry.hpp"
 
 #include <cmath>
+#include <stdexcept>
+#include <string>
 
 namespace micromouse::domain {
 
-Odometry::Odometry(const WheelConfig& wheelConfig) : wheelConfig_(wheelConfig) {}
+namespace {
 
-long Odometry::pulses() const noexcept { return pulses_; }
+double requirePositive(double value, const char* what) {
+    if (!(value > 0.0)) {
+        throw std::invalid_argument(std::string("Odometry: ") + what + " deve ser positivo");
+    }
+    return value;
+}
+
+}  // namespace
+
+Odometry::Odometry(const WheelConfig& cfg) : wheelConfig_(cfg) {
+    requirePositive(cfg.wheelDiameterMm, "wheelDiameterMm");
+    requirePositive(static_cast<double>(cfg.countsPerRevolution), "countsPerRevolution");
+    requirePositive(cfg.cellSizeMm, "cellSizeMm");
+}
 
 void Odometry::onEncoderPulses(long ticks) noexcept { pulses_ += ticks; }
+
+long Odometry::pulses() const noexcept { return pulses_; }
 
 double Odometry::distanceMm() const {
     const double circumference = M_PI * wheelConfig_.wheelDiameterMm;
