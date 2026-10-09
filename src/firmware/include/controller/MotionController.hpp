@@ -21,6 +21,7 @@ private:
 public:
     MotionController(const domain::PidGains& gains, double baseSpeed, double maxSpeed);
     [[nodiscard]] WheelSpeeds correct(double error, double deltaTimeSeconds);
+    void reset() noexcept;
 };
 
 }  // namespace micromouse::controller
