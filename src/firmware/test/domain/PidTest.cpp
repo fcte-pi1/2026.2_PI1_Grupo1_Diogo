@@ -31,6 +31,13 @@ TEST(PidTest, ResetZeraEstado) {
     EXPECT_DOUBLE_EQ(pid.update(5.0, 0.1), 5.5);
 }
 
+TEST(PidTest, DtInvalidoEhIgnorado) {
+    Pid pid({0.0, 1.0, 0.0});
+    EXPECT_DOUBLE_EQ(pid.update(5.0, 0.0), 0.0);   // ignorado
+    EXPECT_DOUBLE_EQ(pid.update(5.0, -1.0), 0.0);  // ignorado
+    EXPECT_DOUBLE_EQ(pid.update(2.0, 0.1), 0.2);   // funciona normalmente
+}
+
 }  // namespace
 
 }  // namespace micromouse::domain
