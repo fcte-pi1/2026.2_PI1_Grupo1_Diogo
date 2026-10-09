@@ -27,9 +27,9 @@ Dimensions decodeType(bool dip1, bool dip2) {
 
 }  // namespace
 
-MazeSetup DipDecoder::decode(bool dip1, bool dip2, bool /*dip3*/) const {
+MazeSetup DipDecoder::decode(bool dip1, bool dip2, bool dip3) const {
     const Dimensions dimensions = decodeType(dip1, dip2);
-    const Position start{dimensions.rows - 1, 0};
+    const Position start{dimensions.rows - 1, dip3 ? dimensions.columns - 1 : 0};
     const Position goal{dimensions.rows - 1 - start.row, dimensions.columns - 1 - start.column};
     return {
         dimensions.type,     //
