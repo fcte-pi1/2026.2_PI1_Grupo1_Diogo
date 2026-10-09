@@ -27,6 +27,7 @@ public:
     [[nodiscard]] SessionPhase getCurrentPhase() const noexcept;
     void start();
     void onSelfTestResult(bool success);
+    void reachedGoal();
 };
 
 }  // namespace micromouse::use_cases
