@@ -16,6 +16,8 @@ FetchContent_MakeAvailable(googletest)
 add_executable(firmware_tests
     domain/MazeTest.cpp
     domain/FloodFillTest.cpp
+    usecases/SimulatedRobot.hpp
+    usecases/NavigatorTest.cpp
 )
 
 target_link_libraries(firmware_tests PRIVATE
