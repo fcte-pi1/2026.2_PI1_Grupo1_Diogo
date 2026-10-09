@@ -46,11 +46,25 @@ TEST(DipDecoder, CantoDireitoInverteObjetivo) {
 
 TEST(DipDecoder, CombinacaoReservadaLanca) {
     DipDecoder decoder;
-    EXPECT_THROW(decoder.decode(true, true, false), std::invalid_argument);
-    EXPECT_THROW(decoder.decode(true, true, true), std::invalid_argument);
+    EXPECT_THROW((void)decoder.decode(true, true, false), std::invalid_argument);
+    EXPECT_THROW((void)decoder.decode(true, true, true), std::invalid_argument);
 }
 
-TEST(DipDecoder, _) {}
+TEST(DipDecoder, ObjetivoEhSempreDiagonalOposto) {
+    DipDecoder decoder;
+    for (bool dip1 : {false, true}) {
+        for (bool dip2 : {false, true}) {
+            if (dip1 && dip2) {
+                continue;  // Skip reserved combination
+            }
+            for (bool dip3 : {false, true}) {
+                const MazeSetup setup = decoder.decode(dip1, dip2, dip3);
+                EXPECT_EQ(setup.goal.row, setup.rows - 1 - setup.start.row);
+                EXPECT_EQ(setup.goal.column, setup.columns - 1 - setup.start.column);
+            }
+        }
+    }
+}
 
 }  // namespace
 
