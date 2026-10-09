@@ -12,6 +12,9 @@ void SessionManager::enter(SessionPhase next) {
         case SessionPhase::Exploring:
             signal_.signalReady();
             break;
+        case SessionPhase::FastRun:
+            signal_.signalRunning();
+            break;
         case SessionPhase::Fault:
             signal_.signalError();
             break;
@@ -32,7 +35,14 @@ void SessionManager::start() {
 void SessionManager::reachedGoal() {
     if (phase_ == SessionPhase::Exploring) {
         enter(SessionPhase::Returning);
+    } else if (phase_ == SessionPhase::FastRun) {
+        enter(SessionPhase::Finished);
     }
 }
 
+void SessionManager::backAtStart() {
+    if (phase_ == SessionPhase::Returning) {
+        enter(SessionPhase::FastRun);
+    }
+}
 }  // namespace micromouse::use_cases
