@@ -18,6 +18,7 @@ private:
 public:
     explicit Pid(const PidGains& gains);
     double update(double error, double deltaTimeSeconds);
+    void reset() noexcept;
 };
 
 }  // namespace micromouse::domain
