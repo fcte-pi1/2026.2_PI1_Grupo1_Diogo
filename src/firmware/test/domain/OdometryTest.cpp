@@ -65,7 +65,11 @@ TEST(Odometry, ResetZera) {
     EXPECT_DOUBLE_EQ(odometry.distanceMm(), 0.0);
 }
 
-TEST(Odometry, _) {}
+TEST(Odometry, RejeitaConfiguracaoInvalida) {
+    EXPECT_THROW(Odometry({0.0, 360, 180.0}), std::invalid_argument);
+    EXPECT_THROW(Odometry({32.0, 0, 180.0}), std::invalid_argument);
+    EXPECT_THROW(Odometry({32.0, 360, -1.0}), std::invalid_argument);
+}
 
 }  // namespace
 
