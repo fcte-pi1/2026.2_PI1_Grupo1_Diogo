@@ -29,4 +29,10 @@ void SessionManager::start() {
     if (phase_ == SessionPhase::Idle) enter(SessionPhase::SelfTest);
 }
 
+void SessionManager::reachedGoal() {
+    if (phase_ == SessionPhase::Exploring) {
+        enter(SessionPhase::Returning);
+    }
+}
+
 }  // namespace micromouse::use_cases
