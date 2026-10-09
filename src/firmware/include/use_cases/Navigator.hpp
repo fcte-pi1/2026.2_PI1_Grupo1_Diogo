@@ -27,6 +27,7 @@ private:
     Direction heading_;
     std::vector<Position> goals_;
     void senseAndRecord();
+    void applyTurnTo(Direction target);
 
 public:
     Navigator(MazeMap& maze, ISensorPort& sensor, IMotionPort& motion, Position start,
@@ -36,6 +37,7 @@ public:
     [[nodiscard]] Direction getHeading() const noexcept;
     [[nodiscard]] bool reachedGoal() const noexcept;
     void step();
+    bool run(int maxSteps);
 };
 
 }  // namespace micromouse::use_cases
