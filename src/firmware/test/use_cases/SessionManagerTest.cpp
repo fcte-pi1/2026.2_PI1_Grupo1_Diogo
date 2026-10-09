@@ -52,6 +52,19 @@ TEST(SessionManager, ReachedGoalNaExploracaoVaiRetornar) {
     EXPECT_EQ(stateMachine.getCurrentPhase(), SessionPhase::Returning);
 }
 
+TEST(SessionManager, FluxoCompletoAteFinished) {
+    SpySignal signal;
+    SessionManager stateMachine(signal);
+    stateMachine.start();
+    stateMachine.onSelfTestResult(true);
+    stateMachine.reachedGoal();
+    stateMachine.backAtStart();
+    EXPECT_EQ(stateMachine.getCurrentPhase(), SessionPhase::FastRun);
+    EXPECT_EQ(signal.running, 1);
+    stateMachine.reachedGoal();
+    EXPECT_EQ(stateMachine.getCurrentPhase(), SessionPhase::Finished);
+}
+
 TEST(SessionManager, _) {}
 
 }  // namespace
