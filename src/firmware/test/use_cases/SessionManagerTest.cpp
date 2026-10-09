@@ -65,6 +65,17 @@ TEST(SessionManager, FluxoCompletoAteFinished) {
     EXPECT_EQ(stateMachine.getCurrentPhase(), SessionPhase::Finished);
 }
 
+TEST(SessionManager, FaultInterrompeFaseAtiva) {
+    SpySignal signal;
+    SessionManager stateMachine(signal);
+    stateMachine.start();
+    stateMachine.onSelfTestResult(true);
+    stateMachine.reachedGoal();
+    stateMachine.fault();
+    EXPECT_EQ(stateMachine.getCurrentPhase(), SessionPhase::Fault);
+    EXPECT_EQ(signal.error, 1);
+}
+
 TEST(SessionManager, _) {}
 
 }  // namespace
