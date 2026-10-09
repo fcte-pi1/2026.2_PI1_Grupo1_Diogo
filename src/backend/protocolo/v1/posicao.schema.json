@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rato-borrachudo.local/protocolo/v1/posicao.schema.json",
+  "title": "posicao",
+  "description": "Posição atual, contador de células e velocidade média calculada pelo robô (dado contínuo, RF-026 do firmware).",
+  "$ref": "comum.schema.json#/$defs/envelope",
+  "type": "object",
+  "properties": {
+    "v": true,
+    "corrida": true,
+    "seq": true,
+    "t": true,
+    "tipo": {
+      "const": "posicao"
+    },
+    "x": {
+      "$ref": "comum.schema.json#/$defs/coordenada"
+    },
+    "y": {
+      "$ref": "comum.schema.json#/$defs/coordenada"
+    },
+    "orientacao": {
+      "$ref": "comum.schema.json#/$defs/orientacao"
+    },
+    "celulas": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Contador de células percorridas."
+    },
+    "velocidade_media_mps": {
+      "type": "number",
+      "minimum": 0,
+      "description": "Opcional. Informativo: a velocidade oficial é derivada pelo backend (RF-83)."
+    }
+  },
+  "required": ["x", "y", "orientacao", "celulas"],
+  "unevaluatedProperties": false
+}

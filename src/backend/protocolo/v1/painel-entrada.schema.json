@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rato-borrachudo.local/protocolo/v1/painel-entrada.schema.json",
+  "title": "Mensagens do painel para o backend",
+  "description": "O painel é somente leitura (RNF-55): só pode se inscrever em uma corrida ou no canal ao_vivo, e cancelar a inscrição.",
+  "oneOf": [
+    {
+      "type": "object",
+      "properties": {
+        "tipo": { "enum": ["inscrever", "cancelar"] },
+        "corrida": {
+          "type": "string",
+          "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+          "description": "Id (UUID) da corrida no backend."
+        }
+      },
+      "required": ["tipo", "corrida"],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "tipo": { "enum": ["inscrever", "cancelar"] },
+        "canal": { "const": "ao_vivo" }
+      },
+      "required": ["tipo", "canal"],
+      "additionalProperties": false
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rato-borrachudo.local/protocolo/v1/fim_corrida.schema.json",
+  "title": "fim_corrida",
+  "description": "Fim da tentativa (RF-87).",
+  "$ref": "comum.schema.json#/$defs/envelope",
+  "type": "object",
+  "properties": {
+    "v": true,
+    "corrida": true,
+    "seq": true,
+    "t": true,
+    "tipo": {
+      "const": "fim_corrida"
+    },
+    "resultado": {
+      "enum": ["sucesso", "falha"]
+    },
+    "detalhe": {
+      "type": "string",
+      "maxLength": 200
+    }
+  },
+  "required": ["resultado"],
+  "unevaluatedProperties": false
+}

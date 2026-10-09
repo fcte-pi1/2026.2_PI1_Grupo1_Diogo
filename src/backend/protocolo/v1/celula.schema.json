@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rato-borrachudo.local/protocolo/v1/celula.schema.json",
+  "title": "celula",
+  "description": "Célula visitada com as paredes detectadas (evento discreto, RF-84).",
+  "$ref": "comum.schema.json#/$defs/envelope",
+  "type": "object",
+  "properties": {
+    "v": true,
+    "corrida": true,
+    "seq": true,
+    "t": true,
+    "tipo": {
+      "const": "celula"
+    },
+    "x": {
+      "$ref": "comum.schema.json#/$defs/coordenada"
+    },
+    "y": {
+      "$ref": "comum.schema.json#/$defs/coordenada"
+    },
+    "paredes": {
+      "$ref": "comum.schema.json#/$defs/paredes"
+    }
+  },
+  "required": ["x", "y", "paredes"],
+  "unevaluatedProperties": false
+}

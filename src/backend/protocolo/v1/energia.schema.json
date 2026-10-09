@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rato-borrachudo.local/protocolo/v1/energia.schema.json",
+  "title": "energia",
+  "description": "Leitura do INA219 (dado contínuo, RF-85). A faixa válida de tensão é regra de domínio (RF-76).",
+  "$ref": "comum.schema.json#/$defs/envelope",
+  "type": "object",
+  "properties": {
+    "v": true,
+    "corrida": true,
+    "seq": true,
+    "t": true,
+    "tipo": {
+      "const": "energia"
+    },
+    "tensao_v": {
+      "type": "number"
+    },
+    "corrente_a": {
+      "type": "number"
+    },
+    "potencia_w": {
+      "type": "number"
+    }
+  },
+  "required": ["tensao_v", "corrente_a", "potencia_w"],
+  "unevaluatedProperties": false
+}

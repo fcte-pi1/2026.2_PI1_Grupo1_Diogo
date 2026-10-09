@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rato-borrachudo.local/protocolo/v1/inicio_corrida.schema.json",
+  "title": "inicio_corrida",
+  "description": "Início de uma tentativa. Cria a corrida no backend (RF-78).",
+  "$ref": "comum.schema.json#/$defs/envelope",
+  "type": "object",
+  "properties": {
+    "v": true,
+    "corrida": true,
+    "seq": true,
+    "t": true,
+    "tipo": {
+      "const": "inicio_corrida"
+    },
+    "labirinto": {
+      "$ref": "comum.schema.json#/$defs/labirinto"
+    }
+  },
+  "required": ["labirinto"],
+  "unevaluatedProperties": false
+}
