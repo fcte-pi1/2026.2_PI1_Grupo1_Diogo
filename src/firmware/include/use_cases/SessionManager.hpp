@@ -26,6 +26,7 @@ public:
     explicit SessionManager(ISignalPort& signal);
     [[nodiscard]] SessionPhase getCurrentPhase() const noexcept;
     void start();
+    void onSelfTestResult(bool success);
 };
 
 }  // namespace micromouse::use_cases
