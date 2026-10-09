@@ -28,6 +28,7 @@ public:
     void start();
     void onSelfTestResult(bool success);
     void reachedGoal();
+    void backAtStart();
 };
 
 }  // namespace micromouse::use_cases
