@@ -25,7 +25,13 @@ void TelemetryBuffer::add(long timestamp, const std::string& message) {
 
     const long cutoff = timestamp - retentionMs_;
 
+    // Remove entries that are outside the retention window
     while (!buffer_.empty() && buffer_.front().timestamp < cutoff) {
+        buffer_.pop_front();
+    }
+
+    // Remove entries that exceed the maximum message count
+    while (buffer_.size() > maxMessages_) {
         buffer_.pop_front();
     }
 }
