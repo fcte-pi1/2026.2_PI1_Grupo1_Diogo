@@ -58,6 +58,19 @@ TEST(ProtocolV1, PosicaoSemVelocidadeOmiteOCampo) {
     EXPECT_EQ(msg.find("velocidade_media_mps"), std::string::npos);
 }
 
+TEST(ProtocolV1, FimCorridaResultado) {
+    Encoder encoder1 = makeEncoder();
+    (void)encoder1.encodeStartRun(1, 12000, "4x4");
+    EXPECT_EQ(
+        encoder1.encodeRunResult(95500, RunResult::Success),
+        R"({"v":1,"tipo":"fim_corrida","corrida":"r9f3a1c-1","seq":2,"t":95500,"resultado":"sucesso"})");
+    Encoder encoder2 = makeEncoder();
+    (void)encoder2.encodeStartRun(1, 0, "4x4");
+    EXPECT_EQ(
+        encoder2.encodeRunResult(100, RunResult::Failure),
+        R"({"v":1,"tipo":"fim_corrida","corrida":"r9f3a1c-1","seq":2,"t":100,"resultado":"falha"})");
+}
+
 }  // namespace
 
 }  // namespace micromouse::protocol
