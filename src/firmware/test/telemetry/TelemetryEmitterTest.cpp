@@ -88,6 +88,14 @@ TEST(TelemetryEmitter, CellConverteCoordenadasEEmiteCelula) {
         R"({"v":1,"tipo":"celula","corrida":"r9f3a1c-1","seq":2,"t":12010,"x":0,"y":3,"paredes":{"n":false,"l":true,"s":true,"o":true}})");
 }
 
+TEST(TelemetryEmitter, EndRunEmiteFimCorrida) {
+    TelemetryEmitter emitter = makeEmitter();
+    (void)emitter.encodeStartRun(1, 12000, MazeType::Small4x4);
+    EXPECT_EQ(
+        emitter.encodeRunResult(95500, protocol::RunResult::Success),
+        R"({"v":1,"tipo":"fim_corrida","corrida":"r9f3a1c-1","seq":2,"t":95500,"resultado":"sucesso"})");
+}
+
 }  // namespace
 
 }  // namespace micromouse::telemetry
