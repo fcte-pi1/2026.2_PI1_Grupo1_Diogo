@@ -1,0 +1,35 @@
+.pagina {
+  display: grid;
+  gap: var(--espaco-4);
+}
+
+.pagina h2 {
+  margin: 0;
+}
+
+.grade {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: var(--espaco-3);
+}
+
+.cartao {
+  display: grid;
+  gap: var(--espaco-2);
+  min-height: 5.5rem;
+  padding: var(--espaco-3);
+  background: var(--cor-superficie);
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio);
+}
+
+.cartao span {
+  color: var(--cor-texto-suave);
+  font-size: 0.875rem;
+}
+
+.cartao strong {
+  overflow-wrap: anywhere;
+  font-family: var(--fonte-mono);
+  font-size: var(--fonte-dado);
+}
