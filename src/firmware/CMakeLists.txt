@@ -49,6 +49,7 @@ add_library(firmware_logic STATIC
     src/domain/Maze.cpp
     src/domain/FloodFill.cpp
     src/use_cases/Navigator.cpp
+    src/use_cases/SessionManager.cpp
 )
 
 target_include_directories(firmware_logic PUBLIC
