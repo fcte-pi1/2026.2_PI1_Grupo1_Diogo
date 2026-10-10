@@ -22,6 +22,12 @@ std::vector<std::string> TelemetryBuffer::messages() const {
 
 void TelemetryBuffer::add(long timestamp, const std::string& message) {
     buffer_.push_back({timestamp, message});
+
+    const long cutoff = timestamp - retentionMs_;
+
+    while (!buffer_.empty() && buffer_.front().timestamp < cutoff) {
+        buffer_.pop_front();
+    }
 }
 
 }  // namespace micromouse::telemetry
