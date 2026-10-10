@@ -85,9 +85,14 @@ export class ClientePainelWS {
       const tempo = asNumber(
         registro.tempo_conclusao_ms ?? envelope.tempo_conclusao_ms ?? registro.t,
       );
+      const evento = asString(
+        envelope.evento ??
+          registro.evento ??
+          (tipo === 'evento' ? registro.tipo_evento : undefined),
+      );
       const status = asStatus(
         registro.status ?? envelope.status ?? asRegistro(registro.estado).status,
-      );
+      ) ?? asStatusFinal(tipo, evento, registro.motivo ?? envelope.motivo);
       const tensaoV = asNumber(energia.tensao_v ?? registro.tensao_v ?? envelope.tensao_v);
       const correnteA = asNumber(energia.corrente_a ?? registro.corrente_a ?? envelope.corrente_a);
       const potenciaW = asNumber(energia.potencia_w ?? registro.potencia_w ?? envelope.potencia_w);
@@ -131,11 +136,6 @@ export class ClientePainelWS {
         acoes.definirSinal(registro.sinal === 'OK' ? 'OK' : 'PERDIDO');
       }
 
-      const evento = asString(
-        envelope.evento ??
-          registro.evento ??
-          (tipo === 'evento' ? registro.tipo_evento : undefined),
-      );
       const celulaMapa = asCelulaMapa(registro.celula ?? registro.mapa ?? envelope.celula ?? envelope.mapa);
       if (celulaMapa) acoes.atualizarCelulaMapa(celulaMapa);
       if ((tipo === 'evento' && evento === 'celula') || tipo === 'celula') {
@@ -195,4 +195,12 @@ function asStatus(valor: unknown) {
     valor === 'INTERROMPIDA'
     ? valor
     : undefined;
+}
+
+function asStatusFinal(tipo: string | undefined, evento: string | undefined, motivo: unknown) {
+  if (tipo !== 'fim_corrida' && evento !== 'fim_corrida') return undefined;
+  if (motivo === 'SUCESSO') return 'CONCLUIDA' as const;
+  if (motivo === 'SEM_SINAL' || motivo === 'REINICIO_ROBO') return 'INTERROMPIDA' as const;
+  if (motivo === 'FALHA_REPORTADA') return 'FALHOU' as const;
+  return undefined;
 }

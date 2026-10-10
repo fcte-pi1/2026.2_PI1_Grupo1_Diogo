@@ -23,7 +23,7 @@ function StatusBadge({ status }: { status: Execucao['status'] }) {
         : status === 'INTERROMPIDA'
           ? estilos.statusAlerta
           : estilos.statusAndamento;
-  return <span className={`${estilos.status} ${classe}`}>{rotuloStatus(status)}</span>;
+  return <span className={`${estilos.status} ${classe}`} data-testid="status-desafio">{rotuloStatus(status)}</span>;
 }
 
 function MazeView({ trajeto, mapa, tipo }: { trajeto: Execucao['trajeto']; mapa: Execucao['mapa']; tipo: Execucao['tipoLabirinto'] }) {
