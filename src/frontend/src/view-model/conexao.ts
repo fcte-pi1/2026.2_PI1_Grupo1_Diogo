@@ -5,7 +5,7 @@ import { rotuloConexao } from '../formatacao';
 export function useConexao() {
   const estado = usePainel((s) => s.conexao.estado);
   const sinal = usePainel((s) => s.conexao.sinal);
-  return { estado, rotulo: rotuloConexao(estado, sinal) };
+  return { estado, sinal, rotulo: rotuloConexao(estado, sinal) };
 }
 
 export function useSaudeBackend() {
