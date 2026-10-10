@@ -36,6 +36,9 @@ bool GyroTurnController::reached() const noexcept {
 }
 
 void GyroTurnController::integrate(double angularVelDegPerS, double deltaTimeSeconds) {
+    if (!(deltaTimeSeconds > 0.0)) {
+        return;
+    }
     angle_ += angularVelDegPerS * deltaTimeSeconds;
 }
 
