@@ -31,7 +31,7 @@ private:
 public:
     Encoder(std::string device, std::string token, std::string boot);
     std::string encodeHello() const;
-    [[nodiscard]] std::string encodeStartRun(int runIndex, int time, const std::string& maze);
+    [[nodiscard]] std::string encodeStartRun(int runIndex, long time, const std::string& maze);
     [[nodiscard]] long sequence() const noexcept;
 
     [[nodiscard]] std::string encodeState(int time,                      //

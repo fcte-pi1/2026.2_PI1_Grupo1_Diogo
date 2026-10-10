@@ -59,7 +59,7 @@ std::string Encoder::encodeHello() const {
            R"(","boot":")" + boot_ + R"("})";
 }
 
-std::string Encoder::encodeStartRun(int runIndex, int time, const std::string& maze) {
+std::string Encoder::encodeStartRun(int runIndex, long time, const std::string& maze) {
     run_ = "r" + boot_ + "-" + std::to_string(runIndex);
     sequence_ = 1;
     return R"({"v":1,"tipo":"inicio_corrida","corrida":")" + run_ + R"(","seq":1,"t":)" +
@@ -173,9 +173,8 @@ std::string Encoder::encodeEnergy(int time,         //
 std::string Encoder::encodeRunResult(long time, RunResult result,
                                      std::optional<std::string> message) {
     const char* resultStr = (result == RunResult::Success) ? "sucesso" : "falha";
-    std::string msg = R"({"v":1,"tipo":"fim_corrida","corrida":")" + run_ +
-                      R"(","seq":)" + std::to_string(nextSequence()) +
-                      R"(,"t":)" + std::to_string(time) +
+    std::string msg = R"({"v":1,"tipo":"fim_corrida","corrida":")" + run_ + R"(","seq":)" +
+                      std::to_string(nextSequence()) + R"(,"t":)" + std::to_string(time) +
                       R"(,"resultado":")" + std::string(resultStr) + R"(")";
     if (message.has_value()) {
         msg += R"(,"detalhe":")" + jsonEscape(*message) + R"(")";
