@@ -32,6 +32,12 @@ TEST(Maneuver, RejeitaConfiguracaoInvalida) {
     EXPECT_THROW((void)pulsesForTurn({32.0, 360, -1.0}, 90.0), std::invalid_argument);
 }
 
+TEST(Maneuver, GyroComecaZeradoENaoAlcancado) {
+    GyroTurnController gyro(90.0, 2.0);
+    EXPECT_DOUBLE_EQ(gyro.angle(), 0.0);
+    EXPECT_FALSE(gyro.reached());
+}
+
 }  // namespace
 
 }  // namespace micromouse::domain
