@@ -26,4 +26,13 @@ double pulsesForTurn(const TurnConfig& config, double degrees) {
            (180.0 * config.wheelDiameterMm);
 };
 
+GyroTurnController::GyroTurnController(double targetDeg, double toleranceDeg)
+    : targetDeg_(targetDeg), toleranceDeg_(toleranceDeg) {}
+
+double GyroTurnController::angle() const noexcept { return angle_; }
+
+bool GyroTurnController::reached() const noexcept {
+    return std::fabs(angle_) >= targetDeg_ - toleranceDeg_;
+}
+
 }  // namespace micromouse::domain
