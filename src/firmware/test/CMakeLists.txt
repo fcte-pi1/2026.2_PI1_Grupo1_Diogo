@@ -22,6 +22,8 @@ add_executable(firmware_tests
     use_cases/SessionManagerTest.cpp
     domain/OdometryTest.cpp
     domain/DipDecoderTest.cpp
+    domain/PidTest.cpp
+    controller/MotionControllerTest.cpp
 )
 
 target_include_directories(firmware_tests PRIVATE

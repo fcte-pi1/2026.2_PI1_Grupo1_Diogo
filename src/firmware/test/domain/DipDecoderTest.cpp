@@ -7,7 +7,7 @@ namespace micromouse::domain {
 
 namespace {
 
-TEST(DipDecoder, PequenoCantoPadrao) {
+TEST(DipDecoder, SmallCornerDefault) {
     DipDecoder decoder;
     const MazeSetup setup = decoder.decode(false, false, false);
     EXPECT_EQ(setup.type, MazeType::Small4x4);
@@ -17,7 +17,7 @@ TEST(DipDecoder, PequenoCantoPadrao) {
     EXPECT_EQ(setup.goal, (Position{0, 3}));
 }
 
-TEST(DipDecoder, MedioPelaLargura) {
+TEST(DipDecoder, MediumByWidth) {
     DipDecoder decoder;
     const MazeSetup setup = decoder.decode(true, false, false);
     EXPECT_EQ(setup.type, MazeType::Medium8x4);
@@ -27,7 +27,7 @@ TEST(DipDecoder, MedioPelaLargura) {
     EXPECT_EQ(setup.goal, (Position{0, 7}));
 }
 
-TEST(DipDecoder, GrandePelaLargura) {
+TEST(DipDecoder, LargeByWidth) {
     DipDecoder decoder;
     const MazeSetup setup = decoder.decode(false, true, false);
     EXPECT_EQ(setup.type, MazeType::Large12x4);
@@ -37,20 +37,20 @@ TEST(DipDecoder, GrandePelaLargura) {
     EXPECT_EQ(setup.goal, (Position{0, 11}));
 }
 
-TEST(DipDecoder, CantoDireitoInverteObjetivo) {
+TEST(DipDecoder, RightCornerInvertsGoal) {
     DipDecoder decoder;
     const MazeSetup setup = decoder.decode(false, false, true);
     EXPECT_EQ(setup.start, (Position{3, 3}));
     EXPECT_EQ(setup.goal, (Position{0, 0}));
 }
 
-TEST(DipDecoder, CombinacaoReservadaLanca) {
+TEST(DipDecoder, ReservedCombinationThrows) {
     DipDecoder decoder;
     EXPECT_THROW((void)decoder.decode(true, true, false), std::invalid_argument);
     EXPECT_THROW((void)decoder.decode(true, true, true), std::invalid_argument);
 }
 
-TEST(DipDecoder, ObjetivoEhSempreDiagonalOposto) {
+TEST(DipDecoder, GoalIsAlwaysOppositeDiagonal) {
     DipDecoder decoder;
     for (bool dip1 : {false, true}) {
         for (bool dip2 : {false, true}) {
