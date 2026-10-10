@@ -16,6 +16,22 @@ TurnConfig makeConfig() {
 
 TEST(Maneuver, PulsosPara90Graus) { EXPECT_DOUBLE_EQ(pulsesForTurn(makeConfig(), 90.0), 253.125); }
 
+TEST(Maneuver, PulsosEscalamComOAngulo) {
+    const TurnConfig config = makeConfig();
+    EXPECT_DOUBLE_EQ(pulsesForTurn(config, 180.0), 2.0 * pulsesForTurn(config, 90.0));
+}
+
+TEST(Maneuver, SinalNaoAlteraMagnitude) {
+    const TurnConfig config = makeConfig();
+    EXPECT_DOUBLE_EQ(pulsesForTurn(config, -90.0), pulsesForTurn(config, 90.0));
+}
+
+TEST(Maneuver, RejeitaConfiguracaoInvalida) {
+    EXPECT_THROW((void)pulsesForTurn({0.0, 360, 90.0}, 90.0), std::invalid_argument);
+    EXPECT_THROW((void)pulsesForTurn({32.0, 0, 90.0}, 90.0), std::invalid_argument);
+    EXPECT_THROW((void)pulsesForTurn({32.0, 360, -1.0}, 90.0), std::invalid_argument);
+}
+
 }  // namespace
 
 }  // namespace micromouse::domain
