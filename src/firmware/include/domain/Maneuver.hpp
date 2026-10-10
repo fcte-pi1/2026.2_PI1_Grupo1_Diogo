@@ -21,6 +21,7 @@ public:
     [[nodiscard]] double angle() const noexcept;
     [[nodiscard]] bool reached() const noexcept;
     void integrate(double angularVelDegPerS, double deltaTimeSeconds);
+    void reset() noexcept;
 };
 
 }  // namespace micromouse::domain

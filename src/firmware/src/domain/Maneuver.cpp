@@ -39,4 +39,6 @@ void GyroTurnController::integrate(double angularVelDegPerS, double deltaTimeSec
     angle_ += angularVelDegPerS * deltaTimeSeconds;
 }
 
+void GyroTurnController::reset() noexcept { angle_ = 0.0; }
+
 }  // namespace micromouse::domain
