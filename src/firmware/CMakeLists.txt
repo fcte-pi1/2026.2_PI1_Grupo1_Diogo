@@ -57,6 +57,7 @@ add_library(firmware_logic STATIC
     src/protocol/ProtocolV1.cpp
     src/telemetry/TelemetryBuffer.cpp
     src/telemetry/TelemetryEmitter.cpp
+    src/domain/Maneuver.cpp
 )
 
 target_include_directories(firmware_logic PUBLIC
