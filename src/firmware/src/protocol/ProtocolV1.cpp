@@ -34,9 +34,8 @@ std::string Encoder::encodeHello() const {
 std::string Encoder::encodeStartRun(int runIndex, int time, const std::string& maze) {
     run_ = "r" + boot_ + "-" + std::to_string(runIndex);
     sequence_ = 1;
-    return R"({"v":1,"tipo":"inicio_corrida","corrida":")" + run_ +
-           R"(","seq":1,"t":)" + std::to_string(time) +
-           R"(,"labirinto":")" + maze + R"("})";
+    return R"({"v":1,"tipo":"inicio_corrida","corrida":")" + run_ + R"(","seq":1,"t":)" +
+           std::to_string(time) + R"(,"labirinto":")" + maze + R"("})";
 }
 
 long Encoder::sequence() const noexcept { return sequence_; };
@@ -72,16 +71,17 @@ char directionToChar(domain::Direction direction) {
             return 'S';
         case domain::Direction::West:
             return 'O';
+        default:
+            return '?';
     }
 }
 
 std::string Encoder::encodeState(int time,                      //
                                  use_cases::SessionPhase phase  //
 ) {
-    return R"({"v":1,"tipo":"estado","corrida":")" + run_ +
-           R"(","seq":)" + std::to_string(nextSequence()) +
-           R"(,"t":)" + std::to_string(time) +
-           R"(,"estado":")" + phaseToString(phase) + R"("})";
+    return R"({"v":1,"tipo":"estado","corrida":")" + run_ + R"(","seq":)" +
+           std::to_string(nextSequence()) + R"(,"t":)" + std::to_string(time) + R"(,"estado":")" +
+           phaseToString(phase) + R"("})";
 }
 
 std::string Encoder::encodeCell(int time,    //
@@ -92,14 +92,10 @@ std::string Encoder::encodeCell(int time,    //
                                 bool south,  //
                                 bool west    //
 ) {
-    return R"({"v":1,"tipo":"celula","corrida":")" + run_ +
-           R"(","seq":)" + std::to_string(nextSequence()) +
-           R"(,"t":)" + std::to_string(time) +
-           R"(,"x":)" + std::to_string(x) +
-           R"(,"y":)" + std::to_string(y) +
-           R"(,"paredes":{"n":)" + boolJson(north) +
-           R"(,"l":)" + boolJson(east) +
-           R"(,"s":)" + boolJson(south) +
+    return R"({"v":1,"tipo":"celula","corrida":")" + run_ + R"(","seq":)" +
+           std::to_string(nextSequence()) + R"(,"t":)" + std::to_string(time) + R"(,"x":)" +
+           std::to_string(x) + R"(,"y":)" + std::to_string(y) + R"(,"paredes":{"n":)" +
+           boolJson(north) + R"(,"l":)" + boolJson(east) + R"(,"s":)" + boolJson(south) +
            R"(,"o":)" + boolJson(west) + R"(}})";
 }
 
@@ -110,11 +106,9 @@ std::string Encoder::encodePosition(int time,                     //
                                     int cells,                    //
                                     std::optional<double> speed   //
 ) {
-    std::string msg = R"({"v":1,"tipo":"posicao","corrida":")" + run_ +
-                      R"(","seq":)" + std::to_string(nextSequence()) +
-                      R"(,"t":)" + std::to_string(time) +
-                      R"(,"x":)" + std::to_string(x) +
-                      R"(,"y":)" + std::to_string(y) +
+    std::string msg = R"({"v":1,"tipo":"posicao","corrida":")" + run_ + R"(","seq":)" +
+                      std::to_string(nextSequence()) + R"(,"t":)" + std::to_string(time) +
+                      R"(,"x":)" + std::to_string(x) + R"(,"y":)" + std::to_string(y) +
                       R"(,"orientacao":")" + std::string(1, directionToChar(direction)) +
                       R"(","celulas":)" + std::to_string(cells);
     if (speed.has_value()) {
@@ -129,12 +123,17 @@ std::string Encoder::encodeEnergy(int time,         //
                                   double amperage,  //
                                   double watts      //
 ) {
-    return R"({"v":1,"tipo":"energia","corrida":")" + run_ +
-           R"(","seq":)" + std::to_string(nextSequence()) +
-           R"(,"t":)" + std::to_string(time) +
-           R"(,"tensao_v":)" + num(voltage) +
-           R"(,"corrente_a":)" + num(amperage) +
-           R"(,"potencia_w":)" + num(watts) + R"(})";
+    return R"({"v":1,"tipo":"energia","corrida":")" + run_ + R"(","seq":)" +
+           std::to_string(nextSequence()) + R"(,"t":)" + std::to_string(time) + R"(,"tensao_v":)" +
+           num(voltage) + R"(,"corrente_a":)" + num(amperage) + R"(,"potencia_w":)" + num(watts) +
+           R"(})";
+}
+
+std::string Encoder::encodeRunResult(long time, RunResult result) {
+    const char* resultStr = (result == RunResult::Success) ? "sucesso" : "falha";
+    return R"({"v":1,"tipo":"fim_corrida","corrida":")" + run_ + R"(","seq":)" +
+           std::to_string(nextSequence()) + R"(,"t":)" + std::to_string(time) +
+           R"(,"resultado":")" + std::string(resultStr) + R"("})";
 }
 
 }  // namespace micromouse::protocol
