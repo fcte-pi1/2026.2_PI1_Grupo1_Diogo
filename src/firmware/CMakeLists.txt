@@ -54,6 +54,7 @@ add_library(firmware_logic STATIC
     src/domain/DipDecoder.cpp
     src/domain/Pid.cpp
     src/controller/MotionController.cpp
+    src/protocol/ProtocolV1.cpp
 )
 
 target_include_directories(firmware_logic PUBLIC
