@@ -3,7 +3,10 @@
   "$id": "https://rato-borrachudo.local/protocolo/v1/comum.schema.json",
   "title": "Definições comuns do protocolo v1",
   "$defs": {
-    "versao": { "const": 1, "description": "Versão do protocolo." },
+    "versao": {
+      "const": 1,
+      "description": "Versão do protocolo."
+    },
     "idCorrida": {
       "type": "string",
       "minLength": 1,
@@ -11,49 +14,72 @@
       "pattern": "^[A-Za-z0-9_-]+$",
       "description": "Id da corrida gerado pelo robô, único por dispositivo."
     },
-    "seq": {
+    "sequencia": {
       "type": "integer",
       "minimum": 1,
       "maximum": 2147483647,
       "description": "Número de sequência, crescente por corrida a partir de 1."
     },
-    "t": {
+    "tempo_ms": {
       "type": "integer",
       "minimum": 0,
       "maximum": 9007199254740991,
       "description": "Milissegundos no relógio do robô (relógio oficial, RF-82)."
     },
-    "labirinto": { "enum": ["4x4", "8x4", "12x4"] },
+    "labirinto": {
+      "enum": ["4x4", "8x4", "12x4"]
+    },
     "coordenada": {
       "type": "integer",
       "minimum": 0,
       "maximum": 11,
       "description": "Os limites por tipo de labirinto são validados como regra de domínio (RF-76)."
     },
-    "orientacao": { "enum": ["N", "L", "S", "O"], "description": "Norte, Leste, Sul, Oeste." },
+    "orientacao": {
+      "enum": ["NORTE", "LESTE", "SUL", "OESTE"],
+      "description": "Para onde a frente do robô aponta."
+    },
     "paredes": {
       "type": "object",
-      "description": "Presença de parede em cada lado da célula: norte, leste, sul, oeste.",
+      "description": "Presença de parede em cada lado da célula (true = parede presente).",
       "properties": {
-        "n": { "type": "boolean" },
-        "l": { "type": "boolean" },
-        "s": { "type": "boolean" },
-        "o": { "type": "boolean" }
+        "norte": {
+          "type": "boolean"
+        },
+        "leste": {
+          "type": "boolean"
+        },
+        "sul": {
+          "type": "boolean"
+        },
+        "oeste": {
+          "type": "boolean"
+        }
       },
-      "required": ["n", "l", "s", "o"],
+      "required": ["norte", "leste", "sul", "oeste"],
       "additionalProperties": false
     },
     "envelope": {
       "type": "object",
       "description": "Campos comuns a todas as mensagens do robô, exceto hello.",
       "properties": {
-        "v": { "$ref": "#/$defs/versao" },
-        "tipo": { "type": "string" },
-        "corrida": { "$ref": "#/$defs/idCorrida" },
-        "seq": { "$ref": "#/$defs/seq" },
-        "t": { "$ref": "#/$defs/t" }
+        "versao": {
+          "$ref": "#/$defs/versao"
+        },
+        "tipo": {
+          "type": "string"
+        },
+        "corrida": {
+          "$ref": "#/$defs/idCorrida"
+        },
+        "sequencia": {
+          "$ref": "#/$defs/sequencia"
+        },
+        "tempo_ms": {
+          "$ref": "#/$defs/tempo_ms"
+        }
       },
-      "required": ["v", "tipo", "corrida", "seq", "t"]
+      "required": ["versao", "tipo", "corrida", "sequencia", "tempo_ms"]
     }
   }
 }

@@ -18,15 +18,15 @@ export const VERSOES_SUPORTADAS: readonly number[] = [1];
 
 export type TipoLabirinto = '4x4' | '8x4' | '12x4';
 
-/** Norte, Leste, Sul, Oeste. */
-export type Orientacao = 'N' | 'L' | 'S' | 'O';
+/** Para onde a frente do robô aponta. */
+export type Orientacao = 'NORTE' | 'LESTE' | 'SUL' | 'OESTE';
 
-/** Presença de parede em cada lado da célula. */
+/** Presença de parede em cada lado da célula (`true` = parede presente). */
 export interface Paredes {
-  n: boolean;
-  l: boolean;
-  s: boolean;
-  o: boolean;
+  norte: boolean;
+  leste: boolean;
+  sul: boolean;
+  oeste: boolean;
 }
 
 export type EstadoNavegacao =
@@ -42,7 +42,7 @@ export type MotivoTermino = 'SUCESSO' | 'FALHA_REPORTADA' | 'SEM_SINAL' | 'REINI
 
 export interface Hello {
   tipo: 'hello';
-  v: typeof VERSAO_PROTOCOLO;
+  versao: typeof VERSAO_PROTOCOLO;
   dispositivo: string;
   token: string;
   /** Valor aleatório gerado a cada boot do ESP32. */
@@ -51,14 +51,14 @@ export interface Hello {
 
 /** Envelope comum a todas as mensagens do robô, exceto `hello`. */
 export interface Envelope<T extends string> {
-  v: typeof VERSAO_PROTOCOLO;
+  versao: typeof VERSAO_PROTOCOLO;
   tipo: T;
   /** Id da corrida gerado pelo robô (letras, dígitos, `_` e `-`; até 64 caracteres). */
   corrida: string;
   /** Inteiro ≥ 1, crescente por corrida. */
-  seq: number;
+  sequencia: number;
   /** Milissegundos no relógio do robô (relógio oficial, RF-82). */
-  t: number;
+  tempo_ms: number;
 }
 
 export interface InicioCorrida extends Envelope<'inicio_corrida'> {
@@ -123,8 +123,8 @@ export const TIPOS_MENSAGEM_ROBO: readonly TipoMensagemRobo[] = [
 export interface Ack {
   tipo: 'ack';
   corrida: string;
-  /** Maior seq contíguo gravado. */
-  seq: number;
+  /** Maior sequência contígua gravada. */
+  sequencia: number;
 }
 
 /** Códigos de fechamento enviados ao robô. */
@@ -178,8 +178,8 @@ export interface SnapshotPainel {
   tipo: 'snapshot';
   corrida: string;
   labirinto: TipoLabirinto;
-  /** Eventos com seq ≤ seq_corte já estão refletidos neste snapshot. */
-  seq_corte: number;
+  /** Eventos com sequencia ≤ sequencia_corte já estão refletidos neste snapshot. */
+  sequencia_corte: number;
   /** Células conhecidas, com as paredes detectadas. */
   mapa: CelulaMapa[];
   posicao: PosicaoRobo | null;
@@ -187,15 +187,15 @@ export interface SnapshotPainel {
   status: StatusCorrida;
   motivo_termino: MotivoTermino | null;
   /** Tempo do robô no início da corrida, âncora do cronômetro do painel. */
-  t_inicio: number;
+  tempo_inicio_ms: number;
 }
 
 export interface EventoCelulaPainel {
   tipo: 'evento';
   evento: 'celula';
   corrida: string;
-  seq: number;
-  t: number;
+  sequencia: number;
+  tempo_ms: number;
   x: number;
   y: number;
   paredes: Paredes;
@@ -207,8 +207,8 @@ export interface EventoStatusPainel {
   tipo: 'evento';
   evento: 'status';
   corrida: string;
-  seq: number;
-  t: number;
+  sequencia: number;
+  tempo_ms: number;
   status: StatusCorrida;
   motivo_termino: MotivoTermino | null;
   detalhe: string | null;
@@ -219,7 +219,7 @@ export interface EventoStatusPainel {
 export interface ContinuoPainel {
   tipo: 'continuo';
   corrida: string;
-  t: number;
+  tempo_ms: number;
   posicao: PosicaoRobo | null;
   energia: { tensao_v: number; corrente_a: number; potencia_w: number } | null;
   metricas: Metricas;

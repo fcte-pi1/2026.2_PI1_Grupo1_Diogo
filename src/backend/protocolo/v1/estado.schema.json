@@ -6,10 +6,10 @@
   "$ref": "comum.schema.json#/$defs/envelope",
   "type": "object",
   "properties": {
-    "v": true,
+    "versao": true,
     "corrida": true,
-    "seq": true,
-    "t": true,
+    "sequencia": true,
+    "tempo_ms": true,
     "tipo": {
       "const": "estado"
     },

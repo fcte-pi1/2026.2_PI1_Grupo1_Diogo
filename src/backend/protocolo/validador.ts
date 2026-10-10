@@ -69,7 +69,7 @@ export function criarValidadorProtocolo(): ValidadorProtocolo {
   };
 
   function aplicar<T>(validar: ValidateFunction<T>, bruto: unknown): Resultado<T> {
-    const versao = (bruto as { v?: unknown } | null)?.v;
+    const versao = (bruto as { versao?: unknown } | null)?.versao;
     if (typeof versao === 'number' && !VERSOES_SUPORTADAS.includes(versao)) {
       return { ok: false, codigo: 'VERSAO_NAO_SUPORTADA', detalhe: `versão ${versao}` };
     }
