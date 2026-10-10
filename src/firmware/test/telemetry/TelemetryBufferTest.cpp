@@ -6,9 +6,16 @@
 
 namespace micromouse::telemetry {
 
+using TelemetryData = std::vector<std::string>;
+
 namespace {
 
-TEST(TelemetryBuffer, _) {}
+TEST(TelemetryBuffer, ComecaVazio) {
+    TelemetryBuffer buffer(60000, 2000);
+    EXPECT_EQ(buffer.size(), 0);
+    EXPECT_TRUE(buffer.empty());
+    EXPECT_EQ(buffer.messages(), TelemetryData{});
+}
 
 }  // namespace
 
