@@ -66,6 +66,22 @@ TEST(TelemetryBuffer, ClearEsvazia) {
     EXPECT_EQ(buffer.messages(), (TelemetryData{}));
 }
 
+TEST(TelemetryBuffer, RetemPeloMenos60Segundos) {
+    TelemetryBuffer buffer(60000, 100000);  // 1 minuto de retenção, 100000 mensagens no máximo
+
+    // Adiciona mensagens a cada 100ms, totalizando 90 segundos de mensagens
+    for (long timestamp = 0; timestamp <= 90000; timestamp += 100) {
+        buffer.add(timestamp, "msg_" + std::to_string(timestamp));
+    }
+    const TelemetryData messages = buffer.messages();
+
+    // A primeira mensagem retida deve ter timestamp 30000
+    EXPECT_EQ(messages.front(), "msg_30000");
+
+    // A última mensagem retida deve ter timestamp 90000
+    EXPECT_EQ(messages.back(), "msg_90000");
+}
+
 }  // namespace
 
 }  // namespace micromouse::telemetry
