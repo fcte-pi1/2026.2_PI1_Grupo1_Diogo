@@ -58,6 +58,34 @@ Direction opposite(Direction direction) noexcept {
     __builtin_unreachable();
 }
 
+Direction turnLeft(Direction direction) noexcept {
+    switch (direction) {
+        case Direction::North:
+            return Direction::West;
+        case Direction::West:
+            return Direction::South;
+        case Direction::South:
+            return Direction::East;
+        case Direction::East:
+            return Direction::North;
+    }
+    __builtin_unreachable();
+}
+
+Direction turnRight(Direction direction) noexcept {
+    switch (direction) {
+        case Direction::North:
+            return Direction::East;
+        case Direction::East:
+            return Direction::South;
+        case Direction::South:
+            return Direction::West;
+        case Direction::West:
+            return Direction::North;
+    }
+    __builtin_unreachable();
+}
+
 MazeMap::MazeMap(int rows, int columns)
     : rows_(requirePositive(rows, "rows")),
       columns_(requirePositive(columns, "columns")),
