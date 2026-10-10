@@ -32,7 +32,7 @@ TEST(ProtocolV1, InicioCorridaBateComOExemplo) {
 
 TEST(ProtocolV1, SequenciaMonotonicaEntreMensagens) {
     Encoder encoder = makeEncoder();
-    encoder.encodeStartRun(1, 12000, "4x4");  // seq 1
+    (void)encoder.encodeStartRun(1, 12000, "4x4");
     EXPECT_EQ(
         encoder.encodeState(12001, SessionPhase::Exploring),
         R"({"v":1,"tipo":"estado","corrida":"r9f3a1c-1","seq":2,"t":12001,"estado":"MAPEANDO"})");
@@ -46,6 +46,16 @@ TEST(ProtocolV1, SequenciaMonotonicaEntreMensagens) {
         encoder.encodeEnergy(12100, 8.12, 0.41, 3.33),
         R"({"v":1,"tipo":"energia","corrida":"r9f3a1c-1","seq":5,"t":12100,"tensao_v":8.12,"corrente_a":0.41,"potencia_w":3.33})");
     EXPECT_EQ(encoder.sequence(), 5);
+}
+
+TEST(ProtocolV1, PosicaoSemVelocidadeOmiteOCampo) {
+    Encoder encoder = makeEncoder();
+    (void)encoder.encodeStartRun(1, 12000, "4x4");
+    const std::string msg = encoder.encodePosition(12100, 2, 1, Direction::East, 3, std::nullopt);
+    EXPECT_EQ(
+        msg,
+        R"({"v":1,"tipo":"posicao","corrida":"r9f3a1c-1","seq":2,"t":12100,"x":2,"y":1,"orientacao":"L","celulas":3})");
+    EXPECT_EQ(msg.find("velocidade_media_mps"), std::string::npos);
 }
 
 }  // namespace
