@@ -57,6 +57,15 @@ TEST(TelemetryBuffer, DescartaAlemDoTetoDeContagem) {
     EXPECT_EQ(buffer.messages(), (TelemetryData{"b", "c", "d"}));
 }
 
+TEST(TelemetryBuffer, ClearEsvazia) {
+    TelemetryBuffer buffer(60000, 2000);
+    buffer.add(10, "a");
+    buffer.clear();
+    EXPECT_EQ(buffer.size(), 0u);
+    EXPECT_TRUE(buffer.empty());
+    EXPECT_EQ(buffer.messages(), (TelemetryData{}));
+}
+
 }  // namespace
 
 }  // namespace micromouse::telemetry
