@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rato-borrachudo.local/protocolo/v1/estado.schema.json",
+  "title": "estado",
+  "description": "Estado de navegação do firmware (evento discreto, enviado a cada transição).",
+  "$ref": "comum.schema.json#/$defs/envelope",
+  "type": "object",
+  "properties": {
+    "versao": true,
+    "corrida": true,
+    "sequencia": true,
+    "tempo_ms": true,
+    "tipo": {
+      "const": "estado"
+    },
+    "estado": {
+      "enum": ["INICIALIZANDO", "AGUARDANDO", "MAPEANDO", "RESOLVENDO", "CONCLUIDO", "ERRO"]
+    }
+  },
+  "required": ["estado"],
+  "unevaluatedProperties": false
+}
