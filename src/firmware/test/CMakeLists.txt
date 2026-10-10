@@ -25,6 +25,7 @@ add_executable(firmware_tests
     domain/PidTest.cpp
     controller/MotionControllerTest.cpp
     protocol/ProtocolV1Test.cpp
+    telemetry/TelemetryBufferTest.cpp
 )
 
 target_include_directories(firmware_tests PRIVATE

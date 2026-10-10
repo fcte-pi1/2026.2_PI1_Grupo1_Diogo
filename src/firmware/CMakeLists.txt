@@ -55,6 +55,7 @@ add_library(firmware_logic STATIC
     src/domain/Pid.cpp
     src/controller/MotionController.cpp
     src/protocol/ProtocolV1.cpp
+    src/telemetry/TelemetryBuffer.cpp
 )
 
 target_include_directories(firmware_logic PUBLIC
