@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type {
   AmostraEnergia,
+  CelulaMapa,
   DadosExecucao,
   EstadoConexao,
   PontoTrajeto,
@@ -35,6 +36,7 @@ export interface EstadoPainel {
     reiniciarExecucao: (dados?: Partial<DadosExecucao>) => void;
     adicionarPontoTrajeto: (ponto: PontoTrajeto) => void;
     adicionarAmostraEnergia: (amostra: AmostraEnergia) => void;
+    atualizarCelulaMapa: (celula: CelulaMapa) => void;
     definirEstadoConexao: (estado: EstadoConexao) => void;
     definirSinal: (sinal: SinalRobo) => void;
     definirSaude: (saude: SaudeBackend) => void;
@@ -52,13 +54,19 @@ export const usePainel = create<EstadoPainel>()((set) => ({
   },
   acoes: {
     atualizarExecucao: (dados) =>
-      set((s) => ({
-        aoVivo: {
-          ...s.aoVivo,
-          ...dados,
-          tempoMs: manterTempoMaisRecente(s.aoVivo.tempoMs, dados.tempoMs),
-        },
-      })),
+      set((s) => {
+        const tipoMudou =
+          dados.tipoLabirinto !== undefined && dados.tipoLabirinto !== s.aoVivo.tipoLabirinto;
+        return {
+          aoVivo: {
+            ...s.aoVivo,
+            ...dados,
+            mapa: tipoMudou ? [] : s.aoVivo.mapa,
+            trajeto: tipoMudou ? [] : s.aoVivo.trajeto,
+            tempoMs: manterTempoMaisRecente(s.aoVivo.tempoMs, dados.tempoMs),
+          },
+        };
+      }),
     reiniciarExecucao: (dados) => set(() => ({ aoVivo: { ...execucaoInicial, ...dados } })),
     adicionarPontoTrajeto: (ponto) =>
       set((s) =>
@@ -86,6 +94,11 @@ export const usePainel = create<EstadoPainel>()((set) => ({
             energia: [...s.aoVivo.energia, amostra].slice(-6000),
           },
         };
+      }),
+    atualizarCelulaMapa: (celula) =>
+      set((s) => {
+        const mapa = s.aoVivo.mapa.filter((atual) => atual.x !== celula.x || atual.y !== celula.y);
+        return { aoVivo: { ...s.aoVivo, mapa: [...mapa, celula] } };
       }),
     definirEstadoConexao: (estado) => set((s) => ({ conexao: { ...s.conexao, estado } })),
     definirSinal: (sinal) => set((s) => ({ conexao: { ...s.conexao, sinal } })),

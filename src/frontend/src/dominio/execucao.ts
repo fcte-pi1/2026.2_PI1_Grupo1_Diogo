@@ -7,6 +7,14 @@ export interface PontoTrajeto {
   y: number;
 }
 
+export type DirecaoParede = 'n' | 's' | 'e' | 'w';
+
+export interface CelulaMapa {
+  x: number;
+  y: number;
+  paredes: Record<DirecaoParede, boolean | null>;
+}
+
 export interface AmostraEnergia {
   seq: number | null;
   tempoMs: number | null;
@@ -27,6 +35,7 @@ export interface DadosExecucao {
   potenciaW: number | null;
   cargaPct: number | null;
   energia: AmostraEnergia[];
+  mapa: CelulaMapa[];
 }
 
 export const execucaoInicial: DadosExecucao = {
@@ -40,4 +49,5 @@ export const execucaoInicial: DadosExecucao = {
   potenciaW: null,
   cargaPct: null,
   energia: [],
+  mapa: [],
 };
