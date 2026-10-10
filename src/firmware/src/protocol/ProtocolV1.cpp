@@ -10,4 +10,13 @@ std::string Encoder::encodeHello() const {
            R"(","boot":")" + boot_ + R"("})";
 }
 
+std::string Encoder::encodeStartRun(int runIndex, int time, const std::string& maze) {
+    run_ = "r" + boot_ + "-" + std::to_string(runIndex);
+    sequence_ = 1;
+    return "{\"v\":1,\"tipo\":\"inicio_corrida\",\"corrida\":\"" + run_ +
+           "\",\"seq\":1,\"t\":" + std::to_string(time) + ",\"labirinto\":\"" + maze + "\"}";
+}
+
+long Encoder::sequence() const noexcept { return sequence_; };
+
 }  // namespace micromouse::protocol
