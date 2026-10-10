@@ -21,6 +21,34 @@ std::string num(double value) {
 
 const char* boolJson(bool value) { return value ? "true" : "false"; }
 
+std::string jsonEscape(const std::string& in) {
+    std::string out;
+    out.reserve(in.size() + 2);
+    for (const char c : in) {
+        switch (c) {
+            case '"':
+                out += "\\\"";
+                break;
+            case '\\':
+                out += "\\\\";
+                break;
+            case '\n':
+                out += "\\n";
+                break;
+            case '\r':
+                out += "\\r";
+                break;
+            case '\t':
+                out += "\\t";
+                break;
+            default:
+                out += c;
+                break;
+        }
+    }
+    return out;
+}
+
 }  // namespace
 
 Encoder::Encoder(std::string device, std::string token, std::string boot)
@@ -129,11 +157,18 @@ std::string Encoder::encodeEnergy(int time,         //
            R"(})";
 }
 
-std::string Encoder::encodeRunResult(long time, RunResult result) {
+std::string Encoder::encodeRunResult(long time, RunResult result,
+                                     std::optional<std::string> message) {
     const char* resultStr = (result == RunResult::Success) ? "sucesso" : "falha";
-    return R"({"v":1,"tipo":"fim_corrida","corrida":")" + run_ + R"(","seq":)" +
-           std::to_string(nextSequence()) + R"(,"t":)" + std::to_string(time) +
-           R"(,"resultado":")" + std::string(resultStr) + R"("})";
+    std::string msg = R"({"v":1,"tipo":"fim_corrida","corrida":")" + run_ +
+                      R"(","seq":)" + std::to_string(nextSequence()) +
+                      R"(,"t":)" + std::to_string(time) +
+                      R"(,"resultado":")" + std::string(resultStr) + R"(")";
+    if (message.has_value()) {
+        msg += R"(,"detalhe":")" + jsonEscape(*message) + R"(")";
+    }
+    msg += "}";
+    return msg;
 }
 
 }  // namespace micromouse::protocol
