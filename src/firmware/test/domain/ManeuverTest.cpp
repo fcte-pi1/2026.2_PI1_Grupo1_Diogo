@@ -60,6 +60,20 @@ TEST(Maneuver, GyroResetZera) {
     EXPECT_FALSE(gyro.reached());
 }
 
+TEST(Maneuver, GyroAlcancaNoSentidoNegativo) {
+    GyroTurnController gyro(90.0, 2.0);
+    gyro.integrate(-90.0, 1.0);  // -90, |−90| >= 88
+    EXPECT_TRUE(gyro.reached());
+    EXPECT_DOUBLE_EQ(gyro.angle(), -90.0);
+}
+
+TEST(Maneuver, GyroIgnoraDtInvalido) {
+    GyroTurnController gyro(90.0, 2.0);
+    gyro.integrate(1000.0, 0.0);
+    gyro.integrate(1000.0, -1.0);
+    EXPECT_DOUBLE_EQ(gyro.angle(), 0.0);
+}
+
 }  // namespace
 
 }  // namespace micromouse::domain
