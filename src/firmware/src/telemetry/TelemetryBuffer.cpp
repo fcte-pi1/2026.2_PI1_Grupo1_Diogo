@@ -7,7 +7,7 @@ TelemetryBuffer::TelemetryBuffer(long retentionMs, std::size_t maxMessages)
 
 std::size_t TelemetryBuffer::size() const noexcept { return buffer_.size(); }
 
-bool TelemetryBuffer::empty() const noexcept { return buffer_.size(); }
+bool TelemetryBuffer::empty() const noexcept { return buffer_.empty(); }
 
 std::vector<std::string> TelemetryBuffer::messages() const {
     std::vector<std::string> result;
@@ -18,6 +18,10 @@ std::vector<std::string> TelemetryBuffer::messages() const {
     }
 
     return result;
+}
+
+void TelemetryBuffer::add(long timestamp, const std::string& message) {
+    buffer_.push_back({timestamp, message});
 }
 
 }  // namespace micromouse::telemetry

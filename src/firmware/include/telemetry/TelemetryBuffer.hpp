@@ -22,6 +22,7 @@ public:
     [[nodiscard]] std::size_t size() const noexcept;
     [[nodiscard]] bool empty() const noexcept;
     [[nodiscard]] std::vector<std::string> messages() const;
+    void add(long timestamp, const std::string& message);
 };
 
 }  // namespace micromouse::telemetry
