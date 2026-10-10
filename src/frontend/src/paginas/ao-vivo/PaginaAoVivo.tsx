@@ -27,8 +27,11 @@ function StatusBadge({ status }: { status: Execucao['status'] }) {
 }
 
 function MazeView({ trajeto, mapa, tipo }: { trajeto: Execucao['trajeto']; mapa: Execucao['mapa']; tipo: Execucao['tipoLabirinto'] }) {
+  if (tipo === null) {
+    return <div className={estilos.labirintoPendente}>Aguardando tipo de labirinto</div>;
+  }
   const cellSize = 82;
-  const [colunas, linhas] = (tipo ?? '4x4').split('x').map(Number);
+  const [colunas, linhas] = tipo.split('x').map(Number);
   const largura = colunas || 4;
   const altura = linhas || 4;
   const sizeX = cellSize * largura;

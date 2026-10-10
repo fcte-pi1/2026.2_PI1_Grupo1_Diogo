@@ -124,6 +124,15 @@
   overflow-x: auto;
 }
 
+.labirintoPendente {
+  display: grid;
+  min-height: 20rem;
+  place-items: center;
+  color: #9ca3af;
+  font-family: var(--fonte-mono);
+  font-size: 0.75rem;
+}
+
 .labirinto {
   display: block;
   width: min(100%, 32rem);

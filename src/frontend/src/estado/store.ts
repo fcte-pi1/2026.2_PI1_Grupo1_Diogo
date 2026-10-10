@@ -54,13 +54,18 @@ export const usePainel = create<EstadoPainel>()((set) => ({
   },
   acoes: {
     atualizarExecucao: (dados) =>
-      set((s) => ({
-        aoVivo: {
-          ...s.aoVivo,
-          ...dados,
-          tempoMs: manterTempoMaisRecente(s.aoVivo.tempoMs, dados.tempoMs),
-        },
-      })),
+      set((s) => {
+        const tipoMudou = dados.tipoLabirinto !== undefined && dados.tipoLabirinto !== s.aoVivo.tipoLabirinto;
+        return {
+          aoVivo: {
+            ...s.aoVivo,
+            ...dados,
+            mapa: tipoMudou ? [] : s.aoVivo.mapa,
+            trajeto: tipoMudou ? [] : s.aoVivo.trajeto,
+            tempoMs: manterTempoMaisRecente(s.aoVivo.tempoMs, dados.tempoMs),
+          },
+        };
+      }),
     reiniciarExecucao: (dados) => set(() => ({ aoVivo: { ...execucaoInicial, ...dados } })),
     adicionarPontoTrajeto: (ponto) =>
       set((s) =>
