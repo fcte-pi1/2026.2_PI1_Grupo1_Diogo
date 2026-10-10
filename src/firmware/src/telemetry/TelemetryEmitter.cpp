@@ -51,4 +51,10 @@ std::string TelemetryEmitter::encodeCell(long time,                 //
     );
 }
 
+std::string TelemetryEmitter::encodeRunResult(long time,         //
+                                              RunResult result,  //
+                                              std::optional<std::string> message) {
+    return encoder_.encodeRunResult(time, result, message);
+}
+
 }  // namespace micromouse::telemetry

@@ -15,6 +15,7 @@ using domain::MazeType;
 using domain::Position;
 using protocol::Encoder;
 using protocol::mazeToString;
+using protocol::RunResult;
 using use_cases::SessionPhase;
 
 struct Snapshot {
@@ -46,6 +47,9 @@ public:
                                          bool south,                //
                                          bool west                  //
     );
+    [[nodiscard]] std::string encodeRunResult(long time,         //
+                                              RunResult result,  //
+                                              std::optional<std::string> message = std::nullopt);
 };
 
 }  // namespace micromouse::telemetry
