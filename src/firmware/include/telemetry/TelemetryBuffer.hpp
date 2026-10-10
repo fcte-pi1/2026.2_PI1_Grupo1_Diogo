@@ -23,6 +23,7 @@ public:
     [[nodiscard]] bool empty() const noexcept;
     [[nodiscard]] std::vector<std::string> messages() const;
     void add(long timestamp, const std::string& message);
+    void clear() noexcept;
 };
 
 }  // namespace micromouse::telemetry

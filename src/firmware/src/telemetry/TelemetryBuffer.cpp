@@ -36,4 +36,6 @@ void TelemetryBuffer::add(long timestamp, const std::string& message) {
     }
 }
 
+void TelemetryBuffer::clear() noexcept { buffer_.clear(); }
+
 }  // namespace micromouse::telemetry
