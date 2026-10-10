@@ -3,15 +3,19 @@
 #include <optional>
 #include <string>
 
+#include "domain/DipDecoder.hpp"
 #include "domain/Maze.hpp"
 #include "use_cases/SessionManager.hpp"
 
 namespace micromouse::protocol {
 
+using domain::Direction;
+using domain::MazeType;
 using use_cases::SessionPhase;
 
-[[nodiscard]] std::string phaseToString(use_cases::SessionPhase phase);
-[[nodiscard]] char directionToChar(domain::Direction direction);
+[[nodiscard]] std::string phaseToString(SessionPhase phase);
+[[nodiscard]] char directionToChar(Direction direction);
+[[nodiscard]] std::string mazeToString(MazeType maze);
 
 enum class RunResult { Success, Failure };
 
