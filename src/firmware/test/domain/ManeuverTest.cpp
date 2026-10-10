@@ -38,6 +38,14 @@ TEST(Maneuver, GyroComecaZeradoENaoAlcancado) {
     EXPECT_FALSE(gyro.reached());
 }
 
+TEST(Maneuver, GyroIntegraAngulo) {
+    GyroTurnController gyro(90.0, 2.0);
+    gyro.integrate(45.0, 0.1);  // +4.5
+    gyro.integrate(45.0, 0.1);  // +4.5 -> 9.0
+    EXPECT_DOUBLE_EQ(gyro.angle(), 9.0);
+    EXPECT_FALSE(gyro.reached());
+}
+
 }  // namespace
 
 }  // namespace micromouse::domain
