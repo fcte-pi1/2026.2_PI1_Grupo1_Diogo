@@ -96,6 +96,15 @@ TEST(TelemetryEmitter, EndRunEmiteFimCorrida) {
         R"({"v":1,"tipo":"fim_corrida","corrida":"r9f3a1c-1","seq":2,"t":95500,"resultado":"sucesso"})");
 }
 
+TEST(TelemetryEmitter, SequenciaContinuaEntreEventos) {
+    TelemetryEmitter emitter = makeEmitter();
+    (void)emitter.encodeStartRun(1, 0, MazeType::Small4x4);
+    (void)emitter.encodeCycle(1, makeSnap(SessionPhase::Exploring));
+    (void)emitter.encodeCell(2, Position{3, 0}, true, false, false, true);
+    const std::string result = emitter.encodeRunResult(3, protocol::RunResult::Success);
+    EXPECT_NE(result.find(R"("seq":6)"), std::string::npos);
+}
+
 }  // namespace
 
 }  // namespace micromouse::telemetry
