@@ -46,6 +46,20 @@ TEST(Maneuver, GyroIntegraAngulo) {
     EXPECT_FALSE(gyro.reached());
 }
 
+TEST(Maneuver, GyroAlcancaDentroDaTolerancia) {
+    GyroTurnController gyro(90.0, 2.0);
+    gyro.integrate(88.0, 1.0);  // 88 >= 90-2 -> alcançado
+    EXPECT_TRUE(gyro.reached());
+}
+
+TEST(Maneuver, GyroResetZera) {
+    GyroTurnController gyro(90.0, 2.0);
+    gyro.integrate(90.0, 1.0);
+    gyro.reset();
+    EXPECT_DOUBLE_EQ(gyro.angle(), 0.0);
+    EXPECT_FALSE(gyro.reached());
+}
+
 }  // namespace
 
 }  // namespace micromouse::domain
