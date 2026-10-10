@@ -57,7 +57,8 @@ public:
                                            double watts      //
     );
 
-    [[nodiscard]] std::string encodeRunResult(long time, RunResult result);
+    [[nodiscard]] std::string encodeRunResult(long time, RunResult result,
+                                              std::optional<std::string> message = std::nullopt);
 };
 
 }  // namespace micromouse::protocol
