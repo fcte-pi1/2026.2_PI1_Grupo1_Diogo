@@ -79,6 +79,29 @@ TEST(ProtocolV1, FimCorridaComDetalheEscapa) {
         R"({"v":1,"tipo":"fim_corrida","corrida":"r9f3a1c-1","seq":2,"t":100,"resultado":"falha","detalhe":"aspa \" e barra \\"})");
 }
 
+TEST(ProtocolV1, MapeamentoDeEstados) {
+    EXPECT_EQ(phaseToString(SessionPhase::SelfTest), "INICIALIZANDO");
+    EXPECT_EQ(phaseToString(SessionPhase::Idle), "AGUARDANDO");
+    EXPECT_EQ(phaseToString(SessionPhase::Exploring), "MAPEANDO");
+    EXPECT_EQ(phaseToString(SessionPhase::Returning), "MAPEANDO");
+    EXPECT_EQ(phaseToString(SessionPhase::FastRun), "RESOLVENDO");
+    EXPECT_EQ(phaseToString(SessionPhase::Finished), "CONCLUIDO");
+    EXPECT_EQ(phaseToString(SessionPhase::Fault), "ERRO");
+}
+
+TEST(ProtocolV1, OrientacaoEmPortugues) {
+    EXPECT_EQ(directionToChar(Direction::North), 'N');
+    EXPECT_EQ(directionToChar(Direction::East), 'L');
+    EXPECT_EQ(directionToChar(Direction::South), 'S');
+    EXPECT_EQ(directionToChar(Direction::West), 'O');
+}
+
+TEST(ProtocolV1, LabirintoToString) {
+    EXPECT_EQ(mazeToString(MazeType::Small4x4), "4x4");
+    EXPECT_EQ(mazeToString(MazeType::Medium8x4), "8x4");
+    EXPECT_EQ(mazeToString(MazeType::Large12x4), "12x4");
+}
+
 }  // namespace
 
 }  // namespace micromouse::protocol
