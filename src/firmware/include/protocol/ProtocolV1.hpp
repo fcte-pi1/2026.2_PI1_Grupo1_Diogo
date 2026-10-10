@@ -13,6 +13,8 @@ using use_cases::SessionPhase;
 [[nodiscard]] std::string phaseToString(use_cases::SessionPhase phase);
 [[nodiscard]] char directionToChar(domain::Direction direction);
 
+enum class RunResult { Success, Failure };
+
 class Encoder {
 private:
     std::string device_;
@@ -54,6 +56,8 @@ public:
                                            double amperage,  //
                                            double watts      //
     );
+
+    [[nodiscard]] std::string encodeRunResult(long time, RunResult result);
 };
 
 }  // namespace micromouse::protocol
