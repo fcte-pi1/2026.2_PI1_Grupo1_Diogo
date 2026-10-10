@@ -22,6 +22,7 @@ export class ClientePainelWS {
   }
 
   iniciar(): void {
+    if (this.socket && (this.socket.readyState === WebSocket.OPEN || this.socket.readyState === WebSocket.CONNECTING)) return;
     this.encerrado = false;
     this.conectar();
   }
@@ -30,6 +31,7 @@ export class ClientePainelWS {
     this.encerrado = true;
     if (this.temporizador) clearTimeout(this.temporizador);
     this.socket?.close();
+    this.socket = null;
   }
 
   private conectar(): void {
@@ -49,6 +51,8 @@ export class ClientePainelWS {
       this.despacharMensagem(evento.data);
     });
 
+    socket.addEventListener('error', () => socket.close());
+
     socket.addEventListener('close', () => {
       if (this.encerrado) return;
       acoes.definirEstadoConexao('RECONECTANDO');
@@ -61,25 +65,35 @@ export class ClientePainelWS {
       const mensagem = typeof dado === 'string' ? JSON.parse(dado) : dado;
       if (!mensagem || typeof mensagem !== 'object') return;
 
-      const registro = mensagem as Record<string, unknown>;
+      const envelope = mensagem as Record<string, unknown>;
+      const registro = asRegistro(envelope.dados ?? envelope.payload ?? envelope);
+      const tipo = asString(envelope.tipo ?? registro.tipo);
       const { acoes } = usePainel.getState();
-      const metricas = asRegistro(registro.metricas);
-      const energia = asRegistro(registro.energia);
-      const labirinto = asRegistro(registro.labirinto);
-      const ponto = asRegistro(registro.ponto ?? registro.posicao);
+      acoes.registrarMensagem();
+      const metricas = asRegistro(registro.metricas ?? envelope.metricas);
+      const energia = asRegistro(registro.energia ?? envelope.energia);
+      const labirinto = asRegistro(registro.labirinto ?? envelope.labirinto);
+      const ponto = asRegistro(registro.ponto ?? registro.posicao ?? envelope.ponto ?? envelope.posicao);
+      const tempo = asNumber(registro.tempo_conclusao_ms ?? envelope.tempo_conclusao_ms ?? registro.t);
+      const status = asStatus(registro.status ?? envelope.status ?? asRegistro(registro.estado).status);
 
       acoes.atualizarExecucao({
-        tipoLabirinto: asTipoLabirinto(labirinto.tipo ?? registro.tipo_labirinto),
-        velocidadeMediaMps: asNumber(metricas.velocidade_media_m_s ?? registro.velocidade_media_m_s),
-        tempoMs: asNumber(registro.tempo_conclusao_ms ?? registro.t),
-        status: asStatus(registro.status),
-        tensaoV: asNumber(energia.tensao_v),
-        correnteA: asNumber(energia.corrente_a),
-        potenciaW: asNumber(energia.potencia_w),
+        tipoLabirinto: asTipoLabirinto(labirinto.tipo ?? registro.tipo_labirinto ?? envelope.tipo_labirinto),
+        velocidadeMediaMps: asNumber(metricas.velocidade_media_m_s ?? registro.velocidade_media_m_s ?? envelope.velocidade_media_m_s),
+        tempoMs: tempo,
+        status,
+        tensaoV: asNumber(energia.tensao_v ?? registro.tensao_v ?? envelope.tensao_v),
+        correnteA: asNumber(energia.corrente_a ?? registro.corrente_a ?? envelope.corrente_a),
+        potenciaW: asNumber(energia.potencia_w ?? registro.potencia_w ?? envelope.potencia_w),
       });
 
-      if (registro.tipo === 'evento' && registro.evento === 'celula' && ponto) {
-        const seq = asNumber(registro.seq);
+      if (tipo === 'sinal') {
+        acoes.definirSinal(registro.sinal === 'OK' ? 'OK' : 'PERDIDO');
+      }
+
+      const evento = asString(envelope.evento ?? registro.evento ?? (tipo === 'evento' ? registro.tipo_evento : undefined));
+      if ((tipo === 'evento' && evento === 'celula') || tipo === 'celula') {
+        const seq = asNumber(registro.seq ?? envelope.seq);
         const x = asNumber(ponto.x);
         const y = asNumber(ponto.y);
         if (seq !== null && x !== null && y !== null) acoes.adicionarPontoTrajeto({ seq, x, y });
@@ -96,6 +110,10 @@ function asRegistro(valor: unknown): Record<string, unknown> {
 
 function asNumber(valor: unknown): number | null {
   return typeof valor === 'number' && Number.isFinite(valor) ? valor : null;
+}
+
+function asString(valor: unknown): string | undefined {
+  return typeof valor === 'string' ? valor : undefined;
 }
 
 function asTipoLabirinto(valor: unknown) {

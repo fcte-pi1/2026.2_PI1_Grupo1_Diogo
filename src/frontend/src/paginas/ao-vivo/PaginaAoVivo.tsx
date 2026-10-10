@@ -1,4 +1,4 @@
-import { formatarNumero, formatarTempo, rotuloStatus, useExecucaoAoVivo, useSaudeBackend } from '../../view-model';
+import { formatarNumero, formatarTempo, rotuloStatus, useExecucaoAoVivo, useSaudeBackend, useTelemetria } from '../../view-model';
 import estilos from './PaginaAoVivo.module.css';
 
 /**
@@ -8,6 +8,7 @@ import estilos from './PaginaAoVivo.module.css';
 export function PaginaAoVivo() {
   const saude = useSaudeBackend();
   const execucao = useExecucaoAoVivo();
+  const telemetria = useTelemetria();
   const trajeto = execucao.trajeto.length > 0
     ? execucao.trajeto.map(({ x, y }) => `(${x}, ${y})`).join(' → ')
     : '—';
@@ -50,6 +51,14 @@ export function PaginaAoVivo() {
         </article>
       </div>
       <dl>
+        <dt>Atualizações recebidas</dt>
+        <dd data-testid="mensagens-recebidas">{telemetria.mensagensRecebidas}</dd>
+        <dt>Última atualização</dt>
+        <dd data-testid="ultima-mensagem">
+          {telemetria.ultimaMensagemEm === null
+            ? '—'
+            : new Date(telemetria.ultimaMensagemEm).toLocaleTimeString('pt-BR')}
+        </dd>
         <dt>Backend</dt>
         <dd data-testid="saude-backend">{saude.backend}</dd>
         <dt>Banco de dados</dt>

@@ -33,3 +33,23 @@
   font-family: var(--fonte-mono);
   font-size: var(--fonte-dado);
 }
+
+.pagina dl {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: var(--espaco-2) var(--espaco-3);
+  margin: 0;
+  padding: var(--espaco-3);
+  background: var(--cor-superficie);
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio);
+}
+
+.pagina dt {
+  color: var(--cor-texto-suave);
+}
+
+.pagina dd {
+  margin: 0;
+  font-family: var(--fonte-mono);
+}

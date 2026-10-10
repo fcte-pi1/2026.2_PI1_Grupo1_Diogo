@@ -11,3 +11,7 @@ export function useConexao() {
 export function useSaudeBackend() {
   return usePainel((s) => s.conexao.saude);
 }
+
+export function useTelemetria() {
+  return usePainel((s) => s.telemetria);
+}
