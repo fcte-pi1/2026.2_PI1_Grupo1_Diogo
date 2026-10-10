@@ -71,6 +71,14 @@ TEST(ProtocolV1, FimCorridaResultado) {
         R"({"v":1,"tipo":"fim_corrida","corrida":"r9f3a1c-1","seq":2,"t":100,"resultado":"falha"})");
 }
 
+TEST(ProtocolV1, FimCorridaComDetalheEscapa) {
+    Encoder encoder = makeEncoder();
+    (void)encoder.encodeStartRun(1, 0, "4x4");
+    EXPECT_EQ(
+        encoder.encodeRunResult(100, RunResult::Failure, R"(aspa " e barra \)"),
+        R"({"v":1,"tipo":"fim_corrida","corrida":"r9f3a1c-1","seq":2,"t":100,"resultado":"falha","detalhe":"aspa \" e barra \\"})");
+}
+
 }  // namespace
 
 }  // namespace micromouse::protocol
