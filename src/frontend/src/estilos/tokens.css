@@ -1,22 +1,28 @@
-/* Tokens de design (variáveis CSS). Fontes do sistema: nenhuma fonte remota (RNF-41). */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
+
+/* Tokens visuais alinhados ao protótipo do painel. */
 :root {
-  --fonte-base: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-  --fonte-mono: ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
-  /* RNF-46: os seis dados obrigatórios usam no mínimo 24 px em 1920 × 1080. */
+  --fonte-base: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --fonte-mono: 'JetBrains Mono', ui-monospace, monospace;
   --fonte-dado: 1.5rem;
 
-  --cor-fundo: #0f1419;
-  --cor-superficie: #1a2129;
-  --cor-borda: #2b3540;
-  --cor-texto: #e6edf3;
-  --cor-texto-suave: #8b98a5;
-  --cor-ok: #3fb950;
-  --cor-alerta: #d29922;
-  --cor-erro: #f85149;
+  --cor-petroleo: #1a4f6e;
+  --cor-petroleo-claro: #2563a0;
+  --cor-fundo: #f4f5f7;
+  --cor-superficie: #ffffff;
+  --cor-borda: #d1d5db;
+  --cor-borda-clara: #e5e7eb;
+  --cor-texto: #111827;
+  --cor-texto-suave: #4b5563;
+  --cor-texto-muted: #9ca3af;
+  --cor-ok: #16a34a;
+  --cor-alerta: #d97706;
+  --cor-erro: #dc2626;
 
   --espaco-1: 0.25rem;
   --espaco-2: 0.5rem;
   --espaco-3: 1rem;
   --espaco-4: 1.5rem;
-  --raio: 8px;
+  --raio: 4px;
 }
+

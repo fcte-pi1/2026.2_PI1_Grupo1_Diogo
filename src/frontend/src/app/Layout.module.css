@@ -1,27 +1,58 @@
 .cabecalho {
   display: flex;
   align-items: center;
-  gap: var(--espaco-4);
-  padding: var(--espaco-3) var(--espaco-4);
+  gap: 1.25rem;
+  min-height: 3.75rem;
+  padding: 0.625rem 1.5rem;
   background: var(--cor-superficie);
-  border-bottom: 1px solid var(--cor-borda);
+  border-bottom: 1px solid var(--cor-borda-clara);
   flex-wrap: wrap;
+}
+
+.marca {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  margin-right: 0.5rem;
+}
+
+.marcaIcone {
+  display: grid;
+  width: 1.5rem;
+  height: 1.5rem;
+  place-items: center;
+  border-radius: 0.25rem;
+  background: var(--cor-petroleo);
+  color: #ffffff;
+  font-family: var(--fonte-mono);
+  font-size: 0.625rem;
+  font-weight: 700;
 }
 
 .titulo {
   margin: 0;
-  font-size: 1.125rem;
+  color: var(--cor-texto);
+  font-size: 0.875rem;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+.separador {
+  width: 1px;
+  height: 1rem;
+  background: var(--cor-borda-clara);
 }
 
 .navegacao {
   display: flex;
   gap: var(--espaco-3);
-  flex: 1;
 }
 
 .navegacao a {
+  padding: 0.375rem 0;
   text-decoration: none;
-  color: var(--cor-texto-suave);
+  color: #6b7280;
+  font-size: 0.75rem;
 }
 
 .navegacao a[aria-current='page'] {
@@ -29,6 +60,10 @@
   font-weight: 600;
 }
 
+.cabecalho > :last-child {
+  margin-left: auto;
+}
+
 .conteudo {
-  padding: var(--espaco-4);
+  padding: 1.25rem 1.5rem;
 }

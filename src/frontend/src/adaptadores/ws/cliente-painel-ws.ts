@@ -32,6 +32,7 @@ export class ClientePainelWS {
     if (this.temporizador) clearTimeout(this.temporizador);
     this.socket?.close();
     this.socket = null;
+    usePainel.getState().acoes.definirEstadoConexao('DESCONECTADO');
   }
 
   private conectar(): void {
@@ -70,22 +71,43 @@ export class ClientePainelWS {
       const tipo = asString(envelope.tipo ?? registro.tipo);
       const { acoes } = usePainel.getState();
       acoes.registrarMensagem();
+      if (tipo === 'inicio_corrida') acoes.reiniciarExecucao();
       const metricas = asRegistro(registro.metricas ?? envelope.metricas);
       const energia = asRegistro(registro.energia ?? envelope.energia);
       const labirinto = asRegistro(registro.labirinto ?? envelope.labirinto);
       const ponto = asRegistro(registro.ponto ?? registro.posicao ?? envelope.ponto ?? envelope.posicao);
       const tempo = asNumber(registro.tempo_conclusao_ms ?? envelope.tempo_conclusao_ms ?? registro.t);
       const status = asStatus(registro.status ?? envelope.status ?? asRegistro(registro.estado).status);
+      const tensaoV = asNumber(energia.tensao_v ?? registro.tensao_v ?? envelope.tensao_v);
+      const correnteA = asNumber(energia.corrente_a ?? registro.corrente_a ?? envelope.corrente_a);
+      const potenciaW = asNumber(energia.potencia_w ?? registro.potencia_w ?? envelope.potencia_w);
+      const cargaPct = asNumber(energia.carga_pct ?? energia.carga_percentual ?? registro.carga_pct ?? envelope.carga_pct);
 
-      acoes.atualizarExecucao({
-        tipoLabirinto: asTipoLabirinto(labirinto.tipo ?? registro.tipo_labirinto ?? envelope.tipo_labirinto),
-        velocidadeMediaMps: asNumber(metricas.velocidade_media_m_s ?? registro.velocidade_media_m_s ?? envelope.velocidade_media_m_s),
-        tempoMs: tempo,
-        status,
-        tensaoV: asNumber(energia.tensao_v ?? registro.tensao_v ?? envelope.tensao_v),
-        correnteA: asNumber(energia.corrente_a ?? registro.corrente_a ?? envelope.corrente_a),
-        potenciaW: asNumber(energia.potencia_w ?? registro.potencia_w ?? envelope.potencia_w),
-      });
+      const atualizacao: Partial<import('../../dominio').DadosExecucao> = {};
+      const tipoLabirinto = asTipoLabirinto(labirinto.tipo ?? registro.tipo_labirinto ?? envelope.tipo_labirinto);
+      const velocidadeMediaMps = asNumber(metricas.velocidade_media_m_s ?? registro.velocidade_media_m_s ?? envelope.velocidade_media_m_s);
+      if (tipoLabirinto !== undefined) atualizacao.tipoLabirinto = tipoLabirinto;
+      if (velocidadeMediaMps !== null) atualizacao.velocidadeMediaMps = velocidadeMediaMps;
+      if (tempo !== null) atualizacao.tempoMs = tempo;
+      if (status !== undefined) atualizacao.status = status;
+      if (tensaoV !== null) atualizacao.tensaoV = tensaoV;
+      if (correnteA !== null) atualizacao.correnteA = correnteA;
+      if (potenciaW !== null) atualizacao.potenciaW = potenciaW;
+      if (cargaPct !== null) atualizacao.cargaPct = cargaPct;
+      acoes.atualizarExecucao(atualizacao);
+
+      const seqEnergia = asNumber(registro.seq ?? envelope.seq);
+      const tempoEnergia = asNumber(registro.t ?? envelope.t);
+      if (tensaoV !== null && correnteA !== null && potenciaW !== null) {
+        acoes.adicionarAmostraEnergia({
+          seq: seqEnergia,
+          tempoMs: tempoEnergia,
+          tensaoV,
+          correnteA,
+          potenciaW,
+          cargaPct,
+        });
+      }
 
       if (tipo === 'sinal') {
         acoes.definirSinal(registro.sinal === 'OK' ? 'OK' : 'PERDIDO');

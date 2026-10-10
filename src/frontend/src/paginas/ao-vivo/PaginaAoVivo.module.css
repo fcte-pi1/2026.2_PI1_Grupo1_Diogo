@@ -1,55 +1,423 @@
 .pagina {
   display: grid;
-  gap: var(--espaco-4);
+  gap: 1rem;
+  min-width: 0;
 }
 
-.pagina h2 {
+.tituloLinha {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.tituloLinha h2 {
   margin: 0;
+  color: var(--cor-texto);
+  font-size: 1.25rem;
+  font-weight: 600;
 }
 
-.grade {
+.modos,
+.filtros {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.125rem;
+  background: #f3f4f6;
+  border-radius: 0.25rem;
+}
+
+.modo,
+.modoAtivo,
+.filtro,
+.filtroAtivo {
+  border: 1px solid transparent;
+  border-radius: 0.25rem;
+  background: transparent;
+  color: #6b7280;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.75rem;
+  padding: 0.375rem 0.625rem;
+}
+
+.modoAtivo,
+.filtroAtivo {
+  border-color: #e5e7eb;
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 5%);
+  color: var(--cor-petroleo);
+  font-weight: 600;
+}
+
+.conteudoPainel {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
-  gap: var(--espaco-3);
+  grid-template-columns: minmax(0, 1fr) 18rem;
+  gap: 1rem;
+  min-width: 0;
 }
 
-.cartao {
+.colunaPrincipal,
+.painelLateral {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.painel,
+.painelHistorico,
+.painelPequeno {
+  border: 1px solid #d1d5db;
+  border-radius: 0.25rem;
+  background: #ffffff;
+}
+
+.painel {
+  padding: 1rem;
+}
+
+.painelHistorico {
+  padding: 1rem;
+}
+
+.painelPequeno {
   display: grid;
-  gap: var(--espaco-2);
-  min-height: 5.5rem;
-  padding: var(--espaco-3);
-  background: var(--cor-superficie);
-  border: 1px solid var(--cor-borda);
-  border-radius: var(--raio);
+  gap: 0.625rem;
+  padding: 0.75rem;
 }
 
-.cartao span {
-  color: var(--cor-texto-suave);
+.cabecalhoPainel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+  color: #374151;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+}
+
+.cabecalhoPainel h3 {
+  margin: 0;
+  color: #111827;
   font-size: 0.875rem;
+  letter-spacing: 0;
 }
 
-.cartao strong {
-  overflow-wrap: anywhere;
+.cabecalhoPainel strong {
+  border-radius: 0.25rem;
+  background: #f3f4f6;
+  color: #4b5563;
   font-family: var(--fonte-mono);
-  font-size: var(--fonte-dado);
+  font-size: 0.6875rem;
+  letter-spacing: 0;
+  padding: 0.125rem 0.375rem;
 }
 
-.pagina dl {
+.labirintoArea {
   display: grid;
-  grid-template-columns: max-content 1fr;
-  gap: var(--espaco-2) var(--espaco-3);
-  margin: 0;
-  padding: var(--espaco-3);
-  background: var(--cor-superficie);
-  border: 1px solid var(--cor-borda);
-  border-radius: var(--raio);
+  justify-items: center;
+  gap: 0.75rem;
+  overflow-x: auto;
 }
 
-.pagina dt {
-  color: var(--cor-texto-suave);
+.labirinto {
+  display: block;
+  width: min(100%, 32rem);
+  height: auto;
+  max-height: 32rem;
 }
 
-.pagina dd {
-  margin: 0;
+.celula {
+  fill: #ffffff;
+}
+
+.celulaInicio {
+  fill: #f0fdf4;
+}
+
+.linhaLabirinto {
+  stroke: #1a4f6e;
+  stroke-width: 1.75;
+}
+
+.objetivo {
+  fill: #dbeafe;
+  stroke: #2563a0;
+  stroke-width: 1.5;
+}
+
+.inicio {
+  fill: none;
+  stroke: #16a34a;
+  stroke-dasharray: 4 3;
+  stroke-width: 1.5;
+}
+
+.rotuloMapa,
+.rotuloMapaInicio {
+  font-family: var(--fonte-base);
+  font-size: 0.4rem;
+  font-weight: 600;
+}
+
+.rotuloMapa { fill: #2563a0; }
+.rotuloMapaInicio { fill: #16a34a; }
+
+.trajetoria {
+  fill: none;
+  stroke: #2563a0;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2.5;
+  opacity: 0.7;
+}
+
+.robo {
+  fill: #1a4f6e;
+  stroke: #dbeafe;
+  stroke-width: 5;
+}
+
+.legenda {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.75rem 1rem;
+  color: #6b7280;
+  font-size: 0.625rem;
+}
+
+.legenda i {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  vertical-align: middle;
+  font-style: normal;
+}
+
+.legendaLinha,
+.legendaParede,
+.legendaDesconhecida {
+  width: 1rem;
+  height: 0;
+  margin-right: 0.125rem;
+}
+
+.legendaLinha { border-top: 2px solid #1a4f6e; }
+.legendaParede { border-top: 1px solid #1a4f6e; }
+.legendaDesconhecida { border-top: 1px dashed #d1d5db; }
+.legendaVisitada,
+.legendaInicio,
+.legendaObjetivo,
+.legendaRobo { width: 0.75rem; height: 0.75rem; margin-right: 0.125rem; }
+.legendaVisitada { border: 1px solid #93c5fd; border-radius: 0.125rem; color: #2563a0; font-family: var(--fonte-mono); font-size: 0.5rem; }
+.legendaInicio { border: 1px dashed #16a34a; border-radius: 0.125rem; background: #dcfce7; }
+.legendaObjetivo { border: 1px solid #2563a0; border-radius: 0.125rem; background: #dbeafe; }
+.legendaRobo { border-radius: 0.125rem; background: #1a4f6e; color: #ffffff; font-size: 0.5rem; }
+
+.tabelaCabecalho {
+  display: grid;
+  grid-template-columns: 0.7fr 1.5fr 0.8fr 0.8fr 1fr;
+  gap: 0.5rem;
+  border-bottom: 1px solid #e5e7eb;
+  color: #6b7280;
+  font-size: 0.625rem;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  padding: 0.5rem;
+  text-transform: uppercase;
+}
+
+.historicoVazio {
+  padding: 1.25rem 0.5rem;
+  color: #9ca3af;
   font-family: var(--fonte-mono);
+  font-size: 0.6875rem;
+  text-align: center;
+}
+
+.rotuloSecao,
+.painelPequeno small {
+  color: #9ca3af;
+  font-size: 0.625rem;
+}
+
+.rotuloSecao {
+  font-weight: 600;
+  letter-spacing: 0.08em;
+}
+
+.duasColunas,
+.metricas,
+.eletrico {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.duasColunas,
+.metricas { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.eletrico { grid-template-columns: repeat(3, minmax(0, 1fr)); text-align: center; }
+
+.eletrico div {
+  display: grid;
+  gap: 0.125rem;
+}
+
+.duasColunas div,
+.metricas div {
+  display: grid;
+  gap: 0.125rem;
+}
+
+.duasColunas strong,
+.metricas strong,
+.eletrico strong {
+  color: #111827;
+  font-family: var(--fonte-mono);
+  font-size: 0.6875rem;
+}
+
+.painelCronometro {
+  min-height: 5rem;
+}
+
+.cronometro {
+  color: #1a4f6e;
+  font-family: var(--fonte-mono);
+  font-size: 1.875rem;
+  line-height: 1;
+}
+
+.status {
+  width: max-content;
+  border: 1px solid;
+  border-radius: 0.25rem;
+  font-size: 0.625rem;
+  padding: 0.125rem 0.375rem;
+}
+
+.statusAndamento { border-color: #bfdbfe; background: #eff6ff; color: #1d4ed8; }
+.statusOk { border-color: #bbf7d0; background: #f0fdf4; color: #15803d; }
+.statusErro { border-color: #fecaca; background: #fef2f2; color: #b91c1c; }
+.statusAlerta { border-color: #fde68a; background: #fffbeb; color: #b45309; }
+
+.graficoEnergia {
+  display: grid;
+  gap: 0.25rem;
+  margin-top: 0.25rem;
+}
+
+.graficoEnergia svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  min-height: 5.25rem;
+}
+
+.linhaGrafico {
+  stroke: #e5e7eb;
+  stroke-dasharray: 2 2;
+  stroke-width: 0.75;
+}
+
+.eixoGrafico {
+  stroke: #9ca3af;
+  stroke-width: 0.75;
+}
+
+.linhaTensao,
+.linhaCorrente,
+.linhaPotencia {
+  fill: none;
+  stroke-width: 1.5;
+}
+
+.linhaTensao { stroke: #2563a0; }
+.linhaCorrente { stroke: #d97706; }
+.linhaPotencia { stroke: #16a34a; }
+.semAmostras { fill: #9ca3af; font-family: var(--fonte-mono); font-size: 7px; }
+
+.bateria {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  margin-top: 0.25rem;
+}
+
+.iconeBateria {
+  position: relative;
+  width: 0.75rem;
+  height: 0.5rem;
+  border: 1px solid #9ca3af;
+  border-radius: 0.125rem;
+}
+
+.iconeBateria::after {
+  position: absolute;
+  top: 0.125rem;
+  right: -0.2rem;
+  width: 0.125rem;
+  height: 0.25rem;
+  border-radius: 0 0.0625rem 0.0625rem 0;
+  background: #9ca3af;
+  content: '';
+}
+
+.bateriaCorpo { flex: 1; }
+.bateriaRotulo { display: flex; justify-content: space-between; color: #6b7280; font-size: 0.625rem; }
+.bateriaRotulo strong { color: #374151; font-family: var(--fonte-mono); font-size: 0.625rem; }
+.bateriaTrilho { height: 0.375rem; margin-top: 0.25rem; overflow: hidden; border-radius: 0.125rem; background: #f3f4f6; }
+.bateriaTrilho span { display: block; height: 100%; border-radius: inherit; background: #16a34a; }
+
+.graficoEnergia svg + .graficoLegenda {
+  padding: 0 0.75rem;
+}
+
+.graficoLegenda { display: flex; justify-content: space-between; font-family: var(--fonte-mono); font-size: 0.5rem; }
+.valorTensao { color: #2563a0; }
+.valorCorrente { color: #d97706; }
+.valorPotencia { color: #16a34a; }
+
+.alerta,
+.alertaOk {
+  display: grid;
+  gap: 0.125rem;
+  border: 1px solid;
+  border-radius: 0.25rem;
+  padding: 0.5rem;
+}
+
+.alerta { border-color: #fde68a; background: #fffbeb; color: #b45309; }
+.alertaOk { border-color: #bbf7d0; background: #f0fdf4; color: #15803d; }
+.alerta strong,
+.alertaOk strong { font-size: 0.6875rem; }
+
+.console {
+  margin: 0;
+  border: 1px solid #374151;
+  border-radius: 0.25rem;
+  background: #111827;
+  color: #4ade80;
+  font-family: var(--fonte-mono);
+  font-size: 0.6875rem;
+  padding: 0.75rem;
+}
+
+@media (max-width: 900px) {
+  .conteudoPainel { grid-template-columns: 1fr; }
+  .painelLateral { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 560px) {
+  .tituloLinha { align-items: flex-start; flex-direction: column; }
+  .modos { width: 100%; }
+  .modo { flex: 1; }
+  .painelLateral { display: flex; }
+  .tabelaCabecalho { grid-template-columns: 1fr 1fr 1fr; }
+  .tabelaCabecalho span:nth-child(2),
+  .tabelaCabecalho span:nth-child(4) { display: none; }
 }

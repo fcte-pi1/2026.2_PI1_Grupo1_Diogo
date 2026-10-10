@@ -1,7 +1,29 @@
+import { useEffect, useState } from 'react';
 import { usePainel } from '../estado';
 
 export function useExecucaoAoVivo() {
   return usePainel((estado) => estado.aoVivo);
+}
+
+/** Mantém o cronômetro visual entre amostras sem substituir o tempo oficial do backend. */
+export function useCronometroTentativa() {
+  const { status, tempoMs } = useExecucaoAoVivo();
+  const [tempoLocal, definirTempoLocal] = useState(0);
+
+  useEffect(() => {
+    if (status !== 'EM_ANDAMENTO') return;
+
+    const base = tempoMs ?? 0;
+    const inicio = Date.now();
+    const id = setInterval(() => {
+      definirTempoLocal((atual) => Math.max(atual, base + Date.now() - inicio));
+    }, 100);
+
+    return () => clearInterval(id);
+  }, [status, tempoMs]);
+
+  if (status === 'EM_ANDAMENTO') return Math.max(tempoMs ?? 0, tempoLocal);
+  return tempoMs ?? (tempoLocal > 0 ? tempoLocal : null);
 }
 
 export function formatarNumero(valor: number | null, unidade: string): string {

@@ -7,6 +7,15 @@ export interface PontoTrajeto {
   y: number;
 }
 
+export interface AmostraEnergia {
+  seq: number | null;
+  tempoMs: number | null;
+  tensaoV: number;
+  correnteA: number;
+  potenciaW: number;
+  cargaPct: number | null;
+}
+
 export interface DadosExecucao {
   tipoLabirinto: TipoLabirinto | null;
   trajeto: PontoTrajeto[];
@@ -16,6 +25,8 @@ export interface DadosExecucao {
   tensaoV: number | null;
   correnteA: number | null;
   potenciaW: number | null;
+  cargaPct: number | null;
+  energia: AmostraEnergia[];
 }
 
 export const execucaoInicial: DadosExecucao = {
@@ -27,4 +38,6 @@ export const execucaoInicial: DadosExecucao = {
   tensaoV: null,
   correnteA: null,
   potenciaW: null,
+  cargaPct: null,
+  energia: [],
 };
