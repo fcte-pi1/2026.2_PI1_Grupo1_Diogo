@@ -89,6 +89,19 @@ std::string phaseToString(SessionPhase phase) {
     }
 }
 
+std::string mazeToString(domain::MazeType maze) {
+    switch (maze) {
+        case domain::MazeType::Small4x4:
+            return "4x4";
+        case domain::MazeType::Medium8x4:
+            return "8x4";
+        case domain::MazeType::Large12x4:
+            return "12x4";
+        default:
+            return "?";
+    }
+}
+
 char directionToChar(domain::Direction direction) {
     switch (direction) {
         case domain::Direction::North:
