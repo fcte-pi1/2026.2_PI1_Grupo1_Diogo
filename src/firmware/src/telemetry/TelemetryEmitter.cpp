@@ -33,4 +33,22 @@ std::vector<std::string> TelemetryEmitter::encodeCycle(long time, const Snapshot
                                              ));
     return messages;
 }
+
+std::string TelemetryEmitter::encodeCell(long time,                 //
+                                         const Position& position,  //
+                                         bool north,                //
+                                         bool east,                 //
+                                         bool south,                //
+                                         bool west                  //
+) {
+    return encoder_.encodeCell(time,             //
+                               position.column,  //
+                               position.row,     //
+                               north,            //
+                               east,             //
+                               south,            //
+                               west              //
+    );
+}
+
 }  // namespace micromouse::telemetry

@@ -39,6 +39,13 @@ public:
     [[nodiscard]] std::string encodeHello() const;
     [[nodiscard]] std::string encodeStartRun(int runIndex, long time, MazeType type);
     [[nodiscard]] std::vector<std::string> encodeCycle(long time, const Snapshot& snap);
+    [[nodiscard]] std::string encodeCell(long time,                 //
+                                         const Position& position,  //
+                                         bool north,                //
+                                         bool east,                 //
+                                         bool south,                //
+                                         bool west                  //
+    );
 };
 
 }  // namespace micromouse::telemetry
