@@ -34,11 +34,11 @@ public:
     [[nodiscard]] std::string encodeStartRun(int runIndex, long time, const std::string& maze);
     [[nodiscard]] long sequence() const noexcept;
 
-    [[nodiscard]] std::string encodeState(int time,                      //
+    [[nodiscard]] std::string encodeState(long time,                      //
                                           use_cases::SessionPhase phase  //
     );
 
-    [[nodiscard]] std::string encodeCell(int time,    //
+    [[nodiscard]] std::string encodeCell(long time,   //
                                          int x,       //
                                          int y,       //
                                          bool north,  //
@@ -47,7 +47,7 @@ public:
                                          bool west    //
     );
 
-    [[nodiscard]] std::string encodePosition(int time,                     //
+    [[nodiscard]] std::string encodePosition(long time,                     //
                                              int x,                        //
                                              int y,                        //
                                              domain::Direction direction,  //
@@ -55,7 +55,7 @@ public:
                                              std::optional<double> speed   //
     );
 
-    [[nodiscard]] std::string encodeEnergy(int time,         //
+    [[nodiscard]] std::string encodeEnergy(long time,        //
                                            double voltage,   //
                                            double amperage,  //
                                            double watts      //

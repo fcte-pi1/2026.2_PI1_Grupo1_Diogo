@@ -117,7 +117,7 @@ char directionToChar(domain::Direction direction) {
     }
 }
 
-std::string Encoder::encodeState(int time,                      //
+std::string Encoder::encodeState(long time,                      //
                                  use_cases::SessionPhase phase  //
 ) {
     return R"({"v":1,"tipo":"estado","corrida":")" + run_ + R"(","seq":)" +
@@ -125,7 +125,7 @@ std::string Encoder::encodeState(int time,                      //
            phaseToString(phase) + R"("})";
 }
 
-std::string Encoder::encodeCell(int time,    //
+std::string Encoder::encodeCell(long time,   //
                                 int x,       //
                                 int y,       //
                                 bool north,  //
@@ -140,7 +140,7 @@ std::string Encoder::encodeCell(int time,    //
            R"(,"o":)" + boolJson(west) + R"(}})";
 }
 
-std::string Encoder::encodePosition(int time,                     //
+std::string Encoder::encodePosition(long time,                     //
                                     int x,                        //
                                     int y,                        //
                                     domain::Direction direction,  //
@@ -159,7 +159,7 @@ std::string Encoder::encodePosition(int time,                     //
     return msg;
 }
 
-std::string Encoder::encodeEnergy(int time,         //
+std::string Encoder::encodeEnergy(long time,        //
                                   double voltage,   //
                                   double amperage,  //
                                   double watts      //
