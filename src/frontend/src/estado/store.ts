@@ -1,5 +1,11 @@
 import { create } from 'zustand';
-import type { AmostraEnergia, DadosExecucao, EstadoConexao, PontoTrajeto, SinalRobo } from '../dominio';
+import type {
+  AmostraEnergia,
+  DadosExecucao,
+  EstadoConexao,
+  PontoTrajeto,
+  SinalRobo,
+} from '../dominio';
 import { execucaoInicial } from '../dominio';
 
 /** Saúde do backend (GET /health): prova de vida do ambiente. */
@@ -58,11 +64,17 @@ export const usePainel = create<EstadoPainel>()((set) => ({
       set((s) =>
         s.aoVivo.trajeto.some((atual) => atual.seq === ponto.seq)
           ? s
-          : { aoVivo: { ...s.aoVivo, trajeto: [...s.aoVivo.trajeto, ponto].sort((a, b) => a.seq - b.seq) } },
+          : {
+              aoVivo: {
+                ...s.aoVivo,
+                trajeto: [...s.aoVivo.trajeto, ponto].sort((a, b) => a.seq - b.seq),
+              },
+            },
       ),
     adicionarAmostraEnergia: (amostra) =>
       set((s) => {
-        const repetida = amostra.seq !== null && s.aoVivo.energia.some((atual) => atual.seq === amostra.seq);
+        const repetida =
+          amostra.seq !== null && s.aoVivo.energia.some((atual) => atual.seq === amostra.seq);
         if (repetida) return s;
         return {
           aoVivo: {
@@ -88,7 +100,10 @@ export const usePainel = create<EstadoPainel>()((set) => ({
   },
 }));
 
-function manterTempoMaisRecente(atual: number | null, recebido: number | null | undefined): number | null {
+function manterTempoMaisRecente(
+  atual: number | null,
+  recebido: number | null | undefined,
+): number | null {
   if (recebido === undefined) return atual;
   if (atual === null || recebido === null) return recebido;
   return Math.max(atual, recebido);

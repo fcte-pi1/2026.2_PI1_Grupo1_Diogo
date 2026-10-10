@@ -22,7 +22,11 @@ export class ClientePainelWS {
   }
 
   iniciar(): void {
-    if (this.socket && (this.socket.readyState === WebSocket.OPEN || this.socket.readyState === WebSocket.CONNECTING)) return;
+    if (
+      this.socket &&
+      (this.socket.readyState === WebSocket.OPEN || this.socket.readyState === WebSocket.CONNECTING)
+    )
+      return;
     this.encerrado = false;
     this.conectar();
   }
@@ -75,17 +79,31 @@ export class ClientePainelWS {
       const metricas = asRegistro(registro.metricas ?? envelope.metricas);
       const energia = asRegistro(registro.energia ?? envelope.energia);
       const labirinto = asRegistro(registro.labirinto ?? envelope.labirinto);
-      const ponto = asRegistro(registro.ponto ?? registro.posicao ?? envelope.ponto ?? envelope.posicao);
-      const tempo = asNumber(registro.tempo_conclusao_ms ?? envelope.tempo_conclusao_ms ?? registro.t);
-      const status = asStatus(registro.status ?? envelope.status ?? asRegistro(registro.estado).status);
+      const ponto = asRegistro(
+        registro.ponto ?? registro.posicao ?? envelope.ponto ?? envelope.posicao,
+      );
+      const tempo = asNumber(
+        registro.tempo_conclusao_ms ?? envelope.tempo_conclusao_ms ?? registro.t,
+      );
+      const status = asStatus(
+        registro.status ?? envelope.status ?? asRegistro(registro.estado).status,
+      );
       const tensaoV = asNumber(energia.tensao_v ?? registro.tensao_v ?? envelope.tensao_v);
       const correnteA = asNumber(energia.corrente_a ?? registro.corrente_a ?? envelope.corrente_a);
       const potenciaW = asNumber(energia.potencia_w ?? registro.potencia_w ?? envelope.potencia_w);
-      const cargaPct = asNumber(energia.carga_pct ?? energia.carga_percentual ?? registro.carga_pct ?? envelope.carga_pct);
+      const cargaPct = asNumber(
+        energia.carga_pct ?? energia.carga_percentual ?? registro.carga_pct ?? envelope.carga_pct,
+      );
 
       const atualizacao: Partial<import('../../dominio').DadosExecucao> = {};
-      const tipoLabirinto = asTipoLabirinto(labirinto.tipo ?? registro.tipo_labirinto ?? envelope.tipo_labirinto);
-      const velocidadeMediaMps = asNumber(metricas.velocidade_media_m_s ?? registro.velocidade_media_m_s ?? envelope.velocidade_media_m_s);
+      const tipoLabirinto = asTipoLabirinto(
+        labirinto.tipo ?? registro.tipo_labirinto ?? envelope.tipo_labirinto,
+      );
+      const velocidadeMediaMps = asNumber(
+        metricas.velocidade_media_m_s ??
+          registro.velocidade_media_m_s ??
+          envelope.velocidade_media_m_s,
+      );
       if (tipoLabirinto !== undefined) atualizacao.tipoLabirinto = tipoLabirinto;
       if (velocidadeMediaMps !== null) atualizacao.velocidadeMediaMps = velocidadeMediaMps;
       if (tempo !== null) atualizacao.tempoMs = tempo;
@@ -113,7 +131,11 @@ export class ClientePainelWS {
         acoes.definirSinal(registro.sinal === 'OK' ? 'OK' : 'PERDIDO');
       }
 
-      const evento = asString(envelope.evento ?? registro.evento ?? (tipo === 'evento' ? registro.tipo_evento : undefined));
+      const evento = asString(
+        envelope.evento ??
+          registro.evento ??
+          (tipo === 'evento' ? registro.tipo_evento : undefined),
+      );
       if ((tipo === 'evento' && evento === 'celula') || tipo === 'celula') {
         const seq = asNumber(registro.seq ?? envelope.seq);
         const x = asNumber(ponto.x);
@@ -127,7 +149,7 @@ export class ClientePainelWS {
 }
 
 function asRegistro(valor: unknown): Record<string, unknown> {
-  return valor !== null && typeof valor === 'object' ? valor as Record<string, unknown> : {};
+  return valor !== null && typeof valor === 'object' ? (valor as Record<string, unknown>) : {};
 }
 
 function asNumber(valor: unknown): number | null {
@@ -143,7 +165,10 @@ function asTipoLabirinto(valor: unknown) {
 }
 
 function asStatus(valor: unknown) {
-  return valor === 'EM_ANDAMENTO' || valor === 'CONCLUIDA' || valor === 'FALHOU' || valor === 'INTERROMPIDA'
+  return valor === 'EM_ANDAMENTO' ||
+    valor === 'CONCLUIDA' ||
+    valor === 'FALHOU' ||
+    valor === 'INTERROMPIDA'
     ? valor
     : undefined;
 }

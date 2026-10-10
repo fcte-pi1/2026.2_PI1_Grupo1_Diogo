@@ -27,7 +27,9 @@ export function useCronometroTentativa() {
 }
 
 export function formatarNumero(valor: number | null, unidade: string): string {
-  return valor === null ? '—' : `${valor.toLocaleString('pt-BR', { maximumFractionDigits: 2 })} ${unidade}`;
+  return valor === null
+    ? '—'
+    : `${valor.toLocaleString('pt-BR', { maximumFractionDigits: 2 })} ${unidade}`;
 }
 
 export function formatarTempo(tempoMs: number | null): string {
@@ -40,10 +42,15 @@ export function formatarTempo(tempoMs: number | null): string {
 
 export function rotuloStatus(status: ReturnType<typeof useExecucaoAoVivo>['status']): string {
   switch (status) {
-    case 'EM_ANDAMENTO': return 'Em andamento';
-    case 'CONCLUIDA': return 'Cumprida';
-    case 'FALHOU': return 'Falhou';
-    case 'INTERROMPIDA': return 'Interrompida';
-    default: return '—';
+    case 'EM_ANDAMENTO':
+      return 'Em andamento';
+    case 'CONCLUIDA':
+      return 'Cumprida';
+    case 'FALHOU':
+      return 'Falhou';
+    case 'INTERROMPIDA':
+      return 'Interrompida';
+    default:
+      return '—';
   }
 }

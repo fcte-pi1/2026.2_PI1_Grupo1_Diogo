@@ -7,7 +7,9 @@ export function Layout() {
     <>
       <header className={estilos.cabecalho}>
         <div className={estilos.marca}>
-          <span className={estilos.marcaIcone} aria-hidden="true">RB</span>
+          <span className={estilos.marcaIcone} aria-hidden="true">
+            RB
+          </span>
           <h1 className={estilos.titulo}>Micromouse Dashboard</h1>
         </div>
         <span className={estilos.separador} aria-hidden="true" />
