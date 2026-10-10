@@ -136,6 +136,8 @@ export class ClientePainelWS {
           registro.evento ??
           (tipo === 'evento' ? registro.tipo_evento : undefined),
       );
+      const celulaMapa = asCelulaMapa(registro.celula ?? registro.mapa ?? envelope.celula ?? envelope.mapa);
+      if (celulaMapa) acoes.atualizarCelulaMapa(celulaMapa);
       if ((tipo === 'evento' && evento === 'celula') || tipo === 'celula') {
         const seq = asNumber(registro.seq ?? envelope.seq);
         const x = asNumber(ponto.x);
@@ -158,6 +160,28 @@ function asNumber(valor: unknown): number | null {
 
 function asString(valor: unknown): string | undefined {
   return typeof valor === 'string' ? valor : undefined;
+}
+
+function asCelulaMapa(valor: unknown) {
+  const registro = asRegistro(valor);
+  const x = asNumber(registro.x);
+  const y = asNumber(registro.y);
+  const paredes = asRegistro(registro.paredes ?? registro.walls);
+  if (x === null || y === null) return undefined;
+  return {
+    x,
+    y,
+    paredes: {
+      n: asParede(paredes.n),
+      s: asParede(paredes.s),
+      e: asParede(paredes.e),
+      w: asParede(paredes.w),
+    },
+  } as const;
+}
+
+function asParede(valor: unknown): boolean | null {
+  return typeof valor === 'boolean' ? valor : null;
 }
 
 function asTipoLabirinto(valor: unknown) {

@@ -144,6 +144,19 @@
   stroke-width: 1.75;
 }
 
+.paredePresente {
+  stroke: #1a4f6e;
+  stroke-linecap: square;
+  stroke-width: 2.5;
+}
+
+.paredeDesconhecida {
+  stroke: #d1d5db;
+  stroke-dasharray: 4 3;
+  stroke-linecap: square;
+  stroke-width: 1.5;
+}
+
 .objetivo {
   fill: #dbeafe;
   stroke: #2563a0;

@@ -26,101 +26,64 @@ function StatusBadge({ status }: { status: Execucao['status'] }) {
   return <span className={`${estilos.status} ${classe}`}>{rotuloStatus(status)}</span>;
 }
 
-function MazeView({ trajeto }: { trajeto: Execucao['trajeto'] }) {
+function MazeView({ trajeto, mapa, tipo }: { trajeto: Execucao['trajeto']; mapa: Execucao['mapa']; tipo: Execucao['tipoLabirinto'] }) {
   const cellSize = 82;
-  const size = cellSize * 4;
+  const [colunas, linhas] = (tipo ?? '4x4').split('x').map(Number);
+  const largura = colunas || 4;
+  const altura = linhas || 4;
+  const sizeX = cellSize * largura;
+  const sizeY = cellSize * altura;
   const pontos = trajeto.map(({ x, y }) => ({
-    x: Math.max(0, Math.min(3, x)) * cellSize + cellSize / 2,
-    y: (3 - Math.max(0, Math.min(3, y))) * cellSize + cellSize / 2,
+    x: Math.max(0, Math.min(largura - 1, x)) * cellSize + cellSize / 2,
+    y: (altura - 1 - Math.max(0, Math.min(altura - 1, y))) * cellSize + cellSize / 2,
   }));
   const path = pontos.map(({ x, y }, indice) => `${indice === 0 ? 'M' : 'L'} ${x} ${y}`).join(' ');
   const atual = pontos.at(-1);
+  const encontrarCelula = (x: number, y: number) => mapa.find((celula) => celula.x === x && celula.y === y);
+  const classeParede = (x: number, y: number, direcao: 'n' | 's' | 'e' | 'w') => {
+    const estado = encontrarCelula(x, y)?.paredes[direcao] ?? null;
+    return estado === false ? null : estado === true ? estilos.paredePresente : estilos.paredeDesconhecida;
+  };
 
   return (
     <div className={estilos.labirintoArea}>
-      <svg
-        className={estilos.labirinto}
-        viewBox={`0 0 ${size} ${size}`}
-        role="img"
-        aria-label="Mapa do labirinto"
-      >
-        {Array.from({ length: 16 }, (_, indice) => {
-          const linha = Math.floor(indice / 4);
-          const coluna = indice % 4;
-          return (
-            <rect
-              key={`celula-${indice}`}
-              x={coluna * cellSize}
-              y={linha * cellSize}
-              width={cellSize}
-              height={cellSize}
-              className={indice === 15 ? estilos.celulaInicio : estilos.celula}
-            />
-          );
+      <svg className={estilos.labirinto} viewBox={`0 0 ${sizeX} ${sizeY}`} role="img" aria-label="Mapa do labirinto">
+        {Array.from({ length: largura * altura }, (_, indice) => {
+          const linha = Math.floor(indice / largura);
+          const coluna = indice % largura;
+          return <rect key={`celula-${indice}`} x={coluna * cellSize} y={(altura - 1 - linha) * cellSize} width={cellSize} height={cellSize} className={coluna === 0 && linha === 0 ? estilos.celulaInicio : estilos.celula} />;
         })}
-        {Array.from({ length: 5 }, (_, indice) => (
-          <g key={`grade-${indice}`}>
-            <line
-              x1={indice * cellSize}
-              y1="0"
-              x2={indice * cellSize}
-              y2={size}
-              className={estilos.linhaLabirinto}
-            />
-            <line
-              x1="0"
-              y1={indice * cellSize}
-              x2={size}
-              y2={indice * cellSize}
-              className={estilos.linhaLabirinto}
-            />
-          </g>
-        ))}
-        <rect
-          x={3 * cellSize + 4}
-          y="4"
-          width={cellSize - 8}
-          height={cellSize - 8}
-          className={estilos.objetivo}
-        />
-        <text x={3 * cellSize + 8} y="18" className={estilos.rotuloMapa}>
-          OBJETIVO
-        </text>
-        <rect
-          x="4"
-          y={3 * cellSize + 4}
-          width={cellSize - 8}
-          height={cellSize - 8}
-          className={estilos.inicio}
-        />
-        <text x="8" y={3 * cellSize + 18} className={estilos.rotuloMapaInicio}>
-          INÍCIO
-        </text>
+        {Array.from({ length: largura * altura }, (_, indice) => {
+          const y = Math.floor(indice / largura);
+          const x = indice % largura;
+          const svgY = (altura - 1 - y) * cellSize;
+          return <g key={`paredes-${x}-${y}`}>
+            {(['n', 's', 'e', 'w'] as const).map((direcao) => {
+              const classe = classeParede(x, y, direcao);
+              if (!classe) return null;
+              const x1 = direcao === 'w' ? x * cellSize : direcao === 'e' ? (x + 1) * cellSize : x * cellSize;
+              const x2 = direcao === 'w' ? x * cellSize : direcao === 'e' ? (x + 1) * cellSize : (x + 1) * cellSize;
+              const y1 = direcao === 'n' ? svgY : direcao === 's' ? svgY + cellSize : svgY;
+              const y2 = direcao === 'n' ? svgY : direcao === 's' ? svgY + cellSize : svgY + cellSize;
+              return <line key={direcao} x1={x1} y1={y1} x2={x2} y2={y2} className={classe} />;
+            })}
+          </g>;
+        })}
+        <rect x={(largura - 1) * cellSize + 4} y="4" width={cellSize - 8} height={cellSize - 8} className={estilos.objetivo} />
+        <text x={(largura - 1) * cellSize + 8} y="18" className={estilos.rotuloMapa}>OBJETIVO</text>
+        <rect x="4" y={sizeY - cellSize + 4} width={cellSize - 8} height={cellSize - 8} className={estilos.inicio} />
+        <text x="8" y={sizeY - cellSize + 18} className={estilos.rotuloMapaInicio}>INÍCIO</text>
         {path && <path d={path} className={estilos.trajetoria} />}
         {atual && <circle cx={atual.x} cy={atual.y} r="12" className={estilos.robo} />}
       </svg>
       <div className={estilos.legenda}>
-        <span>
-          <i className={estilos.legendaLinha} /> Trajetória
-        </span>
-        <span>
-          <i className={estilos.legendaVisitada}>3</i> Visitada
-        </span>
-        <span>
-          <i className={estilos.legendaParede} /> Parede presente
-        </span>
-        <span>
-          <i className={estilos.legendaDesconhecida} /> Desconhecida
-        </span>
-        <span>
-          <i className={estilos.legendaInicio} /> Início
-        </span>
-        <span>
-          <i className={estilos.legendaObjetivo} /> Objetivo
-        </span>
-        <span>
-          <i className={estilos.legendaRobo}>●</i> Robô
-        </span>
+        <span><i className={estilos.legendaLinha} /> Trajetória</span>
+        <span><i className={estilos.legendaVisitada}>3</i> Visitada</span>
+        <span><i className={estilos.legendaParede} /> Parede presente</span>
+        <span><i className={estilos.legendaDesconhecida} /> Desconhecida</span>
+        <span><i className={estilos.legendaInicio} /> Início</span>
+        <span><i className={estilos.legendaObjetivo} /> Objetivo</span>
+        <span><i className={estilos.legendaRobo}>●</i> Robô</span>
       </div>
     </div>
   );
@@ -253,7 +216,7 @@ export function PaginaAoVivo() {
               <span>LABIRINTO</span>
               <strong>{execucao.tipoLabirinto ?? '—'}</strong>
             </div>
-            <MazeView trajeto={execucao.trajeto} />
+            <MazeView trajeto={execucao.trajeto} mapa={execucao.mapa} tipo={execucao.tipoLabirinto} />
           </article>
           <article className={estilos.painelHistorico}>
             <div className={estilos.cabecalhoPainel}>
