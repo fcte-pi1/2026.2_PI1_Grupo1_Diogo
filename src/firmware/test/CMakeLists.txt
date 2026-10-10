@@ -16,6 +16,12 @@ FetchContent_MakeAvailable(googletest)
 add_executable(firmware_tests
     domain/MazeTest.cpp
     domain/FloodFillTest.cpp
+    simulation/SimulatedRobot.hpp
+    use_cases/NavigatorTest.cpp
+)
+
+target_include_directories(firmware_tests PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
 target_link_libraries(firmware_tests PRIVATE

@@ -48,6 +48,7 @@ endif()
 add_library(firmware_logic STATIC
     src/domain/Maze.cpp
     src/domain/FloodFill.cpp
+    src/use_cases/Navigator.cpp
 )
 
 target_include_directories(firmware_logic PUBLIC
