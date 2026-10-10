@@ -10,4 +10,27 @@ std::string TelemetryEmitter::encodeStartRun(int runIndex, long time, MazeType t
     return encoder_.encodeStartRun(runIndex, time, mazeToString(type));
 };
 
+std::vector<std::string> TelemetryEmitter::encodeCycle(long time, const Snapshot& snap) {
+    std::vector<std::string> messages;
+
+    if (!lastPhase_.has_value() || *lastPhase_ != snap.phase) {
+        messages.push_back(encoder_.encodeState(time, snap.phase));
+        lastPhase_ = snap.phase;
+    }
+
+    messages.push_back(encoder_.encodePosition(time,                  //
+                                               snap.position.column,  //
+                                               snap.position.row,     //
+                                               snap.heading,          //
+                                               snap.cells,            //
+                                               snap.speed             //
+                                               ));
+
+    messages.push_back(encoder_.encodeEnergy(time,           //
+                                             snap.voltage,   //
+                                             snap.amperage,  //
+                                             snap.watts      //
+                                             ));
+    return messages;
+}
 }  // namespace micromouse::telemetry
