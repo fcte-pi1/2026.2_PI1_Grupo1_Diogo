@@ -46,6 +46,17 @@ TEST(TelemetryBuffer, MantemAMensagemNaBorda) {
     EXPECT_EQ(buffer.messages(), (TelemetryData{"a", "b"}));
 }
 
+TEST(TelemetryBuffer, DescartaAlemDoTetoDeContagem) {
+    TelemetryBuffer buffer(1000000, 3);  // 1 milhão de ms de retenção, 3 mensagens no máximo
+    buffer.add(0, "a");
+    buffer.add(1, "b");
+    buffer.add(2, "c");
+    buffer.add(3, "d");  // "a" é descartada, pois o buffer tem capacidade máxima de 3 mensagens
+    EXPECT_EQ(buffer.size(), 3u);
+    EXPECT_FALSE(buffer.empty());
+    EXPECT_EQ(buffer.messages(), (TelemetryData{"b", "c", "d"}));
+}
+
 }  // namespace
 
 }  // namespace micromouse::telemetry
