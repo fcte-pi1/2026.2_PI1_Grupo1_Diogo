@@ -35,4 +35,8 @@ bool GyroTurnController::reached() const noexcept {
     return std::fabs(angle_) >= targetDeg_ - toleranceDeg_;
 }
 
+void GyroTurnController::integrate(double angularVelDegPerS, double deltaTimeSeconds) {
+    angle_ += angularVelDegPerS * deltaTimeSeconds;
+}
+
 }  // namespace micromouse::domain

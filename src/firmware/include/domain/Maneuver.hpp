@@ -20,6 +20,7 @@ public:
     GyroTurnController(double targetDeg, double toleranceDeg);
     [[nodiscard]] double angle() const noexcept;
     [[nodiscard]] bool reached() const noexcept;
+    void integrate(double angularVelDegPerS, double deltaTimeSeconds);
 };
 
 }  // namespace micromouse::domain
