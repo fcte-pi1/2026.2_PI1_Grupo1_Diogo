@@ -90,9 +90,9 @@ export class ClientePainelWS {
           registro.evento ??
           (tipo === 'evento' ? registro.tipo_evento : undefined),
       );
-      const status = asStatus(
-        registro.status ?? envelope.status ?? asRegistro(registro.estado).status,
-      ) ?? asStatusFinal(tipo, evento, registro.motivo ?? envelope.motivo);
+      const status =
+        asStatus(registro.status ?? envelope.status ?? asRegistro(registro.estado).status) ??
+        asStatusFinal(tipo, evento, registro.motivo ?? envelope.motivo);
       const tensaoV = asNumber(energia.tensao_v ?? registro.tensao_v ?? envelope.tensao_v);
       const correnteA = asNumber(energia.corrente_a ?? registro.corrente_a ?? envelope.corrente_a);
       const potenciaW = asNumber(energia.potencia_w ?? registro.potencia_w ?? envelope.potencia_w);
@@ -136,7 +136,9 @@ export class ClientePainelWS {
         acoes.definirSinal(registro.sinal === 'OK' ? 'OK' : 'PERDIDO');
       }
 
-      const celulaMapa = asCelulaMapa(registro.celula ?? registro.mapa ?? envelope.celula ?? envelope.mapa);
+      const celulaMapa = asCelulaMapa(
+        registro.celula ?? registro.mapa ?? envelope.celula ?? envelope.mapa,
+      );
       if (celulaMapa) acoes.atualizarCelulaMapa(celulaMapa);
       if ((tipo === 'evento' && evento === 'celula') || tipo === 'celula') {
         const seq = asNumber(registro.seq ?? envelope.seq);

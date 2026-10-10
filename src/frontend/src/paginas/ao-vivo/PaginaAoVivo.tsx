@@ -23,10 +23,22 @@ function StatusBadge({ status }: { status: Execucao['status'] }) {
         : status === 'INTERROMPIDA'
           ? estilos.statusAlerta
           : estilos.statusAndamento;
-  return <span className={`${estilos.status} ${classe}`} data-testid="status-desafio">{rotuloStatus(status)}</span>;
+  return (
+    <span className={`${estilos.status} ${classe}`} data-testid="status-desafio">
+      {rotuloStatus(status)}
+    </span>
+  );
 }
 
-function MazeView({ trajeto, mapa, tipo }: { trajeto: Execucao['trajeto']; mapa: Execucao['mapa']; tipo: Execucao['tipoLabirinto'] }) {
+function MazeView({
+  trajeto,
+  mapa,
+  tipo,
+}: {
+  trajeto: Execucao['trajeto'];
+  mapa: Execucao['mapa'];
+  tipo: Execucao['tipoLabirinto'];
+}) {
   if (tipo === null) {
     return <div className={estilos.labirintoPendente}>Aguardando tipo de labirinto</div>;
   }
@@ -47,60 +59,143 @@ function MazeView({ trajeto, mapa, tipo }: { trajeto: Execucao['trajeto']; mapa:
     const chave = `${x}:${y}`;
     visitas.set(chave, [...(visitas.get(chave) ?? []), seq]);
   });
-  const encontrarCelula = (x: number, y: number) => mapa.find((celula) => celula.x === x && celula.y === y);
+  const encontrarCelula = (x: number, y: number) =>
+    mapa.find((celula) => celula.x === x && celula.y === y);
   const classeParede = (x: number, y: number, direcao: 'n' | 's' | 'e' | 'w') => {
     const estado = encontrarCelula(x, y)?.paredes[direcao] ?? null;
-    return estado === false ? null : estado === true ? estilos.paredePresente : estilos.paredeDesconhecida;
+    return estado === false
+      ? null
+      : estado === true
+        ? estilos.paredePresente
+        : estilos.paredeDesconhecida;
   };
 
   return (
     <div className={estilos.labirintoArea}>
-      <svg className={estilos.labirinto} viewBox={`0 0 ${sizeX} ${sizeY}`} role="img" aria-label="Mapa do labirinto">
+      <svg
+        className={estilos.labirinto}
+        viewBox={`0 0 ${sizeX} ${sizeY}`}
+        role="img"
+        aria-label="Mapa do labirinto"
+      >
         {Array.from({ length: largura * altura }, (_, indice) => {
           const linha = Math.floor(indice / largura);
           const coluna = indice % largura;
           const visitada = visitas.has(`${coluna}:${linha}`);
-          return <rect key={`celula-${indice}`} x={coluna * cellSize} y={(altura - 1 - linha) * cellSize} width={cellSize} height={cellSize} className={coluna === 0 && linha === 0 ? estilos.celulaInicio : visitada ? estilos.celulaVisitada : estilos.celula} />;
+          return (
+            <rect
+              key={`celula-${indice}`}
+              x={coluna * cellSize}
+              y={(altura - 1 - linha) * cellSize}
+              width={cellSize}
+              height={cellSize}
+              className={
+                coluna === 0 && linha === 0
+                  ? estilos.celulaInicio
+                  : visitada
+                    ? estilos.celulaVisitada
+                    : estilos.celula
+              }
+            />
+          );
         })}
         {Array.from(visitas.entries()).map(([chave, sequencias]) => {
           const coordenadas = chave.split(':').map(Number);
           const x = coordenadas[0];
           const y = coordenadas[1];
-          if (x === undefined || y === undefined || !Number.isFinite(x) || !Number.isFinite(y)) return null;
-          if (pontos.at(-1)?.x === x * cellSize + cellSize / 2 && pontos.at(-1)?.y === (altura - 1 - y) * cellSize + cellSize / 2) return null;
-          return <text key={`visita-${chave}`} x={x * cellSize + cellSize / 2} y={(altura - 1 - y) * cellSize + cellSize / 2 + 4} textAnchor="middle" className={estilos.numeroVisita}>{sequencias.join('/')}</text>;
+          if (x === undefined || y === undefined || !Number.isFinite(x) || !Number.isFinite(y))
+            return null;
+          if (
+            pontos.at(-1)?.x === x * cellSize + cellSize / 2 &&
+            pontos.at(-1)?.y === (altura - 1 - y) * cellSize + cellSize / 2
+          )
+            return null;
+          return (
+            <text
+              key={`visita-${chave}`}
+              x={x * cellSize + cellSize / 2}
+              y={(altura - 1 - y) * cellSize + cellSize / 2 + 4}
+              textAnchor="middle"
+              className={estilos.numeroVisita}
+            >
+              {sequencias.join('/')}
+            </text>
+          );
         })}
         {Array.from({ length: largura * altura }, (_, indice) => {
           const y = Math.floor(indice / largura);
           const x = indice % largura;
           const svgY = (altura - 1 - y) * cellSize;
-          return <g key={`paredes-${x}-${y}`}>
-            {(['n', 's', 'e', 'w'] as const).map((direcao) => {
-              const classe = classeParede(x, y, direcao);
-              if (!classe) return null;
-              const x1 = direcao === 'w' ? x * cellSize : direcao === 'e' ? (x + 1) * cellSize : x * cellSize;
-              const x2 = direcao === 'w' ? x * cellSize : direcao === 'e' ? (x + 1) * cellSize : (x + 1) * cellSize;
-              const y1 = direcao === 'n' ? svgY : direcao === 's' ? svgY + cellSize : svgY;
-              const y2 = direcao === 'n' ? svgY : direcao === 's' ? svgY + cellSize : svgY + cellSize;
-              return <line key={direcao} x1={x1} y1={y1} x2={x2} y2={y2} className={classe} />;
-            })}
-          </g>;
+          return (
+            <g key={`paredes-${x}-${y}`}>
+              {(['n', 's', 'e', 'w'] as const).map((direcao) => {
+                const classe = classeParede(x, y, direcao);
+                if (!classe) return null;
+                const x1 =
+                  direcao === 'w'
+                    ? x * cellSize
+                    : direcao === 'e'
+                      ? (x + 1) * cellSize
+                      : x * cellSize;
+                const x2 =
+                  direcao === 'w'
+                    ? x * cellSize
+                    : direcao === 'e'
+                      ? (x + 1) * cellSize
+                      : (x + 1) * cellSize;
+                const y1 = direcao === 'n' ? svgY : direcao === 's' ? svgY + cellSize : svgY;
+                const y2 =
+                  direcao === 'n' ? svgY : direcao === 's' ? svgY + cellSize : svgY + cellSize;
+                return <line key={direcao} x1={x1} y1={y1} x2={x2} y2={y2} className={classe} />;
+              })}
+            </g>
+          );
         })}
-        <rect x={(largura - 1) * cellSize + 4} y="4" width={cellSize - 8} height={cellSize - 8} className={estilos.objetivo} />
-        <text x={(largura - 1) * cellSize + 8} y="18" className={estilos.rotuloMapa}>OBJETIVO</text>
-        <rect x="4" y={sizeY - cellSize + 4} width={cellSize - 8} height={cellSize - 8} className={estilos.inicio} />
-        <text x="8" y={sizeY - cellSize + 18} className={estilos.rotuloMapaInicio}>INÍCIO</text>
+        <rect
+          x={(largura - 1) * cellSize + 4}
+          y="4"
+          width={cellSize - 8}
+          height={cellSize - 8}
+          className={estilos.objetivo}
+        />
+        <text x={(largura - 1) * cellSize + 8} y="18" className={estilos.rotuloMapa}>
+          OBJETIVO
+        </text>
+        <rect
+          x="4"
+          y={sizeY - cellSize + 4}
+          width={cellSize - 8}
+          height={cellSize - 8}
+          className={estilos.inicio}
+        />
+        <text x="8" y={sizeY - cellSize + 18} className={estilos.rotuloMapaInicio}>
+          INÍCIO
+        </text>
         {path && <path d={path} className={estilos.trajetoria} />}
         {atual && <circle cx={atual.x} cy={atual.y} r="12" className={estilos.robo} />}
       </svg>
       <div className={estilos.legenda}>
-        <span><i className={estilos.legendaLinha} /> Trajetória</span>
-        <span><i className={estilos.legendaVisitada}>3</i> Visitada</span>
-        <span><i className={estilos.legendaParede} /> Parede presente</span>
-        <span><i className={estilos.legendaDesconhecida} /> Desconhecida</span>
-        <span><i className={estilos.legendaInicio} /> Início</span>
-        <span><i className={estilos.legendaObjetivo} /> Objetivo</span>
-        <span><i className={estilos.legendaRobo}>●</i> Robô</span>
+        <span>
+          <i className={estilos.legendaLinha} /> Trajetória
+        </span>
+        <span>
+          <i className={estilos.legendaVisitada}>3</i> Visitada
+        </span>
+        <span>
+          <i className={estilos.legendaParede} /> Parede presente
+        </span>
+        <span>
+          <i className={estilos.legendaDesconhecida} /> Desconhecida
+        </span>
+        <span>
+          <i className={estilos.legendaInicio} /> Início
+        </span>
+        <span>
+          <i className={estilos.legendaObjetivo} /> Objetivo
+        </span>
+        <span>
+          <i className={estilos.legendaRobo}>●</i> Robô
+        </span>
       </div>
     </div>
   );
@@ -233,7 +328,11 @@ export function PaginaAoVivo() {
               <span>LABIRINTO</span>
               <strong>{execucao.tipoLabirinto ?? '—'}</strong>
             </div>
-            <MazeView trajeto={execucao.trajeto} mapa={execucao.mapa} tipo={execucao.tipoLabirinto} />
+            <MazeView
+              trajeto={execucao.trajeto}
+              mapa={execucao.mapa}
+              tipo={execucao.tipoLabirinto}
+            />
           </article>
           <article className={estilos.painelHistorico}>
             <div className={estilos.cabecalhoPainel}>

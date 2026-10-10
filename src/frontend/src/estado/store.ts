@@ -36,7 +36,7 @@ export interface EstadoPainel {
     reiniciarExecucao: (dados?: Partial<DadosExecucao>) => void;
     adicionarPontoTrajeto: (ponto: PontoTrajeto) => void;
     adicionarAmostraEnergia: (amostra: AmostraEnergia) => void;
-      atualizarCelulaMapa: (celula: CelulaMapa) => void;
+    atualizarCelulaMapa: (celula: CelulaMapa) => void;
     definirEstadoConexao: (estado: EstadoConexao) => void;
     definirSinal: (sinal: SinalRobo) => void;
     definirSaude: (saude: SaudeBackend) => void;
@@ -55,7 +55,8 @@ export const usePainel = create<EstadoPainel>()((set) => ({
   acoes: {
     atualizarExecucao: (dados) =>
       set((s) => {
-        const tipoMudou = dados.tipoLabirinto !== undefined && dados.tipoLabirinto !== s.aoVivo.tipoLabirinto;
+        const tipoMudou =
+          dados.tipoLabirinto !== undefined && dados.tipoLabirinto !== s.aoVivo.tipoLabirinto;
         return {
           aoVivo: {
             ...s.aoVivo,
