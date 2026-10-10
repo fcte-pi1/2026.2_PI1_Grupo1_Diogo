@@ -39,6 +39,11 @@ function MazeView({ trajeto, mapa, tipo }: { trajeto: Execucao['trajeto']; mapa:
   }));
   const path = pontos.map(({ x, y }, indice) => `${indice === 0 ? 'M' : 'L'} ${x} ${y}`).join(' ');
   const atual = pontos.at(-1);
+  const visitas = new Map<string, number[]>();
+  trajeto.forEach(({ x, y, seq }) => {
+    const chave = `${x}:${y}`;
+    visitas.set(chave, [...(visitas.get(chave) ?? []), seq]);
+  });
   const encontrarCelula = (x: number, y: number) => mapa.find((celula) => celula.x === x && celula.y === y);
   const classeParede = (x: number, y: number, direcao: 'n' | 's' | 'e' | 'w') => {
     const estado = encontrarCelula(x, y)?.paredes[direcao] ?? null;
@@ -51,7 +56,16 @@ function MazeView({ trajeto, mapa, tipo }: { trajeto: Execucao['trajeto']; mapa:
         {Array.from({ length: largura * altura }, (_, indice) => {
           const linha = Math.floor(indice / largura);
           const coluna = indice % largura;
-          return <rect key={`celula-${indice}`} x={coluna * cellSize} y={(altura - 1 - linha) * cellSize} width={cellSize} height={cellSize} className={coluna === 0 && linha === 0 ? estilos.celulaInicio : estilos.celula} />;
+          const visitada = visitas.has(`${coluna}:${linha}`);
+          return <rect key={`celula-${indice}`} x={coluna * cellSize} y={(altura - 1 - linha) * cellSize} width={cellSize} height={cellSize} className={coluna === 0 && linha === 0 ? estilos.celulaInicio : visitada ? estilos.celulaVisitada : estilos.celula} />;
+        })}
+        {Array.from(visitas.entries()).map(([chave, sequencias]) => {
+          const coordenadas = chave.split(':').map(Number);
+          const x = coordenadas[0];
+          const y = coordenadas[1];
+          if (x === undefined || y === undefined || !Number.isFinite(x) || !Number.isFinite(y)) return null;
+          if (pontos.at(-1)?.x === x * cellSize + cellSize / 2 && pontos.at(-1)?.y === (altura - 1 - y) * cellSize + cellSize / 2) return null;
+          return <text key={`visita-${chave}`} x={x * cellSize + cellSize / 2} y={(altura - 1 - y) * cellSize + cellSize / 2 + 4} textAnchor="middle" className={estilos.numeroVisita}>{sequencias.join('/')}</text>;
         })}
         {Array.from({ length: largura * altura }, (_, indice) => {
           const y = Math.floor(indice / largura);

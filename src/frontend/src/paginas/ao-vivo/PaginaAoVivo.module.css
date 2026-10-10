@@ -139,6 +139,18 @@
   fill: #f0fdf4;
 }
 
+.celulaVisitada {
+  fill: #f0f7ff;
+}
+
+.numeroVisita {
+  fill: #2563a0;
+  font-family: var(--fonte-mono);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  opacity: 0.75;
+}
+
 .linhaLabirinto {
   stroke: #1a4f6e;
   stroke-width: 1.75;
