@@ -24,6 +24,7 @@ add_executable(firmware_tests
     domain/DipDecoderTest.cpp
     domain/PidTest.cpp
     controller/MotionControllerTest.cpp
+    protocol/ProtocolV1Test.cpp
 )
 
 target_include_directories(firmware_tests PRIVATE
