@@ -52,6 +52,18 @@ docker compose down -v     # para tudo e APAGA o banco e os node_modules dos con
 cd src/backend && npm install && npm run test:integracao
 ```
 
+## Receber dados do robô (Bluetooth)
+
+O robô envia a telemetria por Bluetooth Clássico. Como o container não enxerga o Bluetooth do computador, uma **ponte** roda no notebook, fora do Docker, e repassa as mensagens ao backend:
+
+```bash
+cd src/backend && npm install
+npm run ponte -- --listar                          # descobre a porta serial do robô
+npm run ponte -- --porta /dev/cu.RatoBorrachudo    # macOS; no Windows, algo como COM5
+```
+
+Detalhes em [src/backend/ponte/README.md](src/backend/ponte/README.md). Para desenvolver sem o robô, use o simulador, que fala direto com o backend e não precisa da ponte.
+
 ## Estrutura
 
 ```
@@ -61,6 +73,7 @@ infra/postgres/initdb/           # cria o papel rato_app na criação do banco
 src/backend/
 ├── migracoes/                   # SQL versionado (node-pg-migrate) — DER da arquitetura §7
 ├── protocolo/                   # tipos.ts (compartilhado com o painel via @protocolo) e esquemas v1
+├── ponte/                       # ponte Bluetooth → backend (roda no notebook, fora do Docker)
 ├── scripts/seed.ts
 ├── src/{config,adaptadores,aplicacao,dominio,infra}
 └── testes/{unit,integracao,e2e}
