@@ -3,17 +3,44 @@ import type {
   AmostraEnergia,
   CelulaMapa,
   DadosExecucao,
+  ErroHistorico,
   EstadoConexao,
+  FiltroTipoLabirinto,
   PontoTrajeto,
   SinalRobo,
 } from '../dominio';
-import { execucaoInicial } from '../dominio';
+import { TAMANHO_PAGINA_HISTORICO, execucaoInicial } from '../dominio';
+import type { CorridaResumo } from '../protocolo';
 
 /** Saúde do backend (GET /health): prova de vida do ambiente. */
 export interface SaudeBackend {
   backend: 'ok' | 'indisponivel' | 'desconhecido';
   banco: 'ok' | 'indisponivel' | 'desconhecido';
 }
+
+/** Fatia `historico`: consulta atual e o resultado dela (HU-FE-09, HU-FE-10). */
+export interface FatiaHistorico {
+  filtro: FiltroTipoLabirinto;
+  /** Começa em 1. */
+  pagina: number;
+  tamanhoPagina: number;
+  /** Só contém itens da consulta atual: é esvaziada sempre que uma nova consulta começa. */
+  itens: CorridaResumo[];
+  /** Total de corridas do filtro atual (todas as páginas). */
+  total: number;
+  carregando: boolean;
+  erro: ErroHistorico | null;
+}
+
+export const historicoInicial: FatiaHistorico = {
+  filtro: 'TODOS',
+  pagina: 1,
+  tamanhoPagina: TAMANHO_PAGINA_HISTORICO,
+  itens: [],
+  total: 0,
+  carregando: true,
+  erro: null,
+};
 
 /**
  * Store única do painel. Fatias previstas: conexao, aoVivo, detalhe, historico e alertas
@@ -31,6 +58,7 @@ export interface EstadoPainel {
     sinal: SinalRobo;
     saude: SaudeBackend;
   };
+  historico: FatiaHistorico;
   acoes: {
     atualizarExecucao: (dados: Partial<DadosExecucao>) => void;
     reiniciarExecucao: (dados?: Partial<DadosExecucao>) => void;
@@ -41,6 +69,15 @@ export interface EstadoPainel {
     definirSinal: (sinal: SinalRobo) => void;
     definirSaude: (saude: SaudeBackend) => void;
     registrarMensagem: () => void;
+    /** Troca o filtro: volta à página 1 e descarta a lista anterior. */
+    definirFiltroHistorico: (filtro: FiltroTipoLabirinto) => void;
+    /** Troca a página mantendo o filtro; descarta os itens da página anterior. */
+    definirPaginaHistorico: (pagina: number) => void;
+    /** Nova tentativa da consulta atual (após erro). */
+    reconsultarHistorico: () => void;
+    receberHistorico: (resposta: { itens: CorridaResumo[]; total: number }) => void;
+    falharHistorico: (erro: ErroHistorico) => void;
+    reiniciarHistorico: () => void;
   };
 }
 
@@ -52,6 +89,7 @@ export const usePainel = create<EstadoPainel>()((set) => ({
     sinal: 'DESCONHECIDO',
     saude: { backend: 'desconhecido', banco: 'desconhecido' },
   },
+  historico: historicoInicial,
   acoes: {
     atualizarExecucao: (dados) =>
       set((s) => {
@@ -110,6 +148,33 @@ export const usePainel = create<EstadoPainel>()((set) => ({
           ultimaMensagemEm: Date.now(),
         },
       })),
+    definirFiltroHistorico: (filtro) =>
+      set((s) => ({
+        historico: {
+          ...s.historico,
+          filtro,
+          pagina: 1,
+          itens: [],
+          total: 0,
+          carregando: true,
+          erro: null,
+        },
+      })),
+    definirPaginaHistorico: (pagina) =>
+      set((s) => ({
+        historico: { ...s.historico, pagina, itens: [], carregando: true, erro: null },
+      })),
+    reconsultarHistorico: () =>
+      set((s) => ({
+        historico: { ...s.historico, itens: [], total: 0, carregando: true, erro: null },
+      })),
+    receberHistorico: ({ itens, total }) =>
+      set((s) => ({ historico: { ...s.historico, itens, total, carregando: false, erro: null } })),
+    falharHistorico: (erro) =>
+      set((s) => ({
+        historico: { ...s.historico, itens: [], total: 0, carregando: false, erro },
+      })),
+    reiniciarHistorico: () => set(() => ({ historico: historicoInicial })),
   },
 }));
 
