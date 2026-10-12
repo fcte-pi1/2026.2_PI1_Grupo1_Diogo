@@ -2,6 +2,9 @@
   "version": "0.2",
   "language": "en,pt,pt_BR",
   "words": [
+    "bluetooth",
+    "bluetoothctl",
+    "bluez",
     "celula",
     "celulas",
     "clangformat",
@@ -23,6 +26,7 @@
     "posicao",
     "stdlib",
     "tensao",
+    "venv",
     "Wall",
     "Wconversion",
     "Werror",
