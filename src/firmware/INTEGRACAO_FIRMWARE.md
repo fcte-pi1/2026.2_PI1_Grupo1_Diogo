@@ -1,9 +1,9 @@
-# Guia de Integração do Firmware — "Rato Borrachudo"
+# Guia de Integração do Firmware - "Rato Borrachudo"
 
 > **Para quem é este documento.** Para as **outras equipes** que precisam usar o
 > firmware sem conhecer o C++ por dentro: **Eletrônica/Hardware**, **Energia**,
 > **Backend/Ponte** e o **Operador**. Ele descreve os *contratos* (as fronteiras)
-> do firmware — o que cada equipe precisa entregar a ele e o que recebe de volta.
+> do firmware - o que cada equipe precisa entregar a ele e o que recebe de volta.
 > Para compilar, testar e gravar, veja o [`GUIA_DESENVOLVIMENTO.md`](GUIA_DESENVOLVIMENTO.md).
 
 O firmware segue **arquitetura limpa**: o núcleo (mapa, Flood Fill, navegação,
@@ -26,12 +26,12 @@ graph LR
 
 As quatro fronteiras do firmware:
 
-| Fronteira | Equipe | Documento de referência |
-| :--- | :--- | :--- |
+| Fronteira                                 | Equipe              | Documento de referência                            |
+| :---------------------------------------- | :------------------ | :------------------------------------------------- |
 | Pinos, periféricos I²C, motores, encoders | Eletrônica/Hardware | §1 abaixo + `4.3 - Projeto conceitual de hardware` |
-| Medição de consumo, parâmetros físicos | Energia / Mecânica | §2 abaixo + `4.2` / `4.1` |
-| Telemetria (BLE → ponte → WebSocket) | Backend | §3 e §4 abaixo |
-| Botão de início e DIP switch | Operador | §5 abaixo |
+| Medição de consumo, parâmetros físicos    | Energia / Mecânica  | §2 abaixo + `4.2` / `4.1`                          |
+| Telemetria (BLE → ponte → WebSocket)      | Backend             | §3 e §4 abaixo                                     |
+| Botão de início e DIP switch              | Operador            | §5 abaixo                                          |
 
 ---
 
@@ -41,15 +41,15 @@ Nem toda equipe precisa de tudo. A tabela resume o que cada uma instala; os
 comandos vêm logo abaixo. Comandos de pacote usam **Ubuntu/Debian** (`apt`);
 em outra distro troque o gerenciador; em Windows/macOS, veja as notas.
 
-| Ferramenta | Para quê | Quem precisa |
-| :--- | :--- | :--- |
-| **git** | Clonar o repositório | Todos |
-| **ESP-IDF v5.x** (traz toolchain, CMake, Ninja, Python, **esptool**) | Compilar e **gravar na placa** | Firmware |
-| **CMake ≥ 3.21 + GCC/G++ (ou Clang)** | **Testes no PC** (host), sem placa | Firmware, QA |
-| **gcovr** | Relatório de **cobertura** (opcional) | Firmware, QA |
-| **Python ≥ 3.10 + venv** | Rodar a **ponte** e os modos de teste | Backend, Integração |
-| **bleak, websockets** (via `requirements.txt`) | Dependências da ponte | Backend, Integração |
-| **BlueZ + adaptador Bluetooth** | **BLE real** (só com o robô) | Integração |
+| Ferramenta                                                           | Para quê                              | Quem precisa        |
+| :------------------------------------------------------------------- | :------------------------------------ | :------------------ |
+| **git**                                                              | Clonar o repositório                  | Todos               |
+| **ESP-IDF v5.x** (traz toolchain, CMake, Ninja, Python, **esptool**) | Compilar e **gravar na placa**        | Firmware            |
+| **CMake ≥ 3.21 + GCC/G++ (ou Clang)**                                | **Testes no PC** (host), sem placa    | Firmware, QA        |
+| **gcovr**                                                            | Relatório de **cobertura** (opcional) | Firmware, QA        |
+| **Python ≥ 3.10 + venv**                                             | Rodar a **ponte** e os modos de teste | Backend, Integração |
+| **bleak, websockets** (via `requirements.txt`)                       | Dependências da ponte                 | Backend, Integração |
+| **BlueZ + adaptador Bluetooth**                                      | **BLE real** (só com o robô)          | Integração          |
 
 > O **GoogleTest NÃO precisa ser instalado**: o CMake o baixa (versão 1.17.0)
 > via `FetchContent` na 1ª configuração. O **esp-nimble-cpp** (NimBLE) e o
@@ -62,14 +62,14 @@ sudo apt update && sudo apt install -y git
 git clone <url-do-repositorio> && cd 2026.2_PI1_Grupo1_Diogo/src/firmware
 ```
 
-### 0.2 Firmware — testes no PC (sem placa)
+### 0.2 Firmware - testes no PC (sem placa)
 ```bash
 sudo apt install -y build-essential cmake gcovr
 # build-essential = gcc/g++/make; cmake deve ser ≥ 3.21 (confira: cmake --version)
 ```
 Depois: `cmake --preset debug && ctest --preset debug` (ver `GUIA_DESENVOLVIMENTO.md`).
 
-### 0.3 Firmware — compilar e gravar na placa (ESP-IDF)
+### 0.3 Firmware - compilar e gravar na placa (ESP-IDF)
 O ESP-IDF traz **tudo** para a placa (compilador xtensa, CMake, Ninja, ambiente
 Python e o **esptool** de gravação). Instale uma vez:
 ```bash
@@ -83,7 +83,7 @@ Em **cada terminal** onde for usar o ESP-IDF, ative o ambiente:
 ```bash
 . ~/esp/esp-idf/export.sh        # no fish: use o export.fish, se disponível
 ```
-Gravar na placa precisa de acesso à **porta serial** — entre no grupo `dialout`
+Gravar na placa precisa de acesso à **porta serial** - entre no grupo `dialout`
 uma vez e refaça login:
 ```bash
 sudo usermod -aG dialout $USER
@@ -116,13 +116,13 @@ bluetoothctl list              # deve listar um controlador
 
 ### 0.6 Versões de referência (testadas)
 
-| Ferramenta | Versão |
-| :--- | :--- |
-| ESP-IDF | v5.3 (alvo `esp32s3`) |
-| CMake | ≥ 3.21 |
-| Python | ≥ 3.10 (a ponte roda em 3.14) |
+| Ferramenta     | Versão                                      |
+| :------------- | :------------------------------------------ |
+| ESP-IDF        | v5.3 (alvo `esp32s3`)                       |
+| CMake          | ≥ 3.21                                      |
+| Python         | ≥ 3.10 (a ponte roda em 3.14)               |
 | esp-nimble-cpp | `^2.0.0` (resolvido pelo component manager) |
-| GoogleTest | 1.17.0 (baixado por FetchContent) |
+| GoogleTest     | 1.17.0 (baixado por FetchContent)           |
 
 ---
 
@@ -134,38 +134,38 @@ O firmware já está configurado com o **pinout da placa fabricada** (MM-ESP32-V
 Se a eletrônica mudar qualquer pino, **basta avisar**: altera-se **uma única
 constante** em `include/adapters/BoardPins.hpp` e nada mais muda.
 
-| Função | GPIO | Net (esquemático) |
-| :--- | :--: | :--- |
-| I²C SDA | 2 | `SDA` |
-| I²C SCL | 1 | `SCL` |
-| XSHUT ToF frontal | 18 | `X_FRENTE` |
-| XSHUT ToF esquerdo | 17 | `X_ESQ` |
-| XSHUT ToF direito | 3 | `X_DIR` |
-| Motor esquerdo (M2) IN1 / IN2 | 6 / 5 | `M2_IN1` / `M2_IN2` |
-| Motor direito (M1) IN1 / IN2 | 16 / 15 | `M1_IN1` / `M1_IN2` |
-| Encoder esquerdo A / B | 41 / 40 | `ENC2_A` / `ENC2_B` |
-| Encoder direito A / B | 38 / 39 | `ENC1_A` / `ENC1_B` |
-| LED "pronto" (status) | 9 | `LED_STATUS` |
-| LED "erro" (debug) | 10 | `LED_DEBUG` |
-| Buzzer | 11 | `BUZZER` |
-| Botão de início | 4 | `START_BUTTON` |
-| DIP via 1 / via 2 / via 3 | 7 / 8 / 46 | `DIP_SW1/2/3` |
-| Interrupção da MPU-6050 | 42 | `INT_MPU` (hoje não usada — polling) |
+| Função                        |    GPIO    | Net (esquemático)                    |
+| :---------------------------- | :--------: | :----------------------------------- |
+| I²C SDA                       |     2      | `SDA`                                |
+| I²C SCL                       |     1      | `SCL`                                |
+| XSHUT ToF frontal             |     18     | `X_FRENTE`                           |
+| XSHUT ToF esquerdo            |     17     | `X_ESQ`                              |
+| XSHUT ToF direito             |     3      | `X_DIR`                              |
+| Motor esquerdo (M2) IN1 / IN2 |   6 / 5    | `M2_IN1` / `M2_IN2`                  |
+| Motor direito (M1) IN1 / IN2  |  16 / 15   | `M1_IN1` / `M1_IN2`                  |
+| Encoder esquerdo A / B        |  41 / 40   | `ENC2_A` / `ENC2_B`                  |
+| Encoder direito A / B         |  38 / 39   | `ENC1_A` / `ENC1_B`                  |
+| LED "pronto" (status)         |     9      | `LED_STATUS`                         |
+| LED "erro" (debug)            |     10     | `LED_DEBUG`                          |
+| Buzzer                        |     11     | `BUZZER`                             |
+| Botão de início               |     4      | `START_BUTTON`                       |
+| DIP via 1 / via 2 / via 3     | 7 / 8 / 46 | `DIP_SW1/2/3`                        |
+| Interrupção da MPU-6050       |     42     | `INT_MPU` (hoje não usada - polling) |
 
 ### 1.2 Barramento I²C (crítico)
 
 - Um único barramento compartilhado por **3× VL53L1X + MPU-6050 + INA219**.
 - **Resistores de pull-up externos** em SDA e SCL (ex.: 4,7 kΩ a 3,3 V) são
-  **obrigatórios** — o pull-up interno do ESP32 não basta para vários dispositivos.
+  **obrigatórios** - o pull-up interno do ESP32 não basta para vários dispositivos.
 - Endereços esperados pelo firmware:
 
-  | Dispositivo | Endereço | Observação |
-  | :--- | :--: | :--- |
-  | INA219 | `0x40` | fixo (A0/A1 ao GND) |
-  | MPU-6050 | `0x68` | fixo (AD0 ao GND) |
-  | VL53L1X esquerdo | `0x30` | reendereçado no boot via `X_ESQ` |
-  | VL53L1X frontal | `0x31` | reendereçado no boot via `X_FRENTE` |
-  | VL53L1X direito | `0x32` | reendereçado no boot via `X_DIR` |
+  | Dispositivo      | Endereço | Observação                          |
+  | :--------------- | :------: | :---------------------------------- |
+  | INA219           |  `0x40`  | fixo (A0/A1 ao GND)                 |
+  | MPU-6050         |  `0x68`  | fixo (AD0 ao GND)                   |
+  | VL53L1X esquerdo |  `0x30`  | reendereçado no boot via `X_ESQ`    |
+  | VL53L1X frontal  |  `0x31`  | reendereçado no boot via `X_FRENTE` |
+  | VL53L1X direito  |  `0x32`  | reendereçado no boot via `X_DIR`    |
 
 - ⚠️ **São 3 ToF** (frontal + 2 laterais), conforme `4.3 §5.2`. Cada um precisa do
   seu **XSHUT** num GPIO próprio: todos nascem em `0x29` e o firmware os separa
@@ -178,12 +178,12 @@ constante** em `include/adapters/BoardPins.hpp` e nada mais muda.
   1,2 A contínuos / 2 A de pico por canal.
 - **Encoders em quadratura** (canais A e B). O firmware conta por hardware (PCNT),
   decodificando as bordas do canal A (2×). Se A/B vierem trocados, o sentido
-  inverte — **corrige-se no código**, basta avisar.
+  inverte - **corrige-se no código**, basta avisar.
 
 ### 1.4 Interface local
 
 - **2 LEDs** (pronto/erro), **buzzer** e **botão** de início (ativo em nível baixo,
-  pull-up). O firmware aciona o buzzer por **nível (liga/desliga)** — assume
+  pull-up). O firmware aciona o buzzer por **nível (liga/desliga)** - assume
   **buzzer ativo**. Se for **passivo** (precisa de tom/PWM), avisar que trocamos o
   acionamento.
 
@@ -209,30 +209,30 @@ telemetria de energia (RF-010). Os três valores (V, A, W) vão em cada mensagem
 ### 2.2 Parâmetros que viram constantes no firmware
 
 Estes valores são **aferidos pela eletrônica/mecânica** e entram em
-`src/app_main.cpp` (`WheelConfig`, `TurnConfig`) e na calibração do INA219.
-**Sem eles corretos, odometria, giros e energia saem errados** — por isso hoje
+`src/main.cpp` (`WheelConfig`, `TurnConfig`) e na calibração do INA219.
+**Sem eles corretos, odometria, giros e energia saem errados** - por isso hoje
 estão como *placeholders* marcados no código:
 
-| Parâmetro | Onde entra | Valor atual (placeholder) |
-| :--- | :--- | :--- |
-| Diâmetro da roda (mm) | `WheelConfig`/`TurnConfig` | 32 mm (conforme `4.3 §6.2`) |
-| Pulsos por volta (eixo × decodificação) | `WheelConfig`/`TurnConfig` | 280 (≈140 PPR × 2 do PCNT) — **aferir** |
-| Tamanho da célula (mm) | `WheelConfig` | 180 mm (conforme `4.3`) |
-| Bitola — distância entre rodas (mm) | `TurnConfig` | 90 mm — **confirmar com a mecânica** |
-| Resistor de *shunt* do INA219 (Ω) | calibração do adapter `Ina219` | **a informar** (ex.: 0,1 Ω) |
-| Tipo de buzzer (ativo/passivo) | adapter `LocalInterface` | assume **ativo** |
+| Parâmetro                               | Onde entra                     | Valor atual (placeholder)               |
+| :-------------------------------------- | :----------------------------- | :-------------------------------------- |
+| Diâmetro da roda (mm)                   | `WheelConfig`/`TurnConfig`     | 32 mm (conforme `4.3 §6.2`)             |
+| Pulsos por volta (eixo × decodificação) | `WheelConfig`/`TurnConfig`     | 280 (≈140 PPR × 2 do PCNT) - **aferir** |
+| Tamanho da célula (mm)                  | `WheelConfig`                  | 180 mm (conforme `4.3`)                 |
+| Bitola - distância entre rodas (mm)     | `TurnConfig`                   | 90 mm - **confirmar com a mecânica**    |
+| Resistor de *shunt* do INA219 (Ω)       | calibração do adapter `Ina219` | **a informar** (ex.: 0,1 Ω)             |
+| Tipo de buzzer (ativo/passivo)          | adapter `LocalInterface`       | assume **ativo**                        |
 
 > **Importante:** roda e célula já conferem com os documentos; **pulsos-por-volta
 > e bitola devem ser medidos em bancada** antes da corrida final.
 
 ---
 
-## 3. Contrato com o Backend — Telemetria (Opção A: BLE + ponte)
+## 3. Contrato com o Backend - Telemetria (Opção A: BLE + ponte)
 
 O robô **não fala WebSocket**. Ele **notifica BLE** (Nordic UART Service); uma
 **ponte em Python** (pasta `bridge/`) roda no PC, assina as notificações e
 **repassa o mesmo JSON ao backend por WebSocket**. Para o backend, **a ponte é só
-mais um cliente WebSocket** em `/ws/telemetria` — o protocolo a jusante **não muda**.
+mais um cliente WebSocket** em `/ws/telemetria` - o protocolo a jusante **não muda**.
 
 ```
 [ESP32] --BLE/NUS notify (JSON + '\n')--> [ponte Python] --WebSocket/JSON--> [backend] --> [frontend]
@@ -245,7 +245,7 @@ mais um cliente WebSocket** em `/ws/telemetria` — o protocolo a jusante **não
 - Fecho `4001` (token inválido) / `4002` (versão não suportada) é **fatal** (a
   ponte não reconecta). Qualquer outra queda → **reconexão automática** a cada 2 s.
 
-### 3.1 Protocolo v1 — mensagens
+### 3.1 Protocolo v1 - mensagens
 
 Todas as mensagens são **JSON** com o envelope comum:
 
@@ -253,15 +253,15 @@ Todas as mensagens são **JSON** com o envelope comum:
 { "v": 1, "tipo": "<tipo>", "corrida": "<id>", "seq": <n>, "t": <ms>, ... }
 ```
 
-| `tipo` | Quando | Campos próprios |
-| :--- | :--- | :--- |
-| `hello` | ao conectar | `dispositivo`, `versao` (autenticação pelo token no backend) |
-| `inicio_corrida` | início de uma tentativa | `indice`, `labirinto` (ex.: `"8x4"`) |
-| `estado` | a cada transição de fase | `estado` (ver §3.2) |
-| `celula` | ao mapear uma célula | `x`, `y`, `n`, `l`, `s`, `o` (paredes: bool) |
-| `posicao` | durante o percurso | `x`, `y`, `orientacao`, `celulas`, `velocidade?` |
-| `energia` | periódico | `tensao`, `corrente`, `potencia` |
-| `fim_corrida` | fim da tentativa | `resultado` (`"sucesso"`/`"falha"`), `detalhe?` |
+| `tipo`           | Quando                   | Campos próprios                                              |
+| :--------------- | :----------------------- | :----------------------------------------------------------- |
+| `hello`          | ao conectar              | `dispositivo`, `versao` (autenticação pelo token no backend) |
+| `inicio_corrida` | início de uma tentativa  | `indice`, `labirinto` (ex.: `"8x4"`)                         |
+| `estado`         | a cada transição de fase | `estado` (ver §3.2)                                          |
+| `celula`         | ao mapear uma célula     | `x`, `y`, `n`, `l`, `s`, `o` (paredes: bool)                 |
+| `posicao`        | durante o percurso       | `x`, `y`, `orientacao`, `celulas`, `velocidade?`             |
+| `energia`        | periódico                | `tensao`, `corrente`, `potencia`                             |
+| `fim_corrida`    | fim da tentativa         | `resultado` (`"sucesso"`/`"falha"`), `detalhe?`              |
 
 ### 3.2 Convenções (alinhar com o Frontend para não desenhar espelhado)
 
@@ -314,14 +314,14 @@ real** e repita. Quando o robô existir, troque `--simulate` pelo BLE real.
 
 ## 5. Contrato com o Operador
 
-- **Antes de ligar:** posicionar o robô e configurar o **DIP de 3 vias** — vias 1
+- **Antes de ligar:** posicionar o robô e configurar o **DIP de 3 vias** - vias 1
   e 2 escolhem o **tipo de labirinto** (4×4 / 8×4 / 12×4) e a via 3 o **canto de
   partida**. O DIP é lido **uma única vez, no boot** (RNF-35); mudar depois é
   ignorado.
 - **Iniciar:** pressionar o **botão**. O firmware faz o auto-teste (LED/buzzer),
   inicia o anúncio BLE e começa a navegação. Em falha, vai direto a **Erro** e
   sinaliza pelo LED de erro/buzzer.
-- A interface local permite operar **sem cabo e sem o PC** — relevante porque o
+- A interface local permite operar **sem cabo e sem o PC** - relevante porque o
   enunciado proíbe alterar o código durante a resolução.
 
 ---
