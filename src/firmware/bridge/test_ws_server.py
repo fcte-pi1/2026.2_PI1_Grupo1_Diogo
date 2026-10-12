@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Servidor WebSocket MÍNIMO de teste — "Rato Borrachudo".
+"""Servidor WebSocket MÍNIMO de teste - "Rato Borrachudo".
 
 NÃO é o backend. É um alvo descartável para exercitar a ponte sem o backend
 real: escuta em /ws/telemetria, imprime cada mensagem recebida e (opcional)
@@ -11,7 +11,7 @@ responde um `ack`. Útil com:
     python ble_ws_bridge.py --simulate --ws ws://localhost:8080/ws/telemetria
 
 Aceita qualquer caminho (só avisa se não for /ws/telemetria). Não valida schema
-nem token — é plumbing, não o backend.
+nem token - é plumbing, não o backend.
 
 Dependências:  pip install websockets
 """

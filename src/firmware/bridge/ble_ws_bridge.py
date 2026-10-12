@@ -77,7 +77,7 @@ async def produce_from_ble(device_name: str, outbox: "asyncio.Queue[str]"):
             f"[ble] falha ao falar com o BlueZ ({exc}).\n"
             "      O serviço Bluetooth do Linux não está ativo ou não há adaptador.\n"
             "      Verifique: sudo systemctl enable --now bluetooth ; bluetoothctl list\n"
-            "      (No WSL não há Bluetooth — rode a ponte no SO nativo, ou use\n"
+            "      (No WSL não há Bluetooth - rode a ponte no SO nativo, ou use\n"
             "       --simulate / --replay para testar sem rádio.)"
         ) from exc
     except BleakError as exc:

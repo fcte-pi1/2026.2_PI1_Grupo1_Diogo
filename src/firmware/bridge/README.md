@@ -1,4 +1,4 @@
-# Ponte BLE → WebSocket — "Rato Borrachudo"
+# Ponte BLE → WebSocket - "Rato Borrachudo"
 
 Converte a telemetria BLE do firmware (ESP32-S3) em mensagens WebSocket para o
 backend, preservando todo o protocolo JSON/WebSocket a jusante (Opção A).
@@ -26,11 +26,11 @@ python ble_ws_bridge.py --ws ws://localhost:8080/ws/telemetria
 ```
 
 Valide primeiro com `--print-only`: se o JSON aparecer no terminal, o BLE está
-funcionando — só então ligue no backend. (baby steps)
+funcionando - só então ligue no backend. (baby steps)
 
 ## Testes SEM placa e SEM Bluetooth
 
-Os modos abaixo **não usam BLE** — servem para exercitar a ponte e o backend
+Os modos abaixo **não usam BLE** - servem para exercitar a ponte e o backend
 num PC sem o rádio Bluetooth (ex.: WSL) e sem o robô físico:
 
 ```bash
