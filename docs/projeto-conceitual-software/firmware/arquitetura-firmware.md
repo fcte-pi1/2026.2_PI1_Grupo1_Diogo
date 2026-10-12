@@ -11,13 +11,13 @@
 
 ## 1. Contexto e escopo
 
-Este documento apresenta **três das cinco visões 4+1** aplicadas ao subsistema de **firmware** (ESP32): **lógica**, **de processos** e **de implementação**. As visões de **dados** (MER/DER) e de **implantação** são tratadas nas atividades 3.3 e 3.5, respectivamente. As decisões de stack são as do documento `arquitetura-stack.md`: C++ com **PlatformIO/Arduino-ESP32 sobre FreeRTOS**, arquitetura de **monólito modular em camadas** (tendo a máquina de estados finita (FSM) como núcleo de controle e tarefas FreeRTOS para o paralelismo) e bibliotecas dedicadas de sensores/atuadores.
+Este documento apresenta **três das cinco visões 4+1** aplicadas ao subsistema de **firmware** (ESP32): **lógica**, **de processos** e **de implementação**. As visões de **dados** (MER/DER) e de **implantação** são tratadas nas atividades 3.3 e 3.5, respectivamente. As decisões de stack são as do documento `arquitetura-stack.md`: C++ com **ESP-IDF v5.x sobre FreeRTOS** (pilha BLE **NimBLE**), arquitetura de **monólito modular em camadas** (tendo a máquina de estados finita (FSM) como núcleo de controle e tarefas FreeRTOS para o paralelismo) e bibliotecas dedicadas de sensores/atuadores.
 
 Os diagramas estão em **Mermaid**, renderizado nativamente pelo GitHub.
 
 ## 2. Visão Lógica
 
-A visão lógica mostra a decomposição do firmware em **módulos/classes** e suas responsabilidades. Trata-se de um **monólito modular em camadas**: **HAL/Drivers** (acesso ao hardware) -> **Domínio** (sensoriamento, mapa, navegação, movimento, odometria, telemetria) -> **Controle** (máquina de estados e inicialização).
+A visão lógica mostra a decomposição do firmware em **módulos/classes** e suas responsabilidades. Trata-se de um **monólito modular em camadas**: **HAL/Drivers** (acesso ao hardware) $\rightarrow$ **Domínio** (sensoriamento, mapa, navegação, movimento, odometria, telemetria) $\rightarrow$ **Controle** (máquina de estados e inicialização).
 
 ```mermaid
 classDiagram
@@ -25,7 +25,7 @@ classDiagram
     +runSelfTest()
     +initSensors()
     +initMap()
-    +connectWiFi()
+    +startBleAdvertising()
   }
   class NavigationFSM {
     +update()
@@ -120,14 +120,14 @@ classDiagram
 
 | Módulo                                                                               | Responsabilidade                                                                             | RF                   |
 | :----------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------- | :------------------- |
-| SystemInit                                                                           | Auto-teste, reendereçamento ToF, verificação IMU/INA219, leitura do DIP, mapa inicial, Wi-Fi | RF-27 a RF-31, RF-51 |
+| SystemInit                                                                           | Auto-teste, reendereçamento ToF, verificação IMU/INA219, leitura do DIP (3 vias), mapa inicial, **anúncio BLE** | RF-27 a RF-31, RF-51 |
 | NavigationFSM                                                                        | Máquina de estados; sinalização de prontidão/erro                                            | RF-32, RF-54, RF-55  |
 | SensingModule                                                                        | Leitura dos ToF/IMU/INA219 e classificação de paredes                                        | RF-33 a RF-36        |
 | MazeMap                                                                              | Estado do mapa e paredes (bidirecional)                                                      | RF-31, RF-37         |
 | FloodFill                                                                            | Propagação de valores e escolha da próxima célula                                            | RF-38, RF-39, RF-40  |
 | Navigator                                                                            | Orquestra o ciclo de navegação e o recálculo de rota                                         | RF-40, RF-41         |
 | MotionController                                                                     | PWM, PID, correção de trajetória, curvas                                                     | RF-42 a RF-46        |
-| Odometry                                                                             | Pulsos -> distância, células, velocidade média                                               | RF-47 a RF-50        |
+| Odometry                                                                             | Pulsos $\rightarrow$ distância, células, velocidade média                                               | RF-47 a RF-50        |
 | TelemetryEmitter                                                                     | Monta e envia a carga útil (emissor unidirecional)                                           | RF-52, RF-53         |
 | Drivers (ToFArray, IMU, PowerMonitor, MotorDriver, Encoders, LocalInterface, I2CBus) | Acesso ao hardware                                                                           | -                    |
 
@@ -146,57 +146,57 @@ flowchart TB
       tn1["FSM + ciclo de navegacao:<br/>sensoriamento, Flood Fill,<br/>controle de movimento<br/>(RF-33 a RF-50, RF-54)"]
     end
     subgraph TT["Tarefa: Emissor de Telemetria (prioridade baixa)"]
-      tt1["Monta payload e envia<br/>via WebSocket<br/>(RF-52, RF-53)"]
+      tt1["Monta payload e notifica<br/>via BLE (NUS)<br/>(RF-52, RF-53)"]
     end
     q1[["Fila de telemetria<br/>(queue FreeRTOS)"]]
     st[["Estado compartilhado:<br/>mapa, posicao, metricas<br/>(protegido por mutex)"]]
   end
 
-  wifi[/"Rede Wi-Fi -> Backend"/]
+  ble[/"BLE (NUS) -> Ponte (PC) -> Backend"/]
 
   isrE -. incrementa contadores .-> st
   tn1 --> st
   tn1 -->|snapshot periodico| q1
   q1 --> tt1
   st -. leitura .-> tt1
-  tt1 --> wifi
+  tt1 --> ble
 ```
 
 **Características dos processos:**
 
-- **Núcleo de Navegação (alta prioridade):** executa a FSM e o ciclo de sensoriamento -> mapeamento -> Flood Fill -> movimento em cadência determinística. É o caminho crítico de tempo real.
-- **Emissor de Telemetria (baixa prioridade):** consome _snapshots_ de uma fila e lê o estado compartilhado para montar e enviar a carga útil. Se o Wi-Fi cair, esta tarefa apenas acumula/descarta sem afetar a navegação (RNF-33); a telemetria retoma sozinha ao reconectar.
+- **Núcleo de Navegação (alta prioridade):** executa a FSM e o ciclo de sensoriamento $\rightarrow$ mapeamento $\rightarrow$ Flood Fill $\rightarrow$ movimento em cadência determinística. É o caminho crítico de tempo real.
+- **Emissor de Telemetria (baixa prioridade):** consome _snapshots_ de uma fila e lê o estado compartilhado para montar e notificar a carga útil por BLE. Se o enlace BLE cair, esta tarefa apenas acumula no buffer de retenção sem afetar a navegação (RNF-33); a telemetria retoma sozinha ao reconectar e reenvia o buffer (RF-74).
 - **ISR dos encoders:** rotinas de interrupção contam pulsos sem perda mesmo em alta velocidade (RF-47), atualizando contadores no estado compartilhado.
 - **Sincronização:** _queue_ FreeRTOS para os _snapshots_ e _mutex_ para o estado compartilhado, evitando condição de corrida entre as tarefas e a ISR.
 
 ## 4. Visão de Implementação
 
-A visão de implementação mostra a organização física do código no repositório (projeto PlatformIO), os módulos-fonte e as dependências externas.
+A visão de implementação mostra a organização física do código no repositório (projeto ESP-IDF, build de host por CMake), os módulos-fonte e as dependências externas.
 
 ```mermaid
 flowchart TB
-  subgraph REPO["Projeto PlatformIO (firmware/)"]
-    ini["platformio.ini<br/>(ambientes esp32 e native)"]
+  subgraph REPO["Projeto ESP-IDF (firmware/)"]
+    ini["CMakeLists.txt + CMakePresets.json<br/>(build de host) + esp32/ (ESP-IDF)"]
     subgraph SRC["src/"]
-      main["main.cpp<br/>(setup/loop, cria tarefas)"]
-      appnav["nav/<br/>(FSM, Navigator, FloodFill, MazeMap)"]
-      sense["sensing/<br/>(ToFArray, IMU, PowerMonitor)"]
-      motion["motion/<br/>(MotorDriver, MotionController, Odometry)"]
-      telem["telemetry/<br/>(TelemetryEmitter)"]
-      hal["hal/<br/>(I2CBus, LocalInterface)"]
+      main["app_main.cpp<br/>(composition root, cria tarefas)"]
+      appnav["use_cases/ + domain/<br/>(FSM, Navigator, FloodFill, MazeMap)"]
+      sense["adapters/<br/>(VL53L1X, MPU-6050, INA219)"]
+      motion["controller/ + adapters/<br/>(DRV8833, MotionController, Odometry)"]
+      telem["telemetry/ + adapters/<br/>(TelemetryEmitter, BleTelemetryAdapter)"]
+      hal["adapters/<br/>(I2cBus, LocalInterface)"]
     end
     subgraph TEST["test/"]
-      ut["testes native (Unity):<br/>FloodFill, MazeMap, derivacoes"]
+      ut["testes de host (GoogleTest):<br/>FloodFill, MazeMap, derivacoes"]
     end
   end
 
-  subgraph LIBS["Bibliotecas externas"]
-    l1["VL53L1X (Pololu)"]
-    l2["MPU6050 (Adafruit)"]
-    l3["INA219 (Adafruit)"]
-    l4["ESP32Encoder"]
-    l5["arduinoWebSockets"]
-    l6["Arduino-PID"]
+  subgraph LIBS["Componentes / dependencias"]
+    l1["VL53L1X (componente ESP-IDF)"]
+    l2["MPU-6050 (driver I2C)"]
+    l3["INA219 (driver I2C)"]
+    l4["PCNT (encoder, nativo)"]
+    l5["esp-nimble-cpp (NimBLE)"]
+    l6["PID proprio"]
   end
 
   main --> appnav
@@ -217,12 +217,12 @@ flowchart TB
 
 **Organização e build:**
 
-- **`platformio.ini`** define dois ambientes: **`esp32`** (build/upload para a placa) e **`native`** (testes de lógica no PC, sem hardware).
-- **`src/`** agrupa os módulos por responsabilidade (espelhando a visão lógica), com a camada `hal/` isolando o acesso ao hardware - o que permite testar `nav/` (Flood Fill, mapa) no ambiente _native_.
-- **`test/`** contém os testes automatizados (Unity), executáveis via `pio test -e native`, alinhados aos casos CT-FW-12, CT-FW-13 e CT-FW-32 do roteiro de testes (`4.4.6`).
-- **Dependências** são declaradas no `platformio.ini` (`lib_deps`) e resolvidas pelo gerenciador do PlatformIO.
+- **Dois alvos de build** sobre o mesmo código: **host** (`CMakeLists.txt` + presets, compila o núcleo + testes no PC, sem placa) e **placa** (`esp32/`, ESP-IDF, compila núcleo + adapters + `app_main`).
+- **`src/`** e **`include/`** agrupam os módulos por camada da **arquitetura limpa** (domínio, casos de uso, portas, adapters), com os `adapters/` isolando o acesso ao hardware - o que permite testar o núcleo (Flood Fill, mapa, odometria) no build de host.
+- **`test/`** contém os testes automatizados (GoogleTest), executáveis via `ctest --preset debug`, alinhados aos casos CT-FW-12, CT-FW-13 e CT-FW-32 do roteiro de testes (`4.4.6`).
+- **Dependências** da placa são declaradas em `esp32/main/idf_component.yml` (ex.: `esp-nimble-cpp`) e resolvidas pelo gerenciador de componentes do ESP-IDF; o GoogleTest é baixado por `FetchContent` no build de host.
 
-## 5. Rastreabilidade (visão -> requisitos)
+## 5. Rastreabilidade (visão $\rightarrow$ requisitos)
 
 | Visão                                  | Requisitos que fundamentam                    |
 | :------------------------------------- | :-------------------------------------------- |
@@ -232,5 +232,5 @@ flowchart TB
 
 ## 6. Observações para a integração (atividade 3.5)
 
-- Estas visões conectam-se ao restante do sistema por um único ponto: o **TelemetryEmitter** envia, via WebSocket, para o **backend**.
+- Estas visões conectam-se ao restante do sistema por um único ponto: o **TelemetryEmitter** notifica, via **BLE (NUS)**, a **ponte** no PC, que repassa o mesmo JSON ao **backend** por WebSocket.
 - A **visão de dados** (3.3) não se aplica ao firmware (estado em memória, sem banco); o firmware apenas **produz** a carga útil que o backend persiste.

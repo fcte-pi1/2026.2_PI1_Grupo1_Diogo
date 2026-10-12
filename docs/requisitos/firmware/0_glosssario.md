@@ -19,7 +19,7 @@ Para efeito de rastreabilidade nos artefatos KAOS, o firmware é estruturado nos
 | **Navegação**           | Execução do Algoritmo Flood Fill e tomada de decisão de movimento     |
 | **Controle de Motores** | Geração de PWM e malha PID para velocidade e alinhamento              |
 | **Odometria**           | Contagem de pulsos de encoder, distância percorrida e velocidade      |
-| **Telemetria**          | Transmissão Wi-Fi de dados em tempo real ao sistema web               |
+| **Telemetria**          | Transmissão BLE de dados em tempo real, repassada ao sistema web pela ponte |
 | **Interface Local**     | Leitura do DIP Switch, acionamento de LEDs e Buzzer de Depuração      |
 
 ---
@@ -96,7 +96,7 @@ Para efeito de rastreabilidade nos artefatos KAOS, o firmware é estruturado nos
 
 #### DIP Switch
 
-- **Definição:** Componente físico de múltiplas chaves individuais, lido pelo firmware durante a Inicialização (via GPIO do ESP32), utilizado pelo operador para selecionar o Tipo de Labirinto antes de ligar o robô. O estado das chaves determina a posição da Célula Objetivo e os demais parâmetros de operação derivados do layout. O DIP Switch não é relido após o boot — alterações durante uma Sessão de Resolução são ignoradas.
+- **Definição:** Componente físico de **três chaves individuais (três vias)**, lido pelo firmware durante a Inicialização (via GPIO do ESP32), utilizado pelo operador antes de ligar o robô: as **vias 1 e 2** selecionam o Tipo de Labirinto (dimensões da grade e posição da Célula Objetivo) e a **via 3** seleciona o **canto de partida**. O DIP Switch não é relido após o boot — alterações durante uma Sessão de Resolução são ignoradas.
 - **Sinônimos Evitados:** "Seletor de modo" (vago; usar o nome do componente), "Chave de configuração" (impreciso), "Botão" (um botão é momentâneo; o DIP Switch é de estado fixo)
 - **Módulos Associados:** Interface Local, Inicialização
 
@@ -118,7 +118,7 @@ Para efeito de rastreabilidade nos artefatos KAOS, o firmware é estruturado nos
 
 #### ESP32
 
-- **Definição:** Microcontrolador dual-core de 32 bits (versão de 30 pinos) que atua como a unidade central de processamento do firmware. Suas responsabilidades incluem: executar o Algoritmo Flood Fill, ler todos os sensores via Barramento I2C, capturar pulsos de Encoder via interrupção, gerar sinais PWM pelos canais LEDC para os drivers de motor, ler o DIP Switch, acionar o Buzzer de Depuração e os LEDs, e transmitir Telemetria pelo módulo Wi-Fi integrado. Duas unidades são adquiridas (uma principal e uma reserva).
+- **Definição:** Microcontrolador dual-core de 32 bits (versão de 30 pinos) que atua como a unidade central de processamento do firmware. Suas responsabilidades incluem: executar o Algoritmo Flood Fill, ler todos os sensores via Barramento I2C, capturar pulsos de Encoder via interrupção, gerar sinais PWM pelos canais LEDC para os drivers de motor, ler o DIP Switch, acionar o Buzzer de Depuração e os LEDs, e transmitir Telemetria pela interface **BLE** integrada. Duas unidades são adquiridas (uma principal e uma reserva).
 - **Sinônimos Evitados:** "Arduino" (plataforma distinta com arquitetura e recursos diferentes), "Microprocessador" (o ESP32 é um microcontrolador com periféricos integrados, não um microprocessador de uso geral), "MCU" (abreviação aceitável em contexto técnico, mas preferir "ESP32" nos artefatos de domínio)
 - **Módulos Associados:** Todos os módulos
 
@@ -134,7 +134,7 @@ Para efeito de rastreabilidade nos artefatos KAOS, o firmware é estruturado nos
 
 #### Firmware
 
-- **Definição:** Software embarcado executado no ESP32 que implementa toda a lógica de controle autônomo do robô. Abrange: Inicialização de periféricos, leitura e processamento dos sensores (VL53L1X, MPU-6050, INA219 e encoders), execução do Algoritmo Flood Fill, Controle de Motores via PWM e PID, gerenciamento da máquina de Estados de Navegação e transmissão de Telemetria via Wi-Fi. O firmware é distinto do software web que recebe e exibe a Telemetria — os dois sistemas se comunicam, mas são desenvolvidos e versionados de forma independente.
+- **Definição:** Software embarcado executado no ESP32 que implementa toda a lógica de controle autônomo do robô. Abrange: Inicialização de periféricos, leitura e processamento dos sensores (VL53L1X, MPU-6050, INA219 e encoders), execução do Algoritmo Flood Fill, Controle de Motores via PWM e PID, gerenciamento da máquina de Estados de Navegação e transmissão de Telemetria via **BLE**. O firmware é distinto do software web que recebe e exibe a Telemetria — os dois sistemas se comunicam, mas são desenvolvidos e versionados de forma independente.
 - **Sinônimos Evitados:** "Software do robô" (usar "Firmware" para distinguir claramente do software web), "Código embarcado" (vago), "Programa do ESP32" (informal)
 - **Módulos Associados:** Todos os módulos
 
@@ -268,7 +268,7 @@ Para efeito de rastreabilidade nos artefatos KAOS, o firmware é estruturado nos
 
 #### Telemetria
 
-- **Definição:** Conjunto de dados gerados pelo firmware durante uma Sessão de Resolução e transmitidos em tempo real, via Wi-Fi, ao sistema web externo. A carga útil inclui: Estado de Navegação atual, Contador de Células percorridas, Velocidade Média, posição corrente no Mapa do Labirinto, tensão da bateria, corrente e potência (lidas pelo INA219). A transmissão é unidirecional — o sistema web recebe dados, mas não envia comandos ao firmware durante a Sessão.
+- **Definição:** Conjunto de dados gerados pelo firmware durante uma Sessão de Resolução e transmitidos em tempo real, via **BLE** (Nordic UART Service, _notify_), a uma **ponte** executada no PC, que os repassa ao sistema web externo por WebSocket. A carga útil inclui: Estado de Navegação atual, Contador de Células percorridas, Velocidade Média, posição corrente no Mapa do Labirinto, tensão da bateria, corrente e potência (lidas pelo INA219). A transmissão é unidirecional — o sistema web recebe dados, mas não envia comandos ao firmware durante a Sessão.
 - **Sinônimos Evitados:** "Log" (arquivo gerado após execução — a Telemetria é transmissão em tempo real), "Dashboard" (é a interface web que exibe a Telemetria, não a Telemetria em si), "Monitoramento remoto" (vago)
 - **Módulos Associados:** Telemetria
 
@@ -298,8 +298,8 @@ Para efeito de rastreabilidade nos artefatos KAOS, o firmware é estruturado nos
 
 ### W
 
-#### Wi-Fi
+#### BLE (Bluetooth Low Energy)
 
-- **Definição:** Interface de comunicação sem fio integrada ao ESP32, utilizada pelo firmware exclusivamente para transmissão unidirecional de Telemetria ao sistema web externo. O firmware configura o módulo Wi-Fi no modo estação (STA) durante a Inicialização, conectando-se a uma rede previamente definida por parâmetro de compilação. A interface Wi-Fi não é utilizada para receber comandos nem para atualização de firmware em campo nesta versão do projeto.
-- **Sinônimos Evitados:** "Bluetooth" (interface diferente, não utilizada neste projeto), "Comunicação sem fio" (vago — pode ser confundido com outros protocolos), "Rede local" (o Wi-Fi é o meio; usar "Wi-Fi" como termo específico)
+- **Definição:** Interface de comunicação sem fio integrada ao ESP32-S3, utilizada pelo firmware exclusivamente para transmissão unidirecional de Telemetria. O firmware inicializa a pilha **BLE (NimBLE)** durante a Inicialização e passa a operar como **periférico (GATT server)**, anunciando o **Nordic UART Service (NUS)**; uma **ponte** executada no PC conecta-se como central, assina as notificações e repassa os dados ao sistema web externo. A interface BLE não é utilizada para receber comandos nem para atualização de firmware em campo nesta versão do projeto.
+- **Sinônimos Evitados:** "Wi-Fi" (interface diferente, **não** utilizada neste projeto — a decisão de transporte foi BLE), "Comunicação sem fio" (vago — pode ser confundido com outros protocolos), "Bluetooth Clássico" (o projeto usa especificamente BLE/Bluetooth Low Energy).
 - **Módulos Associados:** Telemetria

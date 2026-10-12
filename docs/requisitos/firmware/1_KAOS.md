@@ -17,14 +17,14 @@ graph LR
     GF000 -->|AND| GF003["G-F003: Mapear e navegar o labirinto por meio do Algoritmo Flood Fill"]
     GF000 -->|AND| GF004["G-F004: Controlar velocidade e alinhamento dos motores durante deslocamentos e manobras"]
     GF000 -->|AND| GF005["G-F005: Estimar deslocamento, velocidade e posição discreta por Odometria"]
-    GF000 -->|AND| GF006["G-F006: Transmitir Telemetria em tempo real via Wi-Fi ao sistema web"]
+    GF000 -->|AND| GF006["G-F006: Transmitir Telemetria em tempo real via BLE (NUS); a ponte repassa ao sistema web"]
     GF000 -->|AND| GF007["G-F007: Gerenciar a máquina de Estados de Navegação ao longo do ciclo de execução"]
 
     %% === G-F001: Inicialização ===
     GF001 -->|AND| GF001_1["G-F001.1: Executar auto-teste do ESP32 ao boot"]
     GF001 -->|AND| GF001_2["G-F001.2: Realizar Reendereçamento de Sensores ToF no Barramento I²C"]
     GF001 -->|AND| GF001_3["G-F001.3: Verificar comunicação com IMU MPU-6050 e INA219"]
-    GF001 -->|AND| GF001_4["G-F001.4: Ler DIP Switch e determinar Tipo de Labirinto e posição da Célula Objetivo"]
+    GF001 -->|AND| GF001_4["G-F001.4: Ler DIP Switch de 3 vias (tipo de labirinto nas vias 1-2 e canto de partida na via 3)"]
     GF001 -->|AND| GF001_5["G-F001.5: Construir estrutura inicial do Mapa do Labirinto na memória do ESP32"]
     GF001 -->|AND| GF001_6["G-F001.6: Sinalizar prontidão via Buzzer de Depuração e LED e transitar para estado Aguardando"]
 
@@ -55,7 +55,7 @@ graph LR
     GF005 -->|AND| GF005_4["G-F005.4: Calcular Velocidade Média da Sessão de Resolução corrente"]
 
     %% === G-F006: Telemetria ===
-    GF006 -->|AND| GF006_1["G-F006.1: Configurar módulo Wi-Fi no modo estação durante a Inicialização"]
+    GF006 -->|AND| GF006_1["G-F006.1: Inicializar a pilha BLE e anunciar o servico de telemetria (NUS) na Inicializacao"]
     GF006 -->|AND| GF006_2["G-F006.2: Transmitir continuamente a carga útil de Telemetria ao sistema web durante toda Sessão de Resolução"]
     GF006 -->|AND| GF006_3["G-F006.3: Garantir transmissão unidirecional sem processar comandos externos do sistema web"]
 
@@ -69,7 +69,7 @@ graph LR
     OBSF002{{"OBS-F002: Limiar de Detecção de Parede mal calibrado gerando falsa detecção ou omissão de Parede"}}
     OBSF003{{"OBS-F003: Deriva acumulada do giroscópio do IMU em manobras repetidas comprometendo o Ângulo de Curva"}}
     OBSF004{{"OBS-F004: Erro acumulado de Odometria por escorregamento de rodas"}}
-    OBSF005{{"OBS-F005: Perda ou instabilidade de conexão Wi-Fi durante a Sessão de Resolução"}}
+    OBSF005{{"OBS-F005: Perda ou instabilidade do enlace BLE durante a Sessão de Resolução"}}
     OBSF006{{"OBS-F006: Empate de Valores de Inundação entre células vizinhas acessíveis tornando a seleção não determinística"}}
     OBSF007{{"OBS-F007: Alteração acidental do DIP Switch após o boot induzindo expectativa de mudança de Tipo de Labirinto"}}
 
@@ -147,7 +147,7 @@ graph LR
 
 ### G-F001.4
 
-- **Descrição:** Ler o estado das chaves do DIP Switch via GPIO do ESP32 durante a Inicialização para determinar o Tipo de Labirinto selecionado pelo operador, definindo as dimensões da grade do Mapa do Labirinto e a posição da Célula Objetivo a ser utilizada em toda a Sessão de Resolução subsequente. O DIP Switch não é relido após a conclusão da Inicialização — alterações durante a Sessão de Resolução são ignoradas pelo firmware.
+- **Descrição:** Ler o estado das três chaves do DIP Switch via GPIO do ESP32 durante a Inicialização: as vias 1 e 2 determinam o Tipo de Labirinto selecionado pelo operador (dimensões da grade do Mapa do Labirinto e posição da Célula Objetivo) e a via 3 determina o canto de partida, a serem utilizados em toda a Sessão de Resolução subsequente. O DIP Switch não é relido após a conclusão da Inicialização — alterações durante a Sessão de Resolução são ignoradas pelo firmware.
 - **`<` Backward:** G-F001
 - **`>` Forward:** G-F001.5 (fornece a posição da Célula Objetivo); RF-004, RNF-005
 - **Obstáculo:** OBS-F007
@@ -199,7 +199,7 @@ graph LR
 
 - **Descrição:** Coletar leituras do giroscópio de três eixos e do acelerômetro de três eixos do MPU-6050 via Barramento I²C a cada ciclo de sensoriamento. Os dados do giroscópio são consumidos por G-F004.4 para medir o Ângulo de Curva durante manobras; os dados do acelerômetro são consumidos por G-F004.3 como sinal auxiliar na Correção de Trajetória durante deslocamentos em linha reta.
 - **`<` Backward:** G-F002
-- **`>` Forward:** G-F004.3 (acelerômetro → Correção de Trajetória), G-F004.4 (giroscópio → Ângulo de Curva); RF-009
+- **`>` Forward:** G-F004.3 (acelerômetro $\rightarrow$ Correção de Trajetória), G-F004.4 (giroscópio $\rightarrow$ Ângulo de Curva); RF-009
 - **Agente:** Firmware (ESP32) / IMU (MPU-6050)
 
 ### G-F002.4
@@ -355,7 +355,7 @@ graph LR
 
 ### G-F006
 
-- **Descrição:** Configurar e manter ativa a interface Wi-Fi integrada ao ESP32 em modo estação, transmitindo unidirecionalmente ao sistema web externo o conjunto completo de dados da carga útil de Telemetria, com continuidade durante toda a Sessão de Resolução, sem que falhas de conectividade interrompam a navegação autônoma do robô.
+- **Descrição:** Inicializar e manter ativa a interface **BLE** integrada ao ESP32 (periférico/GATT server anunciando o Nordic UART Service), transmitindo unidirecionalmente por _notify_ o conjunto completo de dados da carga útil de Telemetria — repassado ao sistema web externo pela ponte no PC —, com continuidade durante toda a Sessão de Resolução, sem que falhas de conectividade interrompam a navegação autônoma do robô.
 - **`<` Backward:** G-F000
 - **`>` Forward:** G-F006.1, G-F006.2, G-F006.3
 - **Tipo:** Tática
@@ -364,7 +364,7 @@ graph LR
 
 ### G-F006.1
 
-- **Descrição:** Durante a fase de Inicialização, configurar o módulo Wi-Fi integrado ao ESP32 no modo estação (STA), conectando-o à rede definida por parâmetros de compilação. A conexão deve ser estabelecida antes da transição para o Estado de Navegação `Aguardando`. Falha na conexão Wi-Fi na Inicialização não deve impedir o início da Sessão de Resolução, mas deve ser registrada e informada via LED ou Buzzer de Depuração ao operador.
+- **Descrição:** Durante a fase de Inicialização, inicializar a pilha **BLE (NimBLE)** integrada ao ESP32 e passar a anunciar o **Nordic UART Service (NUS)** como periférico. O anúncio deve estar ativo antes da transição para o Estado de Navegação `Aguardando`. A ausência de central (ponte) conectada na Inicialização não deve impedir o início da Sessão de Resolução; uma eventual falha ao iniciar a pilha BLE deve ser registrada e informada via LED ou Buzzer de Depuração ao operador.
 - **`<` Backward:** G-F006
 - **`>` Forward:** G-F006.2 (interface disponível para transmissão); RF-025
 - **Agente:** Firmware (ESP32)
@@ -379,7 +379,7 @@ graph LR
 
 ### G-F006.3
 
-- **Descrição:** O módulo Wi-Fi do firmware deve operar exclusivamente como emissor de Telemetria. O firmware não deve processar, interpretar ou responder a mensagens de entrada enviadas pelo sistema web durante a Sessão de Resolução. Nesta versão, nenhuma interface de controle remoto ou atualização de firmware em campo é implementada.
+- **Descrição:** A interface **BLE** do firmware deve operar exclusivamente como emissor de Telemetria (_notify_). O firmware não deve processar, interpretar ou responder a mensagens de entrada enviadas pelo sistema web durante a Sessão de Resolução. Nesta versão, nenhuma interface de controle remoto ou atualização de firmware em campo é implementada.
 - **`<` Backward:** G-F006
 - **`>` Forward:** RF-027
 - **Agente:** Firmware (ESP32)
@@ -399,7 +399,7 @@ graph LR
 
 ### G-F007.1
 
-- **Descrição:** Implementar no firmware os seis Estados de Navegação definidos — `Inicializando`, `Aguardando`, `Mapeando`, `Resolvendo`, `Concluído` e `Erro` — com as transições autorizadas entre eles: `Inicializando` → `Aguardando` (G-F001.6), `Aguardando` → `Mapeando` (sinal de início), `Mapeando` → `Resolvendo` (mapa completo), `Mapeando` ou `Resolvendo` → `Concluído` (G-F003.5), qualquer estado → `Erro` (G-F007.2), `Concluído` ou `Erro` → `Aguardando` (G-F007.3). O Estado de Navegação corrente deve integrar continuamente a carga útil de Telemetria de G-F006.2.
+- **Descrição:** Implementar no firmware os seis Estados de Navegação definidos — `Inicializando`, `Aguardando`, `Mapeando`, `Resolvendo`, `Concluído` e `Erro` — com as transições autorizadas entre eles: `Inicializando` $\rightarrow$ `Aguardando` (G-F001.6), `Aguardando` $\rightarrow$ `Mapeando` (sinal de início), `Mapeando` $\rightarrow$ `Resolvendo` (mapa completo), `Mapeando` ou `Resolvendo` $\rightarrow$ `Concluído` (G-F003.5), qualquer estado $\rightarrow$ `Erro` (G-F007.2), `Concluído` ou `Erro` $\rightarrow$ `Aguardando` (G-F007.3). O Estado de Navegação corrente deve integrar continuamente a carga útil de Telemetria de G-F006.2.
 - **`<` Backward:** G-F007
 - **`>` Forward:** RF-028
 - **Agente:** Firmware (ESP32)
@@ -428,6 +428,6 @@ graph LR
 | **OBS-F002** | Limiar de Detecção de Parede mal calibrado para uma ou mais posições de sensor (frontal, lateral, diagonal), causando Paredes classificadas incorretamente como `ausente` (omissão) ou passagens livres classificadas como `presente` (falsa detecção), comprometendo a integridade do Mapa do Labirinto. | G-F002.2       | Risco de calibração            | Procedimento obrigatório de calibração dos Limiares em bancada antes de cada competição, com paredes e iluminação representativas do ambiente real. Não há compensação automática em firmware nesta versão — a calibração correta é pré-condição operacional.                                                                                                 |
 | **OBS-F003** | Deriva acumulada do giroscópio do IMU MPU-6050 ao longo de manobras repetidas, causando leituras de Ângulo de Curva progressivamente imprecisas e desalinhamento crescente do robô em relação à grade do labirinto.                                                                                       | G-F004.4       | Limitação intrínseca de sensor | Aplicar fator de correção de deriva estimado na calibração de bancada e resetar a referência angular acumulada após a confirmação de cada manobra concluída, limitando a propagação do erro entre curvas consecutivas.                                                                                                                                        |
 | **OBS-F004** | Erro acumulado de Odometria por escorregamento das rodas em superfícies de baixo atrito ou em acelerações bruscas, causando imprecisão crescente na conversão de pulsos de Encoder em distância percorrida e no Contador de Células.                                                                      | G-F005.2       | Limitação mecânica             | Utilizar as leituras dos sensores ToF laterais como referência absoluta de alinhamento, compensando parcialmente o desvio acumulado durante deslocamentos em linha reta (G-F004.3). A Odometria fornece posição relativa; os sensores ToF fornecem correção direcional absoluta dentro da Célula.                                                             |
-| **OBS-F005** | Perda ou instabilidade prolongada da conexão Wi-Fi durante a Sessão de Resolução, interrompendo a transmissão de Telemetria ao sistema web sem que o robô tenha chegado à Célula Objetivo.                                                                                                                | G-F006.2       | Risco de conectividade         | Isolar o módulo de Telemetria do módulo de Navegação: a interrupção da transmissão Wi-Fi não deve transitar o firmware para o Estado de Navegação `Erro` nem interromper a execução autônoma. A navegação prossegue; a Telemetria retoma automaticamente quando a conexão for restabelecida.                                                                  |
+| **OBS-F005** | Perda ou instabilidade prolongada do enlace BLE durante a Sessão de Resolução, interrompendo a transmissão de Telemetria ao sistema web sem que o robô tenha chegado à Célula Objetivo.                                                                                                                   | G-F006.2       | Risco de conectividade         | Isolar o módulo de Telemetria do módulo de Navegação: a interrupção da transmissão BLE não deve transitar o firmware para o Estado de Navegação `Erro` nem interromper a execução autônoma. A navegação prossegue; a Telemetria retoma automaticamente quando o enlace for restabelecido, reenviando o buffer retido.                                         |
 | **OBS-F006** | Empate de Valores de Inundação entre duas ou mais Células vizinhas acessíveis a partir da posição atual, tornando a seleção da próxima Célula não determinística sem critério adicional, o que pode gerar comportamentos diferentes entre Sessões de Resolução sob as mesmas condições de labirinto.      | G-F003.3       | Ambiguidade algorítmica        | Definir e implementar critério de desempate determinístico baseado em ordem de preferência de direção relativa ao robô: frente > direita > esquerda > ré. O critério é fixo e aplicado sempre que o empate ocorrer, garantindo reprodutibilidade do comportamento.                                                                                            |
 | **OBS-F007** | Alteração acidental das chaves do DIP Switch pelo operador após o boot do robô, podendo gerar discrepância entre o Tipo de Labirinto fisicamente configurado e o carregado durante a Inicialização, induzindo o operador ao erro de acreditar que a mudança foi incorporada.                              | G-F001.4       | Risco operacional              | O DIP Switch é lido exclusivamente na Inicialização (G-F001.4); alterações posteriores são ignoradas pelo firmware durante toda a Sessão de Resolução. O Modo de Operação só pode ser alterado com o robô desligado e com nova Inicialização subsequente — comportamento que deve ser documentado no manual de operação e reforçado no treinamento da equipe. |

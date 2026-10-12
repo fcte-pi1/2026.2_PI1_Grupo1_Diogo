@@ -16,10 +16,10 @@ Este documento modela a **raia (_swimlane_) do firmware embarcado no ESP32** den
 Os diagramas estão em **Mermaid**, renderizado nativamente pelo GitHub ao visualizar o arquivo `.md`. São três:
 
 - **Diagrama 1 - Visão geral com raias:** o fluxo macro do firmware e suas trocas com Operador e Sistema Web, com bifurcação/sincronização (_fork/join_) da telemetria.
-- **Diagrama 2 - Ciclo de navegação (detalhe):** a expansão da atividade "Ciclo de navegação" (sensoriamento -> mapa -> Flood Fill -> movimento -> odometria).
+- **Diagrama 2 - Ciclo de navegação (detalhe):** a expansão da atividade "Ciclo de navegação" (sensoriamento $\rightarrow$ mapa $\rightarrow$ Flood Fill $\rightarrow$ movimento $\rightarrow$ odometria).
 - **Diagrama 3 - Máquina de estados de navegação:** visão complementar dos seis estados (RF-54).
 
-## 2. Notação adotada (mapeamento UML -> Mermaid)
+## 2. Notação adotada (mapeamento UML $\rightarrow$ Mermaid)
 
 | Elemento UML de atividade                              | Representação no Mermaid                        |
 | :----------------------------------------------------- | :---------------------------------------------- |
@@ -37,14 +37,14 @@ Os diagramas estão em **Mermaid**, renderizado nativamente pelo GitHub ao visua
 ```mermaid
 flowchart TB
   subgraph OP["Raia: Operador"]
-    op1[/"Seleciona tipo de labirinto<br/>no DIP switch"/]
+    op1[/"Seleciona tipo de labirinto<br/>e canto de partida<br/>no DIP switch (3 vias)"/]
     op2[/"Pressiona botao<br/>de disparo"/]
     op3["Observa prontidao e status<br/>(LEDs / buzzer)"]
   end
 
   subgraph FW["Raia: Firmware / Navegacao (ESP32)"]
     ini([Inicio])
-    a1["Inicializacao e auto-teste:<br/>ESP32, ToF, IMU, INA219,<br/>mapa e Wi-Fi STA<br/>(RF-27 a RF-31, RF-51)"]
+    a1["Inicializacao e auto-teste:<br/>ESP32, ToF, IMU, INA219,<br/>mapa e anuncio BLE (NUS)<br/>(RF-27 a RF-31, RF-51)"]
     d1{Auto-teste e<br/>sensores OK?}
     a2["Sinalizar prontidao<br/>(RF-32)"]
     sAg[["Aguardando"]]
@@ -88,7 +88,7 @@ flowchart TB
   classDef sub stroke-dasharray:5 5,fill:#eef;
 ```
 
-> A barra após **Mapeando** é a **bifurcação (_fork_)**: a navegação e a transmissão de telemetria correm em paralelo. A barra antes de **Concluído** é a **sincronização (_join_)**. Conforme o RNF-33, a telemetria é isolada da navegação - uma falha de Wi-Fi **não** leva ao estado Erro nem interrompe a navegação.
+> A barra após **Mapeando** é a **bifurcação (_fork_)**: a navegação e a transmissão de telemetria correm em paralelo. A barra antes de **Concluído** é a **sincronização (_join_)**. Conforme o RNF-33, a telemetria é isolada da navegação - uma falha do enlace BLE **não** leva ao estado Erro nem interrompe a navegação.
 
 ## 4. Diagrama 2 - Ciclo de navegação (detalhe da raia do firmware)
 
@@ -165,7 +165,7 @@ stateDiagram-v2
 
 ### **Inicialização.**
 
-Ao ligar, o firmware executa o auto-teste do ESP32 e dos GPIO, reendereça os sete ToF no barramento I2C, verifica IMU e INA219, lê o tipo de labirinto no DIP switch (insumo do Operador), inicializa o mapa com a inundação inicial e conecta o Wi-Fi em modo estação. Se algo falhar, transita direto para **Erro**. Caso contrário, sinaliza prontidão (saída para o Operador via LED/buzzer) e entra em **Aguardando**.
+Ao ligar, o firmware executa o auto-teste do ESP32 e dos GPIO, reendereça os ToF no barramento I2C, verifica IMU e INA219, lê o tipo de labirinto e o canto de partida no DIP switch de três vias (insumo do Operador), inicializa o mapa com a inundação inicial e inicia o anúncio BLE (NimBLE/NUS). Se algo falhar, transita direto para **Erro**. Caso contrário, sinaliza prontidão (saída para o Operador via LED/buzzer) e entra em **Aguardando**.
 
 ### **Disparo e paralelismo.**
 
@@ -179,7 +179,7 @@ A cada iteração o firmware lê os sensores, classifica as paredes por limiar, 
 
 A **sincronização** reúne navegação e telemetria em **Concluído**; em seguida a sessão é isolada (zera mapa, contadores e temporizador) e o robô retorna a **Aguardando** para uma nova tentativa. Uma falha irrecuperável detectada durante a operação leva a **Erro**, que interrompe todos os PWM dos motores e sinaliza a condição.
 
-## 7. Rastreabilidade (atividade -> RF)
+## 7. Rastreabilidade (atividade $\rightarrow$ RF)
 
 | Atividade no diagrama                           | RF                                       |
 | :---------------------------------------------- | :--------------------------------------- |
