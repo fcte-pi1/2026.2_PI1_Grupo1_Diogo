@@ -19,6 +19,7 @@ add_executable(firmware_tests
     simulation/SimulatedRobot.hpp
     use_cases/NavigatorTest.cpp
     spy/SpySignalPort.hpp
+    spy/SpyTelemetryPort.hpp
     use_cases/SessionManagerTest.cpp
     domain/OdometryTest.cpp
     domain/DipDecoderTest.cpp
