@@ -2,7 +2,7 @@ set(CORE_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/../..)
 
 idf_component_register(
     SRCS
-        # Núcleo — os MESMOS .cpp dos testes de host
+        # Núcleo - os MESMOS .cpp dos testes de host
         "${CORE_ROOT}/src/domain/Maze.cpp"
         "${CORE_ROOT}/src/domain/FloodFill.cpp"
         "${CORE_ROOT}/src/domain/Odometry.cpp"
@@ -15,7 +15,7 @@ idf_component_register(
         "${CORE_ROOT}/src/protocol/ProtocolV1.cpp"
         "${CORE_ROOT}/src/telemetry/TelemetryBuffer.cpp"
         "${CORE_ROOT}/src/telemetry/TelemetryEmitter.cpp"
-        # Adapters — só compilam aqui, no alvo
+        # Adapters - só compilam aqui, no alvo
         "${CORE_ROOT}/src/adapters/I2cBus.cpp"
         "${CORE_ROOT}/src/adapters/MotorDriver.cpp"
         "${CORE_ROOT}/src/adapters/Encoders.cpp"
@@ -27,7 +27,7 @@ idf_component_register(
         "${CORE_ROOT}/src/adapters/DipReaderAdapter.cpp"
         "${CORE_ROOT}/src/adapters/BleTelemetryAdapter.cpp"
         # Composition root
-        "${CORE_ROOT}/src/app_main.cpp"
+        "${CORE_ROOT}/src/main.cpp"
     INCLUDE_DIRS "${CORE_ROOT}/include"
     REQUIRES driver esp_driver_i2c esp_driver_pcnt esp_driver_ledc esp_rom esp-nimble-cpp)
 
