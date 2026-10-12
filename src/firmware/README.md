@@ -1,14 +1,53 @@
-# _Firmware_
-Esta pasta deverá armazenar arquivos referentes a:
+# Firmware — Rato Borrachudo (PI1 Grupo 1)
 
-- Código-fonte para microcontroladores e SOCs: [Arduino](https://www.arduino.cc/), [ESP32](https://www.espressif.com/), [Raspberry Pi](https://www.raspberrypi.com/), dentre outros.
-- Projetos de organização destes códigos, caso utilize IDEs: [Arduino IDE](https://www.arduino.cc/en/software/), [Visual Studio](https://visualstudio.microsoft.com/pt-br/downloads/) etc.
-- Arquivos de configuração: ```CMakeLists.txt``` se for usar [CMake](https://cmake.org/download/), ```Makefile``` se for usar [make](https://www.cs.colby.edu/maxwell/courses/tutorials/maketutor/) etc.
+Firmware do micromouse em **C++17**, organizado em **arquitetura limpa**: o núcleo (domínio, casos de uso, portas) é lógica pura testada no PC, e os *adapters* de hardware (ESP32-S3) ficam na borda, implementando as portas.
 
-Evite incluir:
-- Artefatos de compilação: os arquivos de saída compilados (binários, arquivos objeto, .hex, .elf) devem ser gerados pelo processo de compilação e não incluídos no repositório.
-- Arquivos temporários/específicos do sistema operacional: Arquivos como .DS_Store (macOS) ou arquivos de configuração do editor (a menos que esteja usando uma configuração compartilhada como .editorconfig).
-- Configurações pessoais: Arquivos de configuração locais específicos da máquina do desenvolvedor.
+## Dois alvos de build
 
-> [!WARNING]
-> **Não acrescente arquivos referentes a _hardware_ nesta pasta.** Eles deverão ser armazenados na pasta [hw](https://github.com/fcte-pi1/template/tree/main/hw) deste repositório.
+| Alvo | O que compila | Precisa de placa? | Comando |
+| :--- | :--- | :--: | :--- |
+| **Host** | núcleo (A–K) + testes | não | `cmake --preset debug && ctest --preset debug` |
+| **Placa (ESP-IDF)** | núcleo + adapters (L–P) + `app_main` | sim | `idf.py -C esp32 build` |
+
+O build de host **não** compila os adapters (eles dependem de `driver/*.h` do ESP-IDF); por isso os testes rodam em qualquer PC. O build da placa compila **tudo**.
+
+## Início rápido
+
+Testes no PC (rede de segurança — rode sempre):
+
+```bash
+cmake --preset debug
+cmake --build --preset debug
+ctest --preset debug          # 81 testes
+```
+
+Firmware na placa (com o ESP-IDF v5.x instalado e ativado):
+
+```bash
+. ~/esp/esp-idf/export.sh
+idf.py -C esp32 reconfigure        # baixa deps (esp-nimble-cpp)
+idf.py -C esp32 set-target esp32s3 # 1ª vez
+idf.py -C esp32 build
+idf.py -C esp32 -p /dev/ttyACM0 flash monitor
+```
+
+## Estrutura (arquitetura limpa, de dentro para fora)
+
+```
+include/ · src/          núcleo + adapters (headers / implementação)
+├── domain/              Entities — Maze, FloodFill, Odometry, DipDecoder, Pid, Maneuver
+├── controller/          MotionController (PID de tração)
+├── use_cases/           Navigator, SessionManager (FSM)
+├── ports/               fronteiras — Sensor/Motion/Signal/Telemetry
+├── protocol/            ProtocolV1 (apresentador — domínio → JSON)
+├── telemetry/           TelemetryEmitter, TelemetryBuffer
+└── adapters/            hardware (ESP-IDF) — I2C, motores, encoders, ToF, IMU, INA219, BLE
+src/app_main.cpp         composition root (ESP-IDF); src/main.cpp é stub do host
+test/                    testes do núcleo + doubles (simulation/, spy/)
+esp32/                   subprojeto ESP-IDF (CMakeLists, sdkconfig, partitions)
+bridge/                  ponte BLE→WebSocket (roda no PC)
+```
+
+Detalhes de build, presets, cobertura e fluxo TDD em [`GUIA_DESENVOLVIMENTO.md`](GUIA_DESENVOLVIMENTO.md).
+
+> **Não acrescente arquivos de _hardware_ (esquemáticos, PCB) nesta pasta** — eles vão na pasta `hw/` do repositório do projeto.
