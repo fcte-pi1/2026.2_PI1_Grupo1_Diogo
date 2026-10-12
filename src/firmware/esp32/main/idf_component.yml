@@ -1,0 +1,8 @@
+dependencies:
+  idf:
+    version: ">=5.1"
+  # API 2.x do NimBLE (NimBLEConnInfo nos callbacks, enableScanResponse) —
+  # usada em BleTelemetryAdapter.cpp. Não existe linha 1.5; o gerenciador
+  # resolve para a 2.x mais recente (2.0.0+).
+  h2zero/esp-nimble-cpp: "^2.0.0"
+  # vl53l1x: "*"   # (confirmar o nome exato do componente no registry)

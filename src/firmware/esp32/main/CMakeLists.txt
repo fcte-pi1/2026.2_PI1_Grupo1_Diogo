@@ -2,7 +2,7 @@ set(CORE_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/../..)
 
 idf_component_register(
     SRCS
-        # Núcleo (A–K) — os MESMOS .cpp dos testes de host
+        # Núcleo — os MESMOS .cpp dos testes de host
         "${CORE_ROOT}/src/domain/Maze.cpp"
         "${CORE_ROOT}/src/domain/FloodFill.cpp"
         "${CORE_ROOT}/src/domain/Odometry.cpp"
@@ -15,7 +15,7 @@ idf_component_register(
         "${CORE_ROOT}/src/protocol/ProtocolV1.cpp"
         "${CORE_ROOT}/src/telemetry/TelemetryBuffer.cpp"
         "${CORE_ROOT}/src/telemetry/TelemetryEmitter.cpp"
-        # Adapters (L–P) — só compilam aqui, no alvo
+        # Adapters — só compilam aqui, no alvo
         "${CORE_ROOT}/src/adapters/I2cBus.cpp"
         "${CORE_ROOT}/src/adapters/MotorDriver.cpp"
         "${CORE_ROOT}/src/adapters/Encoders.cpp"
