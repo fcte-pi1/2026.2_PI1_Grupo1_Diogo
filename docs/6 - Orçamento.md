@@ -36,7 +36,7 @@
 | Buzzer ativo 5 V                                                     | 1         | 4,00              |                    |
 | *Frente Energia*                                                     |           | *57,06*           |                    |
 | Bateria Lipo 2s 7.4v 1500 Mah 30c                                    | 1         | 137,75            |                    |
-| Conector XT30 (par)                                                  | 1 (par)   | 5,22              |                    |
+| Conector JST-XH (par)                                                | 1 (par)   | 10,00             |                    |
 | *Frente Estruturas*                                                  |           | *277,00*          |                    |
 | Filamento PETG para fabricação do chassi                             | 1 rolo de 1 kg | 70,00        |                    |
 | Rodas StickyMAX S20 (32 mm)                                          | 2         | 100,00            |                    |
