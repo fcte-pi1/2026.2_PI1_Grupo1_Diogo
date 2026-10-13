@@ -34,6 +34,10 @@ export interface EstadoPainel {
   acoes: {
     atualizarExecucao: (dados: Partial<DadosExecucao>) => void;
     reiniciarExecucao: (dados?: Partial<DadosExecucao>) => void;
+    /** Estado completo do backend (snapshot): substitui o mapa e as métricas, não mescla. */
+    substituirSnapshot: (dados: Partial<DadosExecucao> & { corrida: string }) => void;
+    /** Tipo de labirinto fora de 4x4/8x4/12x4: descarta a grade e sinaliza configuração inválida. */
+    definirTipoInvalido: () => void;
     adicionarPontoTrajeto: (ponto: PontoTrajeto) => void;
     adicionarAmostraEnergia: (amostra: AmostraEnergia) => void;
     atualizarCelulaMapa: (celula: CelulaMapa) => void;
@@ -61,6 +65,9 @@ export const usePainel = create<EstadoPainel>()((set) => ({
           aoVivo: {
             ...s.aoVivo,
             ...dados,
+            tipoInvalido: dados.tipoLabirinto
+              ? false
+              : (dados.tipoInvalido ?? s.aoVivo.tipoInvalido),
             mapa: tipoMudou ? [] : s.aoVivo.mapa,
             trajeto: tipoMudou ? [] : s.aoVivo.trajeto,
             tempoMs: manterTempoMaisRecente(s.aoVivo.tempoMs, dados.tempoMs),
@@ -68,6 +75,31 @@ export const usePainel = create<EstadoPainel>()((set) => ({
         };
       }),
     reiniciarExecucao: (dados) => set(() => ({ aoVivo: { ...execucaoInicial, ...dados } })),
+    substituirSnapshot: (dados) =>
+      set((s) => {
+        const mesmaCorrida = s.aoVivo.corrida === dados.corrida;
+        return {
+          aoVivo: {
+            ...execucaoInicial,
+            // O snapshot não traz trajeto nem série de energia: na mesma corrida (reconexão),
+            // o que já foi recebido continua válido (os eventos repetidos são descartados por `seq`).
+            trajeto: mesmaCorrida ? s.aoVivo.trajeto : [],
+            energia: mesmaCorrida ? s.aoVivo.energia : [],
+            ...dados,
+          },
+        };
+      }),
+    definirTipoInvalido: () =>
+      set((s) => ({
+        aoVivo: {
+          ...s.aoVivo,
+          tipoLabirinto: null,
+          tipoInvalido: true,
+          mapa: [],
+          trajeto: [],
+          posicao: null,
+        },
+      })),
     adicionarPontoTrajeto: (ponto) =>
       set((s) =>
         s.aoVivo.trajeto.some((atual) => atual.seq === ponto.seq)
