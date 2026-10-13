@@ -134,6 +134,7 @@ describe('Ponte', () => {
   it.each([
     [4001, 'token inválido'],
     [4002, 'não suportada'],
+    [4003, 'malformado'],
   ])('não insiste quando o backend recusa o hello com %i', (codigo, trecho) => {
     ponte.iniciarSessao();
     ponte.linha(HELLO);
