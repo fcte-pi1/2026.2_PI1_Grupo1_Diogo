@@ -580,3 +580,18 @@
     display: none;
   }
 }
+
+.paredeAusente {
+  stroke: #e5e7eb;
+  stroke-linecap: square;
+  stroke-width: 1;
+}
+
+.desafioCumprido {
+  border: 1px solid #bbf7d0;
+  border-radius: 0.375rem;
+  background: #f0fdf4;
+  color: #15803d;
+  font-weight: 600;
+  padding: 0.5rem 0.75rem;
+}
