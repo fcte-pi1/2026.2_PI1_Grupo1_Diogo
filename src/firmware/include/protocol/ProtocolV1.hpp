@@ -14,7 +14,7 @@ using domain::MazeType;
 using use_cases::SessionPhase;
 
 [[nodiscard]] std::string phaseToString(SessionPhase phase);
-[[nodiscard]] char directionToChar(Direction direction);
+[[nodiscard]] std::string directionToString(Direction direction);
 [[nodiscard]] std::string mazeToString(MazeType maze);
 
 enum class RunResult { Success, Failure };

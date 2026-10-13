@@ -55,14 +55,14 @@ Encoder::Encoder(std::string device, std::string token, std::string boot)
     : device_(std::move(device)), token_(std::move(token)), boot_(std::move(boot)) {}
 
 std::string Encoder::encodeHello() const {
-    return R"({"tipo":"hello","v":1,"dispositivo":")" + device_ + R"(","token":")" + token_ +
+    return R"({"tipo":"hello","versao":1,"dispositivo":")" + device_ + R"(","token":")" + token_ +
            R"(","boot":")" + boot_ + R"("})";
 }
 
 std::string Encoder::encodeStartRun(int runIndex, long time, const std::string& maze) {
     run_ = "r" + boot_ + "-" + std::to_string(runIndex);
     sequence_ = 1;
-    return R"({"v":1,"tipo":"inicio_corrida","corrida":")" + run_ + R"(","seq":1,"t":)" +
+    return R"({"versao":1,"tipo":"inicio_corrida","corrida":")" + run_ + R"(","sequencia":1,"tempo_ms":)" +
            std::to_string(time) + R"(,"labirinto":")" + maze + R"("})";
 }
 
@@ -102,26 +102,26 @@ std::string mazeToString(domain::MazeType maze) {
     }
 }
 
-char directionToChar(domain::Direction direction) {
+std::string directionToString(domain::Direction direction) {
     switch (direction) {
         case domain::Direction::North:
-            return 'N';
+            return "NORTE";
         case domain::Direction::East:
-            return 'L';
+            return "LESTE";
         case domain::Direction::South:
-            return 'S';
+            return "SUL";
         case domain::Direction::West:
-            return 'O';
+            return "OESTE";
         default:
-            return '?';
+            return "?";
     }
 }
 
 std::string Encoder::encodeState(long time,                      //
                                  use_cases::SessionPhase phase  //
 ) {
-    return R"({"v":1,"tipo":"estado","corrida":")" + run_ + R"(","seq":)" +
-           std::to_string(nextSequence()) + R"(,"t":)" + std::to_string(time) + R"(,"estado":")" +
+    return R"({"versao":1,"tipo":"estado","corrida":")" + run_ + R"(","sequencia":)" +
+           std::to_string(nextSequence()) + R"(,"tempo_ms":)" + std::to_string(time) + R"(,"estado":")" +
            phaseToString(phase) + R"("})";
 }
 
@@ -133,11 +133,11 @@ std::string Encoder::encodeCell(long time,   //
                                 bool south,  //
                                 bool west    //
 ) {
-    return R"({"v":1,"tipo":"celula","corrida":")" + run_ + R"(","seq":)" +
-           std::to_string(nextSequence()) + R"(,"t":)" + std::to_string(time) + R"(,"x":)" +
-           std::to_string(x) + R"(,"y":)" + std::to_string(y) + R"(,"paredes":{"n":)" +
-           boolJson(north) + R"(,"l":)" + boolJson(east) + R"(,"s":)" + boolJson(south) +
-           R"(,"o":)" + boolJson(west) + R"(}})";
+    return R"({"versao":1,"tipo":"celula","corrida":")" + run_ + R"(","sequencia":)" +
+           std::to_string(nextSequence()) + R"(,"tempo_ms":)" + std::to_string(time) + R"(,"x":)" +
+           std::to_string(x) + R"(,"y":)" + std::to_string(y) + R"(,"paredes":{"norte":)" +
+           boolJson(north) + R"(,"leste":)" + boolJson(east) + R"(,"sul":)" + boolJson(south) +
+           R"(,"oeste":)" + boolJson(west) + R"(}})";
 }
 
 std::string Encoder::encodePosition(long time,                     //
@@ -147,10 +147,10 @@ std::string Encoder::encodePosition(long time,                     //
                                     int cells,                    //
                                     std::optional<double> speed   //
 ) {
-    std::string msg = R"({"v":1,"tipo":"posicao","corrida":")" + run_ + R"(","seq":)" +
-                      std::to_string(nextSequence()) + R"(,"t":)" + std::to_string(time) +
+    std::string msg = R"({"versao":1,"tipo":"posicao","corrida":")" + run_ + R"(","sequencia":)" +
+                      std::to_string(nextSequence()) + R"(,"tempo_ms":)" + std::to_string(time) +
                       R"(,"x":)" + std::to_string(x) + R"(,"y":)" + std::to_string(y) +
-                      R"(,"orientacao":")" + std::string(1, directionToChar(direction)) +
+                      R"(,"orientacao":")" + directionToString(direction) +
                       R"(","celulas":)" + std::to_string(cells);
     if (speed.has_value()) {
         msg += R"(,"velocidade_media_mps":)" + num(*speed);
@@ -164,8 +164,8 @@ std::string Encoder::encodeEnergy(long time,        //
                                   double amperage,  //
                                   double watts      //
 ) {
-    return R"({"v":1,"tipo":"energia","corrida":")" + run_ + R"(","seq":)" +
-           std::to_string(nextSequence()) + R"(,"t":)" + std::to_string(time) + R"(,"tensao_v":)" +
+    return R"({"versao":1,"tipo":"energia","corrida":")" + run_ + R"(","sequencia":)" +
+           std::to_string(nextSequence()) + R"(,"tempo_ms":)" + std::to_string(time) + R"(,"tensao_v":)" +
            num(voltage) + R"(,"corrente_a":)" + num(amperage) + R"(,"potencia_w":)" + num(watts) +
            R"(})";
 }
@@ -173,8 +173,8 @@ std::string Encoder::encodeEnergy(long time,        //
 std::string Encoder::encodeRunResult(long time, RunResult result,
                                      std::optional<std::string> message) {
     const char* resultStr = (result == RunResult::Success) ? "sucesso" : "falha";
-    std::string msg = R"({"v":1,"tipo":"fim_corrida","corrida":")" + run_ + R"(","seq":)" +
-                      std::to_string(nextSequence()) + R"(,"t":)" + std::to_string(time) +
+    std::string msg = R"({"versao":1,"tipo":"fim_corrida","corrida":")" + run_ + R"(","sequencia":)" +
+                      std::to_string(nextSequence()) + R"(,"tempo_ms":)" + std::to_string(time) +
                       R"(,"resultado":")" + std::string(resultStr) + R"(")";
     if (message.has_value()) {
         msg += R"(,"detalhe":")" + jsonEscape(*message) + R"(")";

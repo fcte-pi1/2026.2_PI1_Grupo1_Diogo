@@ -36,14 +36,14 @@ TEST(TelemetryEmitter, HelloDelegaAoEncoder) {
     TelemetryEmitter emitter = makeEmitter();
     EXPECT_EQ(
         emitter.encodeHello(),
-        R"({"tipo":"hello","v":1,"dispositivo":"rato-01","token":"<token>","boot":"9f3a1c"})");
+        R"({"tipo":"hello","versao":1,"dispositivo":"rato-01","token":"<token>","boot":"9f3a1c"})");
 }
 
 TEST(TelemetryEmitter, StartRunEmiteInicioCorrida) {
     TelemetryEmitter emitter = makeEmitter();
     EXPECT_EQ(
         emitter.encodeStartRun(1, 12000, MazeType::Small4x4),
-        R"({"v":1,"tipo":"inicio_corrida","corrida":"r9f3a1c-1","seq":1,"t":12000,"labirinto":"4x4"})");
+        R"({"versao":1,"tipo":"inicio_corrida","corrida":"r9f3a1c-1","sequencia":1,"tempo_ms":12000,"labirinto":"4x4"})");
 }
 
 TEST(TelemetryEmitter, PrimeiroCicloEmiteEstadoPosicaoEnergia) {
@@ -54,13 +54,13 @@ TEST(TelemetryEmitter, PrimeiroCicloEmiteEstadoPosicaoEnergia) {
     ASSERT_EQ(messages.size(), 3u);
     EXPECT_EQ(
         messages[0],
-        R"({"v":1,"tipo":"estado","corrida":"r9f3a1c-1","seq":2,"t":12001,"estado":"MAPEANDO"})");
+        R"({"versao":1,"tipo":"estado","corrida":"r9f3a1c-1","sequencia":2,"tempo_ms":12001,"estado":"MAPEANDO"})");
     EXPECT_EQ(
         messages[1],
-        R"({"v":1,"tipo":"posicao","corrida":"r9f3a1c-1","seq":3,"t":12001,"x":0,"y":3,"orientacao":"N","celulas":0,"velocidade_media_mps":0})");
+        R"({"versao":1,"tipo":"posicao","corrida":"r9f3a1c-1","sequencia":3,"tempo_ms":12001,"x":0,"y":3,"orientacao":"NORTE","celulas":0,"velocidade_media_mps":0})");
     EXPECT_EQ(
         messages[2],
-        R"({"v":1,"tipo":"energia","corrida":"r9f3a1c-1","seq":4,"t":12001,"tensao_v":8.12,"corrente_a":0.41,"potencia_w":3.33})");
+        R"({"versao":1,"tipo":"energia","corrida":"r9f3a1c-1","sequencia":4,"tempo_ms":12001,"tensao_v":8.12,"corrente_a":0.41,"potencia_w":3.33})");
 }
 
 TEST(TelemetryEmitter, EstadoSoNaTransicaoDeFase) {
@@ -85,7 +85,7 @@ TEST(TelemetryEmitter, CellConverteCoordenadasEEmiteCelula) {
     (void)emitter.encodeStartRun(1, 12000, MazeType::Small4x4);
     EXPECT_EQ(
         emitter.encodeCell(12010, Position{3, 0}, false, true, true, true),
-        R"({"v":1,"tipo":"celula","corrida":"r9f3a1c-1","seq":2,"t":12010,"x":0,"y":3,"paredes":{"n":false,"l":true,"s":true,"o":true}})");
+        R"({"versao":1,"tipo":"celula","corrida":"r9f3a1c-1","sequencia":2,"tempo_ms":12010,"x":0,"y":3,"paredes":{"norte":false,"leste":true,"sul":true,"oeste":true}})");
 }
 
 TEST(TelemetryEmitter, EndRunEmiteFimCorrida) {
@@ -93,7 +93,7 @@ TEST(TelemetryEmitter, EndRunEmiteFimCorrida) {
     (void)emitter.encodeStartRun(1, 12000, MazeType::Small4x4);
     EXPECT_EQ(
         emitter.encodeRunResult(95500, protocol::RunResult::Success),
-        R"({"v":1,"tipo":"fim_corrida","corrida":"r9f3a1c-1","seq":2,"t":95500,"resultado":"sucesso"})");
+        R"({"versao":1,"tipo":"fim_corrida","corrida":"r9f3a1c-1","sequencia":2,"tempo_ms":95500,"resultado":"sucesso"})");
 }
 
 TEST(TelemetryEmitter, SequenciaContinuaEntreEventos) {
@@ -102,7 +102,7 @@ TEST(TelemetryEmitter, SequenciaContinuaEntreEventos) {
     (void)emitter.encodeCycle(1, makeSnap(SessionPhase::Exploring));
     (void)emitter.encodeCell(2, Position{3, 0}, true, false, false, true);
     const std::string result = emitter.encodeRunResult(3, protocol::RunResult::Success);
-    EXPECT_NE(result.find(R"("seq":6)"), std::string::npos);
+    EXPECT_NE(result.find(R"("sequencia":6)"), std::string::npos);
 }
 
 }  // namespace
