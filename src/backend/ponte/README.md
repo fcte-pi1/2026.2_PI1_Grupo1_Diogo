@@ -1,5 +1,7 @@
 # Ponte Bluetooth → backend
 
+> **Esta ponte será removida.** Ela foi escrita para Bluetooth Clássico (porta serial), e o robô usa um ESP32-S3, que só tem BLE. A ponte oficial é a do firmware: `src/firmware/bridge/ble_ws_bridge.py`. Por enquanto, daqui só o modo `--porta -` continua útil, para enviar um arquivo de mensagens ao backend sem o robô.
+
 O robô envia a telemetria por **Bluetooth Clássico (SPP)**, que aparece no notebook como uma porta serial. A ponte lê essa porta e repassa cada mensagem, sem alterar, para o backend em `/ws/telemetria`.
 
 Ela roda **no notebook do operador, fora do Docker**: o container do backend não enxerga o Bluetooth do computador. O formato das mensagens está em [`../protocolo/v1/README.md`](../protocolo/v1/README.md).

@@ -4,7 +4,7 @@ Esquemas oficiais (JSON Schema 2020-12) das mensagens que **chegam** ao backend.
 
 | Esquema | Quem envia | Quando |
 |:--|:--|:--|
-| [`hello`](hello.schema.json) | Robô | Primeira mensagem de cada conexão Bluetooth (autenticação, RF-72) |
+| [`hello`](hello.schema.json) | Robô | Primeira mensagem de cada conexão BLE (autenticação, RF-72). Pode se repetir no meio da conexão |
 | [`inicio_corrida`](inicio_corrida.schema.json) | Robô | Início da tentativa |
 | [`celula`](celula.schema.json) | Robô | Ao entrar numa célula, com as paredes detectadas (evento discreto) |
 | [`posicao`](posicao.schema.json) | Robô | Periódica (dado contínuo) |
@@ -17,20 +17,24 @@ Esquemas oficiais (JSON Schema 2020-12) das mensagens que **chegam** ao backend.
 ## Transporte
 
 ```
- Robô (ESP32) ──Bluetooth Clássico (SPP)──► Ponte (notebook) ──WebSocket──► Backend ──WebSocket──► Painéis
-                uma mensagem JSON por linha    src/backend/ponte     /ws/telemetria          /ws/painel
+ Robô (ESP32-S3) ──Bluetooth de baixa energia (BLE)──► Ponte (notebook) ──WebSocket──► Backend ──WebSocket──► Painéis
+                   Nordic UART Service, por notificações   src/firmware/bridge    /ws/telemetria          /ws/painel
 ```
 
-**Do robô até o notebook: Bluetooth Clássico, perfil de porta serial (SPP).**
+**Do robô até o notebook: BLE com o Nordic UART Service (NUS).**
+- O robô é o periférico: anuncia o serviço com o nome `RatoBorrachudo` e envia a telemetria por **notificações** na característica TX (`6E400003-B5A3-F393-E0A9-E50E24DCCA9E`).
 - Cada mensagem é um objeto JSON em **uma única linha**, em UTF-8, terminada por `\n` (um `\r` antes é tolerado). O JSON não pode conter quebras de linha.
-- Cada linha tem no máximo **1024 bytes**. Linhas maiores são descartadas pela ponte.
-- O robô é um **emissor unidirecional** (RF-027 do firmware): ele só escreve na serial. Nada do que o backend envia chega ao robô.
-- A cada conexão Bluetooth aceita (evento de cliente conectado do `BluetoothSerial`), a **primeira linha** enviada pelo robô é o `hello`.
+- Uma mensagem pode ser dividida em várias notificações, conforme o MTU negociado. Quem recebe remonta as linhas pelo `\n`.
+- Cada linha tem no máximo **1024 bytes**.
+- O robô é um **emissor unidirecional** (RF-53): ele só notifica. Nada do que o backend envia chega ao robô.
+- A cada conexão BLE aceita, a **primeira linha** enviada pelo robô é o `hello`. Se a conexão cair e voltar durante uma corrida, ele envia o `hello` de novo e reenvia o que reteve.
 
 **Do notebook até o backend: a ponte.**
-- A [ponte](../../ponte/README.md) é um programa que roda no notebook do operador, **fora do Docker**, porque o container não enxerga o Bluetooth do computador. Ela lê a porta serial e repassa cada linha, sem alterar, como uma mensagem WebSocket em `/ws/telemetria`.
+- A ponte (`src/firmware/bridge/ble_ws_bridge.py`) é um programa que roda no notebook do operador, **fora do Docker**, porque o container não enxerga o Bluetooth do computador. Ela assina as notificações do robô, remonta as linhas e repassa cada uma, sem alterar, como uma mensagem WebSocket em `/ws/telemetria`.
 - Para o backend, a ponte é igual a um robô conectado direto. O **simulador** fala WebSocket direto com `/ws/telemetria`, sem ponte, usando as mesmas mensagens.
-- O backend responde com `ack {corrida, sequencia}`, que é **informativo**: a ponte apenas o conta. O `ack` leva a maior sequência gravada **sem lacunas antes dela**. Quando o backend recusa o `hello`, ele fecha a conexão com um dos códigos abaixo, e a ponte mostra o erro no terminal.
+- A primeira mensagem de cada conexão com o backend tem que ser o `hello`, em até **5 s**. Um `hello` no meio da conexão é aceito: o backend entende que o robô se identificou de novo e, se o `boot` mudou, registra que ele reiniciou.
+- O backend responde com `ack {corrida, sequencia}`, que é **informativo**: a ponte pode ignorá-lo, e nada deve ser repassado ao robô. O `ack` leva a maior sequência gravada **sem lacunas antes dela**.
+- Quando o backend recusa o `hello`, ele fecha a conexão com um destes códigos:
 
   | Código | Motivo |
   |:--|:--|
@@ -104,7 +108,7 @@ O esquema valida **a forma** da mensagem. As regras abaixo são **de domínio** 
 
 ## Exemplo de corrida
 
-Cada linha abaixo é uma linha enviada pelo robô na serial Bluetooth:
+Cada linha abaixo é uma linha enviada pelo robô:
 
 ```json
 {"tipo":"hello","versao":1,"dispositivo":"rato-01","token":"<token>","boot":"9f3a1c"}
@@ -118,13 +122,14 @@ Cada linha abaixo é uma linha enviada pelo robô na serial Bluetooth:
 {"versao":1,"tipo":"fim_corrida","corrida":"r9f3a1c-1","sequencia":812,"tempo_ms":95500,"resultado":"sucesso"}
 ```
 
-A maior mensagem (`celula`) tem cerca de 160 bytes. A 20 mensagens por segundo, são cerca de 3 kB/s, bem abaixo do que o Bluetooth Clássico suporta.
+A maior mensagem (`celula`) tem cerca de 160 bytes e cabe em uma única notificação com o MTU de 247 configurado no firmware. A 20 mensagens por segundo, são cerca de 3 kB/s, dentro do que o BLE suporta.
 
 ## Requisitos para o firmware
 
-- **Uma mensagem por linha:** `serializeJson(...)` seguido de `\n`, sem JSON formatado em várias linhas.
-- **`hello` primeiro:** enviado sempre que um cliente Bluetooth conecta, antes de qualquer outra mensagem.
+- **Uma mensagem por linha:** o JSON seguido de `\n`, sem formatação em várias linhas.
+- **`hello` primeiro:** enviado sempre que um cliente BLE conecta, antes de qualquer outra mensagem.
 - **Carga útil do RF-026:** os sete campos são cobertos por `posicao` (posição, contador de células, velocidade média), `energia` (tensão, corrente, potência) e `estado` (estado de navegação, enviado a cada transição).
 - **Pelo menos uma mensagem por segundo durante a corrida**, para o backend não declarar perda de sinal.
-- **Reenvio após queda (RF-74):** para não haver lacunas após uma queda de até 60 s, o robô deve manter um **buffer circular com pelo menos 60 s** de mensagens. Quando o Bluetooth reconectar, ele envia o `hello` com o **mesmo `boot`** e reenvia o buffer inteiro. Isso é só emissão: as duplicatas são descartadas pelo backend (RF-77).
-- **Novo `boot` a cada reinício:** um `boot` novo durante uma corrida faz o backend marcá-la como `INTERROMPIDA (REINICIO_ROBO)`.
+- **Reenvio após queda (RF-74):** para não haver lacunas após uma queda de até 60 s, o robô deve manter um **buffer circular com pelo menos 60 s** de mensagens. Quando o BLE reconectar, ele envia o `hello` com o **mesmo `boot`** e reenvia o buffer inteiro. Isso é só emissão: as duplicatas são descartadas pelo backend (RF-77).
+- **Dispositivo e token:** o `hello` leva o identificador cadastrado no backend (`rato-01`) e o token definido na compilação (`TELEMETRY_TOKEN`), que tem de ser igual ao `SEED_ROBO_TOKEN` usado no seed do backend.
+- **Novo `boot` a cada reinício:** com um `boot` diferente, o backend registra que o robô reiniciou (`REINICIO_DETECTADO`). A marcação da corrida como `INTERROMPIDA (REINICIO_ROBO)` entra com a #325.
