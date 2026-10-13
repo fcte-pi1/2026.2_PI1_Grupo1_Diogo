@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type {
   AmostraEnergia,
+  CelulaMapa,
   DadosExecucao,
   EstadoConexao,
   PontoTrajeto,
@@ -33,8 +34,13 @@ export interface EstadoPainel {
   acoes: {
     atualizarExecucao: (dados: Partial<DadosExecucao>) => void;
     reiniciarExecucao: (dados?: Partial<DadosExecucao>) => void;
+    /** Estado completo do backend (snapshot): substitui o mapa e as métricas, não mescla. */
+    substituirSnapshot: (dados: Partial<DadosExecucao> & { corrida: string }) => void;
+    /** Tipo de labirinto fora de 4x4/8x4/12x4: descarta a grade e sinaliza configuração inválida. */
+    definirTipoInvalido: () => void;
     adicionarPontoTrajeto: (ponto: PontoTrajeto) => void;
     adicionarAmostraEnergia: (amostra: AmostraEnergia) => void;
+    atualizarCelulaMapa: (celula: CelulaMapa) => void;
     definirEstadoConexao: (estado: EstadoConexao) => void;
     definirSinal: (sinal: SinalRobo) => void;
     definirSaude: (saude: SaudeBackend) => void;
@@ -52,14 +58,48 @@ export const usePainel = create<EstadoPainel>()((set) => ({
   },
   acoes: {
     atualizarExecucao: (dados) =>
+      set((s) => {
+        const tipoMudou =
+          dados.tipoLabirinto !== undefined && dados.tipoLabirinto !== s.aoVivo.tipoLabirinto;
+        return {
+          aoVivo: {
+            ...s.aoVivo,
+            ...dados,
+            tipoInvalido: dados.tipoLabirinto
+              ? false
+              : (dados.tipoInvalido ?? s.aoVivo.tipoInvalido),
+            mapa: tipoMudou ? [] : s.aoVivo.mapa,
+            trajeto: tipoMudou ? [] : s.aoVivo.trajeto,
+            tempoMs: manterTempoMaisRecente(s.aoVivo.tempoMs, dados.tempoMs),
+          },
+        };
+      }),
+    reiniciarExecucao: (dados) => set(() => ({ aoVivo: { ...execucaoInicial, ...dados } })),
+    substituirSnapshot: (dados) =>
+      set((s) => {
+        const mesmaCorrida = s.aoVivo.corrida === dados.corrida;
+        return {
+          aoVivo: {
+            ...execucaoInicial,
+            // O snapshot não traz trajeto nem série de energia: na mesma corrida (reconexão),
+            // o que já foi recebido continua válido (os eventos repetidos são descartados por `seq`).
+            trajeto: mesmaCorrida ? s.aoVivo.trajeto : [],
+            energia: mesmaCorrida ? s.aoVivo.energia : [],
+            ...dados,
+          },
+        };
+      }),
+    definirTipoInvalido: () =>
       set((s) => ({
         aoVivo: {
           ...s.aoVivo,
-          ...dados,
-          tempoMs: manterTempoMaisRecente(s.aoVivo.tempoMs, dados.tempoMs),
+          tipoLabirinto: null,
+          tipoInvalido: true,
+          mapa: [],
+          trajeto: [],
+          posicao: null,
         },
       })),
-    reiniciarExecucao: (dados) => set(() => ({ aoVivo: { ...execucaoInicial, ...dados } })),
     adicionarPontoTrajeto: (ponto) =>
       set((s) =>
         s.aoVivo.trajeto.some((atual) => atual.seq === ponto.seq)
@@ -86,6 +126,11 @@ export const usePainel = create<EstadoPainel>()((set) => ({
             energia: [...s.aoVivo.energia, amostra].slice(-6000),
           },
         };
+      }),
+    atualizarCelulaMapa: (celula) =>
+      set((s) => {
+        const mapa = s.aoVivo.mapa.filter((atual) => atual.x !== celula.x || atual.y !== celula.y);
+        return { aoVivo: { ...s.aoVivo, mapa: [...mapa, celula] } };
       }),
     definirEstadoConexao: (estado) => set((s) => ({ conexao: { ...s.conexao, estado } })),
     definirSinal: (sinal) => set((s) => ({ conexao: { ...s.conexao, sinal } })),

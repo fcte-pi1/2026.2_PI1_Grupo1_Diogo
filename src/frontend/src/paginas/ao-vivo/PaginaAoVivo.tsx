@@ -1,8 +1,11 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
+import { dimensoesLabirinto, estadoParede } from '../../dominio';
+import type { DirecaoParede, EstadoParede } from '../../dominio';
 import {
   formatarNumero,
   formatarTempo,
+  rotuloDesafio,
   rotuloStatus,
   useCronometroTentativa,
   useExecucaoAoVivo,
@@ -23,81 +26,167 @@ function StatusBadge({ status }: { status: Execucao['status'] }) {
         : status === 'INTERROMPIDA'
           ? estilos.statusAlerta
           : estilos.statusAndamento;
-  return <span className={`${estilos.status} ${classe}`}>{rotuloStatus(status)}</span>;
+  return (
+    <span className={`${estilos.status} ${classe}`} data-testid="status-desafio">
+      {rotuloStatus(status)}
+    </span>
+  );
 }
 
-function MazeView({ trajeto }: { trajeto: Execucao['trajeto'] }) {
+function MazeView({
+  trajeto,
+  mapa,
+  posicao,
+  tipo,
+  tipoInvalido,
+}: {
+  trajeto: Execucao['trajeto'];
+  mapa: Execucao['mapa'];
+  posicao: Execucao['posicao'];
+  tipo: Execucao['tipoLabirinto'];
+  tipoInvalido: Execucao['tipoInvalido'];
+}) {
+  if (tipo === null) {
+    return (
+      <div className={estilos.labirintoPendente} role="status" data-testid="labirinto-pendente">
+        {tipoInvalido ? 'Tipo de labirinto inválido' : 'Aguardando tipo de labirinto'}
+      </div>
+    );
+  }
   const cellSize = 82;
-  const size = cellSize * 4;
-  const pontos = trajeto.map(({ x, y }) => ({
-    x: Math.max(0, Math.min(3, x)) * cellSize + cellSize / 2,
-    y: (3 - Math.max(0, Math.min(3, y))) * cellSize + cellSize / 2,
-  }));
+  const { colunas: largura, linhas: altura } = dimensoesLabirinto(tipo);
+  const sizeX = cellSize * largura;
+  const sizeY = cellSize * altura;
+  // Convenção do protocolo: x cresce para o Leste e y cresce para o Sul (y = 0 é a borda Norte).
+  // O SVG usa a mesma orientação, então não há inversão de eixo.
+  const centro = (x: number, y: number) => ({
+    x: Math.max(0, Math.min(largura - 1, x)) * cellSize + cellSize / 2,
+    y: Math.max(0, Math.min(altura - 1, y)) * cellSize + cellSize / 2,
+  });
+  const pontos = trajeto.map(({ x, y }) => centro(x, y));
   const path = pontos.map(({ x, y }, indice) => `${indice === 0 ? 'M' : 'L'} ${x} ${y}`).join(' ');
-  const atual = pontos.at(-1);
+  const atual = posicao ? centro(posicao.x, posicao.y) : pontos.at(-1);
+  const visitas = new Map<string, number[]>();
+  trajeto.forEach(({ x, y, seq }) => {
+    const chave = `${x}:${y}`;
+    visitas.set(chave, [...(visitas.get(chave) ?? []), seq]);
+  });
+  const classeParede: Record<EstadoParede, string> = {
+    PRESENTE: estilos.paredePresente!,
+    AUSENTE: estilos.paredeAusente!,
+    DESCONHECIDA: estilos.paredeDesconhecida!,
+  };
 
   return (
     <div className={estilos.labirintoArea}>
       <svg
         className={estilos.labirinto}
-        viewBox={`0 0 ${size} ${size}`}
+        viewBox={`0 0 ${sizeX} ${sizeY}`}
         role="img"
         aria-label="Mapa do labirinto"
+        data-testid="labirinto"
+        data-colunas={largura}
+        data-linhas={altura}
       >
-        {Array.from({ length: 16 }, (_, indice) => {
-          const linha = Math.floor(indice / 4);
-          const coluna = indice % 4;
+        {Array.from({ length: largura * altura }, (_, indice) => {
+          const linha = Math.floor(indice / largura);
+          const coluna = indice % largura;
+          const visitada = visitas.has(`${coluna}:${linha}`);
           return (
             <rect
               key={`celula-${indice}`}
+              data-celula={`${coluna}:${linha}`}
               x={coluna * cellSize}
               y={linha * cellSize}
               width={cellSize}
               height={cellSize}
-              className={indice === 15 ? estilos.celulaInicio : estilos.celula}
+              className={
+                coluna === 0 && linha === altura - 1
+                  ? estilos.celulaInicio
+                  : visitada
+                    ? estilos.celulaVisitada
+                    : estilos.celula
+              }
             />
           );
         })}
-        {Array.from({ length: 5 }, (_, indice) => (
-          <g key={`grade-${indice}`}>
-            <line
-              x1={indice * cellSize}
-              y1="0"
-              x2={indice * cellSize}
-              y2={size}
-              className={estilos.linhaLabirinto}
-            />
-            <line
-              x1="0"
-              y1={indice * cellSize}
-              x2={size}
-              y2={indice * cellSize}
-              className={estilos.linhaLabirinto}
-            />
-          </g>
-        ))}
+        {Array.from(visitas.entries()).map(([chave, sequencias]) => {
+          const coordenadas = chave.split(':').map(Number);
+          const x = coordenadas[0];
+          const y = coordenadas[1];
+          if (x === undefined || y === undefined || !Number.isFinite(x) || !Number.isFinite(y))
+            return null;
+          const c = centro(x, y);
+          if (atual?.x === c.x && atual?.y === c.y) return null;
+          return (
+            <text
+              key={`visita-${chave}`}
+              data-testid={`visita-${x}-${y}`}
+              x={c.x}
+              y={c.y + 4}
+              textAnchor="middle"
+              className={estilos.numeroVisita}
+            >
+              {sequencias.join('/')}
+            </text>
+          );
+        })}
+        {Array.from({ length: largura * altura }, (_, indice) => {
+          const y = Math.floor(indice / largura);
+          const x = indice % largura;
+          const topo = y * cellSize;
+          const esquerda = x * cellSize;
+          const arestas: Record<DirecaoParede, [number, number, number, number]> = {
+            norte: [esquerda, topo, esquerda + cellSize, topo],
+            sul: [esquerda, topo + cellSize, esquerda + cellSize, topo + cellSize],
+            oeste: [esquerda, topo, esquerda, topo + cellSize],
+            leste: [esquerda + cellSize, topo, esquerda + cellSize, topo + cellSize],
+          };
+          return (
+            <g key={`paredes-${x}-${y}`}>
+              {(['norte', 'leste', 'sul', 'oeste'] as const).map((direcao) => {
+                const estado = estadoParede(mapa, tipo, x, y, direcao);
+                const [x1, y1, x2, y2] = arestas[direcao];
+                return (
+                  <line
+                    key={direcao}
+                    data-parede={`${x}:${y}:${direcao}`}
+                    data-estado={estado}
+                    x1={x1}
+                    y1={y1}
+                    x2={x2}
+                    y2={y2}
+                    className={classeParede[estado]}
+                  />
+                );
+              })}
+            </g>
+          );
+        })}
         <rect
-          x={3 * cellSize + 4}
+          x={(largura - 1) * cellSize + 4}
           y="4"
           width={cellSize - 8}
           height={cellSize - 8}
           className={estilos.objetivo}
         />
-        <text x={3 * cellSize + 8} y="18" className={estilos.rotuloMapa}>
+        <text x={(largura - 1) * cellSize + 8} y="18" className={estilos.rotuloMapa}>
           OBJETIVO
         </text>
         <rect
           x="4"
-          y={3 * cellSize + 4}
+          y={sizeY - cellSize + 4}
           width={cellSize - 8}
           height={cellSize - 8}
           className={estilos.inicio}
         />
-        <text x="8" y={3 * cellSize + 18} className={estilos.rotuloMapaInicio}>
+        <text x="8" y={sizeY - cellSize + 18} className={estilos.rotuloMapaInicio}>
           INÍCIO
         </text>
-        {path && <path d={path} className={estilos.trajetoria} />}
-        {atual && <circle cx={atual.x} cy={atual.y} r="12" className={estilos.robo} />}
+        {path && <path d={path} className={estilos.trajetoria} data-testid="trajetoria" />}
+        {atual && (
+          <circle cx={atual.x} cy={atual.y} r="12" className={estilos.robo} data-testid="robo" />
+        )}
       </svg>
       <div className={estilos.legenda}>
         <span>
@@ -246,6 +335,11 @@ export function PaginaAoVivo() {
           aria-label="Console de depuração"
         >{`// Micromouse Debug Console\nmensagens=${telemetria.mensagensRecebidas}\nstatus=${status}\nbackend=${saude.backend}`}</pre>
       )}
+      {execucao.status === 'CONCLUIDA' && (
+        <div className={estilos.desafioCumprido} role="status" data-testid="desafio-cumprido">
+          ✔ Desafio cumprido
+        </div>
+      )}
       <main className={estilos.conteudoPainel}>
         <div className={estilos.colunaPrincipal}>
           <article className={estilos.painel}>
@@ -253,7 +347,13 @@ export function PaginaAoVivo() {
               <span>LABIRINTO</span>
               <strong>{execucao.tipoLabirinto ?? '—'}</strong>
             </div>
-            <MazeView trajeto={execucao.trajeto} />
+            <MazeView
+              trajeto={execucao.trajeto}
+              mapa={execucao.mapa}
+              posicao={execucao.posicao}
+              tipo={execucao.tipoLabirinto}
+              tipoInvalido={execucao.tipoInvalido}
+            />
           </article>
           <article className={estilos.painelHistorico}>
             <div className={estilos.cabecalhoPainel}>
@@ -289,6 +389,10 @@ export function PaginaAoVivo() {
               </div>
             </div>
           </article>
+          <article className={estilos.painelPequeno}>
+            <span className={estilos.rotuloSecao}>DESAFIO</span>
+            <strong data-testid="desafio">{rotuloDesafio(execucao.status)}</strong>
+          </article>
           <article className={`${estilos.painelPequeno} ${estilos.painelCronometro}`}>
             <span className={estilos.rotuloSecao}>CRONÔMETRO</span>
             <strong className={estilos.cronometro} data-testid="tempo">
@@ -305,7 +409,9 @@ export function PaginaAoVivo() {
               </div>
               <div>
                 <small>Células percorridas</small>
-                <strong>{execucao.trajeto.length || '—'}</strong>
+                <strong data-testid="celulas-percorridas">
+                  {execucao.celulasPercorridas ?? '—'}
+                </strong>
               </div>
               <div>
                 <small>Distância total</small>
