@@ -52,6 +52,12 @@ const SOCKET_ABERTO = 1;
 const CAPACIDADE_PADRAO = 2000;
 const ATRASOS_PADRAO_MS = [250, 500, 1000, 2000] as const;
 
+const MOTIVOS_RECUSA: Record<number, string> = {
+  [CodigoFechamento.TOKEN_INVALIDO]: 'dispositivo ou token inválido',
+  [CodigoFechamento.VERSAO_NAO_SUPORTADA]: 'versão do protocolo não suportada',
+  [CodigoFechamento.HELLO_INVALIDO]: 'hello malformado ou fora do prazo',
+};
+
 export class Ponte {
   readonly contadores: ContadoresPonte = {
     linhasRecebidas: 0,
@@ -175,17 +181,12 @@ export class Ponte {
       this.socket = null;
       this.helloEnviado = false;
 
-      if (
-        code === CodigoFechamento.TOKEN_INVALIDO ||
-        code === CodigoFechamento.VERSAO_NAO_SUPORTADA
-      ) {
+      const motivoRecusa = MOTIVOS_RECUSA[code];
+      if (motivoRecusa !== undefined) {
+        // Reenviar o mesmo hello daria o mesmo resultado: espera o robô mandar outro.
         this.recusado = true;
         this.buffer = [];
-        this.opcoes.registro.erro(
-          code === CodigoFechamento.TOKEN_INVALIDO
-            ? 'o backend recusou o hello: dispositivo ou token inválido (4001)'
-            : 'o backend recusou o hello: versão do protocolo não suportada (4002)',
-        );
+        this.opcoes.registro.erro(`o backend recusou o hello: ${motivoRecusa} (${code})`);
         return;
       }
       if (!this.sessaoAtiva) return;

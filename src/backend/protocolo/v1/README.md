@@ -30,9 +30,15 @@ Esquemas oficiais (JSON Schema 2020-12) das mensagens que **chegam** ao backend.
 **Do notebook até o backend: a ponte.**
 - A [ponte](../../ponte/README.md) é um programa que roda no notebook do operador, **fora do Docker**, porque o container não enxerga o Bluetooth do computador. Ela lê a porta serial e repassa cada linha, sem alterar, como uma mensagem WebSocket em `/ws/telemetria`.
 - Para o backend, a ponte é igual a um robô conectado direto. O **simulador** fala WebSocket direto com `/ws/telemetria`, sem ponte, usando as mesmas mensagens.
-- O backend responde com `ack {corrida, sequencia}`, que é **informativo**: a ponte apenas o conta. O backend fecha a conexão com o código `4001` (dispositivo ou token inválido) ou `4002` (versão não suportada), e a ponte mostra o erro no terminal.
+- O backend responde com `ack {corrida, sequencia}`, que é **informativo**: a ponte apenas o conta. O `ack` leva a maior sequência gravada **sem lacunas antes dela**. Quando o backend recusa o `hello`, ele fecha a conexão com um dos códigos abaixo, e a ponte mostra o erro no terminal.
 
-**Perda de sinal.** O backend considera o sinal perdido quando passa **3 s sem receber nenhuma mensagem** durante uma corrida, ou quando a conexão fecha. Por isso, durante a corrida, o robô deve enviar **pelo menos uma mensagem por segundo** (as mensagens periódicas `posicao` e `energia` já garantem isso).
+  | Código | Motivo |
+  |:--|:--|
+  | `4001` | Dispositivo desconhecido, desativado ou token incorreto |
+  | `4002` | Versão do protocolo não suportada |
+  | `4003` | A primeira mensagem não é um `hello` bem formado, ou ele não chegou em 5 s |
+
+**Perda de sinal.** O backend considera o sinal perdido quando passa **3 s sem receber nenhuma mensagem** durante uma corrida, ou quando a conexão fecha. "Durante uma corrida" vai do `inicio_corrida` ao `fim_corrida`: fora disso, o silêncio do robô é normal. Por isso, durante a corrida, o robô deve enviar **pelo menos uma mensagem por segundo** (as mensagens periódicas `posicao` e `energia` já garantem isso).
 
 ## Envelope
 
@@ -45,6 +51,8 @@ Todas as mensagens do robô, exceto `hello`, levam:
 | `corrida` | texto | Id da corrida gerado pelo robô: 1 a 64 caracteres em `[A-Za-z0-9_-]`, único por dispositivo |
 | `sequencia` | inteiro | ≥ 1, contígua e crescente **por corrida** (o `inicio_corrida` é a `sequencia` 1) |
 | `tempo_ms` | inteiro | Milissegundos no relógio do robô (ex.: `millis()`), não decrescente dentro da corrida. É o **relógio oficial** da corrida (RF-82) |
+
+Uma mensagem rejeitada **não derruba a conexão**: o motivo é gravado em `mensagem_rejeitada` e a mensagem seguinte é processada normalmente.
 
 Campos não previstos no esquema são **rejeitados**. Isso pega erros de digitação no firmware. Campos novos entram numa nova versão do protocolo.
 
@@ -92,8 +100,7 @@ O esquema valida **a forma** da mensagem. As regras abaixo são **de domínio** 
 
 - coordenada dentro do labirinto da corrida;
 - tensão entre 5,0 e 9,0 V;
-- `tempo_ms` não decrescente dentro da corrida;
-- célula vizinha da anterior.
+- `tempo_ms` coerente com as sequências vizinhas: não pode ser menor que o da sequência anterior nem maior que o da seguinte.
 
 ## Exemplo de corrida
 
