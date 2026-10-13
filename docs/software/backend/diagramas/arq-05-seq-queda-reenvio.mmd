@@ -7,7 +7,7 @@ sequenceDiagram
 
     R->>B: seq 1..120 (persistidas)
     Note over R,B: Wi-Fi cai: seq 121..400 ficam no buffer circular do robô (≥ 60 s)
-    B->>B: 3 s sem pong → sinal PERDIDO
+    B->>B: 3 s sem pong -> sinal PERDIDO
     B-->>P: sinal PERDIDO (≤ 1 s)
     R->>B: reconecta · hello (mesmo boot)
     B-->>P: sinal RETOMADO
