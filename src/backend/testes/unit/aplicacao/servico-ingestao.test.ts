@@ -60,6 +60,56 @@ describe('ServicoIngestao', () => {
     });
   });
 
+  describe('novo hello na mesma conexão (o BLE do robô caiu e voltou)', () => {
+    it('aceita, sem contar como rejeição, e segue recebendo o buffer reenviado', async () => {
+      const sessao = await conectar();
+      await enviar(sessao, [mensagem('inicio_corrida', 1), mensagem('celula', 2)]);
+      amb.eventos.length = 0;
+
+      await enviar(sessao, [hello(), mensagem('celula', 2), mensagem('posicao', 3)]);
+
+      expect(amb.rejeicoes).toHaveLength(0);
+      expect(amb.contadores.mensagensRejeitadas).toBe(0);
+      expect(amb.sequenciasGravadasDe('c-A')).toEqual([1, 2, 3]);
+      expect(amb.eventos).toEqual([{ tipo: 'CONECTADO', corridaId: 'corrida-1', boot: 'b1' }]);
+    });
+
+    it('registra o reinício quando o boot muda', async () => {
+      const sessao = await conectar();
+      await enviar(sessao, [mensagem('inicio_corrida', 1)]);
+      amb.eventos.length = 0;
+
+      await enviar(sessao, [hello({ boot: 'b2' })]);
+
+      expect(sessao.boot).toBe('b2');
+      expect(amb.eventos).toEqual([
+        { tipo: 'REINICIO_DETECTADO', corridaId: 'corrida-1', boot: 'b2' },
+      ]);
+    });
+
+    it.each([
+      ['token errado', hello({ token: 'T-ERRADO' }), 4001],
+      ['versão não suportada', hello({ versao: 99 }), 4002],
+      ['hello malformado', hello({ boot: undefined }), 4003],
+    ])('pede o fechamento da conexão com %s (%i)', async (_caso, texto, codigo) => {
+      const sessao = await conectar();
+      expect(await amb.servico.receber(sessao, texto)).toMatchObject({ codigoFechamento: codigo });
+    });
+
+    it('recusa o hello de outro dispositivo na mesma conexão', async () => {
+      amb.dispositivos.set('sim-02', {
+        id: 'disp-2',
+        identificador: 'sim-02',
+        tokenHash: 'hash:T-VALIDO',
+        ativo: true,
+      });
+      const sessao = await conectar();
+      const pedido = await amb.servico.receber(sessao, hello({ dispositivo: 'sim-02' }));
+      expect(pedido).toMatchObject({ codigoFechamento: 4003 });
+      expect(sessao.dispositivoId).toBe('disp-1');
+    });
+  });
+
   describe('validação de esquema (RF-75)', () => {
     it('rejeita sem gravar e segue processando a mensagem válida seguinte (CT-BE-05)', async () => {
       const sessao = await conectar();

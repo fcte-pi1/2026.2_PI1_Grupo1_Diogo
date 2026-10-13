@@ -261,6 +261,26 @@ describe('ingestão de telemetria com PostgreSQL real', () => {
     await robo.fechar();
   });
 
+  it('aceita um novo hello na mesma conexão e fecha se ele for inválido', async () => {
+    const c = { corrida: 'rehello' };
+    const robo = await Robo.conectar(url);
+    robo.enviar(hello(), mensagem('inicio_corrida', 1, c), mensagem('celula', 2, c));
+    await robo.esperarAck('rehello', 2);
+
+    // O BLE caiu e voltou: o robô manda hello de novo (boot novo) e reenvia o buffer.
+    robo.enviar(hello({ boot: 'b2' }), mensagem('celula', 2, c), mensagem('posicao', 3, c));
+    await robo.esperarAck('rehello', 3);
+    expect(await sequenciasDe('rehello')).toEqual([1, 2, 3]);
+    const reinicios = await consulta(
+      `SELECT e.boot FROM evento_conexao e JOIN corrida c ON c.id = e.corrida_id
+       WHERE c.id_corrida_robo = 'rehello' AND e.tipo = 'REINICIO_DETECTADO'`,
+    );
+    expect(reinicios).toEqual([{ boot: 'b2' }]);
+
+    robo.enviar(hello({ token: 'T-ERRADO' }));
+    expect(await robo.fechamento).toBe(4001);
+  });
+
   it('RNF-52: depois de reiniciar o backend, continua idempotente e confirma do ponto certo', async () => {
     const c = { corrida: 'rnf52' };
     const antes = await Robo.conectar(url);

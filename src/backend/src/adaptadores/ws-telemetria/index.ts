@@ -67,7 +67,11 @@ export async function rotasTelemetria(
       }
 
       fila = fila
-        .then(() => (sessao ? ingestao.receber(sessao, texto) : undefined))
+        .then(async () => {
+          if (!sessao) return;
+          const fechar = await ingestao.receber(sessao, texto);
+          if (fechar) socket.close(fechar.codigoFechamento, fechar.motivo);
+        })
         .catch(registrarFalha);
     });
 

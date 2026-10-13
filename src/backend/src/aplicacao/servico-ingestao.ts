@@ -11,7 +11,12 @@ import {
   type DadosParaRegras,
   type TipoLabirinto,
 } from '../dominio/index.js';
-import { CodigoFechamento, type Ack, type MensagemCorrida } from '../../protocolo/tipos.js';
+import {
+  CodigoFechamento,
+  type Ack,
+  type Hello,
+  type MensagemCorrida,
+} from '../../protocolo/tipos.js';
 import {
   interpretarJson,
   type CodigoRejeicao,
@@ -19,6 +24,7 @@ import {
 } from '../../protocolo/validador.js';
 import type {
   Contadores,
+  Dispositivo,
   GravadorMensagens,
   RegistroAuditoria,
   RegistroLog,
@@ -42,8 +48,12 @@ export interface DependenciasIngestao {
   agora?: () => number;
 }
 
-export type ResultadoHello =
-  { ok: true; sessao: SessaoRobo } | { ok: false; codigoFechamento: number; motivo: string };
+export interface PedidoFechamento {
+  codigoFechamento: number;
+  motivo: string;
+}
+
+export type ResultadoHello = { ok: true; sessao: SessaoRobo } | ({ ok: false } & PedidoFechamento);
 
 /** Uma conexão autenticada de um robô (ou do simulador, ou da ponte). */
 export class SessaoRobo {
@@ -56,8 +66,9 @@ export class SessaoRobo {
   constructor(
     readonly dispositivoId: string,
     readonly identificador: string,
-    readonly boot: string,
-    readonly versaoProtocolo: number,
+    /** Muda quando o robô reinicia e se identifica de novo na mesma conexão. */
+    public boot: string,
+    public versaoProtocolo: number,
     /** Envia uma confirmação ao robô. É informativa: o robô pode ignorá-la. */
     readonly enviarAck: (ack: Ack) => void,
     agora: number,
@@ -86,9 +97,40 @@ export class ServicoIngestao {
 
   /** Valida a primeira mensagem da conexão e autentica o dispositivo (RF-72). */
   async autenticar(texto: string, enviarAck: (ack: Ack) => void): Promise<ResultadoHello> {
-    const { validador, dispositivos, tokens, contadores, log, auditoria } = this.deps;
     const json = interpretarJson(texto);
-    const hello = json.ok ? validador.hello(json.mensagem) : json;
+    const conferido = await this.conferirHello(json.ok ? json.mensagem : undefined);
+    if (!conferido.ok) return conferido;
+
+    const { dispositivo, hello } = conferido;
+    const sessao = new SessaoRobo(
+      dispositivo.id,
+      dispositivo.identificador,
+      hello.boot,
+      hello.versao,
+      enviarAck,
+      this.agora(),
+    );
+    await this.deps.auditoria.eventoConexao({
+      dispositivoId: dispositivo.id,
+      corridaId: null,
+      tipo: 'CONECTADO',
+      boot: hello.boot,
+    });
+    this.deps.log.info(
+      { dispositivo: dispositivo.identificador, boot: hello.boot },
+      'robô conectado',
+    );
+    return { ok: true, sessao };
+  }
+
+  /** Confere a forma do `hello`, o cadastro do dispositivo e o token. */
+  private async conferirHello(
+    bruto: unknown,
+  ): Promise<
+    { ok: true; dispositivo: Dispositivo; hello: Hello } | ({ ok: false } & PedidoFechamento)
+  > {
+    const { validador, dispositivos, tokens, contadores, log } = this.deps;
+    const hello = validador.hello(bruto);
 
     if (!hello.ok) {
       contadores.conexoesRecusadas++;
@@ -106,7 +148,7 @@ export class ServicoIngestao {
           };
     }
 
-    const { dispositivo: identificador, token, boot, versao } = hello.mensagem;
+    const { dispositivo: identificador, token } = hello.mensagem;
     const dispositivo = await dispositivos.buscarPorIdentificador(identificador);
     const autorizado =
       dispositivo !== null &&
@@ -122,33 +164,58 @@ export class ServicoIngestao {
         motivo: 'token inválido',
       };
     }
-
-    const sessao = new SessaoRobo(
-      dispositivo.id,
-      identificador,
-      boot,
-      versao,
-      enviarAck,
-      this.agora(),
-    );
-    await auditoria.eventoConexao({
-      dispositivoId: dispositivo.id,
-      corridaId: null,
-      tipo: 'CONECTADO',
-      boot,
-    });
-    log.info({ dispositivo: identificador, boot }, 'robô conectado');
-    return { ok: true, sessao };
+    return { ok: true, dispositivo, hello: hello.mensagem };
   }
 
-  /** Processa uma mensagem de corrida. Nunca lança por causa do conteúdo da mensagem. */
-  async receber(sessao: SessaoRobo, texto: string): Promise<void> {
+  /**
+   * Um `hello` no meio da conexão: o Bluetooth do robô caiu e voltou, e a ponte manteve
+   * a conexão com o backend. O robô se identifica de novo antes de reenviar o buffer.
+   * Um `boot` diferente significa que ele reiniciou.
+   */
+  private async reidentificar(
+    sessao: SessaoRobo,
+    bruto: unknown,
+  ): Promise<PedidoFechamento | void> {
+    const conferido = await this.conferirHello(bruto);
+    if (!conferido.ok) return conferido;
+    if (conferido.dispositivo.id !== sessao.dispositivoId) {
+      this.deps.contadores.conexoesRecusadas++;
+      this.deps.log.warn(
+        { era: sessao.identificador, veio: conferido.dispositivo.identificador },
+        'hello de outro dispositivo na mesma conexão',
+      );
+      return { codigoFechamento: CodigoFechamento.HELLO_INVALIDO, motivo: 'dispositivo diferente' };
+    }
+
+    const reiniciou = conferido.hello.boot !== sessao.boot;
+    sessao.boot = conferido.hello.boot;
+    sessao.versaoProtocolo = conferido.hello.versao;
+    await this.deps.auditoria.eventoConexao({
+      dispositivoId: sessao.dispositivoId,
+      corridaId: sessao.corridaAtiva?.id ?? null,
+      tipo: reiniciou ? 'REINICIO_DETECTADO' : 'CONECTADO',
+      boot: sessao.boot,
+    });
+    this.deps.log.info(
+      { dispositivo: sessao.identificador, boot: sessao.boot, reiniciou },
+      'robô se identificou de novo',
+    );
+  }
+
+  /**
+   * Processa uma mensagem de uma conexão já autenticada. Nunca lança por causa do conteúdo.
+   * Devolve um pedido de fechamento só quando um novo `hello` é recusado.
+   */
+  async receber(sessao: SessaoRobo, texto: string): Promise<PedidoFechamento | void> {
     const { validador, contadores } = this.deps;
     await this.registrarAtividade(sessao);
 
     const json = interpretarJson(texto);
     if (!json.ok) {
       return this.rejeitar(sessao, json.codigo, json.detalhe, { texto: texto.slice(0, 500) });
+    }
+    if ((json.mensagem as { tipo?: unknown } | null)?.tipo === 'hello') {
+      return this.reidentificar(sessao, json.mensagem);
     }
     const validada = validador.corrida(json.mensagem);
     if (!validada.ok) {
