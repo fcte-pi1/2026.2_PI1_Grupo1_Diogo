@@ -1,17 +1,47 @@
-import { atrasoBackoffMs } from '../../dominio';
+import { atrasoBackoffMs, ehTipoLabirinto, type DadosExecucao } from '../../dominio';
 import { usePainel } from '../../estado';
+import type {
+  AoVivoPainel,
+  ContinuoPainel,
+  EventoCelulaPainel,
+  EventoStatusPainel,
+  MensagemPainelEntrada,
+  MensagemPainelSaida,
+  Metricas,
+  SinalPainel,
+  SnapshotPainel,
+} from '../../protocolo';
+
+const TIPOS_SAIDA: ReadonlySet<string> = new Set<MensagemPainelSaida['tipo']>([
+  'snapshot',
+  'evento',
+  'continuo',
+  'sinal',
+  'alerta',
+  'ao_vivo',
+  'leaderboard',
+  'keepalive',
+]);
+
+const STATUS_FINAIS: ReadonlySet<string> = new Set(['CONCLUIDA', 'FALHOU', 'INTERROMPIDA']);
 
 /**
  * ClientePainelWS — conexão com /ws/painel fora da árvore de componentes (RF-58),
  * com reconexão por backoff de teto 2 s (RNF-39).
- * Esqueleto: conecta, reconecta e se inscreve no canal `ao_vivo`. O watchdog, os eventos
- * online/offline e o despacho das mensagens serão implementados com a tela ao vivo.
+ *
+ * Fluxo do contrato (protocolo v1, "Backend → Painel"):
+ *  1. ao abrir, inscreve-se no canal `ao_vivo` (resumo de início e fim de qualquer corrida);
+ *  2. ao receber `ao_vivo` com `EM_ANDAMENTO` de uma corrida nova, inscreve-se nela, o que
+ *     faz o backend enviar `snapshot` e depois `evento`, `continuo` e `sinal`;
+ *  3. ao mudar a corrida acompanhada, o estado da tela é reiniciado.
  */
 export class ClientePainelWS {
   private socket: WebSocket | null = null;
   private tentativa = 0;
   private temporizador: ReturnType<typeof setTimeout> | null = null;
   private encerrado = false;
+  /** Corrida em que o painel está inscrito (id do backend). */
+  private corridaInscrita: string | null = null;
 
   constructor(private readonly url: string = ClientePainelWS.urlPadrao()) {}
 
@@ -36,6 +66,7 @@ export class ClientePainelWS {
     if (this.temporizador) clearTimeout(this.temporizador);
     this.socket?.close();
     this.socket = null;
+    this.corridaInscrita = null;
     usePainel.getState().acoes.definirEstadoConexao('DESCONECTADO');
   }
 
@@ -49,7 +80,12 @@ export class ClientePainelWS {
     socket.addEventListener('open', () => {
       this.tentativa = 0;
       acoes.definirEstadoConexao('CONECTADO');
-      socket.send(JSON.stringify({ tipo: 'inscrever', canal: 'ao_vivo' }));
+      this.enviar({ tipo: 'inscrever', canal: 'ao_vivo' });
+      // Reconexão no meio de uma corrida: pede o snapshot de novo (RF-89).
+      const { corrida, status } = usePainel.getState().aoVivo;
+      if (this.corridaInscrita && corrida === this.corridaInscrita && status === 'EM_ANDAMENTO') {
+        this.enviar({ tipo: 'inscrever', corrida });
+      }
     });
 
     socket.addEventListener('message', (evento) => {
@@ -65,144 +101,160 @@ export class ClientePainelWS {
     });
   }
 
+  private enviar(mensagem: MensagemPainelEntrada): void {
+    if (this.socket?.readyState === WebSocket.OPEN) this.socket.send(JSON.stringify(mensagem));
+  }
+
   private despacharMensagem(dado: unknown): void {
-    try {
-      const mensagem = typeof dado === 'string' ? JSON.parse(dado) : dado;
-      if (!mensagem || typeof mensagem !== 'object') return;
-
-      const envelope = mensagem as Record<string, unknown>;
-      const registro = asRegistro(envelope.dados ?? envelope.payload ?? envelope);
-      const tipo = asString(envelope.tipo ?? registro.tipo);
-      const { acoes } = usePainel.getState();
-      acoes.registrarMensagem();
-      if (tipo === 'inicio_corrida') acoes.reiniciarExecucao();
-      const metricas = asRegistro(registro.metricas ?? envelope.metricas);
-      const energia = asRegistro(registro.energia ?? envelope.energia);
-      const labirinto = asRegistro(registro.labirinto ?? envelope.labirinto);
-      const ponto = asRegistro(
-        registro.ponto ?? registro.posicao ?? envelope.ponto ?? envelope.posicao,
-      );
-      const tempo = asNumber(
-        registro.tempo_conclusao_ms ?? envelope.tempo_conclusao_ms ?? registro.t,
-      );
-      const evento = asString(
-        envelope.evento ??
-          registro.evento ??
-          (tipo === 'evento' ? registro.tipo_evento : undefined),
-      );
-      const status =
-        asStatus(registro.status ?? envelope.status ?? asRegistro(registro.estado).status) ??
-        asStatusFinal(tipo, evento, registro.motivo ?? envelope.motivo);
-      const tensaoV = asNumber(energia.tensao_v ?? registro.tensao_v ?? envelope.tensao_v);
-      const correnteA = asNumber(energia.corrente_a ?? registro.corrente_a ?? envelope.corrente_a);
-      const potenciaW = asNumber(energia.potencia_w ?? registro.potencia_w ?? envelope.potencia_w);
-      const cargaPct = asNumber(
-        energia.carga_pct ?? energia.carga_percentual ?? registro.carga_pct ?? envelope.carga_pct,
-      );
-
-      const atualizacao: Partial<import('../../dominio').DadosExecucao> = {};
-      const tipoLabirinto = asTipoLabirinto(
-        labirinto.tipo ?? registro.tipo_labirinto ?? envelope.tipo_labirinto,
-      );
-      const velocidadeMediaMps = asNumber(
-        metricas.velocidade_media_m_s ??
-          registro.velocidade_media_m_s ??
-          envelope.velocidade_media_m_s,
-      );
-      if (tipoLabirinto !== undefined) atualizacao.tipoLabirinto = tipoLabirinto;
-      if (velocidadeMediaMps !== null) atualizacao.velocidadeMediaMps = velocidadeMediaMps;
-      if (tempo !== null) atualizacao.tempoMs = tempo;
-      if (status !== undefined) atualizacao.status = status;
-      if (tensaoV !== null) atualizacao.tensaoV = tensaoV;
-      if (correnteA !== null) atualizacao.correnteA = correnteA;
-      if (potenciaW !== null) atualizacao.potenciaW = potenciaW;
-      if (cargaPct !== null) atualizacao.cargaPct = cargaPct;
-      acoes.atualizarExecucao(atualizacao);
-
-      const seqEnergia = asNumber(registro.seq ?? envelope.seq);
-      const tempoEnergia = asNumber(registro.t ?? envelope.t);
-      if (tensaoV !== null && correnteA !== null && potenciaW !== null) {
-        acoes.adicionarAmostraEnergia({
-          seq: seqEnergia,
-          tempoMs: tempoEnergia,
-          tensaoV,
-          correnteA,
-          potenciaW,
-          cargaPct,
-        });
-      }
-
-      if (tipo === 'sinal') {
-        acoes.definirSinal(registro.sinal === 'OK' ? 'OK' : 'PERDIDO');
-      }
-
-      const celulaMapa = asCelulaMapa(
-        registro.celula ?? registro.mapa ?? envelope.celula ?? envelope.mapa,
-      );
-      if (celulaMapa) acoes.atualizarCelulaMapa(celulaMapa);
-      if ((tipo === 'evento' && evento === 'celula') || tipo === 'celula') {
-        const seq = asNumber(registro.seq ?? envelope.seq);
-        const x = asNumber(ponto.x);
-        const y = asNumber(ponto.y);
-        if (seq !== null && x !== null && y !== null) acoes.adicionarPontoTrajeto({ seq, x, y });
-      }
-    } catch {
+    const mensagem = lerMensagem(dado);
+    if (!mensagem) {
       console.warn('[painel-ws] mensagem inválida');
+      return;
     }
+    // keepalive existe só para o watchdog de conexão: não é telemetria.
+    if (mensagem.tipo === 'keepalive') return;
+
+    usePainel.getState().acoes.registrarMensagem();
+    switch (mensagem.tipo) {
+      case 'ao_vivo':
+        return this.aoReceberAoVivo(mensagem);
+      case 'snapshot':
+        return this.aoReceberSnapshot(mensagem);
+      case 'evento':
+        return mensagem.evento === 'celula'
+          ? this.aoReceberCelula(mensagem)
+          : this.aoReceberStatus(mensagem);
+      case 'continuo':
+        return this.aoReceberContinuo(mensagem);
+      case 'sinal':
+        return this.aoReceberSinal(mensagem);
+      default:
+        // alerta e leaderboard ainda não têm tela.
+        return;
+    }
+  }
+
+  private aoReceberAoVivo(m: AoVivoPainel): void {
+    const { acoes, aoVivo } = usePainel.getState();
+    const mesmaCorrida = aoVivo.corrida === m.corrida;
+
+    if (m.status === 'EM_ANDAMENTO') {
+      // Um `ao_vivo` atrasado não reabre uma corrida já encerrada.
+      if (mesmaCorrida && aoVivo.status !== null && STATUS_FINAIS.has(aoVivo.status)) return;
+      if (!mesmaCorrida) {
+        acoes.reiniciarExecucao({ corrida: m.corrida, status: 'EM_ANDAMENTO' });
+        this.aplicarLabirinto(m.labirinto);
+      }
+      this.inscreverNaCorrida(m.corrida);
+      return;
+    }
+    if (mesmaCorrida) acoes.atualizarExecucao({ status: m.status });
+  }
+
+  private aoReceberSnapshot(m: SnapshotPainel): void {
+    if (this.corridaInscrita !== null && this.corridaInscrita !== m.corrida) return;
+    this.corridaInscrita = m.corrida;
+
+    const { acoes } = usePainel.getState();
+    const tipo: unknown = m.labirinto;
+    acoes.substituirSnapshot({
+      tipoLabirinto: ehTipoLabirinto(tipo) ? tipo : null,
+      tipoInvalido: !ehTipoLabirinto(tipo) && tipo !== undefined && tipo !== null,
+      mapa: Array.isArray(m.mapa) ? m.mapa : [],
+      posicao: m.posicao ?? null,
+      status: m.status,
+      ...dadosDasMetricas(m.metricas),
+      corrida: m.corrida,
+    });
+  }
+
+  private aoReceberCelula(m: EventoCelulaPainel): void {
+    if (!this.daCorridaAtual(m.corrida)) return;
+    const { acoes } = usePainel.getState();
+    acoes.atualizarExecucao(dadosDasMetricas(m.metricas));
+    acoes.atualizarCelulaMapa({ x: m.x, y: m.y, paredes: m.paredes });
+    acoes.adicionarPontoTrajeto({ seq: m.sequencia, x: m.x, y: m.y });
+  }
+
+  private aoReceberStatus(m: EventoStatusPainel): void {
+    if (!this.daCorridaAtual(m.corrida)) return;
+    usePainel.getState().acoes.atualizarExecucao({
+      ...dadosDasMetricas(m.metricas),
+      status: m.status,
+    });
+  }
+
+  private aoReceberContinuo(m: ContinuoPainel): void {
+    if (!this.daCorridaAtual(m.corrida)) return;
+    const { acoes } = usePainel.getState();
+    acoes.atualizarExecucao({
+      ...dadosDasMetricas(m.metricas),
+      ...(m.posicao ? { posicao: m.posicao } : {}),
+    });
+    if (m.energia) {
+      acoes.adicionarAmostraEnergia({
+        seq: null,
+        tempoMs: m.tempo_ms,
+        tensaoV: m.energia.tensao_v,
+        correnteA: m.energia.corrente_a,
+        potenciaW: m.energia.potencia_w,
+        cargaPct: m.metricas?.carga_estimada_pct ?? null,
+      });
+    }
+  }
+
+  private aoReceberSinal(m: SinalPainel): void {
+    if (!this.daCorridaAtual(m.corrida)) return;
+    usePainel.getState().acoes.definirSinal(m.estado === 'RETOMADO' ? 'OK' : 'PERDIDO');
+  }
+
+  private daCorridaAtual(corrida: string): boolean {
+    return usePainel.getState().aoVivo.corrida === corrida;
+  }
+
+  /** Inscreve-se na corrida (e cancela a anterior): eventos e contínuos só chegam a quem pede. */
+  private inscreverNaCorrida(corrida: string): void {
+    if (this.corridaInscrita === corrida) return;
+    if (this.corridaInscrita !== null)
+      this.enviar({ tipo: 'cancelar', corrida: this.corridaInscrita });
+    this.corridaInscrita = corrida;
+    this.enviar({ tipo: 'inscrever', corrida });
+  }
+
+  private aplicarLabirinto(tipo: unknown): void {
+    const { acoes } = usePainel.getState();
+    if (ehTipoLabirinto(tipo)) acoes.atualizarExecucao({ tipoLabirinto: tipo });
+    else if (tipo !== undefined && tipo !== null) acoes.definirTipoInvalido();
   }
 }
 
-function asRegistro(valor: unknown): Record<string, unknown> {
-  return valor !== null && typeof valor === 'object' ? (valor as Record<string, unknown>) : {};
+function lerMensagem(dado: unknown): MensagemPainelSaida | null {
+  try {
+    const mensagem: unknown = typeof dado === 'string' ? JSON.parse(dado) : dado;
+    if (mensagem === null || typeof mensagem !== 'object') return null;
+    const tipo = (mensagem as { tipo?: unknown }).tipo;
+    return typeof tipo === 'string' && TIPOS_SAIDA.has(tipo)
+      ? (mensagem as MensagemPainelSaida)
+      : null;
+  } catch {
+    return null;
+  }
 }
 
-function asNumber(valor: unknown): number | null {
-  return typeof valor === 'number' && Number.isFinite(valor) ? valor : null;
-}
-
-function asString(valor: unknown): string | undefined {
-  return typeof valor === 'string' ? valor : undefined;
-}
-
-function asCelulaMapa(valor: unknown) {
-  const registro = asRegistro(valor);
-  const x = asNumber(registro.x);
-  const y = asNumber(registro.y);
-  const paredes = asRegistro(registro.paredes ?? registro.walls);
-  if (x === null || y === null) return undefined;
+/**
+ * Métricas derivadas pelo backend → dados da tela. O tempo vem do backend (relógio oficial,
+ * RF-82): `tempo_conclusao_ms` quando a corrida terminou com sucesso, senão o decorrido.
+ */
+function dadosDasMetricas(metricas: Metricas | null | undefined): Partial<DadosExecucao> {
+  if (!metricas) return {};
+  const tempo = metricas.tempo_conclusao_ms ?? metricas.tempo_decorrido_ms;
   return {
-    x,
-    y,
-    paredes: {
-      n: asParede(paredes.n),
-      s: asParede(paredes.s),
-      e: asParede(paredes.e),
-      w: asParede(paredes.w),
-    },
-  } as const;
-}
-
-function asParede(valor: unknown): boolean | null {
-  return typeof valor === 'boolean' ? valor : null;
-}
-
-function asTipoLabirinto(valor: unknown) {
-  return valor === '4x4' || valor === '8x4' || valor === '12x4' ? valor : undefined;
-}
-
-function asStatus(valor: unknown) {
-  return valor === 'EM_ANDAMENTO' ||
-    valor === 'CONCLUIDA' ||
-    valor === 'FALHOU' ||
-    valor === 'INTERROMPIDA'
-    ? valor
-    : undefined;
-}
-
-function asStatusFinal(tipo: string | undefined, evento: string | undefined, motivo: unknown) {
-  if (tipo !== 'fim_corrida' && evento !== 'fim_corrida') return undefined;
-  if (motivo === 'SUCESSO') return 'CONCLUIDA' as const;
-  if (motivo === 'SEM_SINAL' || motivo === 'REINICIO_ROBO') return 'INTERROMPIDA' as const;
-  if (motivo === 'FALHA_REPORTADA') return 'FALHOU' as const;
-  return undefined;
+    celulasPercorridas: metricas.celulas_percorridas,
+    velocidadeMediaMps: metricas.velocidade_media_mps,
+    tensaoV: metricas.tensao_v,
+    correnteA: metricas.corrente_a,
+    potenciaW: metricas.potencia_w,
+    cargaPct: metricas.carga_estimada_pct,
+    ...(tempo !== null && tempo !== undefined ? { tempoMs: tempo } : {}),
+  };
 }
