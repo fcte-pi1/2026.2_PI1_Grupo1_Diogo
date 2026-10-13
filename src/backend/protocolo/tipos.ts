@@ -269,3 +269,58 @@ export type MensagemPainelSaida =
   | AoVivoPainel
   | LeaderboardPainel
   | KeepalivePainel;
+
+// ============================================================================
+// API HTTP — GET /api/corridas (listagem do histórico, RF-93)
+// ============================================================================
+// Referência: `protocolo/v1/API.md`.
+
+/** Tamanho de página usado quando `tamanho` não é informado. */
+export const TAMANHO_PAGINA_PADRAO = 20;
+/** Maior `tamanho` atendido. Pedidos acima disso são limitados a este valor. */
+export const TAMANHO_PAGINA_MAXIMO = 100;
+
+/** Parâmetros de consulta de `GET /api/corridas`. Todos são opcionais e combináveis. */
+export interface FiltrosListaCorridas {
+  /** Só corridas deste tipo de labirinto. Sem o parâmetro, todos os tipos. */
+  tipo?: TipoLabirinto;
+  status?: StatusCorrida;
+  /** Início do período, ISO 8601: corridas iniciadas a partir deste instante. */
+  de?: string;
+  /** Fim do período, ISO 8601: corridas iniciadas até este instante. */
+  ate?: string;
+  /** Começa em 1. Padrão: 1. */
+  pagina?: number;
+  /** Itens por página, de 1 a 100. Padrão: 20. */
+  tamanho?: number;
+}
+
+/** Uma corrida na listagem do histórico. */
+export interface CorridaResumo {
+  /** Id (UUID) da corrida no backend. É o mesmo usado em `/api/corridas/{id}` e no painel. */
+  id: string;
+  /** Instante em que o backend recebeu a corrida, ISO 8601 em UTC. */
+  iniciada_em: string;
+  /** `null` quando o `inicio_corrida` ainda não chegou (corrida criada após uma perda). */
+  tipo_labirinto: TipoLabirinto | null;
+  /** Número da tentativa na apresentação; `null` para corridas fora de apresentação. */
+  numero_tentativa: number | null;
+  status: StatusCorrida;
+  /** `null` enquanto a corrida está em andamento. */
+  motivo_termino: MotivoTermino | null;
+  /** Tempo oficial, pelo relógio do robô. Só existe para corridas concluídas com sucesso. */
+  tempo_conclusao_ms: number | null;
+  /** A corrida foi anulada por um operador (RF-96). */
+  anulada: boolean;
+}
+
+/** Resposta de `GET /api/corridas`, da corrida mais recente para a mais antiga. */
+export interface RespostaListaCorridas {
+  itens: CorridaResumo[];
+  /** Total de corridas que atendem aos filtros, somando todas as páginas. */
+  total: number;
+  /** Página devolvida, começando em 1. */
+  pagina: number;
+  /** Tamanho de página aplicado, já limitado ao máximo. */
+  tamanho: number;
+}
