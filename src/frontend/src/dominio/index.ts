@@ -3,3 +3,4 @@
 export * from './conexao';
 export * from './execucao';
 export * from './historico';
+export * from './labirinto';

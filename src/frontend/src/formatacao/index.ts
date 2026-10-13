@@ -2,3 +2,4 @@
 export * from './conexao';
 export * from './historico';
 export * from './tempo';
+export * from './execucao';

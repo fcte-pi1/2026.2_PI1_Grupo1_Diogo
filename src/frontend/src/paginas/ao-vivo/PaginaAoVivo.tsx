@@ -1,8 +1,11 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
+import { dimensoesLabirinto, estadoParede } from '../../dominio';
+import type { DirecaoParede, EstadoParede } from '../../dominio';
 import {
   formatarNumero,
   formatarTempo,
+  rotuloDesafio,
   rotuloStatus,
   useCronometroTentativa,
   useExecucaoAoVivo,
@@ -33,41 +36,45 @@ function StatusBadge({ status }: { status: Execucao['status'] }) {
 function MazeView({
   trajeto,
   mapa,
+  posicao,
   tipo,
+  tipoInvalido,
 }: {
   trajeto: Execucao['trajeto'];
   mapa: Execucao['mapa'];
+  posicao: Execucao['posicao'];
   tipo: Execucao['tipoLabirinto'];
+  tipoInvalido: Execucao['tipoInvalido'];
 }) {
   if (tipo === null) {
-    return <div className={estilos.labirintoPendente}>Aguardando tipo de labirinto</div>;
+    return (
+      <div className={estilos.labirintoPendente} role="status" data-testid="labirinto-pendente">
+        {tipoInvalido ? 'Tipo de labirinto inválido' : 'Aguardando tipo de labirinto'}
+      </div>
+    );
   }
   const cellSize = 82;
-  const [colunas, linhas] = tipo.split('x').map(Number);
-  const largura = colunas || 4;
-  const altura = linhas || 4;
+  const { colunas: largura, linhas: altura } = dimensoesLabirinto(tipo);
   const sizeX = cellSize * largura;
   const sizeY = cellSize * altura;
-  const pontos = trajeto.map(({ x, y }) => ({
+  // Convenção do protocolo: x cresce para o Leste e y cresce para o Sul (y = 0 é a borda Norte).
+  // O SVG usa a mesma orientação, então não há inversão de eixo.
+  const centro = (x: number, y: number) => ({
     x: Math.max(0, Math.min(largura - 1, x)) * cellSize + cellSize / 2,
-    y: (altura - 1 - Math.max(0, Math.min(altura - 1, y))) * cellSize + cellSize / 2,
-  }));
+    y: Math.max(0, Math.min(altura - 1, y)) * cellSize + cellSize / 2,
+  });
+  const pontos = trajeto.map(({ x, y }) => centro(x, y));
   const path = pontos.map(({ x, y }, indice) => `${indice === 0 ? 'M' : 'L'} ${x} ${y}`).join(' ');
-  const atual = pontos.at(-1);
+  const atual = posicao ? centro(posicao.x, posicao.y) : pontos.at(-1);
   const visitas = new Map<string, number[]>();
   trajeto.forEach(({ x, y, seq }) => {
     const chave = `${x}:${y}`;
     visitas.set(chave, [...(visitas.get(chave) ?? []), seq]);
   });
-  const encontrarCelula = (x: number, y: number) =>
-    mapa.find((celula) => celula.x === x && celula.y === y);
-  const classeParede = (x: number, y: number, direcao: 'n' | 's' | 'e' | 'w') => {
-    const estado = encontrarCelula(x, y)?.paredes[direcao] ?? null;
-    return estado === false
-      ? null
-      : estado === true
-        ? estilos.paredePresente
-        : estilos.paredeDesconhecida;
+  const classeParede: Record<EstadoParede, string> = {
+    PRESENTE: estilos.paredePresente!,
+    AUSENTE: estilos.paredeAusente!,
+    DESCONHECIDA: estilos.paredeDesconhecida!,
   };
 
   return (
@@ -77,6 +84,9 @@ function MazeView({
         viewBox={`0 0 ${sizeX} ${sizeY}`}
         role="img"
         aria-label="Mapa do labirinto"
+        data-testid="labirinto"
+        data-colunas={largura}
+        data-linhas={altura}
       >
         {Array.from({ length: largura * altura }, (_, indice) => {
           const linha = Math.floor(indice / largura);
@@ -85,12 +95,13 @@ function MazeView({
           return (
             <rect
               key={`celula-${indice}`}
+              data-celula={`${coluna}:${linha}`}
               x={coluna * cellSize}
-              y={(altura - 1 - linha) * cellSize}
+              y={linha * cellSize}
               width={cellSize}
               height={cellSize}
               className={
-                coluna === 0 && linha === 0
+                coluna === 0 && linha === altura - 1
                   ? estilos.celulaInicio
                   : visitada
                     ? estilos.celulaVisitada
@@ -105,16 +116,14 @@ function MazeView({
           const y = coordenadas[1];
           if (x === undefined || y === undefined || !Number.isFinite(x) || !Number.isFinite(y))
             return null;
-          if (
-            pontos.at(-1)?.x === x * cellSize + cellSize / 2 &&
-            pontos.at(-1)?.y === (altura - 1 - y) * cellSize + cellSize / 2
-          )
-            return null;
+          const c = centro(x, y);
+          if (atual?.x === c.x && atual?.y === c.y) return null;
           return (
             <text
               key={`visita-${chave}`}
-              x={x * cellSize + cellSize / 2}
-              y={(altura - 1 - y) * cellSize + cellSize / 2 + 4}
+              data-testid={`visita-${x}-${y}`}
+              x={c.x}
+              y={c.y + 4}
               textAnchor="middle"
               className={estilos.numeroVisita}
             >
@@ -125,28 +134,31 @@ function MazeView({
         {Array.from({ length: largura * altura }, (_, indice) => {
           const y = Math.floor(indice / largura);
           const x = indice % largura;
-          const svgY = (altura - 1 - y) * cellSize;
+          const topo = y * cellSize;
+          const esquerda = x * cellSize;
+          const arestas: Record<DirecaoParede, [number, number, number, number]> = {
+            norte: [esquerda, topo, esquerda + cellSize, topo],
+            sul: [esquerda, topo + cellSize, esquerda + cellSize, topo + cellSize],
+            oeste: [esquerda, topo, esquerda, topo + cellSize],
+            leste: [esquerda + cellSize, topo, esquerda + cellSize, topo + cellSize],
+          };
           return (
             <g key={`paredes-${x}-${y}`}>
-              {(['n', 's', 'e', 'w'] as const).map((direcao) => {
-                const classe = classeParede(x, y, direcao);
-                if (!classe) return null;
-                const x1 =
-                  direcao === 'w'
-                    ? x * cellSize
-                    : direcao === 'e'
-                      ? (x + 1) * cellSize
-                      : x * cellSize;
-                const x2 =
-                  direcao === 'w'
-                    ? x * cellSize
-                    : direcao === 'e'
-                      ? (x + 1) * cellSize
-                      : (x + 1) * cellSize;
-                const y1 = direcao === 'n' ? svgY : direcao === 's' ? svgY + cellSize : svgY;
-                const y2 =
-                  direcao === 'n' ? svgY : direcao === 's' ? svgY + cellSize : svgY + cellSize;
-                return <line key={direcao} x1={x1} y1={y1} x2={x2} y2={y2} className={classe} />;
+              {(['norte', 'leste', 'sul', 'oeste'] as const).map((direcao) => {
+                const estado = estadoParede(mapa, tipo, x, y, direcao);
+                const [x1, y1, x2, y2] = arestas[direcao];
+                return (
+                  <line
+                    key={direcao}
+                    data-parede={`${x}:${y}:${direcao}`}
+                    data-estado={estado}
+                    x1={x1}
+                    y1={y1}
+                    x2={x2}
+                    y2={y2}
+                    className={classeParede[estado]}
+                  />
+                );
               })}
             </g>
           );
@@ -171,8 +183,10 @@ function MazeView({
         <text x="8" y={sizeY - cellSize + 18} className={estilos.rotuloMapaInicio}>
           INÍCIO
         </text>
-        {path && <path d={path} className={estilos.trajetoria} />}
-        {atual && <circle cx={atual.x} cy={atual.y} r="12" className={estilos.robo} />}
+        {path && <path d={path} className={estilos.trajetoria} data-testid="trajetoria" />}
+        {atual && (
+          <circle cx={atual.x} cy={atual.y} r="12" className={estilos.robo} data-testid="robo" />
+        )}
       </svg>
       <div className={estilos.legenda}>
         <span>
@@ -321,6 +335,11 @@ export function PaginaAoVivo() {
           aria-label="Console de depuração"
         >{`// Micromouse Debug Console\nmensagens=${telemetria.mensagensRecebidas}\nstatus=${status}\nbackend=${saude.backend}`}</pre>
       )}
+      {execucao.status === 'CONCLUIDA' && (
+        <div className={estilos.desafioCumprido} role="status" data-testid="desafio-cumprido">
+          ✔ Desafio cumprido
+        </div>
+      )}
       <main className={estilos.conteudoPainel}>
         <div className={estilos.colunaPrincipal}>
           <article className={estilos.painel}>
@@ -331,7 +350,9 @@ export function PaginaAoVivo() {
             <MazeView
               trajeto={execucao.trajeto}
               mapa={execucao.mapa}
+              posicao={execucao.posicao}
               tipo={execucao.tipoLabirinto}
+              tipoInvalido={execucao.tipoInvalido}
             />
           </article>
           <article className={estilos.painelHistorico}>
@@ -368,6 +389,10 @@ export function PaginaAoVivo() {
               </div>
             </div>
           </article>
+          <article className={estilos.painelPequeno}>
+            <span className={estilos.rotuloSecao}>DESAFIO</span>
+            <strong data-testid="desafio">{rotuloDesafio(execucao.status)}</strong>
+          </article>
           <article className={`${estilos.painelPequeno} ${estilos.painelCronometro}`}>
             <span className={estilos.rotuloSecao}>CRONÔMETRO</span>
             <strong className={estilos.cronometro} data-testid="tempo">
@@ -384,7 +409,9 @@ export function PaginaAoVivo() {
               </div>
               <div>
                 <small>Células percorridas</small>
-                <strong>{execucao.trajeto.length || '—'}</strong>
+                <strong data-testid="celulas-percorridas">
+                  {execucao.celulasPercorridas ?? '—'}
+                </strong>
               </div>
               <div>
                 <small>Distância total</small>
