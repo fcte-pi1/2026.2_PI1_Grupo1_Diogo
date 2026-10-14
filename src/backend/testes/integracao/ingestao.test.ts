@@ -8,10 +8,12 @@ import type { FastifyInstance } from 'fastify';
 import { runner } from 'node-pg-migrate';
 import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import type { DetalheCorrida } from '../../protocolo/tipos.js';
 import { criarValidadorProtocolo } from '../../protocolo/validador.js';
-import { ServicoCorrida, ServicoIngestao } from '../../src/aplicacao/index.js';
+import { ServicoConsulta, ServicoCorrida, ServicoIngestao } from '../../src/aplicacao/index.js';
 import { construirApp } from '../../src/app.js';
 import { BarramentoEventos } from '../../src/infra/barramento-eventos.js';
+import { RepositorioConsultaPg } from '../../src/infra/consulta-pg.js';
 import { criarContadores } from '../../src/infra/contadores.js';
 import { GravadorLote } from '../../src/infra/gravador-lote.js';
 import {
@@ -104,6 +106,7 @@ describe('ingestão de telemetria com PostgreSQL real', () => {
       verificarBanco: async () => true,
       contadores,
       ingestao,
+      consulta: new ServicoConsulta(new RepositorioConsultaPg(pool)),
       prazoHelloMs: 300,
     });
     const endereco = await app.listen({ port: 0, host: '127.0.0.1' });
@@ -470,6 +473,181 @@ describe('ingestão de telemetria com PostgreSQL real', () => {
         { seq: 3, ordem: 2 },
         { seq: 4, ordem: 3 },
       ]);
+    });
+  });
+
+  describe('GET /api/corridas/{id} (#325, parte 2)', () => {
+    const idDe = async (idRobo: string) =>
+      (
+        await consulta<{ id: string }>(`SELECT id FROM corrida WHERE id_corrida_robo = $1`, [
+          idRobo,
+        ])
+      )[0]!.id;
+    const detalhe = async (id: string) => {
+      const resposta = await fetch(`${base}/api/corridas/${id}`);
+      return { status: resposta.status, corpo: (await resposta.json()) as DetalheCorrida };
+    };
+
+    it('devolve métricas, trajeto em ordem e série de energia de uma corrida encerrada', async () => {
+      const c = { corrida: 'detalhe' };
+      const robo = await Robo.conectar(url);
+      robo.enviar(
+        hello(),
+        mensagem('inicio_corrida', 1, { ...c, labirinto: '8x4', tempo_ms: 1000 }),
+        mensagem('celula', 2, { ...c, x: 0, y: 3, tempo_ms: 1000 }),
+        mensagem('energia', 3, { ...c, tensao_v: 8.2, tempo_ms: 1000 }),
+        // A 5 chega antes da 4, como num reenvio.
+        mensagem('celula', 5, { ...c, x: 0, y: 3, tempo_ms: 4600 }),
+        mensagem('celula', 4, {
+          ...c,
+          x: 0,
+          y: 2,
+          tempo_ms: 2800,
+          paredes: { norte: true, leste: false, sul: false, oeste: true },
+        }),
+        mensagem('energia', 6, { ...c, tensao_v: 7.6, tempo_ms: 4600 }),
+        mensagem('fim_corrida', 7, { ...c, tempo_ms: 10_000 }),
+      );
+      await robo.esperarAck('detalhe', 7);
+      await robo.fechar();
+      await corridas.esvaziar();
+
+      const { status, corpo } = await detalhe(await idDe('detalhe'));
+      expect(status).toBe(200);
+      expect(corpo).toMatchObject({
+        corrida_robo: 'detalhe',
+        tipo_labirinto: '8x4',
+        status: 'CONCLUIDA',
+        motivo_termino: 'SUCESSO',
+        detalhe_termino: null,
+        tempo_conclusao_ms: 9000,
+        anulada: false,
+        anulacao: null,
+        ultima_sequencia_contigua: 7,
+        sequencias_faltantes: 0,
+        metricas: {
+          tempo_decorrido_ms: 9000,
+          tempo_conclusao_ms: 9000,
+          celulas_percorridas: 2,
+          distancia_m: 0.36,
+          revisitas: 1,
+          velocidade_media_mps: 0.04,
+          tensao_inicial_v: 8.2,
+          tensao_final_v: 7.6,
+          delta_v: 0.6,
+          carga_inicial_pct: 87.5,
+          carga_final_pct: 50,
+        },
+      });
+      expect(corpo.trajeto).toEqual([
+        {
+          sequencia: 2,
+          ordem: 1,
+          x: 0,
+          y: 3,
+          paredes: { norte: false, leste: true, sul: true, oeste: true },
+          tempo_ms: 1000,
+          revisita: false,
+        },
+        {
+          sequencia: 4,
+          ordem: 2,
+          x: 0,
+          y: 2,
+          paredes: { norte: true, leste: false, sul: false, oeste: true },
+          tempo_ms: 2800,
+          revisita: false,
+        },
+        {
+          sequencia: 5,
+          ordem: 3,
+          x: 0,
+          y: 3,
+          paredes: { norte: false, leste: true, sul: true, oeste: true },
+          tempo_ms: 4600,
+          revisita: true,
+        },
+      ]);
+      expect(corpo.energia).toEqual([
+        { sequencia: 3, tempo_ms: 1000, tensao_v: 8.2, corrente_a: 0.4, potencia_w: 3.2 },
+        { sequencia: 6, tempo_ms: 4600, tensao_v: 7.6, corrente_a: 0.4, potencia_w: 3.2 },
+      ]);
+      expect(Date.parse(corpo.iniciada_em)).not.toBeNaN();
+      expect(Date.parse(corpo.encerrada_em!)).not.toBeNaN();
+    });
+
+    it('numera o trajeto pela sequência, mesmo com a coluna ordem repetida', async () => {
+      const c = { corrida: 'ordem-repetida' };
+      const robo = await Robo.conectar(url);
+      robo.enviar(
+        hello(),
+        mensagem('inicio_corrida', 1, c),
+        mensagem('celula', 2, { ...c, x: 0, y: 3 }),
+        mensagem('celula', 3, { ...c, x: 0, y: 2 }),
+        mensagem('celula', 4, { ...c, x: 0, y: 1 }),
+      );
+      await robo.esperarAck('ordem-repetida', 4);
+      await robo.fechar();
+      await corridas.esvaziar();
+      const id = await idDe('ordem-repetida');
+      // O que sobra no banco quando uma lacuna é preenchida tarde e o backend reinicia.
+      await pool.query(`UPDATE passagem_celula SET ordem = 2 WHERE corrida_id = $1 AND seq = 4`, [
+        id,
+      ]);
+
+      const { corpo } = await detalhe(id);
+      expect(corpo.trajeto.map((p) => [p.sequencia, p.ordem])).toEqual([
+        [2, 1],
+        [3, 2],
+        [4, 3],
+      ]);
+    });
+
+    it('serve a corrida em andamento, com o que já foi gravado', async () => {
+      const c = { corrida: 'parcial' };
+      const robo = await Robo.conectar(url);
+      robo.enviar(
+        hello(),
+        mensagem('inicio_corrida', 1, { ...c, tempo_ms: 0 }),
+        mensagem('celula', 2, { ...c, tempo_ms: 0 }),
+        mensagem('posicao', 3, { ...c, tempo_ms: 700 }),
+      );
+      await robo.esperarAck('parcial', 3);
+      await corridas.esvaziar();
+
+      const { status, corpo } = await detalhe(await idDe('parcial'));
+      expect(status).toBe(200);
+      expect(corpo).toMatchObject({
+        status: 'EM_ANDAMENTO',
+        encerrada_em: null,
+        tempo_conclusao_ms: null,
+      });
+      expect(corpo.metricas.tempo_decorrido_ms).toBe(700);
+      expect(corpo.trajeto).toHaveLength(1);
+      await robo.fechar();
+    });
+
+    it('mostra a anulação, com o operador', async () => {
+      const id = await idDe('detalhe');
+      await pool.query(
+        `INSERT INTO operador (login, nome, senha_hash) VALUES ('op-teste', 'Operador', 'x') ON CONFLICT DO NOTHING`,
+      );
+      await pool.query(
+        `INSERT INTO anulacao (corrida_id, operador_id, motivo)
+         SELECT $1, id, 'robô empurrado na largada' FROM operador WHERE login = 'op-teste'`,
+        [id],
+      );
+      const { corpo } = await detalhe(id);
+      expect(corpo.anulada).toBe(true);
+      expect(corpo.anulacao).toMatchObject({
+        motivo: 'robô empurrado na largada',
+        operador: 'op-teste',
+      });
+    });
+
+    it('404 para corrida inexistente e 400 para id que não é UUID', async () => {
+      expect((await detalhe('0b6f7c0e-3a52-4c8e-9a51-1f0f5c1f2a33')).status).toBe(404);
+      expect((await detalhe('nao-e-uuid')).status).toBe(400);
     });
   });
 

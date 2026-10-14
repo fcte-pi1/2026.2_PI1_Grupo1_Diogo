@@ -3,11 +3,12 @@
  */
 import { pino } from 'pino';
 import { criarValidadorProtocolo } from '../protocolo/validador.js';
-import { ServicoCorrida, ServicoIngestao } from './aplicacao/index.js';
+import { ServicoConsulta, ServicoCorrida, ServicoIngestao } from './aplicacao/index.js';
 import { construirApp } from './app.js';
 import { carregarConfig } from './config/index.js';
 import { criarBanco, verificarBanco } from './infra/banco.js';
 import { BarramentoEventos } from './infra/barramento-eventos.js';
+import { RepositorioConsultaPg } from './infra/consulta-pg.js';
 import { criarContadores } from './infra/contadores.js';
 import { GravadorLote } from './infra/gravador-lote.js';
 import { opcoesLogger } from './infra/logger.js';
@@ -52,6 +53,7 @@ const app = await construirApp({
   verificarBanco: () => verificarBanco(banco),
   contadores,
   ingestao,
+  consulta: new ServicoConsulta(new RepositorioConsultaPg(banco)),
 });
 
 // Corridas que estavam em andamento quando o backend parou (RNF-52).

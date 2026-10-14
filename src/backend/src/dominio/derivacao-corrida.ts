@@ -22,6 +22,15 @@ export function paredesEmBits(paredes: ParedesCelula): number {
   );
 }
 
+export function paredesDeBits(bits: number): ParedesCelula {
+  return {
+    norte: (bits & BIT_PAREDE.norte) !== 0,
+    leste: (bits & BIT_PAREDE.leste) !== 0,
+    sul: (bits & BIT_PAREDE.sul) !== 0,
+    oeste: (bits & BIT_PAREDE.oeste) !== 0,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Mensagens que a derivação entende (subconjunto do protocolo v1)
 // ---------------------------------------------------------------------------
