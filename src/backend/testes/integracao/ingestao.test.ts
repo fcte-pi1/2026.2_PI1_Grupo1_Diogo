@@ -10,7 +10,12 @@ import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { DetalheCorrida } from '../../protocolo/tipos.js';
 import { criarValidadorProtocolo } from '../../protocolo/validador.js';
-import { ServicoConsulta, ServicoCorrida, ServicoIngestao } from '../../src/aplicacao/index.js';
+import {
+  ServicoConsulta,
+  ServicoCorrida,
+  ServicoDistribuicao,
+  ServicoIngestao,
+} from '../../src/aplicacao/index.js';
 import { construirApp } from '../../src/app.js';
 import { BarramentoEventos } from '../../src/infra/barramento-eventos.js';
 import { RepositorioConsultaPg } from '../../src/infra/consulta-pg.js';
@@ -25,6 +30,8 @@ import {
   criarInserirLote,
 } from '../../src/infra/repositorios-pg.js';
 import { hello, mensagem } from '../apoio/ingestao-em-memoria.js';
+
+const SILENCIOSO = { info: () => {}, warn: () => {}, error: () => {} };
 
 /** Cliente de teste: como o robô, só envia. Os acks são apenas guardados para conferência. */
 class Robo {
@@ -71,6 +78,7 @@ describe('ingestão de telemetria com PostgreSQL real', () => {
   let url: string;
   let base: string;
   let corridas: ServicoCorrida;
+  let distribuicao: ServicoDistribuicao;
 
   const consulta = async <T extends pg.QueryResultRow>(sql: string, parametros: unknown[] = []) =>
     (await pool.query<T>(sql, parametros)).rows;
@@ -85,14 +93,22 @@ describe('ingestão de telemetria com PostgreSQL real', () => {
 
   async function subirServidor(): Promise<void> {
     const contadores = criarContadores();
+    const eventos = new BarramentoEventos();
     corridas = new ServicoCorrida({
       corridas: new RepositorioCorridasPg(pool),
       projecoes: new RepositorioProjecoesPg(pool),
-      eventos: new BarramentoEventos(),
+      eventos,
       log: { info: () => {}, warn: () => {}, error: () => {} },
     });
     await corridas.recuperar();
+    distribuicao?.parar();
+    distribuicao = new ServicoDistribuicao({ corridas, log: SILENCIOSO });
+    eventos.assinar('mensagem-aplicada', (d) => distribuicao.aoAplicar(d));
+    eventos.assinar('status-alterado', (d) => distribuicao.aoMudarStatus(d));
+    eventos.assinar('alerta-tensao', (d) => distribuicao.aoAlertar(d));
+    eventos.assinar('sinal-alterado', (d) => distribuicao.aoMudarSinal(d));
     const ingestao = new ServicoIngestao({
+      eventos,
       dispositivos: new RepositorioDispositivosPg(pool),
       tokens: new VerificadorTokenArgon2(),
       corridas,
@@ -107,6 +123,8 @@ describe('ingestão de telemetria com PostgreSQL real', () => {
       contadores,
       ingestao,
       consulta: new ServicoConsulta(new RepositorioConsultaPg(pool)),
+      distribuicao,
+      validador: criarValidadorProtocolo(),
       prazoHelloMs: 300,
     });
     const endereco = await app.listen({ port: 0, host: '127.0.0.1' });
@@ -648,6 +666,90 @@ describe('ingestão de telemetria com PostgreSQL real', () => {
     it('404 para corrida inexistente e 400 para id que não é UUID', async () => {
       expect((await detalhe('0b6f7c0e-3a52-4c8e-9a51-1f0f5c1f2a33')).status).toBe(404);
       expect((await detalhe('nao-e-uuid')).status).toBe(400);
+    });
+  });
+
+  describe('distribuição aos painéis (#327)', () => {
+    /** Painel de teste: guarda tudo o que recebe e pode enviar inscrições. */
+    async function conectarPainel() {
+      const ws = new WebSocket(url.replace('/ws/telemetria', '/ws/painel'));
+      const recebidas: { tipo: string; [chave: string]: unknown }[] = [];
+      ws.addEventListener('message', (e) => recebidas.push(JSON.parse(String(e.data))));
+      const fechou = new Promise<number>((resolver) =>
+        ws.addEventListener('close', (e) => resolver(e.code)),
+      );
+      await new Promise((resolver, rejeitar) => {
+        ws.addEventListener('open', resolver);
+        ws.addEventListener('error', rejeitar);
+      });
+      return {
+        recebidas,
+        fechou,
+        enviar: (m: unknown) => ws.send(typeof m === 'string' ? m : JSON.stringify(m)),
+        fechar: () => ws.close(),
+        doTipo: (tipo: string) => recebidas.filter((m) => m.tipo === tipo),
+      };
+    }
+
+    async function idDaCorrida(idRobo: string): Promise<string> {
+      let linhas: { id: string }[] = [];
+      await esperar(async () => {
+        linhas = await consulta<{ id: string }>(
+          `SELECT id FROM corrida WHERE id_corrida_robo = $1`,
+          [idRobo],
+        );
+        return linhas.length > 0;
+      });
+      return linhas[0]!.id;
+    }
+
+    it('acompanha uma corrida do anúncio ao fim, pelo WebSocket', async () => {
+      const painel = await conectarPainel();
+      painel.enviar({ tipo: 'inscrever', canal: 'ao_vivo' });
+      // Mensagem inválida do painel é ignorada, sem derrubar a conexão.
+      painel.enviar('isto não é JSON');
+      painel.enviar({ tipo: 'anular', corrida: 'x' });
+
+      const c = { corrida: 'aovivo' };
+      const robo = await Robo.conectar(url);
+      robo.enviar(hello(), mensagem('inicio_corrida', 1, { ...c, labirinto: '8x4' }));
+      // O canal também anuncia as corridas que outros testes deixaram em andamento.
+      const id = await idDaCorrida('aovivo');
+      const anuncioDaCorrida = () => painel.doTipo('ao_vivo').find((m) => m.corrida === id);
+      await esperar(() => anuncioDaCorrida() !== undefined);
+      const anuncio = anuncioDaCorrida()!;
+      expect(anuncio).toMatchObject({ labirinto: '8x4', status: 'EM_ANDAMENTO' });
+
+      painel.enviar({ tipo: 'inscrever', corrida: anuncio.corrida });
+      await esperar(() => painel.doTipo('snapshot').length > 0);
+      expect(painel.doTipo('snapshot')[0]).toMatchObject({ sequencia_corte: 1, labirinto: '8x4' });
+
+      robo.enviar(
+        mensagem('celula', 2, c),
+        mensagem('posicao', 3, c),
+        mensagem('energia', 4, { ...c, tensao_v: 8.1 }),
+        mensagem('fim_corrida', 5, { ...c, tempo_ms: 9000 }),
+      );
+      await esperar(() => painel.doTipo('leaderboard').length > 0);
+
+      const eventos = painel.doTipo('evento');
+      expect(eventos.map((e) => e.evento)).toEqual(['celula', 'status']);
+      expect(eventos[1]).toMatchObject({ status: 'CONCLUIDA', sequencia: 5, tempo_ms: 9000 });
+      expect(eventos[1]!.metricas).toMatchObject({ tempo_conclusao_ms: 8900, tensao_v: 8.1 });
+      expect(painel.doTipo('continuo').at(-1)).toMatchObject({
+        posicao: { x: 0, y: 3, orientacao: 'NORTE' },
+        energia: { tensao_v: 8.1 },
+      });
+      expect(
+        painel
+          .doTipo('ao_vivo')
+          .filter((m) => m.corrida === id)
+          .map((m) => m.status),
+      ).toEqual(['EM_ANDAMENTO', 'CONCLUIDA']);
+
+      await robo.fechar();
+      painel.fechar();
+      expect(await painel.fechou).toBe(1005);
     });
   });
 

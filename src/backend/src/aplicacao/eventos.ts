@@ -20,10 +20,14 @@ export interface MapaEventos {
     status: StatusCorrida;
     motivo: MotivoTermino | null;
     detalhe: string | null;
+    /** `null` numa interrupção, que não vem de uma mensagem do robô. */
     sequencia: number | null;
+    tempoMs: number | null;
     metricas: Metricas;
   };
   'alerta-tensao': { corridaId: string; tensaoV: number };
+  /** O robô parou de enviar durante a corrida, ou voltou (RF-73, RF-92). */
+  'sinal-alterado': { corridaId: string; estado: 'PERDIDO' | 'RETOMADO' };
 }
 
 export interface PublicadorEventos {

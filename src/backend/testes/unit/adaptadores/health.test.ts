@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import type { FastifyInstance } from 'fastify';
+import { criarValidadorProtocolo } from '../../../protocolo/validador.js';
 import { ServicoConsulta } from '../../../src/aplicacao/index.js';
 import { construirApp } from '../../../src/app.js';
 import { AmbienteEmMemoria } from '../../apoio/ingestao-em-memoria.js';
@@ -11,6 +12,8 @@ describe('GET /health', () => {
     contadores: amb.contadores,
     ingestao: amb.servico,
     consulta: new ServicoConsulta({ detalheCorrida: async () => null }),
+    distribuicao: amb.distribuicao,
+    validador: criarValidadorProtocolo(),
   };
   afterEach(() => app.close());
 

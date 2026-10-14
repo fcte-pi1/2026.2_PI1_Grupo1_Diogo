@@ -6,7 +6,9 @@ import { criarValidadorProtocolo } from '../../protocolo/validador.js';
 import type { Ack } from '../../protocolo/tipos.js';
 import {
   ServicoCorrida,
+  ServicoDistribuicao,
   ServicoIngestao,
+  type PublicadorEventos,
   type Contadores,
   type CorridaPersistida,
   type DadosNovaCorrida,
@@ -60,12 +62,32 @@ export class AmbienteEmMemoria {
   prazoLacunaMs = 5000;
 
   corrida!: ServicoCorrida;
+  distribuicao!: ServicoDistribuicao;
+  /** Publica no registro dos testes e repassa à distribuição, como o barramento real. */
+  readonly eventosPublicados: PublicadorEventos = {
+    publicar: (evento, dados) => {
+      this.publicados.push({ evento, dados } as EventoPublicado);
+      const d = this.distribuicao;
+      if (!d) return;
+      if (evento === 'mensagem-aplicada') d.aoAplicar(dados as MapaEventos['mensagem-aplicada']);
+      if (evento === 'status-alterado') d.aoMudarStatus(dados as MapaEventos['status-alterado']);
+      if (evento === 'alerta-tensao') d.aoAlertar(dados as MapaEventos['alerta-tensao']);
+      if (evento === 'sinal-alterado') d.aoMudarSinal(dados as MapaEventos['sinal-alterado']);
+    },
+  };
   readonly servico: ServicoIngestao = this.novoServico();
 
   /** Serviços novos sobre os mesmos dados: simula o reinício do backend. */
   novoServico(): ServicoIngestao {
     this.corrida = this.novoServicoCorrida();
+    this.distribuicao?.parar();
+    this.distribuicao = new ServicoDistribuicao({
+      corridas: this.corrida,
+      log: SILENCIOSO,
+      agora: () => this.relogio,
+    });
     return new ServicoIngestao({
+      eventos: this.eventosPublicados,
       validador: criarValidadorProtocolo(),
       contadores: this.contadores,
       agora: () => this.relogio,
@@ -105,9 +127,7 @@ export class AmbienteEmMemoria {
       log: SILENCIOSO,
       agora: () => this.relogio,
       prazoLacunaMs: this.prazoLacunaMs,
-      eventos: {
-        publicar: (evento, dados) => this.publicados.push({ evento, dados } as EventoPublicado),
-      },
+      eventos: this.eventosPublicados,
       projecoes: {
         passagem: async (corridaId, p) => {
           if (

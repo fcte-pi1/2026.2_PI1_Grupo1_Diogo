@@ -27,6 +27,7 @@ import type {
   RepositorioDispositivos,
   VerificadorToken,
 } from './portas.js';
+import type { PublicadorEventos } from './eventos.js';
 import { LIMITE_SILENCIO_MS } from './prazos.js';
 import type { ServicoCorrida } from './servico-corrida.js';
 
@@ -38,6 +39,8 @@ export interface DependenciasIngestao {
   corridas: ServicoCorrida;
   gravador: GravadorMensagens;
   auditoria: RegistroAuditoria;
+  /** Opcional: sem ele, a perda e a retomada de sinal só vão para a auditoria. */
+  eventos?: PublicadorEventos;
   validador: ValidadorProtocolo;
   contadores: Contadores;
   log: RegistroLog;
@@ -270,6 +273,14 @@ export class ServicoIngestao {
     sessao: SessaoRobo,
     tipo: 'SINAL_PERDIDO' | 'SINAL_RETOMADO' | 'DESCONECTADO',
   ): Promise<void> {
+    // Os painéis inscritos na corrida são avisados em até 1 s (RF-92).
+    const corridaId = sessao.corridaAtiva?.id;
+    if (corridaId && tipo !== 'DESCONECTADO') {
+      this.deps.eventos?.publicar('sinal-alterado', {
+        corridaId,
+        estado: tipo === 'SINAL_PERDIDO' ? 'PERDIDO' : 'RETOMADO',
+      });
+    }
     this.deps.log.info({ dispositivo: sessao.identificador, tipo }, 'evento de conexão');
     await this.deps.auditoria.eventoConexao({
       dispositivoId: sessao.dispositivoId,

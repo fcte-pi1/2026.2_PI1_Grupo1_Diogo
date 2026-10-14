@@ -1,16 +1,49 @@
 import type { FastifyInstance } from 'fastify';
+import type { ServicoDistribuicao } from '../../aplicacao/index.js';
+import { interpretarJson, type ValidadorProtocolo } from '../../../protocolo/validador.js';
+
+export interface DependenciasPainel {
+  distribuicao: ServicoDistribuicao;
+  validador: ValidadorProtocolo;
+}
 
 /**
- * WS /ws/painel — painéis somente leitura (RF-88 a RF-92, RNF-55).
- * Esqueleto: aceita a conexão e registra as mensagens. GatewayPainel e ControleFluxo
- * serão implementados aqui.
+ * GatewayPainel — WS /ws/painel. Os painéis são somente leitura (RNF-55): só podem se
+ * inscrever e cancelar inscrições. A regra fica no ServicoDistribuicao.
  */
-export async function rotasPainel(app: FastifyInstance): Promise<void> {
+export async function rotasPainel(
+  app: FastifyInstance,
+  { distribuicao, validador }: DependenciasPainel,
+): Promise<void> {
   app.get('/ws/painel', { websocket: true }, (socket, req) => {
-    req.log.info('painel: conexão aberta');
-    socket.on('message', (dados) =>
-      req.log.debug({ mensagem: dados.toString() }, 'painel: mensagem'),
-    );
-    socket.on('close', (codigo) => req.log.info({ codigo }, 'painel: conexão fechada'));
+    const painel = distribuicao.conectar({
+      enviar: (texto) => {
+        if (socket.readyState === socket.OPEN) socket.send(texto);
+      },
+      bytesPendentes: () => socket.bufferedAmount,
+      fechar: (codigo, motivo) => socket.close(codigo, motivo),
+    });
+    req.log.info('painel conectado');
+
+    socket.on('message', (dados, binario) => {
+      if (binario) return;
+      const json = interpretarJson(dados.toString());
+      const mensagem = json.ok ? validador.painel(json.mensagem) : json;
+      if (!mensagem.ok) {
+        // Mensagem inválida não derruba o painel: ela só é ignorada.
+        req.log.warn(
+          { codigo: mensagem.codigo, detalhe: mensagem.detalhe },
+          'mensagem do painel ignorada',
+        );
+        return;
+      }
+      distribuicao.receber(painel, mensagem.mensagem);
+    });
+
+    socket.on('close', () => {
+      distribuicao.desconectar(painel);
+      req.log.info('painel desconectado');
+    });
+    socket.on('error', (erro) => req.log.error({ erro }, 'painel: falha na conexão'));
   });
 }

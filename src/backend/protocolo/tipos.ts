@@ -180,7 +180,8 @@ export interface PosicaoRobo {
 export interface SnapshotPainel {
   tipo: 'snapshot';
   corrida: string;
-  labirinto: TipoLabirinto;
+  /** `null` quando o `inicio_corrida` ainda não chegou. */
+  labirinto: TipoLabirinto | null;
   /** Eventos com sequencia ≤ sequencia_corte já estão refletidos neste snapshot. */
   sequencia_corte: number;
   /** Células conhecidas, com as paredes detectadas. */
@@ -190,7 +191,7 @@ export interface SnapshotPainel {
   status: StatusCorrida;
   motivo_termino: MotivoTermino | null;
   /** Tempo do robô no início da corrida, âncora do cronômetro do painel. */
-  tempo_inicio_ms: number;
+  tempo_inicio_ms: number | null;
 }
 
 export interface EventoCelulaPainel {
@@ -210,8 +211,13 @@ export interface EventoStatusPainel {
   tipo: 'evento';
   evento: 'status';
   corrida: string;
-  sequencia: number;
-  tempo_ms: number;
+  /**
+   * Sequência do `fim_corrida` que mudou o status. `null` numa interrupção (silêncio ou
+   * reinício), que não vem de uma mensagem do robô: o painel não deve descartá-la.
+   */
+  sequencia: number | null;
+  /** Relógio do robô no `fim_corrida`; `null` numa interrupção. */
+  tempo_ms: number | null;
   status: StatusCorrida;
   motivo_termino: MotivoTermino | null;
   detalhe: string | null;
@@ -245,7 +251,8 @@ export interface AlertaPainel {
 export interface AoVivoPainel {
   tipo: 'ao_vivo';
   corrida: string;
-  labirinto: TipoLabirinto;
+  /** `null` quando o `inicio_corrida` ainda não chegou. */
+  labirinto: TipoLabirinto | null;
   status: StatusCorrida;
 }
 

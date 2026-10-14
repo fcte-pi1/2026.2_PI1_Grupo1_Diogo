@@ -13,7 +13,12 @@ import {
   SequenciaCorrida,
   type ConfiguracaoDerivacao,
   type Efeito,
+  type EstadoMapa,
   type MensagemDerivavel,
+  type Metricas,
+  type MotivoTermino,
+  type StatusCorrida,
+  type TipoLabirinto,
 } from '../dominio/index.js';
 import type { MensagemCorrida } from '../../protocolo/tipos.js';
 import type { EstadoCorrida } from './estado.js';
@@ -39,6 +44,18 @@ export interface DependenciasCorrida {
   configuracao?: ConfiguracaoDerivacao;
   agora?: () => number;
   prazoLacunaMs?: number;
+}
+
+export interface EstadoAoVivo {
+  corridaId: string;
+  labirinto: TipoLabirinto | null;
+  /** Última sequência aplicada: os eventos seguintes começam depois dela. */
+  sequenciaCorte: number;
+  tempoInicioMs: number | null;
+  mapa: EstadoMapa;
+  metricas: Metricas;
+  status: StatusCorrida;
+  motivo: MotivoTermino | null;
 }
 
 export interface IdentificacaoCorrida {
@@ -151,6 +168,34 @@ export class ServicoCorrida {
       estado.ultimaMensagemEm = corrida.ultimaMensagemEm ?? this.agora();
     }
     return emAndamento.length;
+  }
+
+  /**
+   * Estado atual de uma corrida carregada, para o snapshot de quem se inscreve no meio
+   * (RF-89). Lido no mesmo tick em que a inscrição é registrada, o corte e os eventos
+   * seguintes não se sobrepõem nem deixam buracos.
+   */
+  estadoAoVivo(corridaId: string): EstadoAoVivo | null {
+    const corrida = [...this.carregadas.values()].find((c) => c.id === corridaId);
+    if (!corrida) return null;
+    const { derivacao } = corrida;
+    return {
+      corridaId,
+      labirinto: derivacao.labirinto ?? corrida.labirinto,
+      sequenciaCorte: derivacao.ultimaSequencia,
+      tempoInicioMs: derivacao.tempoInicio,
+      mapa: derivacao.mapa,
+      metricas: derivacao.metricas,
+      status: derivacao.status,
+      motivo: derivacao.motivo,
+    };
+  }
+
+  /** Corridas em andamento carregadas, para quem se inscreve no canal `ao_vivo`. */
+  corridasEmAndamento(): EstadoAoVivo[] {
+    return [...this.carregadas.values()]
+      .filter((c) => c.derivacao.status === 'EM_ANDAMENTO')
+      .map((c) => this.estadoAoVivo(c.id)!);
   }
 
   /** Espera todos os efeitos pendentes serem gravados (testes e encerramento). */
@@ -337,6 +382,7 @@ export class ServicoCorrida {
         motivo: efeito.motivo,
         detalhe: efeito.detalhe,
         sequencia: efeito.sequencia,
+        tempoMs: efeito.tempoMs,
         metricas: corrida.derivacao.metricas,
       });
     } else if (efeito.tipo === 'alerta_tensao') {
