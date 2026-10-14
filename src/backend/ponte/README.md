@@ -1,5 +1,7 @@
 # Ponte Bluetooth → backend
 
+> **Esta ponte será removida.** Ela foi escrita para Bluetooth Clássico (porta serial), e o robô usa um ESP32-S3, que só tem BLE. A ponte oficial é a do firmware: `src/firmware/bridge/ble_ws_bridge.py`. Por enquanto, daqui só o modo `--porta -` continua útil, para enviar um arquivo de mensagens ao backend sem o robô.
+
 O robô envia a telemetria por **Bluetooth Clássico (SPP)**, que aparece no notebook como uma porta serial. A ponte lê essa porta e repassa cada mensagem, sem alterar, para o backend em `/ws/telemetria`.
 
 Ela roda **no notebook do operador, fora do Docker**: o container do backend não enxerga o Bluetooth do computador. O formato das mensagens está em [`../protocolo/v1/README.md`](../protocolo/v1/README.md).
@@ -42,7 +44,7 @@ cat corrida.ndjson | npm run ponte -- --porta -
 | A porta serial abre | Espera o `hello` do robô e só então conecta ao backend. O que chegar antes do `hello` é descartado |
 | Chega uma linha | É repassada ao backend exatamente como veio. A ponte não valida o conteúdo: isso é papel do backend |
 | O backend está fora do ar | Guarda até 2000 linhas, tenta reconectar a cada 0,25 → 0,5 → 1 → 2 s e, ao voltar, reenvia o `hello` e depois o que guardou |
-| O backend recusa o `hello` (4001 ou 4002) | Mostra o erro e para de repassar, até o robô enviar outro `hello` |
+| O backend recusa o `hello` (4001, 4002 ou 4003) | Mostra o erro e para de repassar, até o robô enviar outro `hello` |
 | O robô envia outro `hello` (reiniciou) | Abre uma conexão nova com o backend |
 | A porta serial fecha | Fecha a conexão com o backend e tenta reabrir a porta a cada 1 s |
 | Chega um `ack` do backend | É apenas contado. **Nada é enviado ao robô**, que é emissor unidirecional |
