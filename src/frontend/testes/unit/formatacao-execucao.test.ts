@@ -3,10 +3,10 @@ import { formatarNumero, formatarTempo, rotuloDesafio, rotuloStatus } from '../.
 
 describe('rotuloDesafio (HU-FE-07)', () => {
   it('só CONCLUIDA é "Cumprido" (CA1 e CA3)', () => {
-    expect(rotuloDesafio('CONCLUIDA')).toBe('Cumprido');
-    expect(rotuloDesafio('EM_ANDAMENTO')).not.toBe('Cumprido');
-    expect(rotuloDesafio('FALHOU')).not.toBe('Cumprido');
-    expect(rotuloDesafio('INTERROMPIDA')).not.toBe('Cumprido');
+    expect(rotuloDesafio('CONCLUIDA')).toBe('Concluído');
+    expect(rotuloDesafio('EM_ANDAMENTO')).not.toBe('Concluído');
+    expect(rotuloDesafio('FALHOU')).not.toBe('Concluído');
+    expect(rotuloDesafio('INTERROMPIDA')).not.toBe('Concluído');
     expect(rotuloDesafio(null)).toBe('—');
   });
 });
@@ -14,7 +14,7 @@ describe('rotuloDesafio (HU-FE-07)', () => {
 describe('rotuloStatus', () => {
   it.each([
     ['EM_ANDAMENTO', 'Em andamento'],
-    ['CONCLUIDA', 'Cumprida'],
+    ['CONCLUIDA', 'Concluída'],
     ['FALHOU', 'Falhou'],
     ['INTERROMPIDA', 'Interrompida'],
     [null, '—'],
@@ -24,7 +24,7 @@ describe('rotuloStatus', () => {
 });
 
 describe('formatarTempo', () => {
-  it('formata mm:ss.d e usa traço quando não há tempo', () => {
+  it('usa o formatador compartilhado mm:ss,d e traço quando não há tempo', () => {
     expect(formatarTempo(null)).toBe('—');
     expect(formatarTempo(0)).toBe('00:00.0');
     expect(formatarTempo(95500)).toBe('01:35.5');

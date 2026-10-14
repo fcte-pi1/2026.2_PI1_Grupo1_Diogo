@@ -258,14 +258,14 @@ describe('HU-FE-07 / CT-FE-07 — desafio cumprido', () => {
     renderizar();
     act(() => acoes().reiniciarExecucao({ corrida: 'c1', status: 'EM_ANDAMENTO' }));
     expect(screen.queryByTestId('desafio-cumprido')).toBeNull();
-    expect(screen.getByTestId('desafio')).not.toHaveTextContent('Cumprido');
+    expect(screen.getByTestId('desafio')).not.toHaveTextContent('Concluído');
   });
 
-  it.each(['FALHOU', 'INTERROMPIDA'] as const)('%s também não é "Cumprido"', (status) => {
+  it.each(['FALHOU', 'INTERROMPIDA'] as const)('%s também não é "Concluído"', (status) => {
     renderizar();
     act(() => acoes().reiniciarExecucao({ corrida: 'c1', status }));
     expect(screen.queryByTestId('desafio-cumprido')).toBeNull();
-    expect(screen.getByTestId('desafio')).not.toHaveTextContent('Cumprido');
+    expect(screen.getByTestId('desafio')).not.toHaveTextContent('Concluído');
   });
 
   it('CA1 e CA2: ao concluir, exibe "Desafio cumprido" e o status concluído', () => {
@@ -274,8 +274,8 @@ describe('HU-FE-07 / CT-FE-07 — desafio cumprido', () => {
     act(() => acoes().atualizarExecucao({ status: 'CONCLUIDA', tempoMs: 95500 }));
 
     expect(screen.getByTestId('desafio-cumprido')).toHaveTextContent('Desafio cumprido');
-    expect(screen.getByTestId('desafio')).toHaveTextContent('Cumprido');
-    expect(screen.getByTestId('status-desafio')).toHaveTextContent('Cumprida');
+    expect(screen.getByTestId('desafio')).toHaveTextContent('Concluído');
+    expect(screen.getByTestId('status-desafio')).toHaveTextContent('Concluída');
     expect(screen.getByTestId('tempo')).toHaveTextContent('01:35.5');
   });
 
