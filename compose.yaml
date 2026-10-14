@@ -50,6 +50,7 @@ services:
       # Papel restrito da aplicação (arquitetura do backend, §7.3)
       DATABASE_URL_APP: postgres://rato_app:${DB_APP_PASSWORD}@db:5432/${POSTGRES_DB}
       SEED_DISPOSITIVO_TOKEN: ${SEED_DISPOSITIVO_TOKEN:-T-VALIDO}
+      SEED_ROBO_TOKEN: ${SEED_ROBO_TOKEN:-troque-em-build}
       SEED_OPERADOR_SENHA: ${SEED_OPERADOR_SENHA:-op1-dev}
     # Sincroniza as dependências com o package-lock (rápido quando nada mudou),
     # aplica as migrações e sobe com hot reload.

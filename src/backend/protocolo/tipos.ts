@@ -129,8 +129,11 @@ export interface Ack {
 
 /** Códigos de fechamento enviados ao robô. */
 export const CodigoFechamento = {
+  /** Dispositivo desconhecido, desativado ou token incorreto. */
   TOKEN_INVALIDO: 4001,
   VERSAO_NAO_SUPORTADA: 4002,
+  /** A primeira mensagem não é um `hello` bem formado, ou ele não chegou em 5 s. */
+  HELLO_INVALIDO: 4003,
 } as const;
 
 // ============================================================================
