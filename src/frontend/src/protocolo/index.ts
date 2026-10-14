@@ -1,4 +1,3 @@
-// Tipos gerais do protocolo publicados pelo backend.
+// Reexporta os tipos publicados pelo backend (src/backend/protocolo/tipos.ts).
+// Os tipos do protocolo nunca são redefinidos no frontend (arquitetura do frontend, §5.1).
 export * from '@protocolo';
-// Contrato provisório da listagem do histórico, mantido no frontend.
-export * from './corridas';
