@@ -1,6 +1,7 @@
 /**
  * Seed do ambiente padrão de testes (AMB — docs/software/backend/4_casos_de_teste.md):
- * dispositivo `sim-01`, operador `op1` e apresentação "Teste" ativa.
+ * dispositivo `sim-01`, operador `op1` e apresentação "Teste" ativa. Cadastra também o
+ * robô real (`rato-01`), com o token gravado no firmware.
  * Idempotente: pode ser executado várias vezes. Usa a conexão do dono do banco (DATABASE_URL).
  */
 import argon2 from 'argon2';
@@ -11,6 +12,8 @@ if (!url) throw new Error('DATABASE_URL não definida');
 
 const token = process.env.SEED_DISPOSITIVO_TOKEN ?? 'T-VALIDO';
 const senha = process.env.SEED_OPERADOR_SENHA ?? 'op1-dev';
+// O mesmo valor de TELEMETRY_TOKEN usado na compilação do firmware.
+const tokenRobo = process.env.SEED_ROBO_TOKEN ?? 'troque-em-build';
 
 const cliente = new pg.Client({ connectionString: url });
 await cliente.connect();
@@ -23,6 +26,14 @@ try {
      VALUES ('sim-01', 'Simulador de robô', $1)
      ON CONFLICT (identificador) DO NOTHING`,
     [await argon2.hash(token)],
+  );
+
+  // O token do robô é atualizado a cada execução: basta mudar SEED_ROBO_TOKEN e rodar de novo.
+  await cliente.query(
+    `INSERT INTO dispositivo (identificador, nome, token_hash)
+     VALUES ('rato-01', 'Rato Borrachudo', $1)
+     ON CONFLICT (identificador) DO UPDATE SET token_hash = EXCLUDED.token_hash`,
+    [await argon2.hash(tokenRobo)],
   );
 
   const operador = await cliente.query(

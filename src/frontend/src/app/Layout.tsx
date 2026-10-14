@@ -6,7 +6,13 @@ export function Layout() {
   return (
     <>
       <header className={estilos.cabecalho}>
-        <h1 className={estilos.titulo}>Rato Borrachudo</h1>
+        <div className={estilos.marca}>
+          <span className={estilos.marcaIcone} aria-hidden="true">
+            RB
+          </span>
+          <h1 className={estilos.titulo}>Micromouse Dashboard</h1>
+        </div>
+        <span className={estilos.separador} aria-hidden="true" />
         <nav className={estilos.navegacao}>
           <NavLink to="/" end>
             Ao vivo

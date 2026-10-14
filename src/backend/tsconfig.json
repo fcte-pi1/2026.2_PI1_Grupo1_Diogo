@@ -19,5 +19,5 @@
     "outDir": "dist",
     "sourceMap": true
   },
-  "include": ["src", "protocolo", "scripts", "simulador", "testes", "*.ts"]
+  "include": ["src", "protocolo", "ponte", "scripts", "simulador", "testes", "*.ts"]
 }

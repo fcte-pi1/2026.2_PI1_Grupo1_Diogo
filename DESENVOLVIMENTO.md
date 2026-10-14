@@ -52,6 +52,21 @@ docker compose down -v     # para tudo e APAGA o banco e os node_modules dos con
 cd src/backend && npm install && npm run test:integracao
 ```
 
+## Receber dados do robô (Bluetooth)
+
+O robô envia a telemetria por Bluetooth de baixa energia (BLE). Como o container não enxerga o Bluetooth do computador, uma **ponte** roda no notebook, fora do Docker, e repassa as mensagens ao backend em `/ws/telemetria`.
+
+A ponte oficial é a do firmware, em Python: `src/firmware/bridge/ble_ws_bridge.py` (entra no repositório com o PR do firmware). O robô real se identifica como `rato-01`; o seed já o cadastra com o token de `SEED_ROBO_TOKEN`.
+
+A pasta `src/backend/ponte/` é uma versão anterior, para Bluetooth Clássico, que **não conversa com o robô** e será removida. Ela ainda serve para enviar um arquivo de mensagens ao backend sem o robô:
+
+```bash
+cd src/backend && npm install
+cat corrida.ndjson | npm run ponte -- --porta -
+```
+
+O formato das mensagens está em [src/backend/protocolo/v1/README.md](src/backend/protocolo/v1/README.md).
+
 ## Estrutura
 
 ```
@@ -61,6 +76,7 @@ infra/postgres/initdb/           # cria o papel rato_app na criação do banco
 src/backend/
 ├── migracoes/                   # SQL versionado (node-pg-migrate) — DER da arquitetura §7
 ├── protocolo/                   # tipos.ts (compartilhado com o painel via @protocolo) e esquemas v1
+├── ponte/                       # versão anterior da ponte (Bluetooth Clássico); será removida
 ├── scripts/seed.ts
 ├── src/{config,adaptadores,aplicacao,dominio,infra}
 └── testes/{unit,integracao,e2e}
