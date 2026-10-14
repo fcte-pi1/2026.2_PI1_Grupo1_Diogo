@@ -4,10 +4,12 @@ on:
   push:
     paths:
       - 'src/firmware/**'
+      - 'src/backend/testes/contrato/**'
       - '.github/workflows/firmware.yml'
   pull_request:
     paths:
       - 'src/firmware/**'
+      - 'src/backend/testes/contrato/**'
       - '.github/workflows/firmware.yml'
 
 defaults:
@@ -44,3 +46,28 @@ jobs:
           name: coverage-report
           path: src/firmware/build/coverage/coverage/
           if-no-files-found: ignore
+
+  contrato:
+    name: Contrato firmware ↔ backend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build contract_dump (debug, warnings as errors)
+        run: |
+          cmake --preset debug -DFIRMWARE_WARNINGS_AS_ERRORS=ON
+          cmake --build --preset debug --target contract_dump
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: src/backend/package-lock.json
+
+      - name: Install backend dependencies
+        working-directory: src/backend
+        run: npm ci
+
+      - name: Run contract test
+        working-directory: src/backend
+        run: CONTRACT_DUMP=${{ github.workspace }}/src/firmware/build/debug/contract_dump npx vitest run testes/contrato/firmware.test.ts

@@ -20,6 +20,13 @@ export default defineConfig({
           hookTimeout: 120_000,
         },
       },
+      {
+        test: {
+          name: 'contrato',
+          include: ['testes/contrato/**/*.test.ts'],
+          environment: 'node',
+        },
+      },
     ],
     coverage: {
       provider: 'v8',
