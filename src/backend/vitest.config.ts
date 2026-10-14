@@ -23,8 +23,10 @@ export default defineConfig({
     ],
     coverage: {
       provider: 'v8',
-      include: ['src/**/*.ts'],
-      exclude: ['src/main.ts'],
+      // O simulador e o validador do protocolo também são código de produção dos testes
+      // (RNF-53). Os pontos de entrada de linha de comando ficam de fora, como o main.ts.
+      include: ['src/**/*.ts', 'protocolo/**/*.ts', 'simulador/**/*.ts'],
+      exclude: ['src/main.ts', '**/cli.ts'],
       reporter: ['text', 'html'],
       // RNF-53: cobertura mínima de 80 % nos módulos de validação e derivação.
       thresholds: {
