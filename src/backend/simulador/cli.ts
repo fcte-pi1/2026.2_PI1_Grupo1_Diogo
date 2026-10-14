@@ -14,13 +14,12 @@ import { ehTipoLabirinto, TIPOS_LABIRINTO, type CantoPartida } from './labirinto
 import {
   criarSimulador,
   ErroSimulador,
+  PRAZO_CONFIRMACAO_MS,
   TAXA_PADRAO,
   URL_PADRAO,
   type ProgressoCorrida,
 } from './simulador.js';
 
-/** Tempo para os últimos `ack` chegarem antes de fechar a conexão. */
-const ESPERA_ACKS_MS = 1000;
 const INTERVALO_PROGRESSO_MS = 5000;
 
 const AJUDA = `Simulador de robô do Rato Borrachudo (RNF-53)
@@ -121,23 +120,18 @@ try {
 
   const corrida = await simulador.iniciarCorrida((atual) => (progresso = atual));
   clearInterval(relatorio);
-
-  // O robô não espera nada do backend; a pausa é só para o resumo mostrar os últimos `ack`.
-  await new Promise((resolver) => setTimeout(resolver, ESPERA_ACKS_MS));
-  await simulador.encerrar();
-
   info(
-    `corrida ${corrida.corrida} (${corrida.resultado}): ${corrida.mensagens} mensagens, ` +
+    `corrida ${corrida.corrida} enviada (resultado simulado: ${corrida.resultado}): ` +
+      `${corrida.mensagens} mensagens, ` +
       `${corrida.passos} células percorridas (${corrida.revisitas} revisitas), ` +
       `${(corrida.duracaoMs / 1000).toFixed(1)} s no relógio do robô`,
   );
-  if (simulador.acks.length === 0) {
-    info('nenhum ack recebido: o backend ainda não confirma as mensagens (ingestão da #323)?');
-  } else {
-    info(
-      `acks recebidos: ${simulador.acks.length} · último ack ${ultimoAck()} de ${corrida.mensagens}`,
-    );
-  }
+
+  // O envio não dependeu do backend (emissor unidirecional). Só agora o simulador confere se o
+  // backend gravou tudo: se a conexão tiver sido recusada, isto falha e cai no `catch`.
+  await simulador.aguardarConfirmacao(corrida.mensagens);
+  await simulador.encerrar();
+  info(`confirmada pelo backend: último ack ${ultimoAck()} de ${corrida.mensagens}`);
   process.exit(0);
 } catch (falha) {
   erro(falha instanceof ErroSimulador ? falha.message : String(falha));
@@ -146,6 +140,9 @@ try {
     erro('dispositivo ou token recusado: rodou o seed? confira --dispositivo e --token');
   if (codigo === 4002) erro('versão do protocolo não suportada pelo backend');
   if (codigo === 4003) erro('o backend não aceitou o hello');
+  if (codigo === undefined && simulador.acks.length === 0) {
+    erro(`nenhum ack em ${PRAZO_CONFIRMACAO_MS / 1000} s: o backend está gravando a telemetria?`);
+  }
   await simulador.encerrar();
   process.exit(1);
 }
