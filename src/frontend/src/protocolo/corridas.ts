@@ -1,23 +1,35 @@
-// Tipos da resposta de GET /api/corridas (listagem do histórico).
-// Ficam no frontend porque o backend ainda não publica este contrato em @protocolo;
-// quando publicar, apague este arquivo e a linha correspondente em ./index.ts.
+// Contrato provisório da listagem GET /api/corridas.
+// Mantido no frontend para que esta alteração não modifique arquivos do backend.
+// Quando o contrato for publicado pelo backend, este arquivo poderá ser removido.
 
-/** Resumo de uma corrida na listagem do histórico. */
-export interface CorridaResumo {
-  id: number;
-  /** Instante de início da corrida, ISO 8601 (UTC). */
-  iniciadaEm: string;
-  labirinto: '4x4' | '8x4' | '12x4';
-  /** Tempo oficial de execução em ms; `null` se a corrida não registrou tempo. */
-  tempoMs: number | null;
-  status: 'EM_ANDAMENTO' | 'CONCLUIDA' | 'FALHOU' | 'INTERROMPIDA';
+import type { MotivoTermino, StatusCorrida, TipoLabirinto } from '@protocolo';
+
+export interface FiltrosListaCorridas {
+  tipo?: TipoLabirinto;
+  status?: StatusCorrida;
+  de?: string;
+  ate?: string;
+  pagina?: number;
+  tamanho?: number;
 }
 
-/** Resposta paginada de `GET /api/corridas?labirinto=&pagina=&tamanhoPagina=`. */
+export interface CorridaResumo {
+  id: string;
+  iniciada_em: string;
+  tipo_labirinto: TipoLabirinto | null;
+  numero_tentativa: number;
+  status: StatusCorrida;
+  motivo_termino: MotivoTermino | null;
+  tempo_conclusao_ms: number | null;
+  anulada: boolean;
+}
+
 export interface RespostaListaCorridas {
   itens: CorridaResumo[];
-  /** Total de corridas que satisfazem o filtro (todas as páginas). */
   total: number;
   pagina: number;
-  tamanhoPagina: number;
+  tamanho: number;
 }
+
+export const TAMANHO_PAGINA_PADRAO = 20;
+export const TAMANHO_PAGINA_MAXIMO = 100;
