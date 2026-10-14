@@ -181,7 +181,7 @@ std::string Encoder::encodePosition(long time,                     //
                       R"(,"orientacao":")" + directionToString(direction) +
                       R"(","celulas":)" + std::to_string(cells);
     if (speed.has_value()) {
-        msg += R"(,"velocidade_media_mps":)" + num(*speed);
+        msg += R"(,"velocidade_media_mps":)" + num(*speed / 1000.0);
     }
     msg += "}";
     return msg;
