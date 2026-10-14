@@ -79,6 +79,53 @@ TEST(ProtocolV1, FimCorridaComDetalheEscapa) {
         R"({"versao":1,"tipo":"fim_corrida","corrida":"r9f3a1c-1","sequencia":2,"tempo_ms":100,"resultado":"falha","detalhe":"aspa \" e barra \\"})");
 }
 
+TEST(ProtocolV1, FimCorridaDetalheTruncaEm200Caracteres) {
+    Encoder encoder = makeEncoder();
+    (void)encoder.encodeStartRun(1, 0, "4x4");
+    const std::string entrada(250, 'a');
+    const std::string esperado(200, 'a');
+    EXPECT_EQ(
+        encoder.encodeRunResult(100, RunResult::Failure, entrada),
+        R"({"versao":1,"tipo":"fim_corrida","corrida":"r9f3a1c-1","sequencia":2,"tempo_ms":100,"resultado":"falha","detalhe":")" +
+            esperado + R"("})");
+}
+
+TEST(ProtocolV1, FimCorridaDetalheLimiteExato200Caracteres) {
+    Encoder encoder = makeEncoder();
+    (void)encoder.encodeStartRun(1, 0, "4x4");
+    const std::string entrada(200, 'a');
+    EXPECT_EQ(
+        encoder.encodeRunResult(100, RunResult::Failure, entrada),
+        R"({"versao":1,"tipo":"fim_corrida","corrida":"r9f3a1c-1","sequencia":2,"tempo_ms":100,"resultado":"falha","detalhe":")" +
+            entrada + R"("})");
+}
+
+TEST(ProtocolV1, FimCorridaDetalheTruncaUtf8MultibyteSemQuebrar) {
+    Encoder encoder = makeEncoder();
+    (void)encoder.encodeStartRun(1, 0, "4x4");
+    std::string entrada;
+    for (int i = 0; i < 250; ++i) {
+        entrada += "é";
+    }
+    std::string esperado;
+    for (int i = 0; i < 200; ++i) {
+        esperado += "é";
+    }
+    EXPECT_EQ(
+        encoder.encodeRunResult(100, RunResult::Failure, entrada),
+        R"({"versao":1,"tipo":"fim_corrida","corrida":"r9f3a1c-1","sequencia":2,"tempo_ms":100,"resultado":"falha","detalhe":")" +
+            esperado + R"("})");
+}
+
+TEST(ProtocolV1, FimCorridaDetalheEscapaControleEPreservaUtf8) {
+    Encoder encoder = makeEncoder();
+    (void)encoder.encodeStartRun(1, 0, "4x4");
+    const std::string entrada = std::string("teste ") + "é" + "\001\n\t" + "\037" + " fim";
+    EXPECT_EQ(
+        encoder.encodeRunResult(100, RunResult::Failure, entrada),
+        R"({"versao":1,"tipo":"fim_corrida","corrida":"r9f3a1c-1","sequencia":2,"tempo_ms":100,"resultado":"falha","detalhe":"teste é\u0001\n\t\u001f fim"})");
+}
+
 TEST(ProtocolV1, MapeamentoDeEstados) {
     EXPECT_EQ(phaseToString(SessionPhase::SelfTest), "INICIALIZANDO");
     EXPECT_EQ(phaseToString(SessionPhase::Idle), "AGUARDANDO");
