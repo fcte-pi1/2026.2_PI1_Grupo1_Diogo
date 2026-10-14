@@ -1,16 +1,8 @@
 import type { ErroHistorico, FiltroTipoLabirinto, StatusCorrida } from '../dominio';
+import { rotuloStatus } from './execucao';
 
 export function rotuloStatusCorrida(status: StatusCorrida): string {
-  switch (status) {
-    case 'EM_ANDAMENTO':
-      return 'Em andamento';
-    case 'CONCLUIDA':
-      return 'Concluída';
-    case 'FALHOU':
-      return 'Falhou';
-    case 'INTERROMPIDA':
-      return 'Interrompida';
-  }
+  return rotuloStatus(status);
 }
 
 export function rotuloFiltroLabirinto(filtro: FiltroTipoLabirinto): string {
