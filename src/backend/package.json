@@ -15,6 +15,7 @@
     "migrate:create": "node-pg-migrate create --migrations-dir migracoes --migration-file-language sql --migration-filename-format utc",
     "seed": "tsx scripts/seed.ts",
     "ponte": "tsx ponte/cli.ts",
+    "simulador": "tsx simulador/cli.ts",
     "test": "vitest run --project unit",
     "test:watch": "vitest --project unit",
     "test:cobertura": "vitest run --project unit --coverage",
