@@ -2,7 +2,6 @@ import type { ErroHistorico, FiltroTipoLabirinto } from '../../dominio';
 import type { SaudeBackend } from '../../estado';
 import type { RespostaListaCorridas } from '../../protocolo';
 
-/** Cliente HTTP do backend. URLs relativas: mesma origem em produção, proxy do Vite em dev. */
 export async function obterSaude(sinal?: AbortSignal): Promise<SaudeBackend> {
   try {
     const resposta = await fetch('/health', { signal: sinal ?? null });
@@ -15,12 +14,10 @@ export async function obterSaude(sinal?: AbortSignal): Promise<SaudeBackend> {
 
 export interface FiltrosCorridas {
   labirinto: FiltroTipoLabirinto;
-  /** Começa em 1. */
   pagina: number;
   tamanhoPagina: number;
 }
 
-/** Falha de `listarCorridas`; `tipo` diz se foi de rede ou do servidor. */
 export class ErroConsultaCorridas extends Error {
   readonly tipo: ErroHistorico;
 
@@ -31,19 +28,15 @@ export class ErroConsultaCorridas extends Error {
   }
 }
 
-/**
- * GET /api/corridas — página de corridas armazenadas, da mais recente para a mais antiga.
- * Se o `sinal` for abortado, repropaga o erro original (o chamador o ignora).
- */
 export async function listarCorridas(
   filtros: FiltrosCorridas,
   sinal?: AbortSignal,
 ): Promise<RespostaListaCorridas> {
   const consulta = new URLSearchParams({
     pagina: String(filtros.pagina),
-    tamanhoPagina: String(filtros.tamanhoPagina),
+    tamanho: String(filtros.tamanhoPagina),
   });
-  if (filtros.labirinto !== 'TODOS') consulta.set('labirinto', filtros.labirinto);
+  if (filtros.labirinto !== 'TODOS') consulta.set('tipo', filtros.labirinto);
 
   let resposta: Response;
   try {
@@ -56,7 +49,12 @@ export async function listarCorridas(
 
   try {
     const corpo = (await resposta.json()) as RespostaListaCorridas;
-    if (!Array.isArray(corpo.itens) || typeof corpo.total !== 'number') {
+    if (
+      !Array.isArray(corpo.itens) ||
+      typeof corpo.total !== 'number' ||
+      typeof corpo.pagina !== 'number' ||
+      typeof corpo.tamanho !== 'number'
+    ) {
       throw new ErroConsultaCorridas('SERVIDOR');
     }
     return corpo;

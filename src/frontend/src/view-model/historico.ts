@@ -15,9 +15,9 @@ import type { CorridaResumo } from '../protocolo';
 
 /** Linha da tabela já formatada para exibição. */
 export interface LinhaHistorico {
-  id: number;
+  id: string;
   dataHora: string;
-  labirinto: TipoLabirinto;
+  labirinto: TipoLabirinto | null;
   tempo: string;
   status: StatusCorrida;
   rotuloStatus: string;
@@ -40,9 +40,9 @@ const OPCOES_FILTRO: readonly OpcaoFiltro[] = FILTROS_LABIRINTO.map((valor) => (
 function paraLinha(corrida: CorridaResumo): LinhaHistorico {
   return {
     id: corrida.id,
-    dataHora: formatarDataHora(corrida.iniciadaEm),
-    labirinto: corrida.labirinto,
-    tempo: formatarTempoCorrida(corrida.tempoMs),
+    dataHora: formatarDataHora(corrida.iniciada_em),
+    labirinto: corrida.tipo_labirinto,
+    tempo: formatarTempoCorrida(corrida.tempo_conclusao_ms),
     status: corrida.status,
     rotuloStatus: rotuloStatusCorrida(corrida.status),
     rota: `/historico/${corrida.id}`,

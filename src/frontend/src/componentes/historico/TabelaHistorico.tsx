@@ -28,7 +28,7 @@ export function TabelaHistorico({ linhas }: Props) {
                 </Link>
               </td>
               <td>
-                <span className={estilos.labirinto}>{linha.labirinto}</span>
+                <span className={estilos.labirinto}>{linha.labirinto ?? '—'}</span>
               </td>
               <td className={estilos.mono}>{linha.tempo}</td>
               <td>
