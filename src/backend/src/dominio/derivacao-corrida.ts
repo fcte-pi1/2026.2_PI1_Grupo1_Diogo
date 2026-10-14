@@ -179,7 +179,10 @@ export type Efeito =
       status: StatusCorrida;
       motivo: MotivoTermino;
       detalhe: string | null;
+      /** `fim_corrida` que encerrou a corrida; `null` numa interrupção. */
       sequencia: number | null;
+      /** Relógio do robô no `fim_corrida`; `null` numa interrupção. */
+      tempoMs: number | null;
     }
   | { tipo: 'alerta_tensao'; sequencia: number; tensaoV: number };
 
@@ -258,7 +261,26 @@ export class DerivacaoCorrida {
     if (this.status !== 'EM_ANDAMENTO') return [];
     this.status = 'INTERROMPIDA';
     this.motivo = motivo;
-    return [{ tipo: 'status', status: 'INTERROMPIDA', motivo, detalhe: null, sequencia: null }];
+    return [
+      {
+        tipo: 'status',
+        status: 'INTERROMPIDA',
+        motivo,
+        detalhe: null,
+        sequencia: null,
+        tempoMs: null,
+      },
+    ];
+  }
+
+  /**
+   * Restaura um status gravado que não vem das mensagens, como uma interrupção por falta de
+   * sinal feita antes de o backend reiniciar. Usado só na reconstrução do estado (RNF-52).
+   */
+  restaurarStatus(status: StatusCorrida, motivo: MotivoTermino | null): void {
+    if (this.finalizada || status !== 'INTERROMPIDA') return;
+    this.status = status;
+    this.motivo = motivo;
   }
 
   get metricas(): Metricas {
@@ -376,6 +398,7 @@ export class DerivacaoCorrida {
         motivo: this.motivo,
         detalhe: this.detalhe,
         sequencia: mensagem.sequencia,
+        tempoMs: mensagem.tempo_ms,
       },
       // O snapshot final é gravado mesmo fora do múltiplo de 20 (RF-80, CA3).
       this.snapshot(mensagem.sequencia),

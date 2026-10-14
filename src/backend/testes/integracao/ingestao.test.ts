@@ -9,14 +9,16 @@ import { runner } from 'node-pg-migrate';
 import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { criarValidadorProtocolo } from '../../protocolo/validador.js';
-import { ServicoIngestao } from '../../src/aplicacao/index.js';
+import { ServicoCorrida, ServicoIngestao } from '../../src/aplicacao/index.js';
 import { construirApp } from '../../src/app.js';
+import { BarramentoEventos } from '../../src/infra/barramento-eventos.js';
 import { criarContadores } from '../../src/infra/contadores.js';
 import { GravadorLote } from '../../src/infra/gravador-lote.js';
 import {
   RegistroAuditoriaPg,
   RepositorioCorridasPg,
   RepositorioDispositivosPg,
+  RepositorioProjecoesPg,
   VerificadorTokenArgon2,
   criarInserirLote,
 } from '../../src/infra/repositorios-pg.js';
@@ -66,6 +68,7 @@ describe('ingestão de telemetria com PostgreSQL real', () => {
   let app: FastifyInstance;
   let url: string;
   let base: string;
+  let corridas: ServicoCorrida;
 
   const consulta = async <T extends pg.QueryResultRow>(sql: string, parametros: unknown[] = []) =>
     (await pool.query<T>(sql, parametros)).rows;
@@ -80,10 +83,17 @@ describe('ingestão de telemetria com PostgreSQL real', () => {
 
   async function subirServidor(): Promise<void> {
     const contadores = criarContadores();
+    corridas = new ServicoCorrida({
+      corridas: new RepositorioCorridasPg(pool),
+      projecoes: new RepositorioProjecoesPg(pool),
+      eventos: new BarramentoEventos(),
+      log: { info: () => {}, warn: () => {}, error: () => {} },
+    });
+    await corridas.recuperar();
     const ingestao = new ServicoIngestao({
       dispositivos: new RepositorioDispositivosPg(pool),
       tokens: new VerificadorTokenArgon2(),
-      corridas: new RepositorioCorridasPg(pool),
+      corridas,
       gravador: new GravadorLote(criarInserirLote(pool)),
       auditoria: new RegistroAuditoriaPg(pool),
       validador: criarValidadorProtocolo(),
@@ -295,6 +305,153 @@ describe('ingestão de telemetria com PostgreSQL real', () => {
     await depois.esperarAck('rnf52', 3);
     expect(await sequenciasDe('rnf52')).toEqual([1, 2, 3]);
     await depois.fechar();
+  });
+
+  describe('persistência e métricas (#325)', () => {
+    const corridaDe = async (idRobo: string) =>
+      (await consulta(`SELECT * FROM corrida WHERE id_corrida_robo = $1`, [idRobo]))[0]!;
+
+    it('CT-BE-12, 15, 16 e 18: encerra com status, tempo, velocidade e energia gravados', async () => {
+      const c = { corrida: 'met' };
+      const robo = await Robo.conectar(url);
+      const celulas = Array.from({ length: 31 }, (_, i) =>
+        mensagem('celula', i + 2, {
+          ...c,
+          x: i % 4,
+          y: 3 - (Math.floor(i / 4) % 4),
+          tempo_ms: 1000 + i * 1500,
+        }),
+      );
+      const energias = [8.2, 8.0, 7.8, 7.6].map((v, i) =>
+        mensagem('energia', 33 + i, { ...c, tensao_v: v, tempo_ms: 46_000 + i }),
+      );
+      robo.enviar(
+        hello(),
+        mensagem('inicio_corrida', 1, { ...c, tempo_ms: 1000 }),
+        ...celulas,
+        ...energias,
+        mensagem('fim_corrida', 37, { ...c, tempo_ms: 95_500 }),
+      );
+      await robo.esperarAck('met', 37);
+      await robo.fechar();
+      await corridas.esvaziar();
+
+      const corrida = await corridaDe('met');
+      expect(corrida).toMatchObject({
+        status: 'CONCLUIDA',
+        motivo_termino: 'SUCESSO',
+        tempo_conclusao_ms: 94_500,
+        t_fim_robo_ms: '95500',
+        transicoes_celula: 30,
+        distancia_m: '5.40',
+        tensao_inicial_v: '8.200',
+        tensao_final_v: '7.600',
+        delta_v: '0.600',
+        carga_inicial_pct: '87.50',
+        carga_final_pct: '50.00',
+        ultimo_seq_contiguo: 37,
+        seqs_faltantes: 0,
+      });
+      expect(corrida.encerrada_em).toBeInstanceOf(Date);
+      // 30 transições em 94,5 s (do início ao fim, pelo relógio do robô).
+      expect(Number(corrida.velocidade_media_mps)).toBeCloseTo(5.4 / 94.5, 3);
+
+      const passagens = await consulta(
+        `SELECT count(*)::int AS n, sum(revisita::int)::int AS revisitas FROM passagem_celula WHERE corrida_id = $1`,
+        [corrida.id],
+      );
+      expect(passagens[0]).toEqual({ n: 31, revisitas: corrida.revisitas });
+      const leituras = await consulta(
+        `SELECT tensao_v FROM leitura_energia WHERE corrida_id = $1 ORDER BY seq`,
+        [corrida.id],
+      );
+      expect(leituras.map((l) => l.tensao_v)).toEqual(['8.200', '8.000', '7.800', '7.600']);
+      const snapshots = await consulta(
+        `SELECT seq_corte FROM snapshot_mapa WHERE corrida_id = $1 ORDER BY seq_corte`,
+        [corrida.id],
+      );
+      expect(snapshots.map((s) => s.seq_corte)).toEqual([21, 37]);
+
+      // RNF-54: depois de CONCLUIDA, o banco recusa alterar a corrida.
+      await expect(
+        pool.query(`UPDATE corrida SET status = 'FALHOU' WHERE id = $1`, [corrida.id]),
+      ).rejects.toThrow(/não pode ser alterada/);
+    });
+
+    it('CT-BE-20: FALHOU com detalhe, e um segundo fim não muda nada', async () => {
+      const c = { corrida: 'falha' };
+      const robo = await Robo.conectar(url);
+      robo.enviar(
+        hello(),
+        mensagem('inicio_corrida', 1, c),
+        mensagem('fim_corrida', 2, { ...c, resultado: 'falha', detalhe: 'Erro: sensor ToF 3' }),
+        mensagem('fim_corrida', 3, { ...c, resultado: 'sucesso' }),
+      );
+      await robo.esperarAck('falha', 3);
+      await robo.fechar();
+      await corridas.esvaziar();
+
+      expect(await corridaDe('falha')).toMatchObject({
+        status: 'FALHOU',
+        motivo_termino: 'FALHA_REPORTADA',
+        detalhe_termino: 'Erro: sensor ToF 3',
+        tempo_conclusao_ms: null,
+      });
+    });
+
+    it('CT-BE-14: reconectar com outro boot interrompe a corrida (REINICIO_ROBO)', async () => {
+      const c = { corrida: 'reboot' };
+      const antes = await Robo.conectar(url);
+      antes.enviar(hello(), mensagem('inicio_corrida', 1, c));
+      await antes.esperarAck('reboot', 1);
+
+      const depois = await Robo.conectar(url);
+      depois.enviar(hello({ boot: 'b-novo' }));
+      await esperar(async () => (await corridaDe('reboot')).status === 'INTERROMPIDA');
+      expect(await corridaDe('reboot')).toMatchObject({ motivo_termino: 'REINICIO_ROBO' });
+      await Promise.all([antes.fechar(), depois.fechar()]);
+    });
+
+    it('RNF-52: o backend reinicia no meio da corrida e as métricas continuam de onde pararam', async () => {
+      const c = { corrida: 'recupera' };
+      const antes = await Robo.conectar(url);
+      antes.enviar(
+        hello(),
+        mensagem('inicio_corrida', 1, { ...c, tempo_ms: 0 }),
+        mensagem('celula', 2, { ...c, tempo_ms: 0 }),
+        mensagem('celula', 3, { ...c, x: 0, y: 2, tempo_ms: 1800 }),
+      );
+      await antes.esperarAck('recupera', 3);
+
+      await app.close();
+      await subirServidor();
+
+      const depois = await Robo.conectar(url);
+      depois.enviar(
+        hello(),
+        mensagem('celula', 4, { ...c, x: 1, y: 2, tempo_ms: 3600 }),
+        mensagem('fim_corrida', 5, { ...c, tempo_ms: 3600 }),
+      );
+      await depois.esperarAck('recupera', 5);
+      await depois.fechar();
+      await corridas.esvaziar();
+
+      const corrida = await corridaDe('recupera');
+      expect(corrida).toMatchObject({
+        status: 'CONCLUIDA',
+        transicoes_celula: 2,
+        tempo_conclusao_ms: 3600,
+      });
+      const ordens = await consulta(
+        `SELECT seq, ordem FROM passagem_celula WHERE corrida_id = $1 ORDER BY seq`,
+        [corrida.id],
+      );
+      expect(ordens).toEqual([
+        { seq: 2, ordem: 1 },
+        { seq: 3, ordem: 2 },
+        { seq: 4, ordem: 3 },
+      ]);
+    });
   });
 
   it('grava o payload original e registra a perda de sinal ao fechar no meio da corrida', async () => {

@@ -192,7 +192,14 @@ describe('DerivacaoCorrida', () => {
       const d = new DerivacaoCorrida(null);
       const status = doTipo(aplicarTodas(d, [inicio(0), fim('sucesso', 10)]), 'status');
       expect(status).toEqual([
-        { tipo: 'status', status: 'CONCLUIDA', motivo: 'SUCESSO', detalhe: null, sequencia: 2 },
+        {
+          tipo: 'status',
+          status: 'CONCLUIDA',
+          motivo: 'SUCESSO',
+          detalhe: null,
+          sequencia: 2,
+          tempoMs: 10,
+        },
       ]);
     });
 

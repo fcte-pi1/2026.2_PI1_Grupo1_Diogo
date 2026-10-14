@@ -5,12 +5,7 @@
  * O estado vivo de cada corrida fica em memória e é acessado só pelo event loop. As
  * mensagens de uma mesma conexão são entregues uma de cada vez (a fila fica no gateway).
  */
-import {
-  SequenciaCorrida,
-  verificarRegras,
-  type DadosParaRegras,
-  type TipoLabirinto,
-} from '../dominio/index.js';
+import { verificarRegras, type DadosParaRegras } from '../dominio/index.js';
 import {
   CodigoFechamento,
   type Ack,
@@ -22,16 +17,19 @@ import {
   type CodigoRejeicao,
   type ValidadorProtocolo,
 } from '../../protocolo/validador.js';
+import { SessaoRobo, type EstadoCorrida } from './estado.js';
 import type {
   Contadores,
   Dispositivo,
   GravadorMensagens,
   RegistroAuditoria,
   RegistroLog,
-  RepositorioCorridas,
   RepositorioDispositivos,
   VerificadorToken,
 } from './portas.js';
+import type { ServicoCorrida } from './servico-corrida.js';
+
+export { SessaoRobo } from './estado.js';
 
 /** Tempo sem mensagens, durante uma corrida, para declarar o sinal perdido (RF-73). */
 export const LIMITE_SILENCIO_MS = 3000;
@@ -39,7 +37,7 @@ export const LIMITE_SILENCIO_MS = 3000;
 export interface DependenciasIngestao {
   dispositivos: RepositorioDispositivos;
   tokens: VerificadorToken;
-  corridas: RepositorioCorridas;
+  corridas: ServicoCorrida;
   gravador: GravadorMensagens;
   auditoria: RegistroAuditoria;
   validador: ValidadorProtocolo;
@@ -55,40 +53,7 @@ export interface PedidoFechamento {
 
 export type ResultadoHello = { ok: true; sessao: SessaoRobo } | ({ ok: false } & PedidoFechamento);
 
-/** Uma conexão autenticada de um robô (ou do simulador, ou da ponte). */
-export class SessaoRobo {
-  /** Corrida em andamento nesta conexão: é a que o monitor de sinal acompanha. */
-  corridaAtiva: EstadoCorrida | null = null;
-  ultimaMensagemEm: number;
-  sinalPerdido = false;
-  readonly acksPendentes = new Set<EstadoCorrida>();
-
-  constructor(
-    readonly dispositivoId: string,
-    readonly identificador: string,
-    /** Muda quando o robô reinicia e se identifica de novo na mesma conexão. */
-    public boot: string,
-    public versaoProtocolo: number,
-    /** Envia uma confirmação ao robô. É informativa: o robô pode ignorá-la. */
-    readonly enviarAck: (ack: Ack) => void,
-    agora: number,
-  ) {
-    this.ultimaMensagemEm = agora;
-  }
-}
-
-interface EstadoCorrida {
-  id: string;
-  idRobo: string;
-  labirinto: TipoLabirinto | null;
-  sequencias: SequenciaCorrida;
-  /** Conexões que enviaram duplicata de uma mensagem ainda na fila de gravação. */
-  aguardandoGravacao: Set<SessaoRobo>;
-}
-
 export class ServicoIngestao {
-  /** Estado vivo por corrida, compartilhado entre conexões do mesmo robô. */
-  private readonly corridas = new Map<string, Promise<EstadoCorrida>>();
   private readonly agora: () => number;
 
   constructor(private readonly deps: DependenciasIngestao) {
@@ -120,6 +85,8 @@ export class ServicoIngestao {
       { dispositivo: dispositivo.identificador, boot: hello.boot },
       'robô conectado',
     );
+    // Uma conexão nova com outro boot interrompe a corrida anterior do robô (RF-81, CA1).
+    this.deps.corridas.reinicioDetectado(dispositivo.id, hello.boot);
     return { ok: true, sessao };
   }
 
@@ -189,6 +156,7 @@ export class ServicoIngestao {
 
     const reiniciou = conferido.hello.boot !== sessao.boot;
     sessao.boot = conferido.hello.boot;
+    if (reiniciou) this.deps.corridas.reinicioDetectado(sessao.dispositivoId, sessao.boot);
     sessao.versaoProtocolo = conferido.hello.versao;
     await this.deps.auditoria.eventoConexao({
       dispositivoId: sessao.dispositivoId,
@@ -224,6 +192,7 @@ export class ServicoIngestao {
     const mensagem = validada.mensagem;
 
     const corrida = await this.obterCorrida(sessao, mensagem);
+    this.deps.corridas.registrarAtividade(corrida);
 
     const violacao = verificarRegras(
       dadosParaRegras(mensagem),
@@ -293,57 +262,23 @@ export class ServicoIngestao {
     });
   }
 
-  /** Estado da corrida: da memória, ou criado/reconstruído a partir do banco. */
-  private obterCorrida(sessao: SessaoRobo, mensagem: MensagemCorrida): Promise<EstadoCorrida> {
-    const chave = `${sessao.dispositivoId}\n${mensagem.corrida}`;
-    let carregando = this.corridas.get(chave);
-    if (!carregando) {
-      carregando = this.carregarCorrida(sessao, mensagem);
-      this.corridas.set(chave, carregando);
-      // Uma falha ao carregar não pode ficar guardada: a próxima mensagem tenta de novo.
-      carregando.catch(() => this.corridas.delete(chave));
-    }
-    return carregando.then((corrida) => this.completarInicio(corrida, mensagem));
-  }
-
-  private async carregarCorrida(
+  /** Estado da corrida, com o `inicio_corrida` aplicado assim que chega. */
+  private async obterCorrida(
     sessao: SessaoRobo,
     mensagem: MensagemCorrida,
   ): Promise<EstadoCorrida> {
-    const inicio = mensagem.tipo === 'inicio_corrida' ? mensagem : null;
-    const persistida = await this.deps.corridas.obterOuCriar({
-      dispositivoId: sessao.dispositivoId,
-      idCorridaRobo: mensagem.corrida,
-      boot: sessao.boot,
-      versaoProtocolo: mensagem.versao,
-      labirinto: inicio?.labirinto ?? null,
-      tempoInicioRoboMs: inicio?.tempo_ms ?? null,
-    });
-
-    const sequencias = new SequenciaCorrida();
-    for (const { sequencia, tempoMs } of await this.deps.corridas.sequenciasGravadas(
-      persistida.id,
-    )) {
-      sequencias.aceitar(sequencia, tempoMs);
-      sequencias.confirmar(sequencia);
-    }
-    return {
-      id: persistida.id,
-      idRobo: mensagem.corrida,
-      labirinto: persistida.labirinto,
-      sequencias,
-      aguardandoGravacao: new Set(),
-    };
-  }
-
-  /** O `inicio_corrida` chegou depois da criação da corrida (ex.: num reenvio após queda). */
-  private async completarInicio(
-    corrida: EstadoCorrida,
-    mensagem: MensagemCorrida,
-  ): Promise<EstadoCorrida> {
-    if (mensagem.tipo === 'inicio_corrida' && corrida.labirinto === null) {
-      corrida.labirinto = mensagem.labirinto;
-      await this.deps.corridas.definirInicio(corrida.id, mensagem.labirinto, mensagem.tempo_ms);
+    const corrida = await this.deps.corridas.obter(
+      {
+        dispositivoId: sessao.dispositivoId,
+        boot: sessao.boot,
+        versaoProtocolo: sessao.versaoProtocolo,
+      },
+      mensagem,
+    );
+    // O labirinto vale para as regras de domínio das mensagens seguintes, mesmo antes de o
+    // `inicio_corrida` ser aplicado à derivação (por exemplo, quando chega num reenvio).
+    if (mensagem.tipo === 'inicio_corrida') {
+      await this.deps.corridas.definirLabirinto(corrida, mensagem);
     }
     return corrida;
   }
@@ -364,6 +299,7 @@ export class ServicoIngestao {
         payload: mensagem,
       });
       corrida.sequencias.confirmar(mensagem.sequencia);
+      this.deps.corridas.gravada(corrida, mensagem);
       // `false`: outra conexão do mesmo robô gravou a mesma sequência antes (HU-BE-06, CA3).
       if (inserida) contadores.mensagensAceitas++;
       else contadores.mensagensDuplicadas++;
@@ -387,15 +323,9 @@ export class ServicoIngestao {
   }
 
   private enviarAcks(sessao: SessaoRobo): void {
-    const { corridas, log } = this.deps;
     for (const corrida of sessao.acksPendentes) {
-      const { ultimaContigua, faltantes } = corrida.sequencias;
-      sessao.enviarAck({ tipo: 'ack', corrida: corrida.idRobo, sequencia: ultimaContigua });
-      corridas
-        .registrarProgresso(corrida.id, ultimaContigua, faltantes)
-        .catch((erro: unknown) =>
-          log.error({ erro, corrida: corrida.id }, 'falha ao registrar progresso'),
-        );
+      const sequencia = corrida.sequencias.ultimaContigua;
+      sessao.enviarAck({ tipo: 'ack', corrida: corrida.idRobo, sequencia });
     }
     sessao.acksPendentes.clear();
   }

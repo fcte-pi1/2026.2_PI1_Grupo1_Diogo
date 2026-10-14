@@ -27,7 +27,8 @@ describe('ServicoIngestao', () => {
     servico = amb.servico,
   ): Promise<void> {
     for (const texto of textos) await servico.receber(sessao, texto);
-    await assentar();
+    // Grava acks e efeitos pendentes, inclusive o progresso, que normalmente sai 1 vez/s.
+    await amb.esvaziar();
   }
 
   describe('autenticação (RF-72)', () => {
