@@ -13,7 +13,7 @@ if (!existsSync(caminho)) {
 }
 
 const validador = criarValidadorProtocolo();
-const linhas = execFileSync(caminho, { encoding: 'utf8', shell: true }).split('\n').filter(Boolean);
+const linhas = execFileSync(caminho, { encoding: 'utf8' }).split('\n').filter(Boolean);
 const mensagens = linhas.map((linha) => ({ linha, bruto: JSON.parse(linha) }));
 
 describe('contrato firmware → backend', () => {
