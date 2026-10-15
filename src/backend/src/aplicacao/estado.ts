@@ -24,6 +24,11 @@ export interface EstadoCorrida {
   proximaAplicar: number;
   /** Quando chegou a última mensagem desta corrida, para a interrupção por silêncio (RF-81). */
   ultimaMensagemEm: number;
+  /**
+   * Quando o sinal foi declarado perdido: na desconexão, o próprio instante; no silêncio com
+   * a conexão aberta, a última mensagem + 3 s. `null` enquanto há sinal.
+   */
+  sinalPerdidoEm: number | null;
   /** Conexões que enviaram duplicata de uma mensagem ainda na fila de gravação. */
   aguardandoGravacao: Set<SessaoRobo>;
   /** Garante que os efeitos de uma corrida sejam gravados na ordem em que foram gerados. */

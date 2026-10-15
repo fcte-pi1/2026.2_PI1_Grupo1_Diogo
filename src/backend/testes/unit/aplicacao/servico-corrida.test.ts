@@ -1,9 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import {
-  LIMITE_INTERRUPCAO_MS,
-  type SessaoRobo,
-  type ServicoIngestao,
-} from '../../../src/aplicacao/index.js';
+import type { SessaoRobo, ServicoIngestao } from '../../../src/aplicacao/index.js';
 import { AmbienteEmMemoria, hello, mensagem } from '../../apoio/ingestao-em-memoria.js';
 
 const dormir = (ms: number) => new Promise((resolver) => setTimeout(resolver, ms));
@@ -165,26 +161,65 @@ describe('ServicoCorrida', () => {
   });
 
   describe('interrupção (RF-81)', () => {
-    it('120 s sem sinal: INTERROMPIDA (SEM_SINAL); um lote tardio com o fim a conclui (CT-BE-13)', async () => {
+    async function verificarEm(instante: number): Promise<void> {
+      amb.relogio = instante;
+      amb.corrida.verificarInterrupcoes();
+      await amb.esvaziar();
+    }
+
+    it('desconexão: INTERROMPIDA (SEM_SINAL) 120 s depois; um lote tardio com o fim a conclui (CT-BE-13)', async () => {
       const sessao = await conectar();
       await enviar(sessao, [mensagem('inicio_corrida', 1, { tempo_ms: 1000 })]);
 
-      amb.relogio = LIMITE_INTERRUPCAO_MS - 1;
-      amb.corrida.verificarInterrupcoes();
-      await amb.esvaziar();
-      expect(corridaA().status).toBe('EM_ANDAMENTO');
+      amb.relogio = 2000;
+      await amb.servico.encerrar(sessao);
 
-      amb.relogio = LIMITE_INTERRUPCAO_MS;
-      amb.corrida.verificarInterrupcoes();
-      await amb.esvaziar();
+      await verificarEm(2000 + 119_999);
+      expect(corridaA().status).toBe('EM_ANDAMENTO');
+      await verificarEm(2000 + 120_000);
       expect([corridaA().status, corridaA().motivo]).toEqual(['INTERROMPIDA', 'SEM_SINAL']);
 
-      await enviar(sessao, [
+      const depois = await conectar();
+      await enviar(depois, [
         mensagem('celula', 2, { tempo_ms: 2000 }),
         mensagem('fim_corrida', 3, { tempo_ms: 95_500 }),
       ]);
       expect([corridaA().status, corridaA().motivo]).toEqual(['CONCLUIDA', 'SUCESSO']);
       expect(amb.encerramentos.get(corridaA().id)!.metricas.tempoConclusaoMs).toBe(94_500);
+    });
+
+    it('desconexão: aos 121 s do CT-BE-13 a corrida já está interrompida', async () => {
+      const sessao = await conectar();
+      await enviar(sessao, [mensagem('inicio_corrida', 1)]);
+      await amb.servico.encerrar(sessao);
+
+      await verificarEm(121_000);
+      expect([corridaA().status, corridaA().motivo]).toEqual(['INTERROMPIDA', 'SEM_SINAL']);
+    });
+
+    it('silêncio com a conexão aberta: a perda é declarada aos 3 s, e a interrupção aos 123 s', async () => {
+      const sessao = await conectar();
+      await enviar(sessao, [mensagem('inicio_corrida', 1)]);
+
+      amb.relogio = 3000;
+      await amb.servico.verificarSilencio(sessao);
+
+      await verificarEm(122_999);
+      expect(corridaA().status).toBe('EM_ANDAMENTO');
+      await verificarEm(123_000);
+      expect([corridaA().status, corridaA().motivo]).toEqual(['INTERROMPIDA', 'SEM_SINAL']);
+    });
+
+    it('uma mensagem depois da perda zera a contagem', async () => {
+      const sessao = await conectar();
+      await enviar(sessao, [mensagem('inicio_corrida', 1)]);
+      await amb.servico.encerrar(sessao);
+
+      amb.relogio = 100_000;
+      await enviar(await conectar(), [mensagem('celula', 2)]);
+
+      await verificarEm(121_000);
+      expect(corridaA().status).toBe('EM_ANDAMENTO');
     });
 
     it('nova conexão com outro boot: INTERROMPIDA (REINICIO_ROBO), definitiva (CT-BE-14)', async () => {
@@ -247,7 +282,7 @@ describe('ServicoCorrida', () => {
       await enviar(sessao, [mensagem('inicio_corrida', 1)]);
 
       amb.novoServico();
-      amb.relogio = 5000 + LIMITE_INTERRUPCAO_MS;
+      amb.relogio = 5000 + 123_000;
       await amb.corrida.recuperar();
       amb.corrida.verificarInterrupcoes();
       await amb.esvaziar();

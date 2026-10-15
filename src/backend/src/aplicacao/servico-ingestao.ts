@@ -27,12 +27,10 @@ import type {
   RepositorioDispositivos,
   VerificadorToken,
 } from './portas.js';
+import { LIMITE_SILENCIO_MS } from './prazos.js';
 import type { ServicoCorrida } from './servico-corrida.js';
 
 export { SessaoRobo } from './estado.js';
-
-/** Tempo sem mensagens, durante uma corrida, para declarar o sinal perdido (RF-73). */
-export const LIMITE_SILENCIO_MS = 3000;
 
 export interface DependenciasIngestao {
   dispositivos: RepositorioDispositivos;
@@ -230,6 +228,10 @@ export class ServicoIngestao {
     if (sessao.corridaAtiva === null || sessao.sinalPerdido) return;
     if (this.agora() - sessao.ultimaMensagemEm < LIMITE_SILENCIO_MS) return;
     sessao.sinalPerdido = true;
+    this.deps.corridas.sinalPerdido(
+      sessao.corridaAtiva,
+      sessao.ultimaMensagemEm + LIMITE_SILENCIO_MS,
+    );
     await this.registrarEvento(sessao, 'SINAL_PERDIDO');
   }
 
@@ -237,6 +239,7 @@ export class ServicoIngestao {
   async encerrar(sessao: SessaoRobo): Promise<void> {
     if (sessao.corridaAtiva !== null && !sessao.sinalPerdido) {
       sessao.sinalPerdido = true;
+      this.deps.corridas.sinalPerdido(sessao.corridaAtiva, this.agora());
       await this.registrarEvento(sessao, 'SINAL_PERDIDO');
     }
     await this.registrarEvento(sessao, 'DESCONECTADO');

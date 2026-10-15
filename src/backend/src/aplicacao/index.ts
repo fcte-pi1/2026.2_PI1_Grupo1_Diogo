@@ -3,5 +3,6 @@
 export * from './estado.js';
 export * from './eventos.js';
 export * from './portas.js';
+export * from './prazos.js';
 export * from './servico-corrida.js';
 export * from './servico-ingestao.js';

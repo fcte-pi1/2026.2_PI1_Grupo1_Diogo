@@ -18,6 +18,7 @@ import {
 import type { MensagemCorrida } from '../../protocolo/tipos.js';
 import type { EstadoCorrida } from './estado.js';
 import type { PublicadorEventos } from './eventos.js';
+import { INTERRUPCAO_APOS_PERDA_MS, LIMITE_SILENCIO_MS } from './prazos.js';
 import type {
   CorridaPersistida,
   RegistroLog,
@@ -25,8 +26,6 @@ import type {
   RepositorioProjecoes,
 } from './portas.js';
 
-/** Tempo sem sinal, depois da perda (3 s), para marcar a corrida como interrompida (RF-81). */
-export const LIMITE_INTERRUPCAO_MS = 3000 + 120_000;
 /** Tempo de espera por uma lacuna antes de aplicar as mensagens seguintes sem ela. */
 export const PRAZO_LACUNA_MS = 5000;
 /** Intervalo mínimo entre duas gravações do progresso de uma corrida em andamento. */
@@ -99,6 +98,12 @@ export class ServicoCorrida {
 
   registrarAtividade(corrida: EstadoCorrida): void {
     corrida.ultimaMensagemEm = this.agora();
+    corrida.sinalPerdidoEm = null;
+  }
+
+  /** A ingestão declarou o sinal perdido em `em`: os 120 s da interrupção contam daí. */
+  sinalPerdido(corrida: EstadoCorrida, em: number): void {
+    corrida.sinalPerdidoEm ??= em;
   }
 
   /**
@@ -112,12 +117,17 @@ export class ServicoCorrida {
     }
   }
 
-  /** Chamado a cada segundo: interrompe as corridas sem sinal há 120 s (RF-81, CA4). */
+  /**
+   * Chamado a cada segundo: interrompe as corridas 120 s depois da perda de sinal (RF-81,
+   * CA4). Sem a perda registrada (corrida recuperada após um reinício do backend, ou ainda
+   * não verificada pela ingestão), a perda conta a partir da última mensagem + 3 s.
+   */
   verificarInterrupcoes(): void {
     const agora = this.agora();
     for (const corrida of this.carregadas.values()) {
       if (corrida.derivacao.status !== 'EM_ANDAMENTO') continue;
-      if (agora - corrida.ultimaMensagemEm < LIMITE_INTERRUPCAO_MS) continue;
+      const perdidoEm = corrida.sinalPerdidoEm ?? corrida.ultimaMensagemEm + LIMITE_SILENCIO_MS;
+      if (agora - perdidoEm < INTERRUPCAO_APOS_PERDA_MS) continue;
       this.deps.log.info({ corrida: corrida.id }, 'corrida interrompida por falta de sinal');
       this.executar(corrida, corrida.derivacao.interromper('SEM_SINAL'));
     }
@@ -192,6 +202,7 @@ export class ServicoCorrida {
       retidas: new Map(),
       proximaAplicar: 1,
       ultimaMensagemEm: this.agora(),
+      sinalPerdidoEm: null,
       aguardandoGravacao: new Set(),
       efeitos: Promise.resolve(),
       temporizadorLacuna: null,
