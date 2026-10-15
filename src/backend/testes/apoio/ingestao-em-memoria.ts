@@ -73,6 +73,7 @@ export class AmbienteEmMemoria {
       if (evento === 'status-alterado') d.aoMudarStatus(dados as MapaEventos['status-alterado']);
       if (evento === 'alerta-tensao') d.aoAlertar(dados as MapaEventos['alerta-tensao']);
       if (evento === 'sinal-alterado') d.aoMudarSinal(dados as MapaEventos['sinal-alterado']);
+      if (evento === 'ranking-alterado') d.aoMudarRanking(dados as MapaEventos['ranking-alterado']);
     },
   };
   readonly servico: ServicoIngestao = this.novoServico();

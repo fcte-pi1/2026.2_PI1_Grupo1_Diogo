@@ -48,6 +48,7 @@ eventos.assinar('mensagem-aplicada', (dados) => distribuicao.aoAplicar(dados));
 eventos.assinar('status-alterado', (dados) => distribuicao.aoMudarStatus(dados));
 eventos.assinar('alerta-tensao', (dados) => distribuicao.aoAlertar(dados));
 eventos.assinar('sinal-alterado', (dados) => distribuicao.aoMudarSinal(dados));
+eventos.assinar('ranking-alterado', (dados) => distribuicao.aoMudarRanking(dados));
 
 const ingestao = new ServicoIngestao({
   dispositivos: new RepositorioDispositivosPg(banco),

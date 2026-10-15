@@ -54,7 +54,7 @@ A inscrição só vale para corridas que o backend tem em memória: as em andame
 | `continuo` | Inscritos na corrida | Posição e energia, **no máximo 10 por segundo** por corrida |
 | `sinal` | Inscritos na corrida | `PERDIDO` após 3 s sem mensagens do robô; `RETOMADO` quando ele volta |
 | `alerta` | Inscritos na corrida | Tensão abaixo de 7,0 V (`TENSAO_BAIXA`), sem repetir a cada leitura |
-| `leaderboard` | Todos os painéis | Uma corrida terminou `CONCLUIDA`: o ranking daquele labirinto pode ter mudado |
+| `leaderboard` | Todos os painéis | Uma corrida terminou `CONCLUIDA`: o ranking daquele labirinto pode ter mudado. Sai depois de a corrida estar gravada, então o `GET /api/leaderboard` feito ao recebê-lo já a inclui |
 | `keepalive` | Todos os painéis | A cada 1 s, também fora das corridas |
 
 ### Regras para o painel

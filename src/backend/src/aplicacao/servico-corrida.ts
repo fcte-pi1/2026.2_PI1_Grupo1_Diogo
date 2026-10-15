@@ -337,7 +337,10 @@ export class ServicoCorrida {
   private executar(corrida: EstadoCorrida, efeitos: Efeito[], silencioso = false): void {
     for (const efeito of efeitos) {
       corrida.efeitos = corrida.efeitos
-        .then(() => this.gravarEfeito(corrida, efeito))
+        .then(async () => {
+          await this.gravarEfeito(corrida, efeito);
+          if (!silencioso) this.publicarGravado(corrida, efeito);
+        })
         .catch((erro: unknown) =>
           this.deps.log.error(
             { erro, corrida: corrida.id, efeito: efeito.tipo },
@@ -387,6 +390,14 @@ export class ServicoCorrida {
       });
     } else if (efeito.tipo === 'alerta_tensao') {
       eventos.publicar('alerta-tensao', { corridaId: corrida.id, tensaoV: efeito.tensaoV });
+    }
+  }
+
+  /** Eventos que só podem sair depois de o efeito estar no banco. */
+  private publicarGravado(corrida: EstadoCorrida, efeito: Efeito): void {
+    const labirinto = corrida.derivacao.labirinto;
+    if (efeito.tipo === 'status' && efeito.status === 'CONCLUIDA' && labirinto) {
+      this.deps.eventos.publicar('ranking-alterado', { corridaId: corrida.id, labirinto });
     }
   }
 

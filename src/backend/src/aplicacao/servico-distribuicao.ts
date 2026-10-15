@@ -215,10 +215,11 @@ export class ServicoDistribuicao {
       metricas: metricasParaPainel(dados.metricas),
     });
     this.paraAoVivo(aoVivo(corridaId, dados));
-    if (dados.status === 'CONCLUIDA' && dados.labirinto) {
-      // O ranking pode ter mudado (RF-95).
-      this.paraTodos({ tipo: 'leaderboard', labirinto: dados.labirinto });
-    }
+  }
+
+  /** O ranking do labirinto pode ter mudado, e a corrida já está no banco (RF-95). */
+  aoMudarRanking(dados: MapaEventos['ranking-alterado']): void {
+    this.paraTodos({ tipo: 'leaderboard', labirinto: dados.labirinto });
   }
 
   aoAlertar(dados: MapaEventos['alerta-tensao']): void {
