@@ -258,6 +258,21 @@ describe('ServicoIngestao', () => {
       expect(amb.ultimoAck()?.sequencia).toBe(2);
       expect(amb.contadores.mensagensDuplicadas).toBe(0);
     });
+
+    it('um fim_corrida cuja gravação falhou é aceito no reenvio, e não rejeitado', async () => {
+      const sessao = await conectar();
+      await enviar(sessao, [mensagem('inicio_corrida', 1)]);
+
+      amb.falhaNaGravacao = new Error('banco fora do ar');
+      await enviar(sessao, [mensagem('fim_corrida', 2)]);
+      expect(amb.sequenciasGravadasDe('c-A')).toEqual([1]);
+
+      await enviar(sessao, [mensagem('fim_corrida', 2)]);
+      expect(amb.rejeicoes).toEqual([]);
+      expect(amb.sequenciasGravadasDe('c-A')).toEqual([1, 2]);
+      expect(amb.ultimoAck()?.sequencia).toBe(2);
+      expect(amb.porIdRobo('c-A').status).toBe('CONCLUIDA');
+    });
   });
 
   describe('criação da corrida (RF-78)', () => {

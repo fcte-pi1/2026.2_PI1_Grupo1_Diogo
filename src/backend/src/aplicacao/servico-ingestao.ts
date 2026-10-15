@@ -326,6 +326,12 @@ export class ServicoIngestao {
     } catch (erro) {
       // Sem confirmação não há ack: o robô reenvia e a mensagem é aceita de novo.
       corrida.sequencias.descartar(mensagem.sequencia);
+      if (mensagem.tipo === 'fim_corrida') {
+        // O fim não foi gravado: o reenvio dele tem de ser aceito, e não rejeitado como
+        // CORRIDA_FINALIZADA, e a corrida continua sendo a ativa desta conexão.
+        corrida.fimRecebido = false;
+        sessao.corridaAtiva ??= corrida;
+      }
       log.error(
         { erro, corrida: corrida.id, sequencia: mensagem.sequencia },
         'falha ao gravar mensagem',
