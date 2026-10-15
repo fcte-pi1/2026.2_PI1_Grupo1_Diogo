@@ -4,7 +4,7 @@
  */
 import type { RepositorioConsulta } from '../aplicacao/portas.js';
 import { paredesDeBits, type MotivoTermino, type StatusCorrida } from '../dominio/index.js';
-import type { DetalheCorrida, TipoLabirinto } from '../../protocolo/tipos.js';
+import type { DetalheCorrida, PosicaoLeaderboard, TipoLabirinto } from '../../protocolo/tipos.js';
 import type { Banco } from './banco.js';
 
 interface LinhaCorrida {
@@ -137,6 +137,43 @@ export class RepositorioConsultaPg implements RepositorioConsulta {
             }
           : null,
     };
+  }
+
+  async leaderboard(
+    labirinto: TipoLabirinto,
+    apresentacaoId: string | null,
+  ): Promise<PosicaoLeaderboard[]> {
+    // A view já exclui as não concluídas e as anuladas. A posição é recalculada aqui porque
+    // a da view é do labirinto inteiro, e com o filtro de apresentação ela teria buracos.
+    const { rows } = await this.banco.query<{
+      posicao: string;
+      id: string;
+      corrida_robo: string;
+      numero_tentativa: number | null;
+      tempo_conclusao_ms: number;
+      distancia_m: string;
+      velocidade_media_mps: string | null;
+      encerrada_em: Date;
+    }>(
+      `SELECT RANK() OVER (ORDER BY l.tempo_conclusao_ms, l.distancia_m) AS posicao,
+              l.corrida_id AS id, c.id_corrida_robo AS corrida_robo, l.numero_tentativa,
+              l.tempo_conclusao_ms, l.distancia_m, l.velocidade_media_mps, l.encerrada_em
+       FROM vw_leaderboard l
+       JOIN corrida c ON c.id = l.corrida_id
+       WHERE l.tipo_labirinto = $1 AND ($2::uuid IS NULL OR l.apresentacao_id = $2)
+       ORDER BY posicao, l.encerrada_em, l.corrida_id`,
+      [labirinto, apresentacaoId],
+    );
+    return rows.map((r) => ({
+      posicao: Number(r.posicao),
+      id: r.id,
+      corrida_robo: r.corrida_robo,
+      numero_tentativa: r.numero_tentativa,
+      tempo_conclusao_ms: r.tempo_conclusao_ms,
+      distancia_m: Number(r.distancia_m),
+      velocidade_media_mps: numeroOuNulo(r.velocidade_media_mps),
+      encerrada_em: r.encerrada_em.toISOString(),
+    }));
   }
 }
 
