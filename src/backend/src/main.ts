@@ -3,10 +3,11 @@
  */
 import { pino } from 'pino';
 import { criarValidadorProtocolo } from '../protocolo/validador.js';
-import { ServicoIngestao } from './aplicacao/index.js';
+import { ServicoCorrida, ServicoIngestao } from './aplicacao/index.js';
 import { construirApp } from './app.js';
 import { carregarConfig } from './config/index.js';
 import { criarBanco, verificarBanco } from './infra/banco.js';
+import { BarramentoEventos } from './infra/barramento-eventos.js';
 import { criarContadores } from './infra/contadores.js';
 import { GravadorLote } from './infra/gravador-lote.js';
 import { opcoesLogger } from './infra/logger.js';
@@ -14,6 +15,7 @@ import {
   RegistroAuditoriaPg,
   RepositorioCorridasPg,
   RepositorioDispositivosPg,
+  RepositorioProjecoesPg,
   VerificadorTokenArgon2,
   criarInserirLote,
 } from './infra/repositorios-pg.js';
@@ -25,10 +27,19 @@ const gravador = new GravadorLote(criarInserirLote(banco));
 
 const log = pino(opcoesLogger(config.nivelLog));
 
+const eventos = new BarramentoEventos();
+const corridas = new ServicoCorrida({
+  corridas: new RepositorioCorridasPg(banco),
+  projecoes: new RepositorioProjecoesPg(banco),
+  eventos,
+  log,
+  configuracao: config.derivacao,
+});
+
 const ingestao = new ServicoIngestao({
   dispositivos: new RepositorioDispositivosPg(banco),
   tokens: new VerificadorTokenArgon2(),
-  corridas: new RepositorioCorridasPg(banco),
+  corridas,
   gravador,
   auditoria: new RegistroAuditoriaPg(banco),
   validador: criarValidadorProtocolo(),
@@ -43,9 +54,18 @@ const app = await construirApp({
   ingestao,
 });
 
+// Corridas que estavam em andamento quando o backend parou (RNF-52).
+const recuperadas = await corridas.recuperar();
+if (recuperadas > 0) log.info({ recuperadas }, 'corridas em andamento recuperadas');
+
+// Interrupção por 120 s sem sinal (RF-81).
+const monitor = setInterval(() => corridas.verificarInterrupcoes(), 1000);
+
 app.addHook('onClose', async () => {
+  clearInterval(monitor);
   // Grava o que ainda estiver na fila antes de fechar o banco.
   await gravador.esvaziar();
+  await corridas.esvaziar();
   await banco.end();
 });
 
