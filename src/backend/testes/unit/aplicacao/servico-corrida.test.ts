@@ -156,7 +156,7 @@ describe('ServicoCorrida', () => {
       ]);
 
       expect(amb.snapshots.map((s) => s.sequenciaCorte)).toEqual([21, 41, 47]);
-      expect(amb.snapshots.at(-1)!.celulasVisitadas).toBe(16);
+      expect(amb.snapshots.map((s) => s.celulasVisitadas)).toEqual([20, 40, 45]);
     });
   });
 

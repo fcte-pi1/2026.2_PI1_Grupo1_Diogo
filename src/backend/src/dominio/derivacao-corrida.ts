@@ -409,7 +409,8 @@ export class DerivacaoCorrida {
     return {
       tipo: 'snapshot',
       sequenciaCorte,
-      celulasVisitadas: this.visitadas.size,
+      // Passagens, e não células distintas: 45 mensagens `celula` dão 45 (CT-BE-11).
+      celulasVisitadas: this.passagens,
       mapa: this.mapa,
       metricas: this.metricas,
     };

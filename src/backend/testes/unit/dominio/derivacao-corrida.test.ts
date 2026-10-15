@@ -7,17 +7,18 @@ import {
   paredesEmBits,
   type Efeito,
   type MensagemDerivavel,
+  type TipoLabirinto,
 } from '../../../src/dominio/index.js';
 
 const fechada = { norte: true, leste: true, sul: true, oeste: true };
 let seq = 0;
 const proxima = () => ++seq;
 
-const inicio = (t = 0): MensagemDerivavel => ({
+const inicio = (t = 0, labirinto: TipoLabirinto = '12x4'): MensagemDerivavel => ({
   tipo: 'inicio_corrida',
   sequencia: proxima(),
   tempo_ms: t,
-  labirinto: '12x4',
+  labirinto,
 });
 const celula = (x: number, y: number, t: number): MensagemDerivavel => ({
   tipo: 'celula',
@@ -26,6 +27,14 @@ const celula = (x: number, y: number, t: number): MensagemDerivavel => ({
   x,
   y,
   paredes: { norte: false, leste: true, sul: false, oeste: true },
+});
+const posicao = (x: number, y: number, t: number): MensagemDerivavel => ({
+  tipo: 'posicao',
+  sequencia: proxima(),
+  tempo_ms: t,
+  x,
+  y,
+  orientacao: 'LESTE',
 });
 const energia = (tensao_v: number, t: number): MensagemDerivavel => ({
   tipo: 'energia',
@@ -167,22 +176,28 @@ describe('DerivacaoCorrida', () => {
   });
 
   describe('snapshots (RF-80, CT-BE-11)', () => {
-    it('a cada 20 células e um final: 45 células geram cortes em 20, 40 e no fim', () => {
+    it('8x4, 45 passagens intercaladas com posição: cortes na 20ª, na 40ª e no fim', () => {
       seq = 0;
       const d = new DerivacaoCorrida(null);
-      const primeira = inicio(0);
-      const celulas = Array.from({ length: 45 }, (_, i) =>
-        celula(i % 12, Math.floor(i / 12) % 4, i * 100),
-      );
+      const primeira = inicio(0, '8x4');
+      // 45 passagens num labirinto de 32 células: as 13 últimas são revisitas.
+      const passagens = Array.from({ length: 45 }, (_, i) => {
+        const [x, y] = [i % 8, Math.floor(i / 8) % 4];
+        return [celula(x, y, i * 100), posicao(x, y, i * 100 + 50)];
+      }).flat();
       const snapshots = doTipo(
-        aplicarTodas(d, [primeira, ...celulas, fim('sucesso', 5000)]),
+        aplicarTodas(d, [primeira, ...passagens, fim('sucesso', 5000)]),
         'snapshot',
       );
 
-      expect(snapshots.map((s) => s.sequenciaCorte)).toEqual([21, 41, 47]);
-      expect(snapshots.at(-1)!.celulasVisitadas).toBe(45);
-      expect(snapshots.at(-1)!.metricas.transicoes).toBe(44);
+      // inicio = 1; a k-ésima célula tem seq 2k e a posição seguinte, 2k + 1.
+      expect(snapshots.map((s) => s.sequenciaCorte)).toEqual([40, 80, 92]);
+      expect(snapshots.map((s) => s.celulasVisitadas)).toEqual([20, 40, 45]);
       expect(snapshots[0]!.mapa.celulas).toHaveLength(20);
+      const final = snapshots.at(-1)!;
+      expect(final.mapa.celulas).toHaveLength(32);
+      expect(final.mapa.posicao).toEqual({ x: 4, y: 1, orientacao: 'LESTE' });
+      expect(final.metricas.transicoes).toBe(44);
     });
   });
 

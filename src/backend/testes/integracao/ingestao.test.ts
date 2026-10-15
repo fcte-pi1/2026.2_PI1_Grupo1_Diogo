@@ -367,10 +367,12 @@ describe('ingestão de telemetria com PostgreSQL real', () => {
       );
       expect(leituras.map((l) => l.tensao_v)).toEqual(['8.200', '8.000', '7.800', '7.600']);
       const snapshots = await consulta(
-        `SELECT seq_corte FROM snapshot_mapa WHERE corrida_id = $1 ORDER BY seq_corte`,
+        `SELECT seq_corte, celulas_visitadas FROM snapshot_mapa WHERE corrida_id = $1 ORDER BY seq_corte`,
         [corrida.id],
       );
       expect(snapshots.map((s) => s.seq_corte)).toEqual([21, 37]);
+      // Passagens, contando as revisitas (CT-BE-11).
+      expect(snapshots.map((s) => s.celulas_visitadas)).toEqual([20, 31]);
 
       // RNF-54: depois de CONCLUIDA, o banco recusa alterar a corrida.
       await expect(
