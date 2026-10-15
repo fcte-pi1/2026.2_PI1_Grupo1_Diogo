@@ -27,7 +27,8 @@ describe('ServicoIngestao', () => {
     servico = amb.servico,
   ): Promise<void> {
     for (const texto of textos) await servico.receber(sessao, texto);
-    await assentar();
+    // Grava acks e efeitos pendentes, inclusive o progresso, que normalmente sai 1 vez/s.
+    await amb.esvaziar();
   }
 
   describe('autenticação (RF-72)', () => {
@@ -256,6 +257,21 @@ describe('ServicoIngestao', () => {
       await enviar(sessao, [mensagem('celula', 2)]);
       expect(amb.ultimoAck()?.sequencia).toBe(2);
       expect(amb.contadores.mensagensDuplicadas).toBe(0);
+    });
+
+    it('um fim_corrida cuja gravação falhou é aceito no reenvio, e não rejeitado', async () => {
+      const sessao = await conectar();
+      await enviar(sessao, [mensagem('inicio_corrida', 1)]);
+
+      amb.falhaNaGravacao = new Error('banco fora do ar');
+      await enviar(sessao, [mensagem('fim_corrida', 2)]);
+      expect(amb.sequenciasGravadasDe('c-A')).toEqual([1]);
+
+      await enviar(sessao, [mensagem('fim_corrida', 2)]);
+      expect(amb.rejeicoes).toEqual([]);
+      expect(amb.sequenciasGravadasDe('c-A')).toEqual([1, 2]);
+      expect(amb.ultimoAck()?.sequencia).toBe(2);
+      expect(amb.porIdRobo('c-A').status).toBe('CONCLUIDA');
     });
   });
 
