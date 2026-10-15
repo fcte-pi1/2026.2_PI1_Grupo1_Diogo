@@ -380,7 +380,13 @@ describe('ingestão de telemetria com PostgreSQL real', () => {
       ).rejects.toThrow(/não pode ser alterada/);
     });
 
-    it('CT-BE-20: FALHOU com detalhe, e um segundo fim não muda nada', async () => {
+    const rejeicoesDe = (corrida: string) =>
+      consulta<{ motivo_codigo: string; seq: number }>(
+        `SELECT motivo_codigo, seq FROM mensagem_rejeitada WHERE corrida_robo = $1 ORDER BY id`,
+        [corrida],
+      );
+
+    it('CT-BE-20: FALHOU com detalhe, e um segundo fim é rejeitado (CORRIDA_FINALIZADA)', async () => {
       const c = { corrida: 'falha' };
       const robo = await Robo.conectar(url);
       robo.enviar(
@@ -389,7 +395,8 @@ describe('ingestão de telemetria com PostgreSQL real', () => {
         mensagem('fim_corrida', 2, { ...c, resultado: 'falha', detalhe: 'Erro: sensor ToF 3' }),
         mensagem('fim_corrida', 3, { ...c, resultado: 'sucesso' }),
       );
-      await robo.esperarAck('falha', 3);
+      await robo.esperarAck('falha', 2);
+      await esperar(async () => (await rejeicoesDe('falha')).length > 0);
       await robo.fechar();
       await corridas.esvaziar();
 
@@ -399,6 +406,8 @@ describe('ingestão de telemetria com PostgreSQL real', () => {
         detalhe_termino: 'Erro: sensor ToF 3',
         tempo_conclusao_ms: null,
       });
+      expect(await rejeicoesDe('falha')).toEqual([{ motivo_codigo: 'CORRIDA_FINALIZADA', seq: 3 }]);
+      expect(await sequenciasDe('falha')).toEqual([1, 2]);
     });
 
     it('CT-BE-14: reconectar com outro boot interrompe a corrida (REINICIO_ROBO)', async () => {
@@ -411,6 +420,14 @@ describe('ingestão de telemetria com PostgreSQL real', () => {
       depois.enviar(hello({ boot: 'b-novo' }));
       await esperar(async () => (await corridaDe('reboot')).status === 'INTERROMPIDA');
       expect(await corridaDe('reboot')).toMatchObject({ motivo_termino: 'REINICIO_ROBO' });
+
+      // Um fim enviado depois para essa corrida é rejeitado.
+      depois.enviar(mensagem('fim_corrida', 2, c));
+      await esperar(async () => (await rejeicoesDe('reboot')).length > 0);
+      expect(await rejeicoesDe('reboot')).toEqual([
+        { motivo_codigo: 'CORRIDA_FINALIZADA', seq: 2 },
+      ]);
+      expect(await corridaDe('reboot')).toMatchObject({ status: 'INTERROMPIDA' });
       await Promise.all([antes.fechar(), depois.fechar()]);
     });
 

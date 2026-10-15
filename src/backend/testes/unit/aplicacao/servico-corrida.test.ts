@@ -70,10 +70,33 @@ describe('ServicoCorrida', () => {
         motivo: 'FALHA_REPORTADA',
         detalhe: 'Erro: sensor ToF 3',
       });
-      // As mensagens depois do fim ficam no registro bruto, mas não mudam a corrida.
-      expect(amb.sequenciasGravadasDe('c-A')).toEqual([1, 2, 3, 4]);
+      // O segundo fim é rejeitado, mesmo enviado antes de o primeiro ser aplicado.
+      expect(amb.rejeicoes).toEqual([
+        expect.objectContaining({ sequencia: 3, motivoCodigo: 'CORRIDA_FINALIZADA' }),
+      ]);
+      // As outras mensagens depois do fim ficam no registro bruto, mas não mudam a corrida.
+      expect(amb.sequenciasGravadasDe('c-A')).toEqual([1, 2, 4]);
       expect(amb.passagens).toHaveLength(0);
       expect(publicados('status-alterado')).toHaveLength(1);
+    });
+
+    it('o reenvio do fim original continua confirmado, e não é rejeitado (RF-77)', async () => {
+      const sessao = await conectar();
+      await enviar(sessao, [mensagem('inicio_corrida', 1), mensagem('fim_corrida', 2)]);
+      await enviar(await conectar(), [mensagem('fim_corrida', 2)]);
+
+      expect(amb.rejeicoes).toEqual([]);
+      expect(amb.ultimoAck()).toEqual({ tipo: 'ack', corrida: 'c-A', sequencia: 2 });
+      expect(corridaA().status).toBe('CONCLUIDA');
+    });
+
+    it('depois de um reinício do backend, um novo fim de corrida concluída é rejeitado', async () => {
+      const sessao = await conectar();
+      await enviar(sessao, [mensagem('inicio_corrida', 1), mensagem('fim_corrida', 2)]);
+
+      const reiniciado = amb.novoServico();
+      await enviar(await conectar(hello(), reiniciado), [mensagem('fim_corrida', 3)], reiniciado);
+      expect(amb.rejeicoes.map((r) => r.motivoCodigo)).toEqual(['CORRIDA_FINALIZADA']);
     });
   });
 
@@ -232,6 +255,10 @@ describe('ServicoCorrida', () => {
 
       await enviar(antes, [mensagem('fim_corrida', 2)]);
       expect(corridaA().status).toBe('INTERROMPIDA');
+      expect(amb.rejeicoes).toEqual([
+        expect.objectContaining({ sequencia: 2, motivoCodigo: 'CORRIDA_FINALIZADA' }),
+      ]);
+      expect(amb.sequenciasGravadasDe('c-A')).toEqual([1]);
     });
 
     it('novo hello com outro boot na mesma conexão também interrompe', async () => {

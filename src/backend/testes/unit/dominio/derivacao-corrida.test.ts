@@ -202,6 +202,27 @@ describe('DerivacaoCorrida', () => {
   });
 
   describe('status e motivo (RF-81, RF-87, CT-BE-12, CT-BE-20)', () => {
+    it('aceita o fim em andamento e interrompida por silêncio; não depois do fim ou do reinício', () => {
+      seq = 0;
+      const andamento = new DerivacaoCorrida(null);
+      andamento.aplicar(inicio(0));
+      expect(andamento.aceitaFim).toBe(true);
+
+      const semSinal = new DerivacaoCorrida(null);
+      semSinal.aplicar(inicio(0));
+      semSinal.interromper('SEM_SINAL');
+      expect(semSinal.aceitaFim).toBe(true);
+
+      const reinicio = new DerivacaoCorrida(null);
+      reinicio.aplicar(inicio(0));
+      reinicio.interromper('REINICIO_ROBO');
+      expect(reinicio.aceitaFim).toBe(false);
+
+      const terminada = new DerivacaoCorrida(null);
+      aplicarTodas(terminada, [inicio(0), fim('falha', 10)]);
+      expect(terminada.aceitaFim).toBe(false);
+    });
+
     it('fim com sucesso: CONCLUIDA / SUCESSO', () => {
       seq = 0;
       const d = new DerivacaoCorrida(null);

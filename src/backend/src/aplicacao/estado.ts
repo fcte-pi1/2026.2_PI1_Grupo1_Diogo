@@ -20,6 +20,11 @@ export interface EstadoCorrida {
   derivacao: DerivacaoCorrida;
   /** Mensagens gravadas que esperam uma lacuna anterior ser preenchida para serem aplicadas. */
   retidas: Map<number, MensagemCorrida>;
+  /**
+   * Um `fim_corrida` já foi aceito (talvez ainda não aplicado): outro é rejeitado com
+   * CORRIDA_FINALIZADA, mesmo antes de o primeiro mudar o status (CT-BE-20).
+   */
+  fimRecebido: boolean;
   /** Próxima sequência a aplicar à derivação. */
   proximaAplicar: number;
   /** Quando chegou a última mensagem desta corrida, para a interrupção por silêncio (RF-81). */

@@ -200,6 +200,7 @@ export class ServicoCorrida {
       sequencias: new SequenciaCorrida(),
       derivacao: new DerivacaoCorrida(persistida.labirinto, this.configuracao),
       retidas: new Map(),
+      fimRecebido: false,
       proximaAplicar: 1,
       ultimaMensagemEm: this.agora(),
       sinalPerdidoEm: null,
@@ -220,6 +221,7 @@ export class ServicoCorrida {
         corrida.sequencias.aceitar(sequencia, tempoMs);
         corrida.sequencias.confirmar(sequencia);
         corrida.retidas.set(sequencia, payload as MensagemCorrida);
+        if ((payload as MensagemCorrida).tipo === 'fim_corrida') corrida.fimRecebido = true;
       }
       this.aplicarDisponiveis(corrida);
     } finally {

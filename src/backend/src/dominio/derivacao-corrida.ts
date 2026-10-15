@@ -217,6 +217,17 @@ export class DerivacaoCorrida {
   }
 
   /** A corrida terminou com sucesso ou falha: nada mais muda nela (RNF-54). */
+  /**
+   * Só uma corrida em andamento, ou interrompida por falta de sinal (lote tardio), pode
+   * terminar com o resultado do robô (RF-87, CA2). Uma interrompida por reinício não.
+   */
+  get aceitaFim(): boolean {
+    return (
+      this.status === 'EM_ANDAMENTO' ||
+      (this.status === 'INTERROMPIDA' && this.motivo === 'SEM_SINAL')
+    );
+  }
+
   get finalizada(): boolean {
     return this.status === 'CONCLUIDA' || this.status === 'FALHOU';
   }
@@ -378,12 +389,7 @@ export class DerivacaoCorrida {
   }
 
   private aplicarFim(mensagem: Extract<MensagemDerivavel, { tipo: 'fim_corrida' }>): Efeito[] {
-    // Só uma corrida em andamento, ou interrompida por falta de sinal (lote tardio), pode
-    // terminar com o resultado do robô (RF-87, CA2). Uma interrompida por reinício não.
-    const podeTerminar =
-      this.status === 'EM_ANDAMENTO' ||
-      (this.status === 'INTERROMPIDA' && this.motivo === 'SEM_SINAL');
-    if (!podeTerminar) return [];
+    if (!this.aceitaFim) return [];
 
     this.tempoFimMs = mensagem.tempo_ms;
     const sucesso = mensagem.resultado === 'sucesso';

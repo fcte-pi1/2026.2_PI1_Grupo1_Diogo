@@ -210,6 +210,20 @@ export class ServicoIngestao {
       return;
     }
 
+    // Depois da checagem de duplicata: o reenvio do fim original continua confirmado.
+    if (mensagem.tipo === 'fim_corrida') {
+      if (corrida.fimRecebido || !corrida.derivacao.aceitaFim) {
+        const situacao = corrida.fimRecebido ? 'já terminou' : `está ${corrida.derivacao.status}`;
+        return this.rejeitar(
+          sessao,
+          'CORRIDA_FINALIZADA',
+          `corrida ${mensagem.corrida} ${situacao}`,
+          mensagem,
+        );
+      }
+      corrida.fimRecebido = true;
+    }
+
     corrida.sequencias.aceitar(mensagem.sequencia, mensagem.tempo_ms);
     if (mensagem.tipo === 'inicio_corrida') sessao.corridaAtiva = corrida;
     else if (mensagem.tipo === 'fim_corrida') {
