@@ -1,0 +1,102 @@
+.rolagem {
+  overflow-x: auto;
+}
+
+.tabela {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.75rem;
+}
+
+.tabela th {
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--cor-borda-clara);
+  color: #6b7280;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.025em;
+  text-align: left;
+  text-transform: uppercase;
+}
+
+.tabela td {
+  padding: 0.625rem 0.75rem;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+/* A linha inteira é clicável: o link do primeiro campo se estende sobre a <tr>. */
+.linha {
+  position: relative;
+  transition: background-color 0.15s;
+}
+
+.linha:hover,
+.linha:focus-within {
+  background: #f9fafb;
+}
+
+.link {
+  color: inherit;
+  text-decoration: none;
+}
+
+.link::after {
+  position: absolute;
+  inset: 0;
+  content: '';
+}
+
+.link:focus-visible {
+  outline: none;
+}
+
+.linha:focus-within {
+  outline: 2px solid var(--cor-petroleo-claro);
+  outline-offset: -2px;
+}
+
+.mono {
+  color: var(--cor-texto-suave);
+  font-family: var(--fonte-mono);
+}
+
+.labirinto {
+  padding: 0.125rem 0.5rem;
+  border-radius: 0.25rem;
+  background: #f3f4f6;
+  color: #374151;
+  font-family: var(--fonte-mono);
+  font-size: 0.6875rem;
+}
+
+.status {
+  display: inline-block;
+  padding: 0.125rem 0.5rem;
+  border: 1px solid;
+  border-radius: 0.25rem;
+  font-weight: 500;
+}
+
+.status[data-status='EM_ANDAMENTO'] {
+  border-color: #bfdbfe;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.status[data-status='CONCLUIDA'] {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+  color: #15803d;
+}
+
+.status[data-status='FALHOU'] {
+  border-color: #fecaca;
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+.status[data-status='INTERROMPIDA'] {
+  border-color: #fde68a;
+  background: #fffbeb;
+  color: #b45309;
+}
