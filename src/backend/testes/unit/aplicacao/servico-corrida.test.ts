@@ -336,5 +336,52 @@ describe('ServicoCorrida', () => {
       await amb.esvaziar();
       expect(amb.publicados).toHaveLength(0);
     });
+
+    it('não publica as mensagens reconstruídas que esperavam uma lacuna; só a que a preenche', async () => {
+      const sessao = await conectar();
+      await enviar(sessao, [
+        mensagem('inicio_corrida', 1),
+        mensagem('celula', 2),
+        mensagem('celula', 4, { x: 0, y: 1 }),
+        mensagem('celula', 5, { x: 0, y: 0 }),
+      ]);
+
+      amb.prazoLacunaMs = 30;
+      const reiniciado = amb.novoServico();
+      amb.publicados.length = 0;
+      await amb.corrida.recuperar();
+      await dormir(60);
+      await amb.esvaziar();
+      expect(amb.publicados).toHaveLength(0);
+
+      // A lacuna foi abandonada após o reinício; uma mensagem nova é publicada normalmente.
+      await enviar(await conectar(hello(), reiniciado), [mensagem('celula', 6)], reiniciado);
+      const sequencias = publicados('mensagem-aplicada').map(
+        (p) => (p.dados as { mensagem: { sequencia: number } }).mensagem.sequencia,
+      );
+      expect(sequencias).toEqual([6]);
+    });
+
+    it('após o reinício, a mensagem nova que preenche a lacuna é publicada, e as retidas não', async () => {
+      const sessao = await conectar();
+      await enviar(sessao, [
+        mensagem('inicio_corrida', 1),
+        mensagem('celula', 2),
+        mensagem('celula', 4, { x: 0, y: 1 }),
+      ]);
+
+      const reiniciado = amb.novoServico();
+      await amb.corrida.recuperar();
+      amb.publicados.length = 0;
+      await enviar(
+        await conectar(hello(), reiniciado),
+        [mensagem('celula', 3, { x: 0, y: 2 })],
+        reiniciado,
+      );
+      const sequencias = publicados('mensagem-aplicada').map(
+        (p) => (p.dados as { mensagem: { sequencia: number } }).mensagem.sequencia,
+      );
+      expect(sequencias).toEqual([3]);
+    });
   });
 });

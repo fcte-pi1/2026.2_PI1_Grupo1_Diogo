@@ -25,6 +25,11 @@ export interface EstadoCorrida {
    * CORRIDA_FINALIZADA, mesmo antes de o primeiro mudar o status (CT-BE-20).
    */
   fimRecebido: boolean;
+  /**
+   * Sequências reaplicadas do banco na reconstrução e ainda não aplicadas (esperando uma
+   * lacuna): quando forem aplicadas, os efeitos são regravados, mas não publicados.
+   */
+  reconstruidas: Set<number>;
   /** Próxima sequência a aplicar à derivação. */
   proximaAplicar: number;
   /** Quando chegou a última mensagem desta corrida, para a interrupção por silêncio (RF-81). */

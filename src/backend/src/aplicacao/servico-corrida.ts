@@ -54,8 +54,6 @@ export class ServicoCorrida {
   private readonly agora: () => number;
   private readonly configuracao: ConfiguracaoDerivacao;
   private readonly prazoLacunaMs: number;
-  /** Durante a reconstrução, os efeitos são regravados, mas os eventos não são publicados. */
-  private reconstruindo = false;
 
   constructor(private readonly deps: DependenciasCorrida) {
     this.agora = deps.agora ?? Date.now;
@@ -201,6 +199,7 @@ export class ServicoCorrida {
       derivacao: new DerivacaoCorrida(persistida.labirinto, this.configuracao),
       retidas: new Map(),
       fimRecebido: false,
+      reconstruidas: new Set(),
       proximaAplicar: 1,
       ultimaMensagemEm: this.agora(),
       sinalPerdidoEm: null,
@@ -215,18 +214,16 @@ export class ServicoCorrida {
   /** Reaplica as mensagens gravadas para chegar ao mesmo estado de antes (RNF-52). */
   private async reconstruir(corrida: EstadoCorrida, persistida: CorridaPersistida): Promise<void> {
     const gravadas = await this.deps.corridas.mensagensGravadas(corrida.id);
-    this.reconstruindo = true;
-    try {
-      for (const { sequencia, tempoMs, payload } of gravadas) {
-        corrida.sequencias.aceitar(sequencia, tempoMs);
-        corrida.sequencias.confirmar(sequencia);
-        corrida.retidas.set(sequencia, payload as MensagemCorrida);
-        if ((payload as MensagemCorrida).tipo === 'fim_corrida') corrida.fimRecebido = true;
-      }
-      this.aplicarDisponiveis(corrida);
-    } finally {
-      this.reconstruindo = false;
+    for (const { sequencia, tempoMs, payload } of gravadas) {
+      corrida.sequencias.aceitar(sequencia, tempoMs);
+      corrida.sequencias.confirmar(sequencia);
+      corrida.retidas.set(sequencia, payload as MensagemCorrida);
+      // Marcadas por mensagem, e não por uma flag do serviço: as que esperam uma lacuna são
+      // aplicadas depois, pelo temporizador, e também não podem ser publicadas de novo.
+      corrida.reconstruidas.add(sequencia);
+      if ((payload as MensagemCorrida).tipo === 'fim_corrida') corrida.fimRecebido = true;
     }
+    this.aplicarDisponiveis(corrida);
     // Status que não vem das mensagens: uma interrupção feita antes do reinício.
     corrida.derivacao.restaurarStatus(persistida.status, persistida.motivo);
   }
@@ -270,8 +267,9 @@ export class ServicoCorrida {
   }
 
   private aplicar(corrida: EstadoCorrida, mensagem: MensagemCorrida): void {
+    const silencioso = corrida.reconstruidas.delete(mensagem.sequencia);
     const efeitos = corrida.derivacao.aplicar(mensagem as MensagemDerivavel);
-    if (!this.reconstruindo && !corrida.derivacao.finalizada) {
+    if (!silencioso && !corrida.derivacao.finalizada) {
       // Uma corrida finalizada só publica o próprio encerramento, abaixo.
       this.deps.eventos.publicar('mensagem-aplicada', {
         corridaId: corrida.id,
@@ -281,11 +279,14 @@ export class ServicoCorrida {
         metricas: corrida.derivacao.metricas,
       });
     }
-    this.executar(corrida, efeitos);
+    this.executar(corrida, efeitos, silencioso);
   }
 
-  /** Grava os efeitos na ordem em que foram gerados e publica os eventos. */
-  private executar(corrida: EstadoCorrida, efeitos: Efeito[]): void {
+  /**
+   * Grava os efeitos na ordem em que foram gerados e publica os eventos. `silencioso` regrava
+   * sem publicar (mensagens reaplicadas na reconstrução).
+   */
+  private executar(corrida: EstadoCorrida, efeitos: Efeito[], silencioso = false): void {
     for (const efeito of efeitos) {
       corrida.efeitos = corrida.efeitos
         .then(() => this.gravarEfeito(corrida, efeito))
@@ -295,7 +296,7 @@ export class ServicoCorrida {
             'falha ao gravar efeito',
           ),
         );
-      if (!this.reconstruindo) this.publicar(corrida, efeito);
+      if (!silencioso) this.publicar(corrida, efeito);
     }
   }
 
