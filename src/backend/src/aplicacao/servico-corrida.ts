@@ -50,6 +50,9 @@ export interface IdentificacaoCorrida {
 export class ServicoCorrida {
   /** Corridas em carregamento ou carregadas, por dispositivo e id do robô. */
   private readonly carregando = new Map<string, Promise<EstadoCorrida>>();
+  // TODO: as finalizadas nunca saem daqui. O volume é pequeno (dezenas de corridas por
+  // apresentação) e a distribuição (#327) as usa para o snapshot; se crescer, removê-las
+  // alguns minutos depois do fim.
   private readonly carregadas = new Map<string, EstadoCorrida>();
   private readonly agora: () => number;
   private readonly configuracao: ConfiguracaoDerivacao;

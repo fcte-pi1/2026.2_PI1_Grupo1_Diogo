@@ -216,7 +216,6 @@ export class DerivacaoCorrida {
     this.labirinto = labirinto;
   }
 
-  /** A corrida terminou com sucesso ou falha: nada mais muda nela (RNF-54). */
   /**
    * Só uma corrida em andamento, ou interrompida por falta de sinal (lote tardio), pode
    * terminar com o resultado do robô (RF-87, CA2). Uma interrompida por reinício não.
@@ -228,6 +227,7 @@ export class DerivacaoCorrida {
     );
   }
 
+  /** A corrida terminou com sucesso ou falha: nada mais muda nela (RNF-54). */
   get finalizada(): boolean {
     return this.status === 'CONCLUIDA' || this.status === 'FALHOU';
   }
