@@ -122,6 +122,24 @@ O `-C esp32` aponta para o subprojeto `esp32/`, que reutiliza `../include` e `..
 
 > **Sensores ToF (VL53L1X):** as leituras de distância estão como *stub* (retornam 9999) e a dependência do componente está comentada em `esp32/main/idf_component.yml`, então o firmware **compila e grava** mesmo assim (o sensoriamento de parede fica inativo). Para ler os ToF de verdade: escolha o componente VL53L1X, descomente/ajuste a dependência, rode `idf.py -C esp32 reconfigure` e implemente as leituras reais em `src/adapters/Vl53l1xSensorAdapter.cpp`.
 
+### Modo bancada (ESP32 clássico / ESP-WROOM-32)
+
+Enquanto a placa oficial não chega, dá para testar a telemetria BLE ponta a ponta numa DevKit ESP-WROOM-32 solta, sem sensores nem motores:
+
+```bash
+idf.py -C esp32 set-target esp32     # aplica sdkconfig.defaults.esp32 (4 MB, modo bancada)
+idf.py -C esp32 build
+idf.py -C esp32 -p COM5 flash monitor   # Windows: COMx do CP2102/CH340
+```
+
+Com `CONFIG_RATO_BANCADA` (ligado só no alvo `esp32`), o firmware:
+
+- usa o mapa de pinos de bancada em `BoardPins.hpp` (não corresponde ao esquemático);
+- pula o auto-teste do IMU e do INA219 e envia energia fixa (7,4 V, 0,3 A, 2,2 W);
+- simula o movimento com atrasos fixos (`BenchMotionAdapter`), e como os ToF são *stub* (sem paredes), percorre o labirinto aberto até o objetivo.
+
+A corrida começa ao apertar o botão **BOOT** da DevKit. Sem nada ligado nos pinos do DIP (pull-up), o labirinto é o 4×4. Para testar o 8×4, ligue o GPIO 5 ao GND; para o 12×4, ligue o GPIO 15 ao GND. Para voltar à placa oficial: `idf.py -C esp32 set-target esp32s3`.
+
 ### Onde mexer quando o hardware muda
 
 - **Pinos:** `include/adapters/BoardPins.hpp` (ponto único de verdade; segue o `4.3 §9`). Trocou um pino na placa? Altere só aqui.
