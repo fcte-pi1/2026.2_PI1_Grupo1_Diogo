@@ -2,9 +2,15 @@ import type { FastifyInstance } from 'fastify';
 import type { ServicoDistribuicao } from '../../aplicacao/index.js';
 import { interpretarJson, type ValidadorProtocolo } from '../../../protocolo/validador.js';
 
+/** Intervalo do ping do WebSocket: sem o pong até o ping seguinte, a conexão caiu. */
+export const INTERVALO_PING_PAINEL_MS = 15_000;
+/** Depois do `close`, prazo para o socket ser destruído se o painel não responder. */
+export const PRAZO_FECHAMENTO_MS = 2000;
+
 export interface DependenciasPainel {
   distribuicao: ServicoDistribuicao;
   validador: ValidadorProtocolo;
+  intervaloPingPainelMs?: number;
 }
 
 /**
@@ -13,7 +19,7 @@ export interface DependenciasPainel {
  */
 export async function rotasPainel(
   app: FastifyInstance,
-  { distribuicao, validador }: DependenciasPainel,
+  { distribuicao, validador, intervaloPingPainelMs = INTERVALO_PING_PAINEL_MS }: DependenciasPainel,
 ): Promise<void> {
   app.get('/ws/painel', { websocket: true }, (socket, req) => {
     const painel = distribuicao.conectar({
@@ -21,9 +27,32 @@ export async function rotasPainel(
         if (socket.readyState === socket.OPEN) socket.send(texto);
       },
       bytesPendentes: () => socket.bufferedAmount,
-      fechar: (codigo, motivo) => socket.close(codigo, motivo),
+      fechar: (codigo, motivo) => {
+        // O frame de fechamento entra na fila atrás do buffer cheio: um painel que não lê
+        // nunca o recebe. Sem o terminate, o socket e o buffer ficariam presos até o fim do
+        // handshake de fechamento (30 s no ws).
+        socket.close(codigo, motivo);
+        setTimeout(() => socket.terminate(), PRAZO_FECHAMENTO_MS).unref();
+      },
     });
     req.log.info('painel conectado');
+
+    // Conexão meio aberta (rede caiu sem o FIN): o keepalive de 1 s só a detectaria quando o
+    // buffer passasse de 1 MB. O navegador responde ao ping sozinho.
+    let respondeu = true;
+    socket.on('pong', () => {
+      respondeu = true;
+    });
+    const ping = setInterval(() => {
+      if (!respondeu) {
+        req.log.warn('painel sem resposta ao ping: conexão encerrada');
+        socket.terminate();
+        return;
+      }
+      respondeu = false;
+      socket.ping();
+    }, intervaloPingPainelMs);
+    ping.unref();
 
     socket.on('message', (dados, binario) => {
       if (binario) return;
@@ -41,6 +70,7 @@ export async function rotasPainel(
     });
 
     socket.on('close', () => {
+      clearInterval(ping);
       distribuicao.desconectar(painel);
       req.log.info('painel desconectado');
     });

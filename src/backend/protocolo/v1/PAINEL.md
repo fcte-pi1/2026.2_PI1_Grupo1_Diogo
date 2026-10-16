@@ -71,3 +71,9 @@ A inscrição só vale para corridas que o backend tem em memória: as em andame
 ## Painel lento (RF-91)
 
 Se o buffer de envio de um painel passar de 1 MB, ele deixa de receber os `continuo`, mas continua recebendo os eventos. Se isso durar 10 s, o backend fecha a conexão com o código **`1013`** ("tente de novo mais tarde"). O painel deve reconectar e se inscrever de novo; o `snapshot` traz o estado atualizado.
+
+O frame de fechamento entra na fila atrás do buffer cheio, então o `1013` só chega a um painel que voltou a ler. Por isso, 2 s depois do fechamento o backend destrói o socket. O painel vê a conexão cair, com `1013` ou `1006`, e o tratamento é o mesmo: reconectar.
+
+## Conexão meio aberta
+
+A cada 15 s o backend envia um *ping* do WebSocket. O navegador responde sozinho com o *pong*, sem código no painel. Se o *pong* não chegar até o *ping* seguinte, o backend encerra a conexão. Isso libera as conexões que a rede derrubou sem avisar.

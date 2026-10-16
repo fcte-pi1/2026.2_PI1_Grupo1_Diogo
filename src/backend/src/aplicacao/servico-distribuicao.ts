@@ -51,6 +51,7 @@ export interface DependenciasDistribuicao {
   agora?: () => number;
   intervaloContinuoMs?: number;
   limiteBufferBytes?: number;
+  prazoPainelLentoMs?: number;
 }
 
 export class Painel {
@@ -84,12 +85,14 @@ export class ServicoDistribuicao {
   private readonly agora: () => number;
   private readonly intervaloContinuoMs: number;
   private readonly limiteBufferBytes: number;
+  private readonly prazoPainelLentoMs: number;
 
   constructor(private readonly deps: DependenciasDistribuicao) {
     // Relógio monotônico: o de parede pode ser ajustado e encurtar o intervalo de 100 ms.
     this.agora = deps.agora ?? (() => performance.now());
     this.intervaloContinuoMs = deps.intervaloContinuoMs ?? INTERVALO_CONTINUO_MS;
     this.limiteBufferBytes = deps.limiteBufferBytes ?? LIMITE_BUFFER_BYTES;
+    this.prazoPainelLentoMs = deps.prazoPainelLentoMs ?? PRAZO_PAINEL_LENTO_MS;
   }
 
   // ---------------------------------------------------------------------------
@@ -141,7 +144,7 @@ export class ServicoDistribuicao {
     for (const painel of this.paineis) {
       if (painel.conexao.bytesPendentes() > this.limiteBufferBytes) {
         painel.lentoDesde ??= agora;
-        if (agora - painel.lentoDesde >= PRAZO_PAINEL_LENTO_MS) {
+        if (agora - painel.lentoDesde >= this.prazoPainelLentoMs) {
           this.deps.log.warn(
             { bytes: painel.conexao.bytesPendentes() },
             'painel lento desconectado',
