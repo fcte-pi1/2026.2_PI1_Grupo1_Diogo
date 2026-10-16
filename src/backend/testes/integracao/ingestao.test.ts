@@ -8,9 +8,16 @@ import type { FastifyInstance } from 'fastify';
 import { runner } from 'node-pg-migrate';
 import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import WebSocketNode from 'ws';
 import type { DetalheCorrida } from '../../protocolo/tipos.js';
 import { criarValidadorProtocolo } from '../../protocolo/validador.js';
-import { ServicoConsulta, ServicoCorrida, ServicoIngestao } from '../../src/aplicacao/index.js';
+import {
+  AVISO_PAINEL_LENTO,
+  ServicoConsulta,
+  ServicoCorrida,
+  ServicoDistribuicao,
+  ServicoIngestao,
+} from '../../src/aplicacao/index.js';
 import { construirApp } from '../../src/app.js';
 import { BarramentoEventos } from '../../src/infra/barramento-eventos.js';
 import { RepositorioConsultaPg } from '../../src/infra/consulta-pg.js';
@@ -25,6 +32,8 @@ import {
   criarInserirLote,
 } from '../../src/infra/repositorios-pg.js';
 import { hello, mensagem } from '../apoio/ingestao-em-memoria.js';
+
+const SILENCIOSO = { info: () => {}, warn: () => {}, error: () => {} };
 
 /** Cliente de teste: como o robô, só envia. Os acks são apenas guardados para conferência. */
 class Robo {
@@ -71,6 +80,9 @@ describe('ingestão de telemetria com PostgreSQL real', () => {
   let url: string;
   let base: string;
   let corridas: ServicoCorrida;
+  let distribuicao: ServicoDistribuicao;
+  let verificacaoPaineis: ReturnType<typeof setInterval> | undefined;
+  const avisosDistribuicao: string[] = [];
 
   const consulta = async <T extends pg.QueryResultRow>(sql: string, parametros: unknown[] = []) =>
     (await pool.query<T>(sql, parametros)).rows;
@@ -85,13 +97,30 @@ describe('ingestão de telemetria com PostgreSQL real', () => {
 
   async function subirServidor(): Promise<void> {
     const contadores = criarContadores();
+    const eventos = new BarramentoEventos();
     corridas = new ServicoCorrida({
       corridas: new RepositorioCorridasPg(pool),
       projecoes: new RepositorioProjecoesPg(pool),
-      eventos: new BarramentoEventos(),
+      eventos,
       log: { info: () => {}, warn: () => {}, error: () => {} },
     });
     await corridas.recuperar();
+    distribuicao?.parar();
+    if (verificacaoPaineis) clearInterval(verificacaoPaineis);
+    // Limites menores que os de produção, para o CT-BE-24 não levar 10 s nem precisar de
+    // 1 MB no buffer. A regra é a mesma.
+    distribuicao = new ServicoDistribuicao({
+      corridas,
+      log: { ...SILENCIOSO, warn: (_dados, mensagem) => avisosDistribuicao.push(mensagem) },
+      limiteBufferBytes: 64 * 1024,
+      prazoPainelLentoMs: 500,
+    });
+    verificacaoPaineis = setInterval(() => distribuicao.verificarPaineis(), 100);
+    eventos.assinar('mensagem-aplicada', (d) => distribuicao.aoAplicar(d));
+    eventos.assinar('status-alterado', (d) => distribuicao.aoMudarStatus(d));
+    eventos.assinar('alerta-tensao', (d) => distribuicao.aoAlertar(d));
+    eventos.assinar('sinal-alterado', (d) => distribuicao.aoMudarSinal(d));
+    eventos.assinar('ranking-alterado', (d) => distribuicao.aoMudarRanking(d));
     const ingestao = new ServicoIngestao({
       dispositivos: new RepositorioDispositivosPg(pool),
       tokens: new VerificadorTokenArgon2(),
@@ -107,7 +136,12 @@ describe('ingestão de telemetria com PostgreSQL real', () => {
       contadores,
       ingestao,
       consulta: new ServicoConsulta(new RepositorioConsultaPg(pool)),
+      distribuicao,
+      validador: criarValidadorProtocolo(),
       prazoHelloMs: 300,
+      // Maior que o prazo do painel lento, como em produção (15 s e 10 s): quem não lê
+      // também não responde ao ping, e o painel lento tem de cair pela regra do RF-91.
+      intervaloPingPainelMs: 1500,
     });
     const endereco = await app.listen({ port: 0, host: '127.0.0.1' });
     base = endereco;
@@ -132,6 +166,7 @@ describe('ingestão de telemetria com PostgreSQL real', () => {
   });
 
   afterAll(async () => {
+    if (verificacaoPaineis) clearInterval(verificacaoPaineis);
     await app?.close();
     await pool?.end();
     await container?.stop();
@@ -648,6 +683,214 @@ describe('ingestão de telemetria com PostgreSQL real', () => {
     it('404 para corrida inexistente e 400 para id que não é UUID', async () => {
       expect((await detalhe('0b6f7c0e-3a52-4c8e-9a51-1f0f5c1f2a33')).status).toBe(404);
       expect((await detalhe('nao-e-uuid')).status).toBe(400);
+    });
+  });
+
+  describe('distribuição aos painéis (#327)', () => {
+    /** Painel de teste: guarda tudo o que recebe e pode enviar inscrições. */
+    async function conectarPainel() {
+      const ws = new WebSocket(url.replace('/ws/telemetria', '/ws/painel'));
+      const recebidas: { tipo: string; [chave: string]: unknown }[] = [];
+      ws.addEventListener('message', (e) => recebidas.push(JSON.parse(String(e.data))));
+      const fechou = new Promise<number>((resolver) =>
+        ws.addEventListener('close', (e) => resolver(e.code)),
+      );
+      await new Promise((resolver, rejeitar) => {
+        ws.addEventListener('open', resolver);
+        ws.addEventListener('error', rejeitar);
+      });
+      return {
+        recebidas,
+        fechou,
+        enviar: (m: unknown) => ws.send(typeof m === 'string' ? m : JSON.stringify(m)),
+        fechar: () => ws.close(),
+        doTipo: (tipo: string) => recebidas.filter((m) => m.tipo === tipo),
+      };
+    }
+
+    async function idDaCorrida(idRobo: string): Promise<string> {
+      let linhas: { id: string }[] = [];
+      await esperar(async () => {
+        linhas = await consulta<{ id: string }>(
+          `SELECT id FROM corrida WHERE id_corrida_robo = $1`,
+          [idRobo],
+        );
+        return linhas.length > 0;
+      });
+      return linhas[0]!.id;
+    }
+
+    const urlPainel = () => url.replace('/ws/telemetria', '/ws/painel');
+    /** Painel com o cliente `ws`, que permite parar de ler o socket e não responder ao ping. */
+    async function painelNode(opcoes: WebSocketNode.ClientOptions = {}) {
+      const ws = new WebSocketNode(urlPainel(), opcoes);
+      const fechou = new Promise<number>((resolver) =>
+        ws.on('close', (codigo) => resolver(codigo)),
+      );
+      await new Promise((resolver, rejeitar) => {
+        ws.once('open', resolver);
+        ws.once('error', rejeitar);
+      });
+      return { ws, fechou };
+    }
+
+    it('CT-BE-25: PERDIDO quando a conexão cai e RETOMADO em até 1 s após o hello da reconexão', async () => {
+      const c = { corrida: 'sinal-volta' };
+      const antes = await Robo.conectar(url);
+      antes.enviar(hello(), mensagem('inicio_corrida', 1, c));
+      await antes.esperarAck('sinal-volta', 1);
+      const id = await idDaCorrida('sinal-volta');
+      const painel = await conectarPainel();
+      painel.enviar({ tipo: 'inscrever', corrida: id });
+      await esperar(() => painel.doTipo('snapshot').length > 0);
+      const estados = () => painel.doTipo('sinal').map((m) => m.estado);
+
+      const perda = Date.now();
+      await antes.fechar();
+      await esperar(() => estados().length === 1);
+      expect(Date.now() - perda).toBeLessThan(1000);
+
+      // O robô volta por uma conexão nova, com o mesmo boot.
+      const depois = await Robo.conectar(url);
+      const retomada = Date.now();
+      depois.enviar(hello());
+      await esperar(() => estados().length === 2);
+      expect(Date.now() - retomada).toBeLessThan(1000);
+      expect(estados()).toEqual(['PERDIDO', 'RETOMADO']);
+      await esperar(
+        async () =>
+          (
+            await consulta(
+              `SELECT 1 FROM evento_conexao WHERE corrida_id = $1 AND tipo = 'SINAL_RETOMADO'`,
+              [id],
+            )
+          ).length === 1,
+      );
+
+      // Depois do hello, a corrida é a ativa da conexão nova: a próxima queda também é avisada.
+      await depois.fechar();
+      await esperar(() => estados().length === 3);
+      painel.fechar();
+    });
+
+    it('CT-BE-24: o painel que não lê perde os contínuos e cai; o socket é liberado e o outro painel recebe tudo', async () => {
+      const c = { corrida: 'painel-lento' };
+      const robo = await Robo.conectar(url);
+      robo.enviar(hello(), mensagem('inicio_corrida', 1, { ...c, labirinto: '12x4', tempo_ms: 0 }));
+      await robo.esperarAck('painel-lento', 1);
+      const id = await idDaCorrida('painel-lento');
+
+      const normal = await conectarPainel();
+      normal.enviar({ tipo: 'inscrever', corrida: id });
+      const lento = await painelNode();
+      lento.ws.send(JSON.stringify({ tipo: 'inscrever', corrida: id }));
+      await esperar(() => normal.doTipo('snapshot').length > 0);
+      await new Promise((resolver) => setTimeout(resolver, 100));
+      // O painel lento para de ler: o buffer de envio do backend para ele só cresce. O
+      // pause() do cliente ws para de ler o socket (API pública, tipada em @types/ws).
+      lento.ws.pause();
+      avisosDistribuicao.length = 0;
+
+      // O robô envia até o backend desconectar o painel lento. Os buffers do sistema
+      // operacional variam, então a quantidade não é fixa.
+      let sequencia = 1;
+      while (!avisosDistribuicao.includes(AVISO_PAINEL_LENTO) && sequencia < 40_000) {
+        const lote: string[] = [];
+        for (let i = 0; i < 500; i++) {
+          sequencia++;
+          lote.push(
+            sequencia % 2 === 0
+              ? mensagem('celula', sequencia, {
+                  ...c,
+                  x: sequencia % 12,
+                  y: 0,
+                  tempo_ms: sequencia,
+                })
+              : mensagem('posicao', sequencia, {
+                  ...c,
+                  x: sequencia % 12,
+                  y: 0,
+                  tempo_ms: sequencia,
+                }),
+          );
+        }
+        robo.enviar(...lote);
+        await robo.esperarAck('painel-lento', sequencia);
+      }
+      await esperar(() => avisosDistribuicao.includes(AVISO_PAINEL_LENTO), 5000);
+
+      // O painel normal recebeu todas as células, em ordem, durante todo o episódio.
+      const celulasEnviadas = Math.floor(sequencia / 2);
+      await esperar(
+        () => normal.recebidas.filter((m) => m.evento === 'celula').length === celulasEnviadas,
+      );
+      const sequencias = normal.recebidas
+        .filter((m) => m.evento === 'celula')
+        .map((m) => m.sequencia as number);
+      expect(sequencias).toEqual([...sequencias].sort((a, b) => a - b));
+
+      // O socket do painel lento foi destruído pelo backend, mesmo sem ele ler o 1013.
+      lento.ws.resume();
+      expect(await lento.fechou).toBeGreaterThan(0);
+      normal.fechar();
+      await robo.fechar();
+    }, 60_000);
+
+    it('fecha o painel que não responde ao ping (conexão meio aberta)', async () => {
+      const mudo = await painelNode({ autoPong: false });
+      const codigo = await mudo.fechou;
+      expect(codigo).toBe(1006);
+    });
+
+    it('acompanha uma corrida do anúncio ao fim, pelo WebSocket', async () => {
+      const painel = await conectarPainel();
+      painel.enviar({ tipo: 'inscrever', canal: 'ao_vivo' });
+      // Mensagem inválida do painel é ignorada, sem derrubar a conexão.
+      painel.enviar('isto não é JSON');
+      painel.enviar({ tipo: 'anular', corrida: 'x' });
+
+      const c = { corrida: 'aovivo' };
+      const robo = await Robo.conectar(url);
+      robo.enviar(hello(), mensagem('inicio_corrida', 1, { ...c, labirinto: '8x4' }));
+      // O canal também anuncia as corridas que outros testes deixaram em andamento.
+      const id = await idDaCorrida('aovivo');
+      const anuncioDaCorrida = () => painel.doTipo('ao_vivo').find((m) => m.corrida === id);
+      await esperar(() => anuncioDaCorrida() !== undefined);
+      const anuncio = anuncioDaCorrida()!;
+      expect(anuncio).toMatchObject({ labirinto: '8x4', status: 'EM_ANDAMENTO' });
+
+      painel.enviar({ tipo: 'inscrever', corrida: anuncio.corrida });
+      await esperar(() => painel.doTipo('snapshot').length > 0);
+      expect(painel.doTipo('snapshot')[0]).toMatchObject({ sequencia_corte: 1, labirinto: '8x4' });
+
+      robo.enviar(
+        mensagem('celula', 2, c),
+        mensagem('posicao', 3, c),
+        mensagem('energia', 4, { ...c, tensao_v: 8.1 }),
+        mensagem('fim_corrida', 5, { ...c, tempo_ms: 9000 }),
+      );
+      await esperar(() => painel.doTipo('leaderboard').length > 0);
+
+      const eventos = painel.doTipo('evento');
+      expect(eventos.map((e) => e.evento)).toEqual(['celula', 'status']);
+      expect(eventos[1]).toMatchObject({ status: 'CONCLUIDA', sequencia: 5, tempo_ms: 9000 });
+      expect(eventos[1]!.metricas).toMatchObject({ tempo_conclusao_ms: 8900, tensao_v: 8.1 });
+      // O último contínuo pode chegar logo depois do status, para não passar de 10/s.
+      await esperar(() => painel.doTipo('continuo').at(-1)?.energia !== null);
+      expect(painel.doTipo('continuo').at(-1)).toMatchObject({
+        posicao: { x: 0, y: 3, orientacao: 'NORTE' },
+        energia: { tensao_v: 8.1 },
+      });
+      expect(
+        painel
+          .doTipo('ao_vivo')
+          .filter((m) => m.corrida === id)
+          .map((m) => m.status),
+      ).toEqual(['EM_ANDAMENTO', 'CONCLUIDA']);
+
+      await robo.fechar();
+      painel.fechar();
+      expect(await painel.fechou).toBe(1005);
     });
   });
 

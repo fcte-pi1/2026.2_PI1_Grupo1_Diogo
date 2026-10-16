@@ -3,7 +3,12 @@
  */
 import { pino } from 'pino';
 import { criarValidadorProtocolo } from '../protocolo/validador.js';
-import { ServicoConsulta, ServicoCorrida, ServicoIngestao } from './aplicacao/index.js';
+import {
+  ServicoConsulta,
+  ServicoCorrida,
+  ServicoDistribuicao,
+  ServicoIngestao,
+} from './aplicacao/index.js';
 import { construirApp } from './app.js';
 import { carregarConfig } from './config/index.js';
 import { criarBanco, verificarBanco } from './infra/banco.js';
@@ -28,7 +33,7 @@ const gravador = new GravadorLote(criarInserirLote(banco));
 
 const log = pino(opcoesLogger(config.nivelLog));
 
-const eventos = new BarramentoEventos();
+const eventos = new BarramentoEventos(log);
 const corridas = new ServicoCorrida({
   corridas: new RepositorioCorridasPg(banco),
   projecoes: new RepositorioProjecoesPg(banco),
@@ -37,13 +42,21 @@ const corridas = new ServicoCorrida({
   configuracao: config.derivacao,
 });
 
+const validador = criarValidadorProtocolo();
+const distribuicao = new ServicoDistribuicao({ corridas, log });
+eventos.assinar('mensagem-aplicada', (dados) => distribuicao.aoAplicar(dados));
+eventos.assinar('status-alterado', (dados) => distribuicao.aoMudarStatus(dados));
+eventos.assinar('alerta-tensao', (dados) => distribuicao.aoAlertar(dados));
+eventos.assinar('sinal-alterado', (dados) => distribuicao.aoMudarSinal(dados));
+eventos.assinar('ranking-alterado', (dados) => distribuicao.aoMudarRanking(dados));
+
 const ingestao = new ServicoIngestao({
   dispositivos: new RepositorioDispositivosPg(banco),
   tokens: new VerificadorTokenArgon2(),
   corridas,
   gravador,
   auditoria: new RegistroAuditoriaPg(banco),
-  validador: criarValidadorProtocolo(),
+  validador,
   contadores,
   log,
 });
@@ -54,6 +67,8 @@ const app = await construirApp({
   contadores,
   ingestao,
   consulta: new ServicoConsulta(new RepositorioConsultaPg(banco)),
+  distribuicao,
+  validador,
 });
 
 // Corridas que estavam em andamento quando o backend parou (RNF-52).
@@ -62,9 +77,13 @@ if (recuperadas > 0) log.info({ recuperadas }, 'corridas em andamento recuperada
 
 // Interrupção por 120 s sem sinal (RF-81).
 const monitor = setInterval(() => corridas.verificarInterrupcoes(), 1000);
+// Keepalive e controle dos painéis lentos (RF-91).
+const monitorPaineis = setInterval(() => distribuicao.verificarPaineis(), 1000);
 
 app.addHook('onClose', async () => {
   clearInterval(monitor);
+  clearInterval(monitorPaineis);
+  distribuicao.parar();
   // Grava o que ainda estiver na fila antes de fechar o banco.
   await gravador.esvaziar();
   await corridas.esvaziar();

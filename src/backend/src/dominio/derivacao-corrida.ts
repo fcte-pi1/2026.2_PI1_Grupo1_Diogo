@@ -241,6 +241,11 @@ export class DerivacaoCorrida {
     return this.status === 'CONCLUIDA' || this.status === 'FALHOU';
   }
 
+  /** Relógio do robô no início da corrida; `null` antes da primeira mensagem aplicada. */
+  get tempoInicio(): number | null {
+    return this.tempoInicioMs;
+  }
+
   get ultimaSequencia(): number {
     return this.ultimaSequenciaAplicada;
   }

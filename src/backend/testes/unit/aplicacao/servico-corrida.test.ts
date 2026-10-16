@@ -337,6 +337,33 @@ describe('ServicoCorrida', () => {
       expect(amb.publicados).toHaveLength(0);
     });
 
+    it('avisa a mudança do ranking só depois de gravar o encerramento (RF-95, CT-BE-28)', async () => {
+      const gravadaAoAvisar: boolean[] = [];
+      const original = amb.eventosPublicados.publicar;
+      amb.eventosPublicados.publicar = (evento, dados) => {
+        if (evento === 'ranking-alterado') {
+          gravadaAoAvisar.push(amb.encerramentos.has((dados as { corridaId: string }).corridaId));
+        }
+        original(evento, dados);
+      };
+      const sessao = await conectar();
+      await enviar(sessao, [mensagem('inicio_corrida', 1), mensagem('fim_corrida', 2)]);
+
+      expect(publicados('ranking-alterado').map((p) => p.dados)).toEqual([
+        { corridaId: corridaA().id, labirinto: '4x4' },
+      ]);
+      expect(gravadaAoAvisar).toEqual([true]);
+    });
+
+    it('não avisa o ranking numa corrida que falhou ou foi interrompida', async () => {
+      const sessao = await conectar();
+      await enviar(sessao, [
+        mensagem('inicio_corrida', 1),
+        mensagem('fim_corrida', 2, { resultado: 'falha' }),
+      ]);
+      expect(publicados('ranking-alterado')).toHaveLength(0);
+    });
+
     it('não publica as mensagens reconstruídas que esperavam uma lacuna; só a que a preenche', async () => {
       const sessao = await conectar();
       await enviar(sessao, [

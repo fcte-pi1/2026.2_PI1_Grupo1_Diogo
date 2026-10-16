@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import type { DetalheCorrida } from '../../../protocolo/tipos.js';
+import { criarValidadorProtocolo } from '../../../protocolo/validador.js';
 import { ServicoConsulta } from '../../../src/aplicacao/index.js';
 import { construirApp } from '../../../src/app.js';
 import { AmbienteEmMemoria } from '../../apoio/ingestao-em-memoria.js';
@@ -19,6 +20,8 @@ describe('GET /api/corridas/:id', () => {
       verificarBanco: async () => true,
       contadores: amb.contadores,
       ingestao: amb.servico,
+      distribuicao: amb.distribuicao,
+      validador: criarValidadorProtocolo(),
       consulta: new ServicoConsulta({
         detalheCorrida: async (id) => {
           consultados.push(id);
