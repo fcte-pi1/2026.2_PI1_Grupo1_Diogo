@@ -55,6 +55,9 @@ add_library(firmware_logic STATIC
     src/domain/Pid.cpp
     src/controller/MotionController.cpp
     src/protocol/ProtocolV1.cpp
+    src/telemetry/TelemetryBuffer.cpp
+    src/telemetry/TelemetryEmitter.cpp
+    src/domain/Maneuver.cpp
 )
 
 target_include_directories(firmware_logic PUBLIC
@@ -65,15 +68,17 @@ target_link_libraries(firmware_logic PRIVATE
     firmware_warnings
 )
 
-# Main executable
-add_executable(firmware
-    src/main.cpp
-)
+# Main executable (ESP32 only — requires ESP-IDF headers)
+if(ESP_PLATFORM)
+    add_executable(firmware
+        src/main.cpp
+    )
 
-target_link_libraries(firmware PRIVATE
-    firmware_logic
-    firmware_warnings
-)
+    target_link_libraries(firmware PRIVATE
+        firmware_logic
+        firmware_warnings
+    )
+endif()
 
 if(FIRMWARE_BUILD_TESTS)
     enable_testing()
