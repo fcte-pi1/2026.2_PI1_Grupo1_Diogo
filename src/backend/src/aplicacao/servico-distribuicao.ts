@@ -1,7 +1,7 @@
 /**
  * ServicoDistribuicao — entrega aos painéis o que acontece nas corridas (RF-88 a RF-92):
  *  - cada painel recebe só as corridas em que se inscreveu, e o canal `ao_vivo` recebe o
- *    resumo de início, fim e status de todas (RF-88);
+ *    resumo de início, fim e status de todas, e o aviso de ranking (RF-88);
  *  - quem se inscreve no meio recebe um snapshot e, depois, só o que vem depois dele (RF-89);
  *  - eventos discretos (célula, status) vão todos, em ordem; dados contínuos (posição,
  *    energia) vão no máximo 10 vezes por segundo, sempre com o valor mais recente (RF-90);
@@ -217,9 +217,12 @@ export class ServicoDistribuicao {
     this.paraAoVivo(aoVivo(corridaId, dados));
   }
 
-  /** O ranking do labirinto pode ter mudado, e a corrida já está no banco (RF-95). */
+  /**
+   * O ranking do labirinto pode ter mudado, e a corrida já está no banco (RF-95). Vai para
+   * o canal `ao_vivo`, como os outros avisos que não são de uma corrida (RF-88).
+   */
   aoMudarRanking(dados: MapaEventos['ranking-alterado']): void {
-    this.paraTodos({ tipo: 'leaderboard', labirinto: dados.labirinto });
+    this.paraAoVivo({ tipo: 'leaderboard', labirinto: dados.labirinto });
   }
 
   aoAlertar(dados: MapaEventos['alerta-tensao']): void {
@@ -316,11 +319,6 @@ export class ServicoDistribuicao {
     for (const painel of this.paineis) {
       if (painel.aoVivo) painel.conexao.enviar(texto);
     }
-  }
-
-  private paraTodos(mensagem: MensagemPainelSaida): void {
-    const texto = JSON.stringify(mensagem);
-    for (const painel of this.paineis) painel.conexao.enviar(texto);
   }
 
   private enviar(painel: Painel, mensagem: MensagemPainelSaida): void {

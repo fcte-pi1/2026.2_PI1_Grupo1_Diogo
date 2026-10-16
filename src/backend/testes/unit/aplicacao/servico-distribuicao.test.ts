@@ -172,6 +172,8 @@ describe('ServicoDistribuicao com o caminho completo (robô → painel)', () => 
     expect(canal.conexao.doTipo('leaderboard')).toEqual([
       { tipo: 'leaderboard', labirinto: '8x4' },
     ]);
+    // Só o canal recebe o aviso de ranking: o inscrito só na corrida, não (RF-88).
+    expect(inscrito.conexao.doTipo('leaderboard')).toEqual([]);
   });
 
   it('a interrupção chega com sequência nula, para o painel não descartá-la', async () => {
