@@ -353,3 +353,7 @@ TSWLatexianTemp*
 .DS_Store
 Thumbs.db
 
+
+# Python (ponte BLE)
+__pycache__/
+.pytest_cache/

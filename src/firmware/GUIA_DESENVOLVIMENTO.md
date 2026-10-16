@@ -145,12 +145,9 @@ python ble_ws_bridge.py --print-only
 # BLE real  ->  WebSocket do backend
 python ble_ws_bridge.py --ws ws://localhost:8080/ws/telemetria
 
-# SEM placa/BLE: telemetria de exemplo (protocolo v1)
-python ble_ws_bridge.py --simulate --print-only
-python ble_ws_bridge.py --simulate --ws ws://localhost:8080/ws/telemetria
-
-# SEM placa/BLE: reenvia linhas JSON exatas de um arquivo
-python ble_ws_bridge.py --replay amostra.jsonl --ws ws://localhost:8080/ws/telemetria
+# SEM placa/BLE: reenvia uma corrida de exemplo (formato do contrato)
+python ble_ws_bridge.py --replay exemplo/corrida.jsonl --print-only
+python ble_ws_bridge.py --replay exemplo/corrida.jsonl --ws ws://localhost:8080/ws/telemetria
 
 # Alvo de teste no lugar do backend (imprime o que recebe)
 python test_ws_server.py [--ack]
@@ -183,7 +180,7 @@ Adapters **não** têm teste de unidade (dependem de hardware). Para adicionar u
 | `conflicting declaration 'pcnt_unit_t'`                            | Conflito de drivers PCNT: use o **novo** `driver/pulse_cnt.h` (não o legado `driver/pcnt.h`) nos adapters de encoder                 |
 | `Could not open /dev/ttyACM0 ... No such file`                     | A placa não está conectada/visível. Veja a porta real: `ls /dev/ttyACM* /dev/ttyUSB*`; ajuste o `-p`. Sem placa, não há o que gravar |
 | `flash`: *Permission denied* na porta                              | Entre no grupo `dialout`: `sudo usermod -aG dialout $USER` (logout/login)                                                            |
-| Ponte: `org.bluez was not provided`                                | BlueZ inativo/ausente (ou WSL sem Bluetooth). `sudo systemctl enable --now bluetooth`; ou use `--simulate`/`--replay`                |
+| Ponte: `org.bluez was not provided`                                | BlueZ inativo/ausente (ou WSL sem Bluetooth). `sudo systemctl enable --now bluetooth`; ou use `--replay`                           |
 | `apt install` com `404 Not Found`                                  | Índice do apt desatualizado: `sudo apt update` e reinstale                                                                           |
 | fish: `'case' builtin not inside of switch block` ao ativar o venv | Script errado para o shell: `source .venv/bin/activate.fish` (ou rode `.venv/bin/python` direto)                                     |
 | Falha ao baixar componente no `reconfigure`                        | Confirme o nome/versão no `esp32/main/idf_component.yml` e a internet                                                                |
