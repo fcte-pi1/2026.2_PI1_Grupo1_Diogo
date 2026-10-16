@@ -88,7 +88,6 @@ export class AmbienteEmMemoria {
       agora: () => this.relogio,
     });
     return new ServicoIngestao({
-      eventos: this.eventosPublicados,
       validador: criarValidadorProtocolo(),
       contadores: this.contadores,
       agora: () => this.relogio,

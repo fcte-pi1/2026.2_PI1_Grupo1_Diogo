@@ -57,7 +57,6 @@ const ingestao = new ServicoIngestao({
   gravador,
   auditoria: new RegistroAuditoriaPg(banco),
   validador,
-  eventos,
   contadores,
   log,
 });

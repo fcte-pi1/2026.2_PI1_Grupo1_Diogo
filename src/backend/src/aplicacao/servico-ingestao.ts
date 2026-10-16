@@ -27,7 +27,6 @@ import type {
   RepositorioDispositivos,
   VerificadorToken,
 } from './portas.js';
-import type { PublicadorEventos } from './eventos.js';
 import { LIMITE_SILENCIO_MS } from './prazos.js';
 import type { ServicoCorrida } from './servico-corrida.js';
 
@@ -39,8 +38,6 @@ export interface DependenciasIngestao {
   corridas: ServicoCorrida;
   gravador: GravadorMensagens;
   auditoria: RegistroAuditoria;
-  /** Opcional: sem ele, a perda e a retomada de sinal só vão para a auditoria. */
-  eventos?: PublicadorEventos;
   validador: ValidadorProtocolo;
   contadores: Contadores;
   log: RegistroLog;
@@ -88,6 +85,8 @@ export class ServicoIngestao {
     );
     // Uma conexão nova com outro boot interrompe a corrida anterior do robô (RF-81, CA1).
     this.deps.corridas.reinicioDetectado(dispositivo.id, hello.boot);
+    // Com o mesmo boot, é o robô voltando: o sinal das corridas dele está de volta.
+    await this.retomarSinal(sessao);
     return { ok: true, sessao };
   }
 
@@ -158,6 +157,7 @@ export class ServicoIngestao {
     const reiniciou = conferido.hello.boot !== sessao.boot;
     sessao.boot = conferido.hello.boot;
     if (reiniciou) this.deps.corridas.reinicioDetectado(sessao.dispositivoId, sessao.boot);
+    else await this.retomarSinal(sessao);
     sessao.versaoProtocolo = conferido.hello.versao;
     await this.deps.auditoria.eventoConexao({
       dispositivoId: sessao.dispositivoId,
@@ -177,7 +177,7 @@ export class ServicoIngestao {
    */
   async receber(sessao: SessaoRobo, texto: string): Promise<PedidoFechamento | void> {
     const { validador, contadores } = this.deps;
-    await this.registrarAtividade(sessao);
+    this.registrarAtividade(sessao);
 
     const json = interpretarJson(texto);
     if (!json.ok) {
@@ -193,7 +193,9 @@ export class ServicoIngestao {
     const mensagem = validada.mensagem;
 
     const corrida = await this.obterCorrida(sessao, mensagem);
-    this.deps.corridas.registrarAtividade(corrida);
+    if (this.deps.corridas.registrarAtividade(corrida)) {
+      await this.registrarRetomada(sessao, corrida);
+    }
 
     const violacao = verificarRegras(
       dadosParaRegras(mensagem),
@@ -262,25 +264,42 @@ export class ServicoIngestao {
     await this.registrarEvento(sessao, 'DESCONECTADO');
   }
 
-  private async registrarAtividade(sessao: SessaoRobo): Promise<void> {
+  /**
+   * Retoma o sinal das corridas deste robô que o tinham perdido, inclusive por outra
+   * conexão, e registra o evento. A primeira passa a ser a corrida ativa desta conexão, para
+   * o monitor de silêncio continuar valendo.
+   */
+  private async retomarSinal(sessao: SessaoRobo): Promise<void> {
+    const retomadas = this.deps.corridas.retomarSinal(sessao.dispositivoId, sessao.boot);
+    for (const corrida of retomadas) {
+      sessao.corridaAtiva ??= corrida;
+      await this.registrarRetomada(sessao, corrida);
+    }
+  }
+
+  private async registrarRetomada(sessao: SessaoRobo, corrida: EstadoCorrida): Promise<void> {
+    this.deps.log.info(
+      { dispositivo: sessao.identificador, corrida: corrida.id },
+      'evento de conexão: sinal retomado',
+    );
+    await this.deps.auditoria.eventoConexao({
+      dispositivoId: sessao.dispositivoId,
+      corridaId: corrida.id,
+      tipo: 'SINAL_RETOMADO',
+      boot: sessao.boot,
+    });
+  }
+
+  /** A retomada é registrada por corrida, quando ela volta a ter sinal (ver `retomarSinal`). */
+  private registrarAtividade(sessao: SessaoRobo): void {
     sessao.ultimaMensagemEm = this.agora();
-    if (!sessao.sinalPerdido) return;
     sessao.sinalPerdido = false;
-    await this.registrarEvento(sessao, 'SINAL_RETOMADO');
   }
 
   private async registrarEvento(
     sessao: SessaoRobo,
-    tipo: 'SINAL_PERDIDO' | 'SINAL_RETOMADO' | 'DESCONECTADO',
+    tipo: 'SINAL_PERDIDO' | 'DESCONECTADO',
   ): Promise<void> {
-    // Os painéis inscritos na corrida são avisados em até 1 s (RF-92).
-    const corridaId = sessao.corridaAtiva?.id;
-    if (corridaId && tipo !== 'DESCONECTADO') {
-      this.deps.eventos?.publicar('sinal-alterado', {
-        corridaId,
-        estado: tipo === 'SINAL_PERDIDO' ? 'PERDIDO' : 'RETOMADO',
-      });
-    }
     this.deps.log.info({ dispositivo: sessao.identificador, tipo }, 'evento de conexão');
     await this.deps.auditoria.eventoConexao({
       dispositivoId: sessao.dispositivoId,

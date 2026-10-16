@@ -52,7 +52,7 @@ A inscrição só vale para corridas que o backend tem em memória: as em andame
 | `evento` (`celula`) | Inscritos na corrida | A cada célula visitada, **todas e em ordem de sequência** |
 | `evento` (`status`) | Inscritos na corrida | Fim (`CONCLUIDA`, `FALHOU`) ou interrupção (`INTERROMPIDA`) |
 | `continuo` | Inscritos na corrida | Posição e energia, **no máximo 10 por segundo** por corrida |
-| `sinal` | Inscritos na corrida | `PERDIDO` após 3 s sem mensagens do robô; `RETOMADO` quando ele volta |
+| `sinal` | Inscritos na corrida | `PERDIDO` após 3 s sem mensagens do robô, ou na hora, se a conexão cair; `RETOMADO` quando ele volta, pela mesma conexão ou por outra: no `hello` com o mesmo `boot` ou na próxima mensagem. Cada mudança sai uma vez só, mesmo com mais de uma conexão do robô |
 | `alerta` | Inscritos na corrida | Tensão abaixo de 7,0 V (`TENSAO_BAIXA`), sem repetir a cada leitura |
 | `leaderboard` | Inscritos no canal | Uma corrida terminou `CONCLUIDA`: o ranking daquele labirinto pode ter mudado. Sai depois de a corrida estar gravada, então o `GET /api/leaderboard` feito ao recebê-lo já a inclui |
 | `keepalive` | Todos os painéis | A cada 1 s, também fora das corridas |
@@ -60,6 +60,7 @@ A inscrição só vale para corridas que o backend tem em memória: as em andame
 ### Regras para o painel
 
 - **O `snapshot` substitui, não mescla.** Ele traz o estado até `sequencia_corte`. Os eventos que chegam depois têm sequência maior; um evento com sequência ≤ `sequencia_corte` já está no snapshot.
+- **O `snapshot` traz o estado do sinal** (`sinal`: `NORMAL` ou `PERDIDO`). Quem se inscreve durante uma perda já sabe dela, sem esperar o próximo `sinal`.
 - **O `snapshot` não traz o trajeto nem a série de energia,** só o mapa (as células conhecidas, com as paredes) e a posição. Para o trajeto e o gráfico de quem entra no meio da corrida, use `GET /api/corridas/{id}`.
 - **`labirinto` pode vir `null`** no `snapshot` e no `ao_vivo`. Acontece quando a corrida foi criada antes de o `inicio_corrida` chegar.
 - **Um `evento` de status com `sequencia: null`** é uma interrupção: 120 s sem sinal (`SEM_SINAL`) ou reinício do robô (`REINICIO_ROBO`). Ela não vem de uma mensagem do robô e **não deve ser descartada** por sequência.

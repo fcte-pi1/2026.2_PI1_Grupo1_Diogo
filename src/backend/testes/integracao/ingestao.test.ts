@@ -109,7 +109,6 @@ describe('ingestão de telemetria com PostgreSQL real', () => {
     eventos.assinar('sinal-alterado', (d) => distribuicao.aoMudarSinal(d));
     eventos.assinar('ranking-alterado', (d) => distribuicao.aoMudarRanking(d));
     const ingestao = new ServicoIngestao({
-      eventos,
       dispositivos: new RepositorioDispositivosPg(pool),
       tokens: new VerificadorTokenArgon2(),
       corridas,

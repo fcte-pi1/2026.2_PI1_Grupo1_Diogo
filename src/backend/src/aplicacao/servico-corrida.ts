@@ -56,6 +56,8 @@ export interface EstadoAoVivo {
   metricas: Metricas;
   status: StatusCorrida;
   motivo: MotivoTermino | null;
+  /** O sinal do robô está perdido agora (RF-92). */
+  sinalPerdido: boolean;
 }
 
 export interface IdentificacaoCorrida {
@@ -114,14 +116,38 @@ export class ServicoCorrida {
     await this.deps.corridas.definirInicio(corrida.id, inicio.labirinto, inicio.tempo_ms);
   }
 
-  registrarAtividade(corrida: EstadoCorrida): void {
+  /**
+   * Chegou uma mensagem desta corrida, por qualquer conexão: o sinal está de volta.
+   * Devolve `true` se ele estava perdido.
+   */
+  registrarAtividade(corrida: EstadoCorrida): boolean {
     corrida.ultimaMensagemEm = this.agora();
-    corrida.sinalPerdidoEm = null;
+    return this.sinalRetomado(corrida);
   }
 
-  /** A ingestão declarou o sinal perdido em `em`: os 120 s da interrupção contam daí. */
+  /**
+   * A ingestão declarou o sinal perdido em `em`: os 120 s da interrupção contam daí, e os
+   * painéis são avisados (RF-92). A corrida é a única fonte do estado do sinal: a conexão
+   * que perdeu o sinal pode não ser a mesma que o retoma.
+   */
   sinalPerdido(corrida: EstadoCorrida, em: number): void {
-    corrida.sinalPerdidoEm ??= em;
+    if (corrida.sinalPerdidoEm !== null || corrida.derivacao.status !== 'EM_ANDAMENTO') return;
+    corrida.sinalPerdidoEm = em;
+    this.deps.eventos.publicar('sinal-alterado', { corridaId: corrida.id, estado: 'PERDIDO' });
+  }
+
+  /**
+   * O robô se identificou de novo com o mesmo `boot` (reconexão do Bluetooth ou da ponte):
+   * o sinal das corridas dele que estavam sem sinal está de volta, mesmo antes da próxima
+   * mensagem (CT-BE-25). Devolve essas corridas.
+   */
+  retomarSinal(dispositivoId: string, boot: string): EstadoCorrida[] {
+    const retomadas: EstadoCorrida[] = [];
+    for (const corrida of this.carregadas.values()) {
+      if (corrida.dispositivoId !== dispositivoId || corrida.boot !== boot) continue;
+      if (this.sinalRetomado(corrida)) retomadas.push(corrida);
+    }
+    return retomadas;
   }
 
   /**
@@ -188,6 +214,7 @@ export class ServicoCorrida {
       metricas: derivacao.metricas,
       status: derivacao.status,
       motivo: derivacao.motivo,
+      sinalPerdido: corrida.sinalPerdidoEm !== null,
     };
   }
 
@@ -274,6 +301,13 @@ export class ServicoCorrida {
     this.aplicarDisponiveis(corrida);
     // Status que não vem das mensagens: uma interrupção feita antes do reinício.
     corrida.derivacao.restaurarStatus(persistida.status, persistida.motivo);
+  }
+
+  private sinalRetomado(corrida: EstadoCorrida): boolean {
+    if (corrida.sinalPerdidoEm === null) return false;
+    corrida.sinalPerdidoEm = null;
+    this.deps.eventos.publicar('sinal-alterado', { corridaId: corrida.id, estado: 'RETOMADO' });
+    return true;
   }
 
   private aplicarDisponiveis(corrida: EstadoCorrida): void {

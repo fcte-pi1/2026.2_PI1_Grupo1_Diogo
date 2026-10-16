@@ -149,6 +149,75 @@ describe('ServicoDistribuicao com o caminho completo (robô → painel)', () => 
     ]);
   });
 
+  it('CT-BE-25: a conexão cai e o robô volta por outra; RETOMADO sai no hello, antes de qualquer mensagem', async () => {
+    const antes = await conectarRobo();
+    await enviar(antes, [mensagem('inicio_corrida', 1)]);
+    const p = painel();
+    amb.distribuicao.receber(p.painel, { tipo: 'inscrever', corrida: idDe('c-A') });
+
+    await amb.servico.encerrar(antes);
+    expect(p.conexao.doTipo('sinal').map((m) => m.estado)).toEqual(['PERDIDO']);
+
+    const depois = await conectarRobo();
+    expect(p.conexao.doTipo('sinal').map((m) => m.estado)).toEqual(['PERDIDO', 'RETOMADO']);
+    expect(amb.eventos.filter((e) => e.tipo === 'SINAL_RETOMADO')).toEqual([
+      { tipo: 'SINAL_RETOMADO', corridaId: idDe('c-A'), boot: 'b1' },
+    ]);
+
+    // A corrida é a ativa da conexão nova: o silêncio nela volta a ser perda de sinal.
+    amb.relogio = 3000;
+    await amb.servico.verificarSilencio(depois);
+    expect(p.conexao.doTipo('sinal').map((m) => m.estado)).toEqual([
+      'PERDIDO',
+      'RETOMADO',
+      'PERDIDO',
+    ]);
+  });
+
+  it('a perda e a retomada saem uma vez só, mesmo com duas conexões do mesmo robô', async () => {
+    const a = await conectarRobo();
+    await enviar(a, [mensagem('inicio_corrida', 1)]);
+    const p = painel();
+    amb.distribuicao.receber(p.painel, { tipo: 'inscrever', corrida: idDe('c-A') });
+    const b = await conectarRobo();
+    await enviar(b, [mensagem('posicao', 2)]);
+
+    amb.relogio = 3000;
+    await amb.servico.verificarSilencio(a);
+    await amb.servico.verificarSilencio(b);
+    await enviar(b, [mensagem('posicao', 3)]);
+    await enviar(a, [mensagem('posicao', 4)]);
+    expect(p.conexao.doTipo('sinal').map((m) => m.estado)).toEqual(['PERDIDO', 'RETOMADO']);
+  });
+
+  it('o snapshot diz se o sinal está perdido', async () => {
+    const robo = await conectarRobo();
+    await enviar(robo, [mensagem('inicio_corrida', 1)]);
+    await amb.servico.encerrar(robo);
+
+    const p = painel();
+    amb.distribuicao.receber(p.painel, { tipo: 'inscrever', corrida: idDe('c-A') });
+    expect(p.conexao.doTipo('snapshot')[0]).toMatchObject({ sinal: 'PERDIDO' });
+
+    await conectarRobo();
+    const outro = painel();
+    amb.distribuicao.receber(outro.painel, { tipo: 'inscrever', corrida: idDe('c-A') });
+    expect(outro.conexao.doTipo('snapshot')[0]).toMatchObject({ sinal: 'NORMAL' });
+  });
+
+  it('um robô reiniciado (outro boot) não retoma o sinal: a corrida é interrompida', async () => {
+    const antes = await conectarRobo('b1');
+    await enviar(antes, [mensagem('inicio_corrida', 1)]);
+    const p = painel();
+    amb.distribuicao.receber(p.painel, { tipo: 'inscrever', corrida: idDe('c-A') });
+    await amb.servico.encerrar(antes);
+
+    await conectarRobo('b2');
+    await amb.esvaziar();
+    expect(p.conexao.doTipo('sinal').map((m) => m.estado)).toEqual(['PERDIDO']);
+    expect(p.conexao.doTipo('evento').at(-1)).toMatchObject({ status: 'INTERROMPIDA' });
+  });
+
   it('status final aos inscritos e ao canal ao_vivo, e aviso de ranking ao concluir', async () => {
     const robo = await conectarRobo();
     const inscrito = painel();
@@ -224,6 +293,7 @@ describe('ServicoDistribuicao: ritmo dos contínuos e painéis lentos', () => {
     tempoInicioMs: 0,
     mapa: { celulas: [], posicao: null },
     metricas: derivacao.metricas,
+    sinalPerdido: false,
     status: 'EM_ANDAMENTO',
     motivo: null,
   };

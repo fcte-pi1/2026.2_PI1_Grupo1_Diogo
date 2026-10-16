@@ -364,6 +364,7 @@ function snapshot(estado: EstadoAoVivo): MensagemPainelSaida {
     status: estado.status,
     motivo_termino: estado.motivo,
     tempo_inicio_ms: estado.tempoInicioMs,
+    sinal: estado.sinalPerdido ? 'PERDIDO' : 'NORMAL',
   };
 }
 

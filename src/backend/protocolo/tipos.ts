@@ -192,6 +192,11 @@ export interface SnapshotPainel {
   motivo_termino: MotivoTermino | null;
   /** Tempo do robô no início da corrida, âncora do cronômetro do painel. */
   tempo_inicio_ms: number | null;
+  /**
+   * Estado do sinal do robô agora. Quem se inscreve durante uma perda de sinal já sabe dela,
+   * sem esperar o próximo `sinal` (RF-92).
+   */
+  sinal: 'NORMAL' | 'PERDIDO';
 }
 
 export interface EventoCelulaPainel {
