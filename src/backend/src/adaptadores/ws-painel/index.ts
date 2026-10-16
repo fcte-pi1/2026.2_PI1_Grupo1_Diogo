@@ -66,7 +66,13 @@ export async function rotasPainel(
         );
         return;
       }
-      distribuicao.receber(painel, mensagem.mensagem);
+      try {
+        distribuicao.receber(painel, mensagem.mensagem);
+      } catch (erro) {
+        // Uma exceção aqui escaparia do listener do ws sem tratamento. Como no barramento,
+        // o erro fica no log e o painel segue conectado.
+        req.log.error({ erro }, 'falha ao tratar a mensagem do painel');
+      }
     });
 
     socket.on('close', () => {
