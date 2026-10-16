@@ -12,6 +12,7 @@ import WebSocketNode from 'ws';
 import type { DetalheCorrida } from '../../protocolo/tipos.js';
 import { criarValidadorProtocolo } from '../../protocolo/validador.js';
 import {
+  AVISO_PAINEL_LENTO,
   ServicoConsulta,
   ServicoCorrida,
   ServicoDistribuicao,
@@ -785,14 +786,15 @@ describe('ingestão de telemetria com PostgreSQL real', () => {
       lento.ws.send(JSON.stringify({ tipo: 'inscrever', corrida: id }));
       await esperar(() => normal.doTipo('snapshot').length > 0);
       await new Promise((resolver) => setTimeout(resolver, 100));
-      // O painel lento para de ler: o buffer de envio do backend para ele só cresce.
-      (lento.ws as unknown as { _socket: { pause(): void } })._socket.pause();
+      // O painel lento para de ler: o buffer de envio do backend para ele só cresce. O
+      // pause() do cliente ws para de ler o socket (API pública, tipada em @types/ws).
+      lento.ws.pause();
       avisosDistribuicao.length = 0;
 
       // O robô envia até o backend desconectar o painel lento. Os buffers do sistema
       // operacional variam, então a quantidade não é fixa.
       let sequencia = 1;
-      while (!avisosDistribuicao.includes('painel lento desconectado') && sequencia < 40_000) {
+      while (!avisosDistribuicao.includes(AVISO_PAINEL_LENTO) && sequencia < 40_000) {
         const lote: string[] = [];
         for (let i = 0; i < 500; i++) {
           sequencia++;
@@ -815,7 +817,7 @@ describe('ingestão de telemetria com PostgreSQL real', () => {
         robo.enviar(...lote);
         await robo.esperarAck('painel-lento', sequencia);
       }
-      await esperar(() => avisosDistribuicao.includes('painel lento desconectado'), 5000);
+      await esperar(() => avisosDistribuicao.includes(AVISO_PAINEL_LENTO), 5000);
 
       // O painel normal recebeu todas as células, em ordem, durante todo o episódio.
       const celulasEnviadas = Math.floor(sequencia / 2);
@@ -828,7 +830,7 @@ describe('ingestão de telemetria com PostgreSQL real', () => {
       expect(sequencias).toEqual([...sequencias].sort((a, b) => a - b));
 
       // O socket do painel lento foi destruído pelo backend, mesmo sem ele ler o 1013.
-      (lento.ws as unknown as { _socket: { resume(): void } })._socket.resume();
+      lento.ws.resume();
       expect(await lento.fechou).toBeGreaterThan(0);
       normal.fechar();
       await robo.fechar();

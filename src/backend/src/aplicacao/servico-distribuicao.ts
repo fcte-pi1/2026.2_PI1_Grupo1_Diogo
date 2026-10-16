@@ -31,6 +31,8 @@ export const LIMITE_BUFFER_BYTES = 1024 * 1024;
 export const PRAZO_PAINEL_LENTO_MS = 10_000;
 /** Código de fechamento para o painel lento: "tente de novo mais tarde". */
 export const FECHAMENTO_PAINEL_LENTO = 1013;
+/** Mensagem do log quando um painel lento é desconectado (o CT-BE-24 a procura). */
+export const AVISO_PAINEL_LENTO = 'painel lento desconectado';
 
 export interface ConexaoPainel {
   enviar(texto: string): void;
@@ -145,10 +147,7 @@ export class ServicoDistribuicao {
       if (painel.conexao.bytesPendentes() > this.limiteBufferBytes) {
         painel.lentoDesde ??= agora;
         if (agora - painel.lentoDesde >= this.prazoPainelLentoMs) {
-          this.deps.log.warn(
-            { bytes: painel.conexao.bytesPendentes() },
-            'painel lento desconectado',
-          );
+          this.deps.log.warn({ bytes: painel.conexao.bytesPendentes() }, AVISO_PAINEL_LENTO);
           this.paineis.delete(painel);
           painel.conexao.fechar(FECHAMENTO_PAINEL_LENTO, 'painel lento');
           continue;
