@@ -118,36 +118,52 @@ export class ServicoCorrida {
 
   /**
    * Chegou uma mensagem desta corrida, por qualquer conexão: o sinal está de volta.
-   * Devolve `true` se ele estava perdido.
+   * Devolve `true` se ele estava perdido. A ingestão passa o mesmo instante que guardou na
+   * conexão, para a comparação de `sinalPerdido` não depender de milissegundos.
    */
-  registrarAtividade(corrida: EstadoCorrida): boolean {
-    corrida.ultimaMensagemEm = this.agora();
+  registrarAtividade(corrida: EstadoCorrida, em = this.agora()): boolean {
+    corrida.ultimaMensagemEm = em;
     return this.sinalRetomado(corrida);
   }
 
   /**
-   * A ingestão declarou o sinal perdido em `em`: os 120 s da interrupção contam daí, e os
-   * painéis são avisados (RF-92). A corrida é a única fonte do estado do sinal: a conexão
+   * Uma conexão do robô ficou muda ou caiu, em `em`: os 120 s da interrupção contam daí, e
+   * os painéis são avisados (RF-92). A corrida é a única fonte do estado do sinal: a conexão
    * que perdeu o sinal pode não ser a mesma que o retoma.
+   *
+   * `ultimaDaConexao` é o último sinal de vida recebido por essa conexão. Se a corrida
+   * recebeu algo mais novo por outra conexão (o robô já voltou por ela), a declaração é de
+   * uma conexão antiga e é ignorada: sem isso, o painel veria uma perda falsa.
    */
-  sinalPerdido(corrida: EstadoCorrida, em: number): void {
+  sinalPerdido(corrida: EstadoCorrida, em: number, ultimaDaConexao: number): void {
     if (corrida.sinalPerdidoEm !== null || corrida.derivacao.status !== 'EM_ANDAMENTO') return;
+    if (corrida.ultimaMensagemEm > ultimaDaConexao) return;
     corrida.sinalPerdidoEm = em;
     this.deps.eventos.publicar('sinal-alterado', { corridaId: corrida.id, estado: 'PERDIDO' });
   }
 
   /**
-   * O robô se identificou de novo com o mesmo `boot` (reconexão do Bluetooth ou da ponte):
-   * o sinal das corridas dele que estavam sem sinal está de volta, mesmo antes da próxima
-   * mensagem (CT-BE-25). Devolve essas corridas.
+   * O robô se identificou de novo com o mesmo `boot` (reconexão do Bluetooth ou da ponte).
+   * As corridas dele que estavam sem sinal o retomam, mesmo antes da próxima mensagem
+   * (CT-BE-25). Devolve também a corrida que a conexão nova passa a vigiar: a retomada mais
+   * recente ou, sem retomada, a em andamento com a atividade mais recente. O `hello` conta
+   * como sinal de vida só para essas, para uma corrida abandonada continuar sendo
+   * interrompida aos 120 s.
    */
-  retomarSinal(dispositivoId: string, boot: string): EstadoCorrida[] {
-    const retomadas: EstadoCorrida[] = [];
-    for (const corrida of this.carregadas.values()) {
-      if (corrida.dispositivoId !== dispositivoId || corrida.boot !== boot) continue;
-      if (this.sinalRetomado(corrida)) retomadas.push(corrida);
+  roboIdentificado(
+    dispositivoId: string,
+    boot: string,
+    em = this.agora(),
+  ): { ativa: EstadoCorrida | null; retomadas: EstadoCorrida[] } {
+    const doRobo = [...this.carregadas.values()]
+      .filter((c) => c.dispositivoId === dispositivoId && c.boot === boot)
+      .sort((a, b) => b.ultimaMensagemEm - a.ultimaMensagemEm);
+    const retomadas = doRobo.filter((c) => this.sinalRetomado(c));
+    const ativa = retomadas[0] ?? doRobo.find((c) => c.derivacao.status === 'EM_ANDAMENTO') ?? null;
+    for (const corrida of new Set([...retomadas, ...(ativa ? [ativa] : [])])) {
+      corrida.ultimaMensagemEm = em;
     }
-    return retomadas;
+    return { ativa, retomadas };
   }
 
   /**

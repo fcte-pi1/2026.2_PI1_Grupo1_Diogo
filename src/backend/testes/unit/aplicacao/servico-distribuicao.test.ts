@@ -198,6 +198,74 @@ describe('ServicoDistribuicao com o caminho completo (robô → painel)', () => 
     expect(p.conexao.doTipo('sinal').map((m) => m.estado)).toEqual(['PERDIDO', 'RETOMADO']);
   });
 
+  it('a conexão antiga muda não gera perda falsa quando o robô já fala pela nova', async () => {
+    const a = await conectarRobo();
+    await enviar(a, [mensagem('inicio_corrida', 1)]);
+    const p = painel();
+    amb.distribuicao.receber(p.painel, { tipo: 'inscrever', corrida: idDe('c-A') });
+
+    // A fica muda (socket meio aberto); 1 s depois o robô volta por B e envia mensagens.
+    amb.relogio = 1000;
+    const b = await conectarRobo();
+    amb.relogio = 2000;
+    await enviar(b, [mensagem('posicao', 2)]);
+    // Aos 3 s, o monitor vê A muda: a declaração é de uma conexão antiga.
+    amb.relogio = 3000;
+    await amb.servico.verificarSilencio(a);
+    // O fechamento atrasado de A também não é perda.
+    await amb.servico.encerrar(a);
+    expect(p.conexao.doTipo('sinal')).toEqual([]);
+
+    // B é quem vigia a corrida agora: se B ficar muda, aí sim é perda.
+    amb.relogio = 5000;
+    await amb.servico.verificarSilencio(b);
+    expect(p.conexao.doTipo('sinal').map((m) => m.estado)).toEqual(['PERDIDO']);
+  });
+
+  it('o hello pela conexão nova já basta: a antiga fechando depois não é perda', async () => {
+    const a = await conectarRobo();
+    await enviar(a, [mensagem('inicio_corrida', 1)]);
+    const p = painel();
+    amb.distribuicao.receber(p.painel, { tipo: 'inscrever', corrida: idDe('c-A') });
+
+    amb.relogio = 1000;
+    const b = await conectarRobo();
+    amb.relogio = 1500;
+    await amb.servico.encerrar(a);
+    expect(p.conexao.doTipo('sinal')).toEqual([]);
+
+    // A conexão nova assumiu a corrida mesmo sem mensagem nem perda anterior.
+    amb.relogio = 4000;
+    await amb.servico.verificarSilencio(b);
+    expect(p.conexao.doTipo('sinal').map((m) => m.estado)).toEqual(['PERDIDO']);
+  });
+
+  it('com uma corrida abandonada do mesmo boot, a conexão nova vigia a mais recente e não segura a antiga', async () => {
+    const a = await conectarRobo();
+    await enviar(a, [mensagem('inicio_corrida', 1, { corrida: 'velha' })]);
+    amb.relogio = 1000;
+    await enviar(a, [mensagem('inicio_corrida', 1, { corrida: 'atual' })]);
+    const p = painel();
+    amb.distribuicao.receber(p.painel, { tipo: 'inscrever', corrida: idDe('atual') });
+    await amb.servico.encerrar(a);
+
+    amb.relogio = 2000;
+    const b = await conectarRobo();
+    amb.relogio = 6000;
+    await amb.servico.verificarSilencio(b);
+    expect(p.conexao.doTipo('sinal').map((m) => m.estado)).toEqual([
+      'PERDIDO',
+      'RETOMADO',
+      'PERDIDO',
+    ]);
+
+    // O hello não renovou a corrida abandonada: ela é interrompida aos 123 s da última mensagem.
+    amb.relogio = 123_000;
+    amb.corrida.verificarInterrupcoes();
+    await amb.esvaziar();
+    expect(amb.porIdRobo('velha').status).toBe('INTERROMPIDA');
+  });
+
   it('o snapshot diz se o sinal está perdido', async () => {
     const robo = await conectarRobo();
     await enviar(robo, [mensagem('inicio_corrida', 1)]);

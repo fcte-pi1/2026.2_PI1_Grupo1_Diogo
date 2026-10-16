@@ -193,7 +193,7 @@ export class ServicoIngestao {
     const mensagem = validada.mensagem;
 
     const corrida = await this.obterCorrida(sessao, mensagem);
-    if (this.deps.corridas.registrarAtividade(corrida)) {
+    if (this.deps.corridas.registrarAtividade(corrida, sessao.ultimaMensagemEm)) {
       await this.registrarRetomada(sessao, corrida);
     }
 
@@ -250,6 +250,7 @@ export class ServicoIngestao {
     this.deps.corridas.sinalPerdido(
       sessao.corridaAtiva,
       sessao.ultimaMensagemEm + LIMITE_SILENCIO_MS,
+      sessao.ultimaMensagemEm,
     );
     await this.registrarEvento(sessao, 'SINAL_PERDIDO');
   }
@@ -258,23 +259,25 @@ export class ServicoIngestao {
   async encerrar(sessao: SessaoRobo): Promise<void> {
     if (sessao.corridaAtiva !== null && !sessao.sinalPerdido) {
       sessao.sinalPerdido = true;
-      this.deps.corridas.sinalPerdido(sessao.corridaAtiva, this.agora());
+      this.deps.corridas.sinalPerdido(sessao.corridaAtiva, this.agora(), sessao.ultimaMensagemEm);
       await this.registrarEvento(sessao, 'SINAL_PERDIDO');
     }
     await this.registrarEvento(sessao, 'DESCONECTADO');
   }
 
   /**
-   * Retoma o sinal das corridas deste robô que o tinham perdido, inclusive por outra
-   * conexão, e registra o evento. A primeira passa a ser a corrida ativa desta conexão, para
-   * o monitor de silêncio continuar valendo.
+   * O robô se identificou com o mesmo `boot`: a corrida atual dele passa a ser a ativa
+   * desta conexão, para o monitor de silêncio continuar valendo, e as que tinham perdido o
+   * sinal, inclusive por outra conexão, o retomam.
    */
   private async retomarSinal(sessao: SessaoRobo): Promise<void> {
-    const retomadas = this.deps.corridas.retomarSinal(sessao.dispositivoId, sessao.boot);
-    for (const corrida of retomadas) {
-      sessao.corridaAtiva ??= corrida;
-      await this.registrarRetomada(sessao, corrida);
-    }
+    const { ativa, retomadas } = this.deps.corridas.roboIdentificado(
+      sessao.dispositivoId,
+      sessao.boot,
+      sessao.ultimaMensagemEm,
+    );
+    sessao.corridaAtiva ??= ativa;
+    for (const corrida of retomadas) await this.registrarRetomada(sessao, corrida);
   }
 
   private async registrarRetomada(sessao: SessaoRobo, corrida: EstadoCorrida): Promise<void> {
