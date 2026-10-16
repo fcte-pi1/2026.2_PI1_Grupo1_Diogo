@@ -8,7 +8,7 @@ responde um `ack`. Útil com:
     # terminal 1
     python test_ws_server.py
     # terminal 2
-    python ble_ws_bridge.py --simulate --ws ws://localhost:8080/ws/telemetria
+    python ble_ws_bridge.py --replay exemplo/corrida.jsonl --ws ws://localhost:8080/ws/telemetria
 
 Aceita qualquer caminho (só avisa se não for /ws/telemetria). Não valida schema
 nem token - é plumbing, não o backend.

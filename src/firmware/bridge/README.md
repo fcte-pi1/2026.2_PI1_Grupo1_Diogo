@@ -12,9 +12,13 @@ graph LR
 
 ## Instalação
 ```bash
-python -m venv .venv && source .venv/bin/activate
+python -m venv .venv && source .venv/bin/activate    # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 ```
+
+**No Windows:**
+- crie o `venv` num caminho **curto** (ex.: `C:\rato\.venv`). Em caminho longo, a biblioteca de Bluetooth do Windows não carrega;
+- o Bluetooth do PC precisa estar **ligado** antes de iniciar a ponte.
 
 ## Uso
 ```bash
@@ -26,26 +30,55 @@ python ble_ws_bridge.py --ws ws://localhost:8080/ws/telemetria
 ```
 
 Valide primeiro com `--print-only`: se o JSON aparecer no terminal, o BLE está
-funcionando - só então ligue no backend. (baby steps)
+funcionando, e a primeira linha depois de conectar tem que ser o `hello`. Só
+então ligue no backend. (baby steps)
+
+A ponte procura o robô pelo **serviço Nordic UART** (UUID `6E400001-…`) ou pelo
+nome `RatoBorrachudo` (`--name` muda o nome).
+
+## Como a ponte se comporta
+
+| Situação | O que a ponte faz |
+|:--|:--|
+| Robô desligado ou fora do alcance | Procura de novo, sem encerrar, e **não abre conexão com o backend** até receber o `hello` |
+| Conexão nova com o backend | Envia o último `hello` do robô primeiro, depois as mensagens não confirmadas e então a fila |
+| Backend fora do ar ou reiniciando | Guarda as mensagens e reconecta (1 s, 2 s, … até 10 s). Nada se perde: o que foi enviado e não confirmado pelo `ack` é reenviado, e o backend descarta as duplicatas |
+| Backend fecha com `4001`, `4002` ou `4003` | Mostra o erro (token, versão ou `hello` inválido) e espera o robô mandar **outro** `hello`, sem ficar reconectando |
+| BLE cai no meio da corrida | Procura o robô de novo; ao reconectar, o firmware reenvia o `hello` e o buffer de 60 s |
+| Backend fora do ar por muito tempo | A fila guarda até 2000 mensagens; acima disso descarta as mais antigas e avisa quantas |
 
 ## Testes SEM placa e SEM Bluetooth
 
-Os modos abaixo **não usam BLE** - servem para exercitar a ponte e o backend
-num PC sem o rádio Bluetooth (ex.: WSL) e sem o robô físico:
+O `--replay` reenvia as linhas JSON de um arquivo, uma mensagem por linha. O
+`exemplo/corrida.jsonl` é uma corrida completa no 4x4, no formato do contrato,
+com o `hello` do `rato-01` e o token padrão do seed (`troque-em-build`):
 
 ```bash
-# Gera uma sequência de telemetria de exemplo (formato do protocolo v1)
-python ble_ws_bridge.py --simulate --print-only
-python ble_ws_bridge.py --simulate --ws ws://localhost:8080/ws/telemetria
+# Backend no ar, com o seed
+docker compose up -d && docker compose exec backend npm run seed
 
-# Reenvia linhas JSON EXATAS de um arquivo (uma mensagem por linha)
-python ble_ws_bridge.py --replay amostra.jsonl --ws ws://localhost:8080/ws/telemetria
+python ble_ws_bridge.py --replay exemplo/corrida.jsonl --print-only
+python ble_ws_bridge.py --replay exemplo/corrida.jsonl --ws ws://localhost:8080/ws/telemetria --interval 0.3
 ```
 
-- `--simulate` emite mensagens **ilustrativas** (envelope `{v,tipo,corrida,seq,t}`).
-  Se o backend validar por schema (Ajv) e recusar algum campo, use `--replay`
-  com linhas exatas (capturadas do firmware ou conferidas no schema).
 - `--interval <s>` ajusta o ritmo entre mensagens (padrão 0,5 s; use `0` para rajada).
+- **Reinício do backend:** durante o replay acima, rode `docker compose restart backend`.
+  As 45 mensagens da corrida têm que chegar ao banco, e a corrida termina `CONCLUIDA`.
+- O `test_ws_server.py` é um servidor WebSocket descartável que só imprime o que
+  recebe, para testar a ponte sem o backend.
+
+## Testes automatizados
+
+```bash
+pip install -r requirements-dev.txt
+pytest
+```
+
+Rodam sem Bluetooth: o lado do robô é simulado e o do backend é um servidor
+WebSocket real com as regras do protocolo (`hello` primeiro, fechamentos
+`4001`/`4003`, `ack` cumulativo). Cobrem o `hello` primeiro em toda conexão, o
+reinício do backend no meio da corrida sem perdas, o token recusado e a fila
+limitada.
 
 ## Requisitos de Bluetooth (modo BLE real)
 
@@ -59,4 +92,4 @@ bluetoothctl list      # deve listar um controlador
 ```
 
 O **WSL não tem Bluetooth** por padrão: rode a ponte no SO nativo (Windows/Linux
-com adaptador BT) ou use `--simulate`/`--replay` para os testes sem rádio.
+com adaptador BT) ou use `--replay` para os testes sem rádio.
