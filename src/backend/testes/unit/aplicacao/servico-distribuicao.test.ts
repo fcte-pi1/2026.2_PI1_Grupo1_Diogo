@@ -430,6 +430,33 @@ describe('ServicoDistribuicao: ritmo dos contínuos e painéis lentos', () => {
     expect(p.doTipo('continuo').at(-1)!.posicao).toMatchObject({ x: 11 });
   });
 
+  it('o contínuo que sai depois do status final leva as métricas do status (RF-87)', async () => {
+    const p = inscrito();
+    distribuicao.aoAplicar(posicao(1, 1));
+    await avancar(30);
+    distribuicao.aoAplicar(posicao(2, 2));
+    const finais = { ...derivacao.metricas, tempoConclusaoMs: 9000, tempoDecorridoMs: 9000 };
+    distribuicao.aoMudarStatus({
+      corridaId: CORRIDA,
+      labirinto: '4x4',
+      status: 'CONCLUIDA',
+      motivo: 'SUCESSO',
+      detalhe: null,
+      sequencia: 3,
+      tempoMs: 9000,
+      metricas: finais,
+    });
+    await avancar(200);
+
+    const ultimo = p.doTipo('continuo').at(-1)!;
+    const status = p.doTipo('evento').at(-1)!;
+    // O contínuo agendado saiu depois do status, com a posição final e as métricas finais.
+    expect(p.recebidas.indexOf(ultimo)).toBeGreaterThan(p.recebidas.indexOf(status));
+    expect(ultimo.posicao).toMatchObject({ x: 2 });
+    expect(ultimo.metricas).toEqual(status.metricas);
+    expect(ultimo.metricas.tempo_conclusao_ms).toBe(9000);
+  });
+
   it('o temporizador que dispara antes do intervalo é reagendado, sem enviar antes da hora', async () => {
     const p = inscrito();
     distribuicao.aoAplicar(posicao(1, 1));

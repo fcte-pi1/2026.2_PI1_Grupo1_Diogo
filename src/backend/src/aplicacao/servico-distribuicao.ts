@@ -217,6 +217,12 @@ export class ServicoDistribuicao {
     }
     // O último contínuo pendente sai antes do status, para a tela terminar coerente. Se o
     // anterior saiu há menos de 100 ms, ele sai logo depois do status, sem passar de 10/s.
+    // Por isso ele passa a levar as métricas do status: senão, chegaria depois com as de
+    // antes do fim (sem o tempo oficial, por exemplo) e a tela voltaria atrás.
+    const pendente = this.continuos.get(corridaId);
+    if (pendente && this.pendentes.has(corridaId)) {
+      pendente.metricas = metricasParaPainel(dados.metricas);
+    }
     this.descarregarContinuo(corridaId);
     this.paraInscritos(corridaId, {
       tipo: 'evento',
