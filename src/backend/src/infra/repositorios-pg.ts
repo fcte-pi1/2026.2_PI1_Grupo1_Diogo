@@ -12,10 +12,14 @@ import type {
   Rejeicao,
   RepositorioCorridas,
   RepositorioDispositivos,
-  SequenciaGravada,
+  RepositorioProjecoes,
   VerificadorToken,
+  CorridaEmAndamento,
+  EncerramentoCorrida,
+  MensagemGravada,
+  ProgressoCorrida,
 } from '../aplicacao/portas.js';
-import type { TipoLabirinto } from '../dominio/index.js';
+import type { Efeito, MotivoTermino, StatusCorrida, TipoLabirinto } from '../dominio/index.js';
 import type { Banco } from './banco.js';
 import type { InserirLote } from './gravador-lote.js';
 
@@ -73,13 +77,26 @@ export class RepositorioCorridasPg implements RepositorioCorridas {
         dados.tempoInicioRoboMs,
       ],
     );
-    const { rows } = await this.banco.query<{ id: string; tipo_labirinto: TipoLabirinto | null }>(
-      'SELECT id, tipo_labirinto FROM corrida WHERE dispositivo_id = $1 AND id_corrida_robo = $2',
+    const { rows } = await this.banco.query<{
+      id: string;
+      tipo_labirinto: TipoLabirinto | null;
+      boot: string;
+      status: StatusCorrida;
+      motivo_termino: MotivoTermino | null;
+    }>(
+      `SELECT id, tipo_labirinto, boot, status, motivo_termino FROM corrida
+       WHERE dispositivo_id = $1 AND id_corrida_robo = $2`,
       [dados.dispositivoId, dados.idCorridaRobo],
     );
     const linha = rows[0];
     if (!linha) throw new Error(`corrida ${dados.idCorridaRobo} não encontrada após a criação`);
-    return { id: linha.id, labirinto: linha.tipo_labirinto };
+    return {
+      id: linha.id,
+      labirinto: linha.tipo_labirinto,
+      boot: linha.boot,
+      status: linha.status,
+      motivo: linha.motivo_termino,
+    };
   }
 
   async definirInicio(
@@ -94,23 +111,125 @@ export class RepositorioCorridasPg implements RepositorioCorridas {
     );
   }
 
-  async sequenciasGravadas(corridaId: string): Promise<SequenciaGravada[]> {
-    const { rows } = await this.banco.query<{ seq: number; t_robo_ms: string }>(
-      'SELECT seq, t_robo_ms FROM mensagem WHERE corrida_id = $1 ORDER BY seq',
+  async mensagensGravadas(corridaId: string): Promise<MensagemGravada[]> {
+    const { rows } = await this.banco.query<{ seq: number; t_robo_ms: string; payload: unknown }>(
+      'SELECT seq, t_robo_ms, payload FROM mensagem WHERE corrida_id = $1 ORDER BY seq',
       [corridaId],
     );
-    return rows.map((linha) => ({ sequencia: linha.seq, tempoMs: Number(linha.t_robo_ms) }));
+    return rows.map((linha) => ({
+      sequencia: linha.seq,
+      tempoMs: Number(linha.t_robo_ms),
+      payload: linha.payload,
+    }));
   }
 
-  async registrarProgresso(
+  async registrarProgresso(corridaId: string, progresso: ProgressoCorrida): Promise<void> {
+    // Só altera corridas que ainda não terminaram: depois de CONCLUIDA ou FALHOU, o trigger
+    // de imutabilidade recusaria a alteração (RNF-54).
+    await this.banco.query(
+      `UPDATE corrida SET ${COLUNAS_PROGRESSO}
+       WHERE id = $1 AND status NOT IN ('CONCLUIDA', 'FALHOU')`,
+      [corridaId, ...valoresProgresso(progresso)],
+    );
+  }
+
+  async encerrar(corridaId: string, encerramento: EncerramentoCorrida): Promise<void> {
+    const { metricas } = encerramento;
+    await this.banco.query(
+      `UPDATE corrida SET ${COLUNAS_PROGRESSO},
+         status = $12, motivo_termino = $13, detalhe_termino = $14,
+         t_fim_robo_ms = $15, tempo_conclusao_ms = $16, encerrada_em = now()
+       WHERE id = $1 AND status NOT IN ('CONCLUIDA', 'FALHOU')`,
+      [
+        corridaId,
+        ...valoresProgresso(encerramento),
+        encerramento.status,
+        encerramento.motivo,
+        encerramento.detalhe,
+        encerramento.tempoFimRoboMs,
+        metricas.tempoConclusaoMs,
+      ],
+    );
+  }
+
+  async corridasEmAndamento(): Promise<CorridaEmAndamento[]> {
+    const { rows } = await this.banco.query<{
+      id: string;
+      dispositivo_id: string;
+      id_corrida_robo: string;
+      boot: string;
+      versao_protocolo: number;
+      ultima: Date | null;
+    }>(
+      `SELECT c.id, c.dispositivo_id, c.id_corrida_robo, c.boot, c.versao_protocolo,
+              (SELECT max(m.recebida_em) FROM mensagem m WHERE m.corrida_id = c.id) AS ultima
+       FROM corrida c WHERE c.status = 'EM_ANDAMENTO'`,
+    );
+    return rows.map((linha) => ({
+      id: linha.id,
+      dispositivoId: linha.dispositivo_id,
+      idCorridaRobo: linha.id_corrida_robo,
+      boot: linha.boot,
+      versaoProtocolo: linha.versao_protocolo,
+      ultimaMensagemEm: linha.ultima?.getTime() ?? null,
+    }));
+  }
+}
+
+/** Colunas atualizadas a cada gravação de progresso, de $2 a $11. */
+const COLUNAS_PROGRESSO = `
+  ultimo_seq_contiguo = $2, seqs_faltantes = $3, transicoes_celula = $4, revisitas = $5,
+  velocidade_media_mps = $6, tensao_inicial_v = $7, tensao_final_v = $8, delta_v = $9,
+  carga_inicial_pct = $10, carga_final_pct = $11`;
+
+function valoresProgresso({ ultimaContigua, faltantes, metricas: m }: ProgressoCorrida): unknown[] {
+  return [
+    ultimaContigua,
+    faltantes,
+    m.transicoes,
+    m.revisitas,
+    m.velocidadeMediaMps,
+    m.tensaoInicialV,
+    m.tensaoFinalV,
+    m.deltaV,
+    m.cargaInicialPct,
+    m.cargaFinalPct,
+  ];
+}
+
+/** Projeções idempotentes: reaplicar a mesma mensagem não duplica nada. */
+export class RepositorioProjecoesPg implements RepositorioProjecoes {
+  constructor(private readonly banco: Banco) {}
+
+  async passagem(corridaId: string, p: Extract<Efeito, { tipo: 'passagem' }>): Promise<void> {
+    await this.banco.query(
+      `INSERT INTO passagem_celula (corrida_id, seq, ordem, x, y, paredes, t_robo_ms, revisita)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) ON CONFLICT DO NOTHING`,
+      [corridaId, p.sequencia, p.ordem, p.x, p.y, p.paredes, p.tempoMs, p.revisita],
+    );
+  }
+
+  async leituraEnergia(
     corridaId: string,
-    ultimaContigua: number,
-    faltantes: number,
+    l: Extract<Efeito, { tipo: 'leitura_energia' }>,
   ): Promise<void> {
     await this.banco.query(
-      `UPDATE corrida SET ultimo_seq_contiguo = $2, seqs_faltantes = $3
-       WHERE id = $1 AND (ultimo_seq_contiguo, seqs_faltantes) IS DISTINCT FROM ($2, $3)`,
-      [corridaId, ultimaContigua, faltantes],
+      `INSERT INTO leitura_energia (corrida_id, seq, t_robo_ms, tensao_v, corrente_a, potencia_w)
+       VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT DO NOTHING`,
+      [corridaId, l.sequencia, l.tempoMs, l.tensaoV, l.correnteA, l.potenciaW],
+    );
+  }
+
+  async snapshot(corridaId: string, s: Extract<Efeito, { tipo: 'snapshot' }>): Promise<void> {
+    await this.banco.query(
+      `INSERT INTO snapshot_mapa (corrida_id, seq_corte, celulas_visitadas, estado)
+       VALUES ($1, $2, $3, $4) ON CONFLICT (corrida_id, seq_corte) DO NOTHING`,
+      [
+        corridaId,
+        s.sequenciaCorte,
+        s.celulasVisitadas,
+        JSON.stringify({ mapa: s.mapa, metricas: s.metricas }),
+      ],
     );
   }
 }

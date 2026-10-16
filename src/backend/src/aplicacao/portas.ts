@@ -2,7 +2,13 @@
  * Portas (interfaces) que a aplicação exige da infraestrutura. As implementações ficam em
  * `infra/`; os testes unitários usam versões em memória.
  */
-import type { TipoLabirinto } from '../dominio/index.js';
+import type {
+  Efeito,
+  Metricas,
+  MotivoTermino,
+  StatusCorrida,
+  TipoLabirinto,
+} from '../dominio/index.js';
 
 export interface Dispositivo {
   id: string;
@@ -33,11 +39,43 @@ export interface DadosNovaCorrida {
 export interface CorridaPersistida {
   id: string;
   labirinto: TipoLabirinto | null;
+  boot: string;
+  status: StatusCorrida;
+  motivo: MotivoTermino | null;
 }
 
-export interface SequenciaGravada {
+export interface MensagemGravada {
   sequencia: number;
   tempoMs: number;
+  /** A mensagem como chegou do robô, para reconstruir o estado (RNF-52). */
+  payload: unknown;
+}
+
+/** Corrida em andamento no banco, carregada quando o backend inicia (RNF-52). */
+export interface CorridaEmAndamento {
+  id: string;
+  dispositivoId: string;
+  idCorridaRobo: string;
+  boot: string;
+  versaoProtocolo: number;
+  /** Quando chegou a última mensagem da corrida, em ms desde 1970; `null` se nenhuma. */
+  ultimaMensagemEm: number | null;
+}
+
+/** Valores que a corrida guarda enquanto está em andamento. */
+export interface ProgressoCorrida {
+  ultimaContigua: number;
+  faltantes: number;
+  metricas: Metricas;
+}
+
+/** Valores gravados quando a corrida termina, de uma vez, antes de ela ficar imutável. */
+export interface EncerramentoCorrida extends ProgressoCorrida {
+  status: StatusCorrida;
+  motivo: MotivoTermino;
+  detalhe: string | null;
+  /** Relógio do robô no `fim_corrida`; `null` quando a corrida foi interrompida. */
+  tempoFimRoboMs: number | null;
 }
 
 export interface RepositorioCorridas {
@@ -49,9 +87,23 @@ export interface RepositorioCorridas {
     labirinto: TipoLabirinto,
     tempoInicioRoboMs: number,
   ): Promise<void>;
-  /** Sequências já gravadas, para reconstruir o estado após um reinício (RNF-52). */
-  sequenciasGravadas(corridaId: string): Promise<SequenciaGravada[]>;
-  registrarProgresso(corridaId: string, ultimaContigua: number, faltantes: number): Promise<void>;
+  /** Mensagens já gravadas, em ordem de sequência, para reconstruir o estado (RNF-52). */
+  mensagensGravadas(corridaId: string): Promise<MensagemGravada[]>;
+  /** Atualiza o progresso de uma corrida que ainda não terminou. */
+  registrarProgresso(corridaId: string, progresso: ProgressoCorrida): Promise<void>;
+  /** Grava o status final, o motivo e as métricas finais (RF-81, RF-87). */
+  encerrar(corridaId: string, encerramento: EncerramentoCorrida): Promise<void>;
+  corridasEmAndamento(): Promise<CorridaEmAndamento[]>;
+}
+
+/** Projeções das mensagens, para consultas rápidas (arquitetura do backend, §7.1). */
+export interface RepositorioProjecoes {
+  passagem(corridaId: string, passagem: Extract<Efeito, { tipo: 'passagem' }>): Promise<void>;
+  leituraEnergia(
+    corridaId: string,
+    leitura: Extract<Efeito, { tipo: 'leitura_energia' }>,
+  ): Promise<void>;
+  snapshot(corridaId: string, snapshot: Extract<Efeito, { tipo: 'snapshot' }>): Promise<void>;
 }
 
 export interface MensagemParaGravar {

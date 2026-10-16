@@ -1,0 +1,5 @@
+# Bancada: ESP32 clássico (DevKit ESP-WROOM-32), só enquanto a placa oficial
+# não chega. 4 MB de flash, sem PSRAM. Liga o modo bancada (ver Kconfig.projbuild).
+CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y
+CONFIG_ESPTOOLPY_FLASHSIZE="4MB"
+CONFIG_RATO_BANCADA=y

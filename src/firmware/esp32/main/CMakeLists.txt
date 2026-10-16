@@ -26,6 +26,7 @@ idf_component_register(
         "${CORE_ROOT}/src/adapters/LocalInterfaceAdapter.cpp"
         "${CORE_ROOT}/src/adapters/DipReaderAdapter.cpp"
         "${CORE_ROOT}/src/adapters/BleTelemetryAdapter.cpp"
+        "${CORE_ROOT}/src/adapters/BenchMotionAdapter.cpp"
         # Composition root
         "${CORE_ROOT}/src/main.cpp"
     INCLUDE_DIRS "${CORE_ROOT}/include"

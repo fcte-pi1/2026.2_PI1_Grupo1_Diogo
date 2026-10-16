@@ -1,0 +1,34 @@
+.grupo {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.botao {
+  padding: 0.25rem 0.625rem;
+  border: 1px solid var(--cor-borda-clara);
+  border-radius: 0.25rem;
+  background: var(--cor-superficie);
+  color: var(--cor-texto-suave);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 500;
+  transition:
+    background-color 0.15s,
+    border-color 0.15s;
+}
+
+.botao:hover {
+  border-color: var(--cor-borda);
+}
+
+.botao[aria-pressed='true'] {
+  border-color: var(--cor-petroleo);
+  background: var(--cor-petroleo);
+  color: #ffffff;
+}
+
+.botao:focus-visible {
+  outline: 2px solid var(--cor-petroleo-claro);
+  outline-offset: 2px;
+}
