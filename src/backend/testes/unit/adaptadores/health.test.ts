@@ -11,7 +11,10 @@ describe('GET /health', () => {
   const deps = {
     contadores: amb.contadores,
     ingestao: amb.servico,
-    consulta: new ServicoConsulta({ detalheCorrida: async () => null }),
+    consulta: new ServicoConsulta({
+      detalheCorrida: async () => null,
+      leaderboard: async () => [],
+    }),
     distribuicao: amb.distribuicao,
     validador: criarValidadorProtocolo(),
   };

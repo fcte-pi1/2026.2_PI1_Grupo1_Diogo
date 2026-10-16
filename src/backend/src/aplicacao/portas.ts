@@ -9,7 +9,7 @@ import type {
   StatusCorrida,
   TipoLabirinto,
 } from '../dominio/index.js';
-import type { DetalheCorrida } from '../../protocolo/tipos.js';
+import type { DetalheCorrida, PosicaoLeaderboard } from '../../protocolo/tipos.js';
 
 export interface Dispositivo {
   id: string;
@@ -164,4 +164,9 @@ export interface RegistroLog {
 export interface RepositorioConsulta {
   /** `null` quando a corrida não existe. */
   detalheCorrida(corridaId: string): Promise<DetalheCorrida | null>;
+  /** Corridas CONCLUIDA e não anuladas do labirinto, já com a posição (RF-95). */
+  leaderboard(
+    labirinto: TipoLabirinto,
+    apresentacaoId: string | null,
+  ): Promise<PosicaoLeaderboard[]>;
 }
