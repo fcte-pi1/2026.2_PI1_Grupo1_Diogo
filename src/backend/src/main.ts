@@ -33,7 +33,7 @@ const gravador = new GravadorLote(criarInserirLote(banco));
 
 const log = pino(opcoesLogger(config.nivelLog));
 
-const eventos = new BarramentoEventos();
+const eventos = new BarramentoEventos(log);
 const corridas = new ServicoCorrida({
   corridas: new RepositorioCorridasPg(banco),
   projecoes: new RepositorioProjecoesPg(banco),
