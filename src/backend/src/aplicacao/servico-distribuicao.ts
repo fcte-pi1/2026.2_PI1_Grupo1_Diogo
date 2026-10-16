@@ -214,7 +214,13 @@ export class ServicoDistribuicao {
 
   aoMudarStatus(dados: MapaEventos['status-alterado']): void {
     const { corridaId } = dados;
-    if (dados.status === 'CONCLUIDA' || dados.status === 'FALHOU') this.finalizadas.add(corridaId);
+    // Sem volta: CONCLUIDA, FALHOU e a interrupção por reinício do robô. A interrupção por
+    // silêncio ainda pode ser concluída por um lote tardio, então o estado dela fica.
+    const definitiva =
+      dados.status === 'CONCLUIDA' ||
+      dados.status === 'FALHOU' ||
+      (dados.status === 'INTERROMPIDA' && dados.motivo === 'REINICIO_ROBO');
+    if (definitiva) this.finalizadas.add(corridaId);
     this.anunciadas.delete(corridaId);
     // O último contínuo pendente sai antes do status, para a tela terminar coerente. Se o
     // anterior saiu há menos de 100 ms, ele sai logo depois do status, sem passar de 10/s.

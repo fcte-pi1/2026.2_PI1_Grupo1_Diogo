@@ -599,13 +599,56 @@ describe('ServicoDistribuicao: ritmo dos contínuos e painéis lentos', () => {
     }
   });
 
+  const estadoInterno = () =>
+    distribuicao as unknown as {
+      continuos: Map<string, unknown>;
+      ultimoContinuoEm: Map<string, number>;
+    };
+
+  it('descarta o estado contínuo quando o fim deixa um contínuo agendado: a limpeza sai no temporizador', async () => {
+    const p = inscrito();
+    distribuicao.aoAplicar(posicao(1, 1));
+    await avancar(30);
+    distribuicao.aoAplicar(posicao(2, 2)); // agendado para os 100 ms
+    fim();
+    expect(estadoInterno().continuos.size).toBe(1); // ainda pendente
+
+    await avancar(100);
+    expect(p.doTipo('continuo').at(-1)!.posicao).toMatchObject({ x: 2 });
+    expect(estadoInterno().continuos.size).toBe(0);
+    expect(estadoInterno().ultimoContinuoEm.size).toBe(0);
+  });
+
+  it('descarta o estado contínuo na interrupção por reinício do robô, mas não na por silêncio', async () => {
+    inscrito();
+    const interromper = (motivo: 'SEM_SINAL' | 'REINICIO_ROBO') =>
+      distribuicao.aoMudarStatus({
+        corridaId: CORRIDA,
+        labirinto: '4x4',
+        status: 'INTERROMPIDA',
+        motivo,
+        detalhe: null,
+        sequencia: null,
+        tempoMs: null,
+        metricas: derivacao.metricas,
+      });
+
+    distribuicao.aoAplicar(posicao(1, 1));
+    interromper('SEM_SINAL');
+    await avancar(200);
+    expect(estadoInterno().continuos.size).toBe(1); // um lote tardio ainda pode chegar
+
+    interromper('REINICIO_ROBO');
+    await avancar(200);
+    expect(estadoInterno().continuos.size).toBe(0);
+  });
+
   it('descarta o estado contínuo da corrida depois do fim', async () => {
     inscrito();
     distribuicao.aoAplicar(posicao(1, 1));
     fim('FALHOU');
     await avancar(200);
-    const interno = distribuicao as unknown as { continuos: Map<string, unknown> };
-    expect(interno.continuos.size).toBe(0);
+    expect(estadoInterno().continuos.size).toBe(0);
   });
 
   it('anuncia no ao_vivo uma corrida cujo inicio_corrida se perdeu, na primeira mensagem', () => {
