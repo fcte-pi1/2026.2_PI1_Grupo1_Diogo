@@ -4,6 +4,7 @@ import {
   DerivacaoCorrida,
   cargaEstimadaPct,
   lerCurvaCarga,
+  paredesDeBits,
   paredesEmBits,
   type Efeito,
   type MensagemDerivavel,
@@ -120,6 +121,11 @@ describe('DerivacaoCorrida', () => {
       ]);
       expect(passagens[0]!.paredes).toBe(2 + 8);
       expect(d.metricas.revisitas).toBe(1);
+    });
+
+    it('volta dos bits para as paredes', () => {
+      for (const bits of [0, 5, 10, 15]) expect(paredesEmBits(paredesDeBits(bits))).toBe(bits);
+      expect(paredesDeBits(2 + 8)).toEqual({ norte: false, leste: true, sul: false, oeste: true });
     });
 
     it('converte as paredes para bits: norte 1, leste 2, sul 4, oeste 8', () => {
