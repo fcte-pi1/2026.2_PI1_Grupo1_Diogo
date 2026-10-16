@@ -170,10 +170,13 @@ export class ServicoDistribuicao {
     const metricas = metricasParaPainel(dados.metricas);
     if (!this.anunciadas.has(corridaId)) {
       // Na primeira mensagem aplicada, que normalmente é o `inicio_corrida`. Se ele se perdeu
-      // numa lacuna, a corrida é anunciada mesmo assim, com o labirinto que se souber.
+      // numa lacuna, a corrida é anunciada mesmo assim, com o labirinto que se souber. Um
+      // lote tardio de uma corrida interrompida não a anuncia de novo: a mudança de status
+      // dela já vai para o canal.
       this.anunciadas.add(corridaId);
+      const status = this.deps.corridas.estadoAoVivo(corridaId)?.status ?? 'EM_ANDAMENTO';
       const labirinto = mensagem.tipo === 'inicio_corrida' ? mensagem.labirinto : dados.labirinto;
-      this.paraAoVivo(aoVivo(corridaId, { labirinto, status: 'EM_ANDAMENTO' }));
+      if (status === 'EM_ANDAMENTO') this.paraAoVivo(aoVivo(corridaId, { labirinto, status }));
     }
     switch (mensagem.tipo) {
       case 'celula':
@@ -211,10 +214,8 @@ export class ServicoDistribuicao {
 
   aoMudarStatus(dados: MapaEventos['status-alterado']): void {
     const { corridaId } = dados;
-    if (dados.status === 'CONCLUIDA' || dados.status === 'FALHOU') {
-      this.finalizadas.add(corridaId);
-      this.anunciadas.delete(corridaId);
-    }
+    if (dados.status === 'CONCLUIDA' || dados.status === 'FALHOU') this.finalizadas.add(corridaId);
+    this.anunciadas.delete(corridaId);
     // O último contínuo pendente sai antes do status, para a tela terminar coerente. Se o
     // anterior saiu há menos de 100 ms, ele sai logo depois do status, sem passar de 10/s.
     // Por isso ele passa a levar as métricas do status: senão, chegaria depois com as de

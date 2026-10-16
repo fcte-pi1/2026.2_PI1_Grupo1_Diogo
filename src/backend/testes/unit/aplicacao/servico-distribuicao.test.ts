@@ -266,6 +266,44 @@ describe('ServicoDistribuicao com o caminho completo (robô → painel)', () => 
     expect(amb.porIdRobo('velha').status).toBe('INTERROMPIDA');
   });
 
+  it('corrida recuperada após reinício do backend fica sem sinal até o robô voltar', async () => {
+    const antes = await conectarRobo();
+    await enviar(antes, [mensagem('inicio_corrida', 1)]);
+    const reiniciado = amb.novoServico();
+    await amb.corrida.recuperar();
+
+    const p = painel();
+    amb.distribuicao.receber(p.painel, { tipo: 'inscrever', corrida: idDe('c-A') });
+    expect(p.conexao.doTipo('snapshot')[0]).toMatchObject({ sinal: 'PERDIDO' });
+
+    const r = await reiniciado.autenticar(hello(), () => {});
+    expect(r.ok).toBe(true);
+    expect(p.conexao.doTipo('sinal').map((m) => m.estado)).toEqual(['RETOMADO']);
+  });
+
+  it('depois de um reinício do backend, o lote tardio de uma corrida interrompida não a anuncia como em andamento', async () => {
+    const robo = await conectarRobo();
+    await enviar(robo, [mensagem('inicio_corrida', 1)]);
+    await amb.servico.encerrar(robo);
+    amb.relogio = 121_000;
+    amb.corrida.verificarInterrupcoes();
+    await amb.esvaziar();
+
+    // O backend reinicia: o canal novo não conhece a corrida, que está INTERROMPIDA.
+    const reiniciado = amb.novoServico();
+    await amb.corrida.recuperar();
+    const canal = painel();
+    amb.distribuicao.receber(canal.painel, { tipo: 'inscrever', canal: 'ao_vivo' });
+    const r = await reiniciado.autenticar(hello(), () => {});
+    if (!r.ok) throw new Error(r.motivo);
+    for (const t of [mensagem('celula', 2), mensagem('fim_corrida', 3)]) {
+      await reiniciado.receber(r.sessao, t);
+    }
+    await amb.esvaziar();
+
+    expect(canal.conexao.doTipo('ao_vivo').map((m) => m.status)).toEqual(['CONCLUIDA']);
+  });
+
   it('o snapshot diz se o sinal está perdido', async () => {
     const robo = await conectarRobo();
     await enviar(robo, [mensagem('inicio_corrida', 1)]);

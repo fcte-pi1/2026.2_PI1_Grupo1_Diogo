@@ -208,6 +208,10 @@ export class ServicoCorrida {
       const estado = await this.obterPorId(id, corrida.idCorridaRobo);
       // O relógio do silêncio continua de onde parou, e não do instante da recuperação.
       estado.ultimaMensagemEm = corrida.ultimaMensagemEm ?? this.agora();
+      // Sem conexão do robô, a corrida está sem sinal até ele voltar: o snapshot mostra isso
+      // e a volta gera RETOMADO (RF-92). O instante é o mesmo que o monitor de silêncio daria,
+      // então a interrupção continua aos 120 s da perda.
+      estado.sinalPerdidoEm ??= estado.ultimaMensagemEm + LIMITE_SILENCIO_MS;
     }
     return emAndamento.length;
   }
