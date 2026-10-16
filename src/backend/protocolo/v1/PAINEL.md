@@ -47,11 +47,11 @@ A inscrição só vale para corridas que o backend tem em memória: as em andame
 
 | `tipo` | Quem recebe | Quando |
 |:--|:--|:--|
-| `ao_vivo` | Inscritos no canal | Início da corrida (`EM_ANDAMENTO`) e cada mudança de status |
+| `ao_vivo` | Inscritos no canal | Início da corrida (`EM_ANDAMENTO`), na primeira mensagem dela, e cada mudança de status |
 | `snapshot` | Quem acabou de se inscrever na corrida | Logo depois do `inscrever` |
 | `evento` (`celula`) | Inscritos na corrida | A cada célula visitada, **todas e em ordem de sequência** |
 | `evento` (`status`) | Inscritos na corrida | Fim (`CONCLUIDA`, `FALHOU`) ou interrupção (`INTERROMPIDA`) |
-| `continuo` | Inscritos na corrida | Posição e energia, **no máximo 10 por segundo** por corrida |
+| `continuo` | Inscritos na corrida | Posição e energia, **no máximo 10 por segundo** por corrida, em qualquer janela de 1 s. No fim da corrida, o último pode chegar logo depois do `evento` de status |
 | `sinal` | Inscritos na corrida | `PERDIDO` após 3 s sem mensagens do robô, ou na hora, se a conexão cair; `RETOMADO` quando ele volta, pela mesma conexão ou por outra: no `hello` com o mesmo `boot` ou na próxima mensagem. Cada mudança sai uma vez só, mesmo com mais de uma conexão do robô |
 | `alerta` | Inscritos na corrida | Tensão abaixo de 7,0 V (`TENSAO_BAIXA`), sem repetir a cada leitura |
 | `leaderboard` | Inscritos no canal | Uma corrida terminou `CONCLUIDA`: o ranking daquele labirinto pode ter mudado. Sai depois de a corrida estar gravada, então o `GET /api/leaderboard` feito ao recebê-lo já a inclui |

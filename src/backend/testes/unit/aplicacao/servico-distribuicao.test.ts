@@ -15,10 +15,18 @@ import { AmbienteEmMemoria, hello, mensagem } from '../../apoio/ingestao-em-memo
 
 class ConexaoFalsa implements ConexaoPainel {
   recebidas: MensagemPainelSaida[] = [];
+  /** Instante de cada mensagem recebida, pelo relógio do teste. */
+  instantes: number[] = [];
   bytes = 0;
   fechada: { codigo: number; motivo: string } | null = null;
+  constructor(private readonly relogio: () => number = () => 0) {}
   enviar(texto: string): void {
     this.recebidas.push(JSON.parse(texto) as MensagemPainelSaida);
+    this.instantes.push(this.relogio());
+  }
+  /** Instantes em que chegaram as mensagens deste tipo. */
+  instantesDe(tipo: MensagemPainelSaida['tipo']): number[] {
+    return this.instantes.filter((_, i) => this.recebidas[i]!.tipo === tipo);
   }
   bytesPendentes(): number {
     return this.bytes;
@@ -342,8 +350,15 @@ describe('ServicoDistribuicao: ritmo dos contínuos e painéis lentos', () => {
     agora += ms;
     await vi.advanceTimersByTimeAsync(ms);
   }
+  /** Maior número de instantes numa janela de 1 s (CT-BE-23: nunca mais de 10). */
+  function maiorJanelaDe1s(instantes: number[]): number {
+    return Math.max(
+      0,
+      ...instantes.map((t) => instantes.filter((u) => u >= t && u < t + 1000).length),
+    );
+  }
   function inscrito() {
-    const conexao = new ConexaoFalsa();
+    const conexao = new ConexaoFalsa(() => agora);
     const painel = distribuicao.conectar(conexao);
     distribuicao.receber(painel, { tipo: 'inscrever', corrida: CORRIDA });
     return conexao;
@@ -362,7 +377,7 @@ describe('ServicoDistribuicao: ritmo dos contínuos e painéis lentos', () => {
 
     const continuos = p.doTipo('continuo');
     expect(continuos.length).toBeGreaterThanOrEqual(9);
-    expect(continuos.length).toBeLessThanOrEqual(11);
+    expect(maiorJanelaDe1s(p.instantesDe('continuo'))).toBeLessThanOrEqual(10);
     expect(continuos.at(-1)!.posicao).toMatchObject({ x: 49 });
     expect(p.celulas().map((c) => c.sequencia)).toEqual([22, 24, 26, 28, 30]);
   });
@@ -385,6 +400,90 @@ describe('ServicoDistribuicao: ritmo dos contínuos e painéis lentos', () => {
     const [primeiro, segundo] = p.doTipo('continuo');
     expect(primeiro).toMatchObject({ posicao: { x: 1 }, energia: null });
     expect(segundo).toMatchObject({ posicao: { x: 1 }, energia: { tensao_v: 8 } });
+  });
+
+  const fim = (status: 'CONCLUIDA' | 'FALHOU' = 'CONCLUIDA') =>
+    distribuicao.aoMudarStatus({
+      corridaId: CORRIDA,
+      labirinto: '4x4',
+      status,
+      motivo: status === 'CONCLUIDA' ? 'SUCESSO' : 'FALHA_REPORTADA',
+      detalhe: null,
+      sequencia: 99,
+      tempoMs: 9000,
+      metricas: derivacao.metricas,
+    });
+
+  it('o fim da corrida não fura o limite de 10/s: o último contínuo sai depois do status, no seu tempo', async () => {
+    const p = inscrito();
+    for (let i = 0; i < 10; i++) {
+      distribuicao.aoAplicar(posicao(i + 1, i));
+      await avancar(100);
+    }
+    distribuicao.aoAplicar(posicao(11, 10));
+    await avancar(30);
+    distribuicao.aoAplicar(posicao(12, 11));
+    fim();
+    await avancar(200);
+
+    expect(maiorJanelaDe1s(p.instantesDe('continuo'))).toBeLessThanOrEqual(10);
+    expect(p.doTipo('continuo').at(-1)!.posicao).toMatchObject({ x: 11 });
+  });
+
+  it('o temporizador que dispara antes do intervalo é reagendado, sem enviar antes da hora', async () => {
+    const p = inscrito();
+    distribuicao.aoAplicar(posicao(1, 1));
+    distribuicao.aoAplicar(posicao(2, 2));
+    // O temporizador dispara aos 100 ms do relógio do Node, mas o monotônico marca 99.
+    agora += 99;
+    await vi.advanceTimersByTimeAsync(100);
+    expect(p.doTipo('continuo')).toHaveLength(1);
+    await avancar(1);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(p.instantesDe('continuo')).toEqual([0, 100]);
+  });
+
+  it('o primeiro contínuo de uma corrida já em andamento leva a posição conhecida, mesmo se for de energia', async () => {
+    estado.mapa = { celulas: [], posicao: { x: 2, y: 1, orientacao: 'SUL' } };
+    try {
+      const p = inscrito();
+      distribuicao.aoAplicar(
+        aplicada({
+          tipo: 'energia',
+          sequencia: 5,
+          tempo_ms: 100,
+          tensao_v: 8,
+          corrente_a: 0.4,
+          potencia_w: 3.2,
+        }),
+      );
+      expect(p.doTipo('continuo')[0]).toMatchObject({
+        posicao: { x: 2, y: 1, orientacao: 'SUL' },
+        energia: { tensao_v: 8 },
+      });
+    } finally {
+      estado.mapa = { celulas: [], posicao: null };
+    }
+  });
+
+  it('descarta o estado contínuo da corrida depois do fim', async () => {
+    inscrito();
+    distribuicao.aoAplicar(posicao(1, 1));
+    fim('FALHOU');
+    await avancar(200);
+    const interno = distribuicao as unknown as { continuos: Map<string, unknown> };
+    expect(interno.continuos.size).toBe(0);
+  });
+
+  it('anuncia no ao_vivo uma corrida cujo inicio_corrida se perdeu, na primeira mensagem', () => {
+    const canal = new ConexaoFalsa();
+    distribuicao.receber(distribuicao.conectar(canal), { tipo: 'inscrever', canal: 'ao_vivo' });
+    canal.recebidas.length = 0;
+    distribuicao.aoAplicar(celula(3));
+    distribuicao.aoAplicar(celula(4));
+    expect(canal.doTipo('ao_vivo')).toEqual([
+      { tipo: 'ao_vivo', corrida: CORRIDA, labirinto: '4x4', status: 'EM_ANDAMENTO' },
+    ]);
   });
 
   it('não reenvia o contínuo se nada mudou', async () => {

@@ -77,12 +77,17 @@ export class ServicoDistribuicao {
   private readonly pendentes = new Set<string>();
   private readonly ultimoContinuoEm = new Map<string, number>();
   private readonly temporizadores = new Map<string, ReturnType<typeof setTimeout>>();
+  /** Corridas já anunciadas no canal `ao_vivo`. */
+  private readonly anunciadas = new Set<string>();
+  /** Corridas finalizadas: o estado contínuo é descartado depois do último envio. */
+  private readonly finalizadas = new Set<string>();
   private readonly agora: () => number;
   private readonly intervaloContinuoMs: number;
   private readonly limiteBufferBytes: number;
 
   constructor(private readonly deps: DependenciasDistribuicao) {
-    this.agora = deps.agora ?? Date.now;
+    // Relógio monotônico: o de parede pode ser ajustado e encurtar o intervalo de 100 ms.
+    this.agora = deps.agora ?? (() => performance.now());
     this.intervaloContinuoMs = deps.intervaloContinuoMs ?? INTERVALO_CONTINUO_MS;
     this.limiteBufferBytes = deps.limiteBufferBytes ?? LIMITE_BUFFER_BYTES;
   }
@@ -160,12 +165,14 @@ export class ServicoDistribuicao {
   aoAplicar(dados: MapaEventos['mensagem-aplicada']): void {
     const { corridaId, mensagem } = dados;
     const metricas = metricasParaPainel(dados.metricas);
+    if (!this.anunciadas.has(corridaId)) {
+      // Na primeira mensagem aplicada, que normalmente é o `inicio_corrida`. Se ele se perdeu
+      // numa lacuna, a corrida é anunciada mesmo assim, com o labirinto que se souber.
+      this.anunciadas.add(corridaId);
+      const labirinto = mensagem.tipo === 'inicio_corrida' ? mensagem.labirinto : dados.labirinto;
+      this.paraAoVivo(aoVivo(corridaId, { labirinto, status: 'EM_ANDAMENTO' }));
+    }
     switch (mensagem.tipo) {
-      case 'inicio_corrida':
-        this.paraAoVivo(
-          aoVivo(corridaId, { labirinto: mensagem.labirinto, status: 'EM_ANDAMENTO' }),
-        );
-        return;
       case 'celula':
         this.paraInscritos(corridaId, {
           tipo: 'evento',
@@ -201,7 +208,12 @@ export class ServicoDistribuicao {
 
   aoMudarStatus(dados: MapaEventos['status-alterado']): void {
     const { corridaId } = dados;
-    // O último contínuo pendente sai antes do status, para a tela terminar coerente.
+    if (dados.status === 'CONCLUIDA' || dados.status === 'FALHOU') {
+      this.finalizadas.add(corridaId);
+      this.anunciadas.delete(corridaId);
+    }
+    // O último contínuo pendente sai antes do status, para a tela terminar coerente. Se o
+    // anterior saiu há menos de 100 ms, ele sai logo depois do status, sem passar de 10/s.
     this.descarregarContinuo(corridaId);
     this.paraInscritos(corridaId, {
       tipo: 'evento',
@@ -257,7 +269,7 @@ export class ServicoDistribuicao {
     metricas: Metricas,
     novo: Partial<Pick<ContinuoPendente, 'posicao' | 'energia'>>,
   ): void {
-    const anterior = this.continuos.get(corridaId);
+    const anterior = this.continuos.get(corridaId) ?? this.continuoInicial(corridaId);
     this.continuos.set(corridaId, {
       tempoMs,
       metricas,
@@ -265,26 +277,56 @@ export class ServicoDistribuicao {
       energia: novo.energia ?? anterior?.energia ?? null,
     });
     this.pendentes.add(corridaId);
-    if (this.temporizadores.has(corridaId)) return;
-
-    const espera =
-      (this.ultimoContinuoEm.get(corridaId) ?? -Infinity) + this.intervaloContinuoMs - this.agora();
-    if (espera <= 0) {
-      this.descarregarContinuo(corridaId);
-    } else {
-      this.temporizadores.set(
-        corridaId,
-        setTimeout(() => this.descarregarContinuo(corridaId), espera),
-      );
-    }
+    if (!this.temporizadores.has(corridaId)) this.descarregarContinuo(corridaId);
   }
 
+  /**
+   * Sem contínuo anterior neste processo (corrida nova, ou recuperada depois de um reinício
+   * do backend), a posição e a energia vêm do estado da corrida: o primeiro contínuo não sai
+   * com um dos dois nulo se ele já é conhecido.
+   */
+  private continuoInicial(
+    corridaId: string,
+  ): Pick<ContinuoPendente, 'posicao' | 'energia'> | undefined {
+    const estado = this.deps.corridas.estadoAoVivo(corridaId);
+    if (!estado) return undefined;
+    const { posicao } = estado.mapa;
+    const { tensaoFinalV, correnteA, potenciaW } = estado.metricas;
+    return {
+      posicao: posicao
+        ? { x: posicao.x, y: posicao.y, orientacao: posicao.orientacao as Orientacao }
+        : null,
+      energia:
+        tensaoFinalV !== null && correnteA !== null && potenciaW !== null
+          ? { tensao_v: tensaoFinalV, corrente_a: correnteA, potencia_w: potenciaW }
+          : null,
+    };
+  }
+
+  /**
+   * Envia o contínuo pendente se já passaram 100 ms do anterior; senão, agenda para quando
+   * passarem. O intervalo é conferido de novo quando o temporizador dispara, porque ele pode
+   * disparar um pouco antes (RF-90: nunca mais de 10 em 1 s).
+   */
   private descarregarContinuo(corridaId: string): void {
     const temporizador = this.temporizadores.get(corridaId);
     if (temporizador) clearTimeout(temporizador);
     this.temporizadores.delete(corridaId);
     const pendente = this.continuos.get(corridaId);
-    if (!pendente || !this.pendentes.delete(corridaId)) return;
+    if (!pendente || !this.pendentes.has(corridaId)) {
+      this.limparSeFinalizada(corridaId);
+      return;
+    }
+    const espera =
+      (this.ultimoContinuoEm.get(corridaId) ?? -Infinity) + this.intervaloContinuoMs - this.agora();
+    if (espera > 0) {
+      this.temporizadores.set(
+        corridaId,
+        setTimeout(() => this.descarregarContinuo(corridaId), espera),
+      );
+      return;
+    }
+    this.pendentes.delete(corridaId);
     this.ultimoContinuoEm.set(corridaId, this.agora());
 
     const texto = JSON.stringify({
@@ -305,6 +347,15 @@ export class ServicoDistribuicao {
         painel.conexao.enviar(texto);
       }
     }
+    this.limparSeFinalizada(corridaId);
+  }
+
+  /** Corrida finalizada sem nada pendente: o estado contínuo dela não serve mais. */
+  private limparSeFinalizada(corridaId: string): void {
+    if (!this.finalizadas.has(corridaId) || this.pendentes.has(corridaId)) return;
+    this.finalizadas.delete(corridaId);
+    this.continuos.delete(corridaId);
+    this.ultimoContinuoEm.delete(corridaId);
   }
 
   private paraInscritos(corridaId: string, mensagem: MensagemPainelSaida): void {
