@@ -261,6 +261,45 @@ describe('ServicoCorrida', () => {
       expect(amb.sequenciasGravadasDe('c-A')).toEqual([1]);
     });
 
+    function adiar() {
+      let liberar!: () => void;
+      const promessa = new Promise<void>((resolver) => (liberar = resolver));
+      return { promessa, liberar };
+    }
+
+    it('o boot novo chega enquanto a corrida ainda carrega do banco: ela é interrompida ao terminar de carregar', async () => {
+      const antes = await conectar();
+      const carga = adiar();
+      amb.cargaLenta = carga.promessa;
+      // A primeira mensagem do boot antigo começa a carregar a corrida e fica presa no banco.
+      const recebendo = amb.servico.receber(antes, mensagem('inicio_corrida', 1));
+
+      await conectar(hello({ boot: 'b2' })); // o robô reiniciou
+      amb.cargaLenta = null;
+      carga.liberar();
+      await recebendo;
+      await amb.esvaziar();
+
+      expect([corridaA().status, corridaA().motivo]).toEqual(['INTERROMPIDA', 'REINICIO_ROBO']);
+      await enviar(antes, [mensagem('fim_corrida', 2)]);
+      expect(amb.rejeicoes.map((r) => r.motivoCodigo)).toEqual(['CORRIDA_FINALIZADA']);
+    });
+
+    it('mensagem do boot antigo que só cria a corrida depois do hello novo: corrida interrompida', async () => {
+      const antes = await conectar();
+      await conectar(hello({ boot: 'b2' }));
+      // Ainda na fila da conexão antiga, a primeira mensagem de uma corrida do boot b1.
+      await enviar(antes, [mensagem('inicio_corrida', 1)]);
+      expect([corridaA().status, corridaA().motivo]).toEqual(['INTERROMPIDA', 'REINICIO_ROBO']);
+    });
+
+    it('uma corrida do boot atual que carrega depois do hello segue normal', async () => {
+      await conectar();
+      const sessao = await conectar(hello({ boot: 'b1' }));
+      await enviar(sessao, [mensagem('inicio_corrida', 1)]);
+      expect(corridaA().status).toBe('EM_ANDAMENTO');
+    });
+
     it('novo hello com outro boot na mesma conexão também interrompe', async () => {
       const sessao = await conectar();
       await enviar(sessao, [mensagem('inicio_corrida', 1), hello({ boot: 'b2' })]);

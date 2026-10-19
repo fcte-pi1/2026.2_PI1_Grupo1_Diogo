@@ -59,6 +59,8 @@ export class AmbienteEmMemoria {
   relogio = 0;
   /** Quando definido, a próxima gravação falha com este erro. */
   falhaNaGravacao: Error | null = null;
+  /** Quando definido, a criação/carga das corridas espera esta promessa (carga lenta do banco). */
+  cargaLenta: Promise<void> | null = null;
   prazoLacunaMs = 5000;
 
   corrida!: ServicoCorrida;
@@ -155,6 +157,7 @@ export class AmbienteEmMemoria {
       },
       corridas: {
         obterOuCriar: async (dados) => {
+          if (this.cargaLenta) await this.cargaLenta;
           const chave = `${dados.dispositivoId}/${dados.idCorridaRobo}`;
           let corrida = this.corridas.get(chave);
           if (!corrida) {
