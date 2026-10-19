@@ -1,5 +1,6 @@
-import { atrasoBackoffMs, ehTipoLabirinto, type DadosExecucao } from '../../dominio';
+import { atrasoBackoffMs, ehTipoLabirinto } from '../../dominio';
 import { usePainel } from '../../estado';
+import { dadosDasMetricas } from '../metricas';
 import type {
   AoVivoPainel,
   ContinuoPainel,
@@ -7,7 +8,6 @@ import type {
   EventoStatusPainel,
   MensagemPainelEntrada,
   MensagemPainelSaida,
-  Metricas,
   SinalPainel,
   SnapshotPainel,
 } from '../../protocolo';
@@ -163,6 +163,7 @@ export class ClientePainelWS {
       mapa: Array.isArray(m.mapa) ? m.mapa : [],
       posicao: m.posicao ?? null,
       status: m.status,
+      motivoTermino: m.motivo_termino ?? null,
       ...dadosDasMetricas(m.metricas),
       corrida: m.corrida,
     });
@@ -181,6 +182,8 @@ export class ClientePainelWS {
     usePainel.getState().acoes.atualizarExecucao({
       ...dadosDasMetricas(m.metricas),
       status: m.status,
+      motivoTermino: m.motivo_termino ?? null,
+      detalheFalha: m.detalhe ?? null,
     });
   }
 
@@ -239,22 +242,4 @@ function lerMensagem(dado: unknown): MensagemPainelSaida | null {
   } catch {
     return null;
   }
-}
-
-/**
- * Métricas derivadas pelo backend → dados da tela. O tempo vem do backend (relógio oficial,
- * RF-82): `tempo_conclusao_ms` quando a corrida terminou com sucesso, senão o decorrido.
- */
-function dadosDasMetricas(metricas: Metricas | null | undefined): Partial<DadosExecucao> {
-  if (!metricas) return {};
-  const tempo = metricas.tempo_conclusao_ms ?? metricas.tempo_decorrido_ms;
-  return {
-    celulasPercorridas: metricas.celulas_percorridas,
-    velocidadeMediaMps: metricas.velocidade_media_mps,
-    tensaoV: metricas.tensao_v,
-    correnteA: metricas.corrente_a,
-    potenciaW: metricas.potencia_w,
-    cargaPct: metricas.carga_estimada_pct,
-    ...(tempo !== null && tempo !== undefined ? { tempoMs: tempo } : {}),
-  };
 }
