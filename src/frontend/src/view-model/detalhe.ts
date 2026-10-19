@@ -42,6 +42,8 @@ export function useDetalheExecucao(id: string | undefined) {
     situacao,
     execucao,
     iniciadaEm: atual?.iniciadaEm ? formatarDataHora(atual.iniciadaEm) : null,
+    /** Início em ISO 8601, para a exportação (HU-FE-15). */
+    iniciadaEmIso: atual?.iniciadaEm ?? null,
     falha: descreverFalha(execucao.status, execucao.motivoTermino, execucao.detalheFalha),
     mensagemErro: erro ? mensagemErroDetalhe(erro) : null,
     /** Execução inexistente não melhora ao repetir a consulta. */

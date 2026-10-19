@@ -1,5 +1,5 @@
 import { Link, useParams } from 'react-router';
-import { AvisosExecucao, ItemAlerta, PainelExecucao } from '../../componentes';
+import { AvisosExecucao, ControleExportacao, ItemAlerta, PainelExecucao } from '../../componentes';
 import { useDetalheExecucao } from '../../view-model';
 import estilos from './PaginaDetalhe.module.css';
 
@@ -50,6 +50,7 @@ export function PaginaDetalhe() {
               alteram estes dados.
             </span>
           </div>
+          <ControleExportacao dados={d.execucao} iniciadaEm={d.iniciadaEmIso} />
           <AvisosExecucao status={d.execucao.status} falha={d.falha} />
           <PainelExecucao
             modo="historico"
