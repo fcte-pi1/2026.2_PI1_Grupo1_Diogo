@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
-import { AvisosExecucao, ItemAlerta, PainelExecucao } from '../../componentes';
+import { AvisosExecucao, ItemAlerta, PainelDepuracao, PainelExecucao } from '../../componentes';
 import { rotuloStatus } from '../../formatacao';
 import {
   useAlertasAoVivo,
@@ -50,10 +50,13 @@ export function PaginaAoVivo() {
         </div>
       </div>
       {modo === 'depuracao' && (
-        <pre
-          className={estilos.console}
-          aria-label="Console de depuração"
-        >{`// Micromouse Debug Console\nmensagens=${telemetria.mensagensRecebidas}\nstatus=${status}\nbackend=${saude.backend}`}</pre>
+        <>
+          <pre
+            className={estilos.console}
+            aria-label="Console de depuração"
+          >{`// Micromouse Debug Console\nmensagens=${telemetria.mensagensRecebidas}\nstatus=${status}\nbackend=${saude.backend}`}</pre>
+          <PainelDepuracao />
+        </>
       )}
       <AvisosExecucao
         status={execucao.status}

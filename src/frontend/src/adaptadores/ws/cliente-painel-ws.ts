@@ -1,4 +1,4 @@
-import { atrasoBackoffMs, ehTipoLabirinto } from '../../dominio';
+import { atrasoBackoffMs, ehTipoLabirinto, lerDepuracao } from '../../dominio';
 import { usePainel } from '../../estado';
 import { dadosDasMetricas } from '../metricas';
 import type {
@@ -204,6 +204,9 @@ export class ClientePainelWS {
         cargaPct: m.metricas?.carga_estimada_pct ?? null,
       });
     }
+    // Bloco opcional de depuração (HU-FE-14); ainda não faz parte de `ContinuoPainel`.
+    const leitura = lerDepuracao((m as { depuracao?: unknown }).depuracao, m.tempo_ms);
+    if (leitura) acoes.atualizarDepuracao(leitura);
   }
 
   private aoReceberSinal(m: SinalPainel): void {

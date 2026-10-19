@@ -3,6 +3,8 @@ export * from './historico/FiltroLabirinto';
 export * from './historico/Paginacao';
 export * from './historico/TabelaHistorico';
 export * from './consumo/GraficoConsumo';
+export * from './depuracao/PainelDepuracao';
 export * from './execucao/AvisosExecucao';
 export * from './execucao/MapaLabirinto';
 export * from './execucao/PainelExecucao';
+export * from './exportacao/ControleExportacao';

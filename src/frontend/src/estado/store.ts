@@ -7,6 +7,7 @@ import type {
   ErroHistorico,
   EstadoConexao,
   FiltroTipoLabirinto,
+  LeituraDepuracao,
   PontoTrajeto,
   SinalRobo,
   SituacaoDetalhe,
@@ -97,6 +98,8 @@ export interface EstadoPainel {
   historico: FatiaHistorico;
   detalhe: FatiaDetalhe;
   alertas: FatiaAlertas;
+  /** Última leitura bruta do modo de depuração; fora de `aoVivo`, para não tocar na tentativa (HU-FE-14 CA2). */
+  depuracao: LeituraDepuracao | null;
   acoes: {
     atualizarExecucao: (dados: Partial<DadosExecucao>) => void;
     reiniciarExecucao: (dados?: Partial<DadosExecucao>) => void;
@@ -110,6 +113,8 @@ export interface EstadoPainel {
     definirEstadoConexao: (estado: EstadoConexao) => void;
     definirSinal: (sinal: SinalRobo) => void;
     definirSaude: (saude: SaudeBackend) => void;
+    /** Substitui só a leitura bruta mais recente; a série de energia e o trajeto não mudam. */
+    atualizarDepuracao: (leitura: LeituraDepuracao) => void;
     registrarMensagem: () => void;
     /** Troca o filtro: volta à página 1 e descarta a lista anterior. */
     definirFiltroHistorico: (filtro: FiltroTipoLabirinto) => void;
@@ -140,6 +145,7 @@ export const usePainel = create<EstadoPainel>()((set) => ({
   historico: historicoInicial,
   detalhe: detalheInicial,
   alertas: { retomadaEm: null },
+  depuracao: null,
   acoes: {
     atualizarExecucao: (dados) =>
       set((s) => {
@@ -164,6 +170,7 @@ export const usePainel = create<EstadoPainel>()((set) => ({
         return {
           aoVivo: { ...execucaoInicial, ...dados },
           alertas: { retomadaEm: null },
+          depuracao: null,
           // O sinal pertence à corrida: a perda de uma não vale para a seguinte.
           conexao: outraCorrida ? { ...s.conexao, sinal: 'DESCONHECIDO' as const } : s.conexao,
         };
@@ -240,6 +247,7 @@ export const usePainel = create<EstadoPainel>()((set) => ({
         },
       })),
     definirSaude: (saude) => set((s) => ({ conexao: { ...s.conexao, saude } })),
+    atualizarDepuracao: (leitura) => set(() => ({ depuracao: leitura })),
     registrarMensagem: () =>
       set((s) => ({
         telemetria: {
