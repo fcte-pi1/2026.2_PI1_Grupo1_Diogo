@@ -4,7 +4,7 @@ Simulador em Node/TypeScript que fala o mesmo protocolo do robô (RNF-53). Com e
 
 Ele se conecta direto em `/ws/telemetria`, sem a ponte BLE, e envia as mesmas mensagens que o robô envia: o `hello` e depois uma corrida completa, de `inicio_corrida` a `fim_corrida`. Os tipos vêm de [`../protocolo/tipos.ts`](../protocolo/tipos.ts), e os testes verificam cada mensagem gerada com o validador do protocolo v1 ([`../protocolo/validador.ts`](../protocolo/validador.ts)).
 
-> **Regra de ouro:** como o robô real, o simulador é um **emissor unidirecional**. Nenhum passo depende do que o backend responde. Os `ack` recebidos são apenas guardados, para os testes poderem verificá-los.
+> **Regra de ouro:** como o robô real, o simulador é um **emissor unidirecional**. O envio da corrida nunca depende do que o backend responde. Os `ack` recebidos são guardados, e só `aguardarConfirmacao()` olha para eles, **depois** do envio, para quem usa o simulador saber se o backend gravou tudo.
 
 ## Uso pela linha de comando
 
@@ -55,15 +55,21 @@ npm run simulador -- --token T-ERRADO
 Exemplo de saída:
 
 ```
-02:52:26.252 [simulador] sim-01 · boot 55aac8 · labirinto 4x4 · semente 2039099253 (repita com --semente 2039099253)
-02:52:26.253 [simulador] conectando em ws://localhost:8080/ws/telemetria
-02:52:26.313 [simulador] conectado, hello enviado
-02:52:31.314 [simulador] enviadas 100/168 · acks 97 · último ack 100
-02:52:35.670 [simulador] corrida r55aac8-1 (sucesso): 168 mensagens, 8 células percorridas (1 revisitas), 7.7 s no relógio do robô
-02:52:35.670 [simulador] acks recebidos: 165 · último ack 168 de 168
+15:09:33.143 [simulador] sim-01 · boot 008db5 · labirinto 4x4 · semente 42 (repita com --semente 42)
+15:09:33.143 [simulador] conectando em ws://localhost:8080/ws/telemetria
+15:09:33.219 [simulador] conectado, hello enviado
+15:09:38.219 [simulador] enviadas 100/470 · acks 97 · último ack 100
+...
+15:09:56.671 [simulador] corrida r008db5-1 enviada (resultado simulado: sucesso): 470 mensagens, 20 células percorridas (6 revisitas), 22.3 s no relógio do robô
+15:09:56.687 [simulador] confirmada pelo backend: último ack 470 de 470
 ```
 
-O comando termina com código `0` quando a corrida é enviada inteira e com `1` em caso de erro: backend fora do ar, `hello` recusado (`4001`, `4002`, `4003`) ou opção inválida.
+Depois de enviar, o comando espera o backend confirmar a última mensagem (até 5 s). Ele termina com código `0` quando a corrida inteira foi **confirmada** e com `1` em caso de erro: backend fora do ar, `hello` recusado (`4001`, `4002`, `4003`), nenhuma confirmação no prazo ou opção inválida. Com o token errado, por exemplo:
+
+```
+[simulador] ERRO: conexão encerrada antes do ack da sequência 220 (fechada com o código 4001: token inválido)
+[simulador] ERRO: dispositivo ou token recusado: rodou o seed? confira --dispositivo e --token
+```
 
 ## Uso pela API (testes E2E e Playwright)
 
@@ -73,15 +79,19 @@ import { criarSimulador } from '../../simulador/simulador.js';
 const sim = criarSimulador({ url, labirinto: '4x4', taxa: 0, semente: 1 });
 await sim.conectar(); // abre a conexão e envia o hello
 const corrida = await sim.iniciarCorrida(); // envia a corrida inteira
+await sim.aguardarConfirmacao(corrida.mensagens); // espera o ack da última mensagem
 await sim.encerrar(); // fecha com o código 1000
 
 expect(sim.acks.at(-1)).toEqual({ tipo: 'ack', corrida: corrida.corrida, sequencia: corrida.mensagens });
 ```
 
+> **Sempre chame `aguardarConfirmacao()` antes de `encerrar()`.** O backend só confirma depois de gravar o lote (até 10 ms, mais a gravação). Fechando logo depois do envio, os `ack` não chegam. Ela também é o jeito confiável de saber se o `hello` foi recusado: com `taxa: 0`, a corrida inteira pode ser enviada antes de a recusa chegar, e aí `iniciarCorrida()` termina sem erro.
+
 | Membro | O que é |
 |:--|:--|
 | `conectar()` | Abre a conexão e envia o `hello`. Falha com `ErroSimulador` se não conseguir conectar |
-| `iniciarCorrida(aoProgredir?)` | Gera e envia uma corrida completa no ritmo de `taxa`. Devolve o resumo (`corrida`, `mensagens`, `passos`, `revisitas`, `duracaoMs`). Falha com `ErroSimulador` se o backend fechar a conexão no meio |
+| `iniciarCorrida(aoProgredir?)` | Gera e envia uma corrida completa no ritmo de `taxa`. Devolve o resumo (`corrida`, `mensagens`, `passos`, `revisitas`, `duracaoMs`). Falha com `ErroSimulador` se a conexão já tiver sido fechada durante o envio |
+| `aguardarConfirmacao(sequencia, prazoMs = 5000, corrida?)` | Espera o `ack` da `sequencia` (ou de uma maior) da última corrida, ou da `corrida` informada. Falha com `ErroSimulador` se a conexão fechar antes (o erro traz o `fechamento`, por exemplo `4001`) ou se o prazo acabar |
 | `gerarCorrida()` | Só gera as mensagens da próxima corrida, sem enviar |
 | `enviar(msg)` | Envia uma mensagem do protocolo ou **qualquer texto**, até inválido (para os casos de mensagem malformada) |
 | `encerrar()` | Fecha a conexão e espera o fechamento |
@@ -124,10 +134,10 @@ O formato segue o firmware (`main.cpp`, `TelemetryEmitter` e `ProtocolV1`):
 | [`labirinto.ts`](labirinto.ts) | Coordenadas, direções, paredes por aresta e geração do labirinto |
 | [`percurso.ts`](percurso.ts) | Exploração com flood fill, igual ao `Navigator` do firmware |
 | [`corrida.ts`](corrida.ts) | Percurso → mensagens do protocolo, com tempos, ciclo de telemetria e bateria. Função pura |
-| [`simulador.ts`](simulador.ts) | API programática: conexão WebSocket, ritmo de envio e registro dos `ack` |
+| [`simulador.ts`](simulador.ts) | API programática: conexão WebSocket, ritmo de envio, registro dos `ack` e `aguardarConfirmacao()` |
 | [`cli.ts`](cli.ts) | Linha de comando (`npm run simulador`) |
 
-Os testes ficam em [`../testes/unit/simulador/`](../testes/unit/simulador/). Eles verificam o labirinto (perímetro, consistência, conectividade), o percurso (células vizinhas, sem atravessar parede, chegada) e as mensagens (esquema v1, sequência contígua, tempo não decrescente, nenhum silêncio de 1 s, faixa de tensão). Também testam a API contra um servidor WebSocket local.
+Os testes ficam em [`../testes/unit/simulador/`](../testes/unit/simulador/). Eles verificam o labirinto (perímetro, consistência, conectividade), o percurso (células vizinhas, sem atravessar parede, chegada) e as mensagens (esquema v1, sequência contígua, tempo não decrescente, nenhum silêncio de 1 s, faixa de tensão). Também testam a API contra um servidor WebSocket local que imita os atrasos do backend real (conferência do token e gravação em lote).
 
 ## Próximos passos (Fase 2 da #322)
 
