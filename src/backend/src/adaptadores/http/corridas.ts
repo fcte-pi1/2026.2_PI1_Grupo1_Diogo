@@ -29,9 +29,12 @@ export async function rotasCorridas(
     async (req, reply) => {
       const detalhe = await consulta.detalheCorrida(req.params.id);
       if (!detalhe) {
-        return reply
-          .code(404)
-          .send({ statusCode: 404, error: 'Not Found', message: 'corrida não encontrada' });
+        return reply.code(404).send({
+          statusCode: 404,
+          code: 'CORRIDA_NAO_ENCONTRADA',
+          error: 'Not Found',
+          message: 'corrida não encontrada',
+        });
       }
       return detalhe;
     },

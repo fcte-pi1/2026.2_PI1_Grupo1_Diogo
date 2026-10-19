@@ -51,7 +51,12 @@ describe('GET /api/corridas/:id', () => {
       url: '/api/corridas/aaaaaaaa-3a52-4c8e-9a51-1f0f5c1f2a33',
     });
     expect(resposta.statusCode).toBe(404);
-    expect(resposta.json()).toMatchObject({ message: 'corrida não encontrada' });
+    expect(resposta.json()).toEqual({
+      statusCode: 404,
+      code: 'CORRIDA_NAO_ENCONTRADA',
+      error: 'Not Found',
+      message: 'corrida não encontrada',
+    });
   });
 
   it('400 quando o id não é um UUID, sem consultar o banco', async () => {

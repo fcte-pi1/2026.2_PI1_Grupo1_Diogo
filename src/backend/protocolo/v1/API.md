@@ -96,7 +96,12 @@ Tipo da resposta: `DetalheCorrida`.
 | `400` | O `id` não é um UUID. O banco não chega a ser consultado |
 | `404` | Não existe corrida com esse `id` |
 
-Os erros usam o corpo padrão do Fastify: `{ "statusCode": 404, "error": "Not Found", "message": "corrida não encontrada" }`.
+Os erros usam o corpo padrão do Fastify, com um `code` para o painel tratar sem depender do texto:
+
+```json
+{ "statusCode": 404, "code": "CORRIDA_NAO_ENCONTRADA", "error": "Not Found", "message": "corrida não encontrada" }
+{ "statusCode": 400, "code": "FST_ERR_VALIDATION", "error": "Bad Request", "message": "params/id must match pattern ..." }
+```
 
 ### Exemplo
 
@@ -175,6 +180,8 @@ Cada passagem do `trajeto` (`PassagemCorrida`) traz `sequencia`, `ordem` (posiç
 ### Corrida em andamento
 
 Os dados vêm do banco e acompanham a corrida com até cerca de 1 s de atraso: o trajeto e a energia são gravados assim que cada mensagem é aplicada, e as métricas no máximo uma vez por segundo. Para o tempo real, o painel usa o WebSocket (#327); este detalhe completa o que o painel não recebeu.
+
+Por isso, numa corrida em andamento, **as `metricas` podem estar até 1 s atrás do `trajeto` e da `energia` da mesma resposta**: `celulas_percorridas` pode ser menor que `trajeto.length - 1`, por exemplo. O painel não deve cruzar esses valores; as métricas atuais chegam pelo WebSocket. Numa corrida encerrada, tudo está gravado e os valores batem.
 
 ## `GET /api/leaderboard` — ranking por tipo de labirinto
 

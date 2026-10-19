@@ -111,4 +111,5 @@ Uma tabela nova precisa de `GRANT` para `rato_app` na própria migração.
 | Alterações não recarregam | Defina `CHOKIDAR_USEPOLLING=true` no `.env` e rode `docker compose up -d` |
 | Erro de dependência após `git pull` | `docker compose restart backend frontend` (o `npm install` roda na subida) |
 | `password authentication failed for user "rato_app"` | O `DB_APP_PASSWORD` mudou depois da criação do volume: `docker compose down -v` e suba de novo |
+| O mesmo erro no **Windows**, num clone feito antes do `.gitattributes` | O script `infra/postgres/initdb/01-papel-aplicacao.sh` ficou com CRLF. O `git pull` não o reescreve: apague o arquivo e restaure-o com `git checkout -- infra/postgres/initdb/01-papel-aplicacao.sh` (ele volta com LF), depois `docker compose down -v` e suba de novo |
 | Banco em estado estranho | `docker compose down -v && docker compose up -d`, depois rode o seed de novo |
