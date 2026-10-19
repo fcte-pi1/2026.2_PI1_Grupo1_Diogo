@@ -842,42 +842,91 @@ describe('ingestão de telemetria com PostgreSQL real', () => {
       expect(codigo).toBe(1006);
     });
 
+    // Corridas para os testes do ranking: inicio_corrida, `celulas` passagens e o fim.
+    let fimEnviadoEm = 0;
+    async function correr(
+      idRobo: string,
+      {
+        celulas,
+        fimMs,
+        resultado = 'sucesso',
+        labirinto = '12x4',
+      }: { celulas: number; fimMs: number; resultado?: string; labirinto?: string },
+      antesDoFim?: (id: string) => Promise<void>,
+    ): Promise<string> {
+      const c = { corrida: idRobo };
+      const robo = await Robo.conectar(url);
+      robo.enviar(
+        hello(),
+        mensagem('inicio_corrida', 1, { ...c, labirinto, tempo_ms: 0 }),
+        ...Array.from({ length: celulas }, (_, i) =>
+          mensagem('celula', i + 2, { ...c, x: i, y: 0, tempo_ms: i * 100 }),
+        ),
+      );
+      await robo.esperarAck(idRobo, celulas + 1);
+      const id = await idDaCorrida(idRobo);
+      await antesDoFim?.(id);
+      fimEnviadoEm = Date.now();
+      robo.enviar(mensagem('fim_corrida', celulas + 2, { ...c, resultado, tempo_ms: fimMs }));
+      await robo.esperarAck(idRobo, celulas + 2);
+      await robo.fechar();
+      await corridas.esvaziar();
+      return id;
+    }
+    const ranking = async (consultaUrl = '/api/leaderboard?labirinto=12x4') => {
+      const resposta = await fetch(`${base}${consultaUrl}`);
+      return (await resposta.json()) as RespostaLeaderboard;
+    };
+
+    it('ranking: corridas empatadas no tempo e na distância dividem a posição, e a seguinte pula (1, 2, 2, 4)', async () => {
+      // No 8x4 e numa apresentação própria: as corridas dos outros testes não entram, e o
+      // CT-BE-28 continua com o 12x4 só para ele.
+      const apresentacao = (
+        await consulta<{ id: string }>(
+          `INSERT INTO apresentacao (nome, ativa) VALUES ('empate', false) RETURNING id`,
+        )
+      )[0]!.id;
+      const naApresentacao = async (id: string) => {
+        await pool.query(`UPDATE corrida SET apresentacao_id = $2 WHERE id = $1`, [
+          id,
+          apresentacao,
+        ]);
+      };
+      const primeira = await correr(
+        'emp-1',
+        { celulas: 3, fimMs: 40_000, labirinto: '8x4' },
+        naApresentacao,
+      );
+      const empate1 = await correr(
+        'emp-2',
+        { celulas: 3, fimMs: 50_000, labirinto: '8x4' },
+        naApresentacao,
+      );
+      const empate2 = await correr(
+        'emp-3',
+        { celulas: 3, fimMs: 50_000, labirinto: '8x4' },
+        naApresentacao,
+      );
+      const ultima = await correr(
+        'emp-4',
+        { celulas: 2, fimMs: 55_000, labirinto: '8x4' },
+        naApresentacao,
+      );
+
+      const { itens } = await ranking(
+        `/api/leaderboard?labirinto=8x4&apresentacao=${apresentacao}`,
+      );
+      // Empatadas: a que terminou primeiro vem antes na lista.
+      expect(itens.map((i) => [i.posicao, i.id, i.tempo_conclusao_ms, i.distancia_m])).toEqual([
+        [1, primeira, 40_000, 0.36],
+        [2, empate1, 50_000, 0.36],
+        [2, empate2, 50_000, 0.36],
+        [4, ultima, 55_000, 0.18],
+      ]);
+    });
+
     it('CT-BE-28: o ranking exclui anuladas e não concluídas, desempata pela distância e é avisado depois de gravado', async () => {
       // 12x4: nenhum outro teste conclui corridas nesse labirinto.
-      let fimEnviadoEm = 0;
-      async function correr(
-        idRobo: string,
-        {
-          celulas,
-          fimMs,
-          resultado = 'sucesso',
-        }: { celulas: number; fimMs: number; resultado?: string },
-        antesDoFim?: (id: string) => Promise<void>,
-      ): Promise<string> {
-        const c = { corrida: idRobo };
-        const robo = await Robo.conectar(url);
-        robo.enviar(
-          hello(),
-          mensagem('inicio_corrida', 1, { ...c, labirinto: '12x4', tempo_ms: 0 }),
-          ...Array.from({ length: celulas }, (_, i) =>
-            mensagem('celula', i + 2, { ...c, x: i, y: 0, tempo_ms: i * 100 }),
-          ),
-        );
-        await robo.esperarAck(idRobo, celulas + 1);
-        const id = await idDaCorrida(idRobo);
-        await antesDoFim?.(id);
-        fimEnviadoEm = Date.now();
-        robo.enviar(mensagem('fim_corrida', celulas + 2, { ...c, resultado, tempo_ms: fimMs }));
-        await robo.esperarAck(idRobo, celulas + 2);
-        await robo.fechar();
-        await corridas.esvaziar();
-        return id;
-      }
-      const ranking = async (consultaUrl = '/api/leaderboard?labirinto=12x4') => {
-        const resposta = await fetch(`${base}${consultaUrl}`);
-        return (await resposta.json()) as RespostaLeaderboard;
-      };
-
       // A, numa apresentação: 60 s e 2 transições (0,36 m).
       const apresentacao = (
         await consulta<{ id: string }>(
