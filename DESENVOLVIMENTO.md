@@ -28,6 +28,15 @@ Ao subir, o backend instala as dependências que faltarem, aplica as migrações
 
 O **seed** cria o ambiente AMB dos [casos de teste](docs/software/backend/4_casos_de_teste.md): o dispositivo `sim-01` (token `T-VALIDO`), o operador `op1` (senha em `SEED_OPERADOR_SENHA`) e a apresentação "Teste" ativa. Ele pode ser executado várias vezes sem duplicar dados.
 
+### Parâmetros da derivação
+
+Ambos são opcionais. Ficam comentados no `.env.example`, com os valores padrão, e o `compose.yaml` os repassa ao backend. Um valor inválido impede o backend de subir, com a mensagem de erro no log.
+
+| Variável | Padrão | Uso |
+|:--|:--|:--|
+| `CURVA_CARGA` | `8.4:100,7.6:50,7.0:10,6.0:0` | Curva `tensão:carga %` da bateria, interpolada entre os pontos, para a carga estimada (RF-85). Precisa ser validada com a frente de Energia |
+| `LIMIAR_TENSAO_BAIXA_V` | `7.0` | Abaixo dele, os painéis recebem o alerta `TENSAO_BAIXA` (RF-86). O alerta só volta a disparar depois de a tensão subir 0,1 V acima do limiar |
+
 ## Comandos do dia a dia
 
 ```bash
@@ -102,4 +111,5 @@ Uma tabela nova precisa de `GRANT` para `rato_app` na própria migração.
 | Alterações não recarregam | Defina `CHOKIDAR_USEPOLLING=true` no `.env` e rode `docker compose up -d` |
 | Erro de dependência após `git pull` | `docker compose restart backend frontend` (o `npm install` roda na subida) |
 | `password authentication failed for user "rato_app"` | O `DB_APP_PASSWORD` mudou depois da criação do volume: `docker compose down -v` e suba de novo |
+| O mesmo erro no **Windows**, num clone feito antes do `.gitattributes` | O script `infra/postgres/initdb/01-papel-aplicacao.sh` ficou com CRLF. O `git pull` não o reescreve: apague o arquivo e restaure-o com `git checkout -- infra/postgres/initdb/01-papel-aplicacao.sh` (ele volta com LF), depois `docker compose down -v` e suba de novo |
 | Banco em estado estranho | `docker compose down -v && docker compose up -d`, depois rode o seed de novo |

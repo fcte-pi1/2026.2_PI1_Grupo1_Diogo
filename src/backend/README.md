@@ -1,5 +1,10 @@
 # _Backend_
 
+> [!NOTE]
+> **Como rodar e configurar:** [`DESENVOLVIMENTO.md`](../../DESENVOLVIMENTO.md), na raiz do repositório: subir o ambiente, comandos do dia a dia e as variáveis de ambiente, inclusive os parâmetros da derivação (`CURVA_CARGA` e `LIMIAR_TENSAO_BAIXA_V`). Os valores padrão estão comentados no [`.env.example`](../../.env.example).
+>
+> **Protocolos:** robô → backend em [`protocolo/v1/README.md`](protocolo/v1/README.md), API HTTP em [`protocolo/v1/API.md`](protocolo/v1/API.md).
+
 Esta pasta deverá armazenar arquivos referentes a:
 
 - Código-fonte da API REST: rotas, controladores, modelos e lógica de negócio.
