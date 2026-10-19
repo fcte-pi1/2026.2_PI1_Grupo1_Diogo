@@ -55,15 +55,28 @@ export interface DadosExecucao {
   posicao: PosicaoRobo | null;
   celulasPercorridas: number | null;
   velocidadeMediaMps: number | null;
+  distanciaM: number | null;
   tempoMs: number | null;
   status: StatusCorrida | null;
+  /** Motivo do término informado pelo backend (ex.: tempo limite, erro do firmware). */
+  motivoTermino: string | null;
+  /** Detalhe textual da falha, quando o backend o envia (HU-FE-13 CA2). */
+  detalheFalha: string | null;
   tensaoV: number | null;
   correnteA: number | null;
   potenciaW: number | null;
   cargaPct: number | null;
+  /** Variação de tensão da tentativa, em V (HU-FE-12 CA2). */
+  deltaV: number | null;
   energia: AmostraEnergia[];
   mapa: CelulaMapa[];
 }
+
+/**
+ * Teto da série de energia mantida por tentativa: 10 min a 10 Hz são 6.000 amostras (HU-FE-12 CA4);
+ * a folga evita descartar os pontos iniciais de uma tentativa um pouco mais longa (CA3).
+ */
+export const LIMITE_AMOSTRAS_ENERGIA = 12_000;
 
 export const execucaoInicial: DadosExecucao = {
   corrida: null,
@@ -73,12 +86,16 @@ export const execucaoInicial: DadosExecucao = {
   posicao: null,
   celulasPercorridas: null,
   velocidadeMediaMps: null,
+  distanciaM: null,
   tempoMs: null,
   status: null,
+  motivoTermino: null,
+  detalheFalha: null,
   tensaoV: null,
   correnteA: null,
   potenciaW: null,
   cargaPct: null,
+  deltaV: null,
   energia: [],
   mapa: [],
 };
