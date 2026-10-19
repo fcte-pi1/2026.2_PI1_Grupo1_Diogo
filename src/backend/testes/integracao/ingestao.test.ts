@@ -9,7 +9,7 @@ import { runner } from 'node-pg-migrate';
 import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import WebSocketNode from 'ws';
-import type { DetalheCorrida } from '../../protocolo/tipos.js';
+import type { DetalheCorrida, RespostaLeaderboard } from '../../protocolo/tipos.js';
 import { criarValidadorProtocolo } from '../../protocolo/validador.js';
 import {
   AVISO_PAINEL_LENTO,
@@ -840,6 +840,156 @@ describe('ingestão de telemetria com PostgreSQL real', () => {
       const mudo = await painelNode({ autoPong: false });
       const codigo = await mudo.fechou;
       expect(codigo).toBe(1006);
+    });
+
+    // Corridas para os testes do ranking: inicio_corrida, `celulas` passagens e o fim.
+    let fimEnviadoEm = 0;
+    async function correr(
+      idRobo: string,
+      {
+        celulas,
+        fimMs,
+        resultado = 'sucesso',
+        labirinto = '12x4',
+      }: { celulas: number; fimMs: number; resultado?: string; labirinto?: string },
+      antesDoFim?: (id: string) => Promise<void>,
+    ): Promise<string> {
+      const c = { corrida: idRobo };
+      const robo = await Robo.conectar(url);
+      robo.enviar(
+        hello(),
+        mensagem('inicio_corrida', 1, { ...c, labirinto, tempo_ms: 0 }),
+        ...Array.from({ length: celulas }, (_, i) =>
+          mensagem('celula', i + 2, { ...c, x: i, y: 0, tempo_ms: i * 100 }),
+        ),
+      );
+      await robo.esperarAck(idRobo, celulas + 1);
+      const id = await idDaCorrida(idRobo);
+      await antesDoFim?.(id);
+      fimEnviadoEm = Date.now();
+      robo.enviar(mensagem('fim_corrida', celulas + 2, { ...c, resultado, tempo_ms: fimMs }));
+      await robo.esperarAck(idRobo, celulas + 2);
+      await robo.fechar();
+      await corridas.esvaziar();
+      return id;
+    }
+    const ranking = async (consultaUrl = '/api/leaderboard?labirinto=12x4') => {
+      const resposta = await fetch(`${base}${consultaUrl}`);
+      return (await resposta.json()) as RespostaLeaderboard;
+    };
+
+    it('ranking: corridas empatadas no tempo e na distância dividem a posição, e a seguinte pula (1, 2, 2, 4)', async () => {
+      // No 8x4 e numa apresentação própria: as corridas dos outros testes não entram, e o
+      // CT-BE-28 continua com o 12x4 só para ele.
+      const apresentacao = (
+        await consulta<{ id: string }>(
+          `INSERT INTO apresentacao (nome, ativa) VALUES ('empate', false) RETURNING id`,
+        )
+      )[0]!.id;
+      const naApresentacao = async (id: string) => {
+        await pool.query(`UPDATE corrida SET apresentacao_id = $2 WHERE id = $1`, [
+          id,
+          apresentacao,
+        ]);
+      };
+      const primeira = await correr(
+        'emp-1',
+        { celulas: 3, fimMs: 40_000, labirinto: '8x4' },
+        naApresentacao,
+      );
+      const empate1 = await correr(
+        'emp-2',
+        { celulas: 3, fimMs: 50_000, labirinto: '8x4' },
+        naApresentacao,
+      );
+      const empate2 = await correr(
+        'emp-3',
+        { celulas: 3, fimMs: 50_000, labirinto: '8x4' },
+        naApresentacao,
+      );
+      const ultima = await correr(
+        'emp-4',
+        { celulas: 2, fimMs: 55_000, labirinto: '8x4' },
+        naApresentacao,
+      );
+
+      const { itens } = await ranking(
+        `/api/leaderboard?labirinto=8x4&apresentacao=${apresentacao}`,
+      );
+      // Empatadas: a que terminou primeiro vem antes na lista.
+      expect(itens.map((i) => [i.posicao, i.id, i.tempo_conclusao_ms, i.distancia_m])).toEqual([
+        [1, primeira, 40_000, 0.36],
+        [2, empate1, 50_000, 0.36],
+        [2, empate2, 50_000, 0.36],
+        [4, ultima, 55_000, 0.18],
+      ]);
+    });
+
+    it('CT-BE-28: o ranking exclui anuladas e não concluídas, desempata pela distância e é avisado depois de gravado', async () => {
+      // 12x4: nenhum outro teste conclui corridas nesse labirinto.
+      // A, numa apresentação: 60 s e 2 transições (0,36 m).
+      const apresentacao = (
+        await consulta<{ id: string }>(
+          `INSERT INTO apresentacao (nome, ativa) VALUES ('CT-BE-28', false) RETURNING id`,
+        )
+      )[0]!.id;
+      const a = await correr('rank-a', { celulas: 3, fimMs: 60_000 }, async (id) => {
+        await pool.query(`UPDATE corrida SET apresentacao_id = $2 WHERE id = $1`, [
+          id,
+          apresentacao,
+        ]);
+      });
+      // B: mais rápida (50 s), mas anulada. C: falhou.
+      const b = await correr('rank-b', { celulas: 3, fimMs: 50_000 });
+      await pool.query(
+        `INSERT INTO operador (login, nome, senha_hash) VALUES ('op-teste', 'Operador', 'x') ON CONFLICT DO NOTHING`,
+      );
+      await pool.query(
+        `INSERT INTO anulacao (corrida_id, operador_id, motivo)
+         SELECT $1, id, 'toque manual' FROM operador WHERE login = 'op-teste'`,
+        [b],
+      );
+      await correr('rank-c', { celulas: 2, fimMs: 40_000, resultado: 'falha' });
+
+      const antes = await ranking();
+      expect(antes).toEqual({
+        labirinto: '12x4',
+        apresentacao: null,
+        itens: [
+          {
+            posicao: 1,
+            id: a,
+            corrida_robo: 'rank-a',
+            numero_tentativa: null,
+            tempo_conclusao_ms: 60_000,
+            distancia_m: 0.36,
+            velocidade_media_mps: expect.any(Number),
+            encerrada_em: expect.any(String),
+          },
+        ],
+      });
+
+      // D: mesmos 60 s, com 1 transição (0,18 m). O aviso chega em até 1 s, e a consulta
+      // feita logo ao recebê-lo já mostra D à frente de A.
+      const painel = await conectarPainel();
+      painel.enviar({ tipo: 'inscrever', canal: 'ao_vivo' });
+      const d = correr('rank-d', { celulas: 2, fimMs: 60_000 });
+      await esperar(() => painel.doTipo('leaderboard').some((m) => m.labirinto === '12x4'));
+      expect(Date.now() - fimEnviadoEm).toBeLessThan(1000);
+      const aoAvisar = await ranking();
+      const idD = await d;
+      expect(aoAvisar.itens.map((i) => [i.posicao, i.id, i.distancia_m])).toEqual([
+        [1, idD, 0.18],
+        [2, a, 0.36],
+      ]);
+      painel.fechar();
+
+      // Só a apresentação de A.
+      const daApresentacao = await ranking(
+        `/api/leaderboard?labirinto=12x4&apresentacao=${apresentacao}`,
+      );
+      expect(daApresentacao.apresentacao).toBe(apresentacao);
+      expect(daApresentacao.itens.map((i) => [i.posicao, i.id])).toEqual([[1, a]]);
     });
 
     it('acompanha uma corrida do anúncio ao fim, pelo WebSocket', async () => {

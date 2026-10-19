@@ -182,3 +182,80 @@ Cada passagem do `trajeto` (`PassagemCorrida`) traz `sequencia`, `ordem` (posiç
 Os dados vêm do banco e acompanham a corrida com até cerca de 1 s de atraso: o trajeto e a energia são gravados assim que cada mensagem é aplicada, e as métricas no máximo uma vez por segundo. Para o tempo real, o painel usa o WebSocket (#327); este detalhe completa o que o painel não recebeu.
 
 Por isso, numa corrida em andamento, **as `metricas` podem estar até 1 s atrás do `trajeto` e da `energia` da mesma resposta**: `celulas_percorridas` pode ser menor que `trajeto.length - 1`, por exemplo. O painel não deve cruzar esses valores; as métricas atuais chegam pelo WebSocket. Numa corrida encerrada, tudo está gravado e os valores batem.
+
+## `GET /api/leaderboard` — ranking por tipo de labirinto
+
+Corridas válidas de um tipo de labirinto, da melhor para a pior (RF-95, HU-BE-24). Só entram corridas `CONCLUIDA` e **não anuladas**: `FALHOU`, `INTERROMPIDA`, `EM_ANDAMENTO` e anuladas nunca aparecem.
+
+Tipo da resposta: `RespostaLeaderboard`.
+
+### Parâmetros de consulta
+
+Tipo: `FiltrosLeaderboard`.
+
+| Parâmetro | Valores | Obrigatório | Significado |
+|:--|:--|:--|:--|
+| `labirinto` | `4x4`, `8x4`, `12x4` | Sim | O ranking é sempre de um tipo de labirinto |
+| `apresentacao` | UUID | Não | Só as corridas dessa apresentação. Sem ele, todas |
+
+Sem `labirinto`, ou com um valor inválido (`labirinto=5x5`, `apresentacao=1`), a resposta é `400`. Parâmetros desconhecidos são ignorados.
+
+### Ordenação
+
+1. **Tempo de conclusão** (`tempo_conclusao_ms`, pelo relógio do robô), do menor para o maior.
+2. **Desempate pela menor distância** (`distancia_m`, transições × 0,18 m).
+
+Corridas com o mesmo tempo e a mesma distância dividem a posição (`1, 1, 3`), como no `RANK()` do SQL. Entre elas, a que terminou primeiro vem antes na lista.
+
+### Resposta `200`
+
+```json
+{
+  "labirinto": "4x4",
+  "apresentacao": null,
+  "itens": [
+    {
+      "posicao": 1,
+      "id": "5fe08e59-3fc7-437b-8e74-1e801d94d4c4",
+      "corrida_robo": "r92f031-1",
+      "numero_tentativa": 2,
+      "tempo_conclusao_ms": 22300,
+      "distancia_m": 3.6,
+      "velocidade_media_mps": 0.161,
+      "encerrada_em": "2026-10-15T22:52:21.050Z"
+    }
+  ]
+}
+```
+
+| Campo | Tipo | Observação |
+|:--|:--|:--|
+| `labirinto` | `4x4`, `8x4`, `12x4` | O pedido |
+| `apresentacao` | UUID ou `null` | A apresentação filtrada; `null` quando o ranking é de todas as corridas |
+| `itens` | lista de `PosicaoLeaderboard` | Em ordem de posição. Vazia quando nenhuma corrida válida foi concluída |
+
+Campos de cada item (`PosicaoLeaderboard`):
+
+| Campo | Tipo | Observação |
+|:--|:--|:--|
+| `posicao` | inteiro ≥ 1 | Repete nos empates |
+| `id` | texto (UUID) | O mesmo de `/api/corridas/{id}` |
+| `corrida_robo` | texto | Id da corrida gerado pelo robô |
+| `numero_tentativa` | inteiro ou `null` | `null` para corridas fora de uma apresentação |
+| `tempo_conclusao_ms` | inteiro | Tempo oficial (RF-82) |
+| `distancia_m` | número | Critério de desempate |
+| `velocidade_media_mps` | número ou `null` | Distância ÷ tempo (RF-83) |
+| `encerrada_em` | texto, ISO 8601 em UTC | Quando o backend gravou o fim |
+
+### Atualização
+
+Quando uma corrida termina `CONCLUIDA`, os painéis inscritos no canal `ao_vivo` recebem a mensagem `leaderboard` com o labirinto (ver [`PAINEL.md`](PAINEL.md)). Ela sai **depois** de a corrida estar gravada: a consulta feita ao receber o aviso já inclui a corrida, em até 1 s após o `fim_corrida` (critério do RF-95).
+
+A anulação (RF-96) também tira a corrida do ranking, porque a consulta exclui as anuladas. O aviso aos painéis quando uma corrida é anulada entra junto com a rota de anulação.
+
+### Exemplos
+
+```
+GET /api/leaderboard?labirinto=4x4
+GET /api/leaderboard?labirinto=8x4&apresentacao=0b6f7c0e-3a52-4c8e-9a51-1f0f5c1f2a33
+```
