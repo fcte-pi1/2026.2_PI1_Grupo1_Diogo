@@ -41,6 +41,12 @@ export interface EstadoCorrida {
   sinalPerdidoEm: number | null;
   /** Conexões que enviaram duplicata de uma mensagem ainda na fila de gravação. */
   aguardandoGravacao: Set<SessaoRobo>;
+  /**
+   * Conexões abertas que enviaram mensagens desta corrida. Toda confirmação vai para todas:
+   * depois de uma queda, a lacuna pode ser preenchida por uma mensagem que veio pela conexão
+   * antiga, e a conexão nova também precisa do ack atualizado (RF-74, CT-BE-04).
+   */
+  sessoes: Set<SessaoRobo>;
   /** Garante que os efeitos de uma corrida sejam gravados na ordem em que foram gerados. */
   efeitos: Promise<void>;
   temporizadorLacuna: ReturnType<typeof setTimeout> | null;
@@ -54,6 +60,8 @@ export class SessaoRobo {
   corridaAtiva: EstadoCorrida | null = null;
   ultimaMensagemEm: number;
   sinalPerdido = false;
+  /** A conexão fechou: não recebe mais acks. */
+  encerrada = false;
   readonly acksPendentes = new Set<EstadoCorrida>();
 
   constructor(
