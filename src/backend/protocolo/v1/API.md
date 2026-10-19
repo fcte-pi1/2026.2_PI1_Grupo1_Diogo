@@ -81,3 +81,104 @@ GET /api/corridas?tipo=8x4
 GET /api/corridas?tipo=4x4&status=CONCLUIDA&pagina=2&tamanho=20
 GET /api/corridas?de=2026-10-13T00:00:00Z&ate=2026-10-13T23:59:59Z
 ```
+
+## `GET /api/corridas/{id}` — detalhe da corrida
+
+Tudo o que o painel precisa para reexibir uma corrida: métricas, trajeto, série de energia, status e anulação (RF-84, RF-85). É usada pela página de detalhe do histórico (RF-67) e também durante uma corrida em andamento, para o painel completar o *snapshot* ao entrar ou reconectar (arquitetura do frontend, §4.3).
+
+Tipo da resposta: `DetalheCorrida`.
+
+### Respostas
+
+| Código | Quando |
+|:--|:--|
+| `200` | A corrida existe |
+| `400` | O `id` não é um UUID. O banco não chega a ser consultado |
+| `404` | Não existe corrida com esse `id` |
+
+Os erros usam o corpo padrão do Fastify, com um `code` para o painel tratar sem depender do texto:
+
+```json
+{ "statusCode": 404, "code": "CORRIDA_NAO_ENCONTRADA", "error": "Not Found", "message": "corrida não encontrada" }
+{ "statusCode": 400, "code": "FST_ERR_VALIDATION", "error": "Bad Request", "message": "params/id must match pattern ..." }
+```
+
+### Exemplo
+
+```json
+{
+  "id": "0b6f7c0e-3a52-4c8e-9a51-1f0f5c1f2a33",
+  "corrida_robo": "r9f3a1c-1",
+  "iniciada_em": "2026-10-14T18:00:00.000Z",
+  "encerrada_em": "2026-10-14T18:00:09.120Z",
+  "tipo_labirinto": "8x4",
+  "numero_tentativa": null,
+  "status": "CONCLUIDA",
+  "motivo_termino": "SUCESSO",
+  "detalhe_termino": null,
+  "tempo_conclusao_ms": 9000,
+  "anulada": false,
+  "ultima_sequencia_contigua": 7,
+  "sequencias_faltantes": 0,
+  "metricas": {
+    "tempo_decorrido_ms": 9000,
+    "tempo_conclusao_ms": 9000,
+    "celulas_percorridas": 2,
+    "distancia_m": 0.36,
+    "revisitas": 1,
+    "velocidade_media_mps": 0.04,
+    "tensao_inicial_v": 8.2,
+    "tensao_final_v": 7.6,
+    "delta_v": 0.6,
+    "carga_inicial_pct": 87.5,
+    "carga_final_pct": 50
+  },
+  "trajeto": [
+    { "sequencia": 2, "ordem": 1, "x": 0, "y": 3, "paredes": { "norte": false, "leste": true, "sul": true, "oeste": true }, "tempo_ms": 1000, "revisita": false },
+    { "sequencia": 4, "ordem": 2, "x": 0, "y": 2, "paredes": { "norte": true, "leste": false, "sul": false, "oeste": true }, "tempo_ms": 2800, "revisita": false },
+    { "sequencia": 5, "ordem": 3, "x": 0, "y": 3, "paredes": { "norte": false, "leste": true, "sul": true, "oeste": true }, "tempo_ms": 4600, "revisita": true }
+  ],
+  "energia": [
+    { "sequencia": 3, "tempo_ms": 1000, "tensao_v": 8.2, "corrente_a": 0.4, "potencia_w": 3.2 },
+    { "sequencia": 6, "tempo_ms": 4600, "tensao_v": 7.6, "corrente_a": 0.4, "potencia_w": 3.2 }
+  ],
+  "anulacao": null
+}
+```
+
+### Campos
+
+Além dos campos de `CorridaResumo` (listagem):
+
+| Campo | Tipo | Observação |
+|:--|:--|:--|
+| `corrida_robo` | texto | Id da corrida gerado pelo robô |
+| `encerrada_em` | texto, ISO 8601, ou `null` | `null` enquanto a corrida está em andamento |
+| `detalhe_termino` | texto ou `null` | Texto que o robô enviou no `fim_corrida`, quando houver |
+| `ultima_sequencia_contigua` | inteiro | Maior sequência recebida sem lacunas antes dela |
+| `sequencias_faltantes` | inteiro | Sequências que faltam abaixo da maior recebida (RNF-50) |
+| `metricas` | `MetricasCorrida` | Abaixo |
+| `trajeto` | lista de `PassagemCorrida` | Em ordem de `sequencia`, mesmo que as mensagens tenham chegado fora de ordem |
+| `energia` | lista de `LeituraEnergiaCorrida` | Em ordem de `sequencia` |
+| `anulacao` | `{ motivo, anulada_em, operador }` ou `null` | `operador` é o login de quem anulou |
+
+`metricas` (`MetricasCorrida`):
+
+| Campo | Observação |
+|:--|:--|
+| `tempo_decorrido_ms` | Do `inicio_corrida` ao `fim_corrida`; numa corrida em andamento, até a última mensagem gravada |
+| `tempo_conclusao_ms` | Tempo oficial (RF-82). Só existe para corridas concluídas com sucesso |
+| `celulas_percorridas` | Movimentos entre células: as passagens menos a de partida |
+| `distancia_m` | `celulas_percorridas` × 0,18 m |
+| `revisitas` | Passagens por células já visitadas |
+| `velocidade_media_mps` | Distância ÷ tempo, no relógio do robô (RF-83) |
+| `tensao_inicial_v`, `tensao_final_v`, `delta_v` | Primeira e última leitura de tensão, e a diferença entre elas |
+| `carga_inicial_pct`, `carga_final_pct` | Carga estimada pela curva tensão → carga (RF-85) |
+
+Cada passagem do `trajeto` (`PassagemCorrida`) traz `sequencia`, `ordem` (posição no trajeto em ordem de `sequencia`, a partir de 1, sem repetições), `x`, `y`, `paredes` (`{ norte, leste, sul, oeste }`, com `true` para parede presente), `tempo_ms` (relógio do robô) e `revisita`. Para redesenhar o mapa, vale a última passagem de cada célula.
+
+### Corrida em andamento
+
+Os dados vêm do banco e acompanham a corrida com até cerca de 1 s de atraso: o trajeto e a energia são gravados assim que cada mensagem é aplicada, e as métricas no máximo uma vez por segundo. Para o tempo real, o painel usa o WebSocket (#327); este detalhe completa o que o painel não recebeu.
+
+Por isso, numa corrida em andamento, **as `metricas` podem estar até 1 s atrás do `trajeto` e da `energia` da mesma resposta**: `celulas_percorridas` pode ser menor que `trajeto.length - 1`, por exemplo. O painel não deve cruzar esses valores; as métricas atuais chegam pelo WebSocket. Numa corrida encerrada, tudo está gravado e os valores batem.

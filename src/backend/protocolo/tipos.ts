@@ -180,7 +180,8 @@ export interface PosicaoRobo {
 export interface SnapshotPainel {
   tipo: 'snapshot';
   corrida: string;
-  labirinto: TipoLabirinto;
+  /** `null` quando o `inicio_corrida` ainda não chegou. */
+  labirinto: TipoLabirinto | null;
   /** Eventos com sequencia ≤ sequencia_corte já estão refletidos neste snapshot. */
   sequencia_corte: number;
   /** Células conhecidas, com as paredes detectadas. */
@@ -190,7 +191,12 @@ export interface SnapshotPainel {
   status: StatusCorrida;
   motivo_termino: MotivoTermino | null;
   /** Tempo do robô no início da corrida, âncora do cronômetro do painel. */
-  tempo_inicio_ms: number;
+  tempo_inicio_ms: number | null;
+  /**
+   * Estado do sinal do robô agora. Quem se inscreve durante uma perda de sinal já sabe dela,
+   * sem esperar o próximo `sinal` (RF-92).
+   */
+  sinal: 'NORMAL' | 'PERDIDO';
 }
 
 export interface EventoCelulaPainel {
@@ -210,8 +216,13 @@ export interface EventoStatusPainel {
   tipo: 'evento';
   evento: 'status';
   corrida: string;
-  sequencia: number;
-  tempo_ms: number;
+  /**
+   * Sequência do `fim_corrida` que mudou o status. `null` numa interrupção (silêncio ou
+   * reinício), que não vem de uma mensagem do robô: o painel não deve descartá-la.
+   */
+  sequencia: number | null;
+  /** Relógio do robô no `fim_corrida`; `null` numa interrupção. */
+  tempo_ms: number | null;
   status: StatusCorrida;
   motivo_termino: MotivoTermino | null;
   detalhe: string | null;
@@ -245,7 +256,8 @@ export interface AlertaPainel {
 export interface AoVivoPainel {
   tipo: 'ao_vivo';
   corrida: string;
-  labirinto: TipoLabirinto;
+  /** `null` quando o `inicio_corrida` ainda não chegou. */
+  labirinto: TipoLabirinto | null;
   status: StatusCorrida;
 }
 
@@ -326,4 +338,75 @@ export interface RespostaListaCorridas {
   pagina: number;
   /** Tamanho de página aplicado, já limitado ao máximo. */
   tamanho: number;
+}
+
+// ============================================================================
+// API HTTP — GET /api/corridas/{id} (detalhe da corrida, RF-84, RF-85)
+// ============================================================================
+// Referência: `protocolo/v1/API.md`.
+
+/** Uma passagem por célula: um ponto do trajeto, em ordem de sequência (RF-84). */
+export interface PassagemCorrida {
+  sequencia: number;
+  /** Posição da passagem no trajeto, começando em 1. */
+  ordem: number;
+  x: number;
+  y: number;
+  paredes: Paredes;
+  tempo_ms: number;
+  /** A célula já tinha sido visitada antes nesta corrida. */
+  revisita: boolean;
+}
+
+/** Uma leitura do INA219 (RF-85). */
+export interface LeituraEnergiaCorrida {
+  sequencia: number;
+  tempo_ms: number;
+  tensao_v: number;
+  corrente_a: number;
+  potencia_w: number;
+}
+
+/** Métricas derivadas pelo backend. Numa corrida em andamento, são as mais recentes. */
+export interface MetricasCorrida {
+  /** Do `inicio_corrida` até o fim (ou até a última mensagem), no relógio do robô. */
+  tempo_decorrido_ms: number | null;
+  /** Tempo oficial: só existe para corridas concluídas com sucesso (RF-82). */
+  tempo_conclusao_ms: number | null;
+  /** Movimentos entre células (as passagens menos a de partida). */
+  celulas_percorridas: number;
+  distancia_m: number;
+  revisitas: number;
+  velocidade_media_mps: number | null;
+  tensao_inicial_v: number | null;
+  tensao_final_v: number | null;
+  delta_v: number | null;
+  carga_inicial_pct: number | null;
+  carga_final_pct: number | null;
+}
+
+export interface AnulacaoCorrida {
+  motivo: string;
+  anulada_em: string;
+  /** Login do operador que anulou (RF-96). */
+  operador: string;
+}
+
+/** Resposta de `GET /api/corridas/{id}`. */
+export interface DetalheCorrida extends CorridaResumo {
+  /** Id da corrida gerado pelo robô (por exemplo, `r9f3a1c-1`). */
+  corrida_robo: string;
+  encerrada_em: string | null;
+  /** Texto enviado pelo robô no `fim_corrida`, quando houver. */
+  detalhe_termino: string | null;
+  /** Maior sequência recebida sem lacunas antes dela. */
+  ultima_sequencia_contigua: number;
+  /** Sequências que faltam abaixo da maior recebida (RNF-50). */
+  sequencias_faltantes: number;
+  metricas: MetricasCorrida;
+  /** Ordenado por `sequencia`. */
+  trajeto: PassagemCorrida[];
+  /** Ordenada por `sequencia`. */
+  energia: LeituraEnergiaCorrida[];
+  anulacao: AnulacaoCorrida | null;
 }

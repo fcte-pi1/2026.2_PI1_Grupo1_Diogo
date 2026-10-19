@@ -20,10 +20,20 @@ export interface MapaEventos {
     status: StatusCorrida;
     motivo: MotivoTermino | null;
     detalhe: string | null;
+    /** `null` numa interrupção, que não vem de uma mensagem do robô. */
     sequencia: number | null;
+    tempoMs: number | null;
     metricas: Metricas;
   };
   'alerta-tensao': { corridaId: string; tensaoV: number };
+  /**
+   * Uma corrida CONCLUIDA teve o encerramento gravado: o ranking do labirinto pode ter
+   * mudado (RF-95). Sai depois da gravação, e não junto com o `status-alterado`, para quem
+   * consultar o ranking ao receber o aviso já encontrar a corrida no banco.
+   */
+  'ranking-alterado': { corridaId: string; labirinto: TipoLabirinto };
+  /** O robô parou de enviar durante a corrida, ou voltou (RF-73, RF-92). */
+  'sinal-alterado': { corridaId: string; estado: 'PERDIDO' | 'RETOMADO' };
 }
 
 export interface PublicadorEventos {

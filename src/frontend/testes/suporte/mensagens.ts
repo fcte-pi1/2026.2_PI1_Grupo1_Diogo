@@ -54,6 +54,7 @@ export function snapshot(parcial: Partial<SnapshotPainel> = {}): SnapshotPainel 
     status: 'EM_ANDAMENTO',
     motivo_termino: null,
     tempo_inicio_ms: 12000,
+    sinal: 'NORMAL',
     ...parcial,
   };
 }
