@@ -1,11 +1,13 @@
 import { monitorEventLoopDelay } from 'node:perf_hooks';
 import type { FastifyInstance } from 'fastify';
+import type { Contadores } from '../../aplicacao/portas.js';
 
 export interface DependenciasHealth {
   verificarBanco: () => Promise<boolean>;
+  contadores: Contadores;
 }
 
-/** GET /health — saúde, banco e atraso do event loop (RNF-49, RNF-56). */
+/** GET /health — saúde, banco, contadores da ingestão e atraso do event loop (RNF-49, RNF-56). */
 export async function rotasHealth(app: FastifyInstance, deps: DependenciasHealth): Promise<void> {
   const RESOLUCAO_MS = 20;
   const atrasoLoop = monitorEventLoopDelay({ resolution: RESOLUCAO_MS });
@@ -23,6 +25,12 @@ export async function rotasHealth(app: FastifyInstance, deps: DependenciasHealth
       event_loop_atraso_ms: {
         p50: ms(atrasoLoop.percentile(50)),
         p99: ms(atrasoLoop.percentile(99)),
+      },
+      ingestao: {
+        mensagens_aceitas: deps.contadores.mensagensAceitas,
+        mensagens_duplicadas: deps.contadores.mensagensDuplicadas,
+        mensagens_rejeitadas: deps.contadores.mensagensRejeitadas,
+        conexoes_recusadas: deps.contadores.conexoesRecusadas,
       },
     });
   });
