@@ -128,12 +128,13 @@ export class RepositorioConsultaPg implements RepositorioConsulta {
         corrente_a: Number(l.corrente_a),
         potencia_w: Number(l.potencia_w),
       })),
+      // motivo e operador são NOT NULL em anulacao: vêm junto com a data.
       anulacao:
-        c.anulada_em !== null
+        c.anulada_em !== null && c.anulacao_motivo !== null && c.anulada_por !== null
           ? {
-              motivo: c.anulacao_motivo ?? '',
+              motivo: c.anulacao_motivo,
               anulada_em: c.anulada_em.toISOString(),
-              operador: c.anulada_por ?? '',
+              operador: c.anulada_por,
             }
           : null,
     };
