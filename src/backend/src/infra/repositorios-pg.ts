@@ -63,10 +63,12 @@ export class RepositorioCorridasPg implements RepositorioCorridas {
   async obterOuCriar(dados: DadosNovaCorrida): Promise<CorridaPersistida> {
     // A restrição única (dispositivo, id do robô) garante uma só corrida mesmo com
     // mensagens concorrentes (RF-78). Se já existir, o SELECT a devolve.
+    // A corrida nova entra na apresentação ativa, se houver (RF-97).
     await this.banco.query(
       `INSERT INTO corrida
-         (dispositivo_id, id_corrida_robo, boot, tipo_labirinto, versao_protocolo, t_inicio_robo_ms)
-       VALUES ($1, $2, $3, $4, $5, $6)
+         (dispositivo_id, id_corrida_robo, boot, tipo_labirinto, versao_protocolo, t_inicio_robo_ms,
+          apresentacao_id)
+       VALUES ($1, $2, $3, $4, $5, $6, (SELECT id FROM apresentacao WHERE ativa))
        ON CONFLICT (dispositivo_id, id_corrida_robo) DO NOTHING`,
       [
         dados.dispositivoId,
@@ -90,6 +92,7 @@ export class RepositorioCorridasPg implements RepositorioCorridas {
     );
     const linha = rows[0];
     if (!linha) throw new Error(`corrida ${dados.idCorridaRobo} não encontrada após a criação`);
+    if (linha.tipo_labirinto) await this.numerarTentativa(linha.id);
     return {
       id: linha.id,
       labirinto: linha.tipo_labirinto,
@@ -109,6 +112,48 @@ export class RepositorioCorridasPg implements RepositorioCorridas {
        WHERE id = $1 AND tipo_labirinto IS NULL`,
       [corridaId, labirinto, tempoInicioRoboMs],
     );
+    // Sem o labirinto, a corrida não tinha como ser numerada; agora tem.
+    await this.numerarTentativa(corridaId);
+  }
+
+  /**
+   * Número da tentativa por (apresentação, tipo de labirinto), começando em 1 (RF-97). Toda
+   * tentativa conta, inclusive as que falham ou são anuladas depois. Só numera uma corrida
+   * que está numa apresentação, já tem o labirinto e ainda não tem número: chamar de novo
+   * não muda nada. A linha da apresentação fica travada durante a conta, para duas corridas
+   * simultâneas (dois simuladores, por exemplo) não pegarem o mesmo número.
+   */
+  private async numerarTentativa(corridaId: string): Promise<void> {
+    const cliente = await this.banco.connect();
+    try {
+      await cliente.query('BEGIN');
+      const { rows } = await cliente.query<{
+        apresentacao_id: string | null;
+        tipo_labirinto: TipoLabirinto | null;
+        numero_tentativa: number | null;
+      }>(`SELECT apresentacao_id, tipo_labirinto, numero_tentativa FROM corrida WHERE id = $1`, [
+        corridaId,
+      ]);
+      const corrida = rows[0];
+      if (corrida?.apresentacao_id && corrida.tipo_labirinto && corrida.numero_tentativa === null) {
+        await cliente.query('SELECT 1 FROM apresentacao WHERE id = $1 FOR UPDATE', [
+          corrida.apresentacao_id,
+        ]);
+        await cliente.query(
+          `UPDATE corrida SET numero_tentativa = (
+             SELECT coalesce(max(numero_tentativa), 0) + 1 FROM corrida
+             WHERE apresentacao_id = $2 AND tipo_labirinto = $3)
+           WHERE id = $1 AND numero_tentativa IS NULL`,
+          [corridaId, corrida.apresentacao_id, corrida.tipo_labirinto],
+        );
+      }
+      await cliente.query('COMMIT');
+    } catch (erro) {
+      await cliente.query('ROLLBACK').catch(() => {});
+      throw erro;
+    } finally {
+      cliente.release();
+    }
   }
 
   async mensagensGravadas(corridaId: string): Promise<MensagemGravada[]> {

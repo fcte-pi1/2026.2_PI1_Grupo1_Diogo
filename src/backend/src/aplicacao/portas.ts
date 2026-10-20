@@ -80,9 +80,16 @@ export interface EncerramentoCorrida extends ProgressoCorrida {
 }
 
 export interface RepositorioCorridas {
-  /** Cria a corrida se ainda não existir para o par (dispositivo, id do robô) — RF-78. */
+  /**
+   * Cria a corrida se ainda não existir para o par (dispositivo, id do robô) — RF-78. A
+   * corrida nova entra na apresentação ativa e, se o labirinto já é conhecido, recebe o número
+   * da tentativa (RF-97).
+   */
   obterOuCriar(dados: DadosNovaCorrida): Promise<CorridaPersistida>;
-  /** Preenche o labirinto de uma corrida criada antes de o `inicio_corrida` chegar. */
+  /**
+   * Preenche o labirinto de uma corrida criada antes de o `inicio_corrida` chegar, e a numera
+   * na apresentação (RF-97).
+   */
   definirInicio(
     corridaId: string,
     labirinto: TipoLabirinto,
