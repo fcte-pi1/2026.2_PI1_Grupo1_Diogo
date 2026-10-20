@@ -4,6 +4,7 @@ import { criarValidadorProtocolo } from '../../../protocolo/validador.js';
 import { ServicoConsulta } from '../../../src/aplicacao/index.js';
 import { construirApp } from '../../../src/app.js';
 import { AmbienteEmMemoria } from '../../apoio/ingestao-em-memoria.js';
+import { operadorEmMemoria } from '../../apoio/operador-em-memoria.js';
 
 describe('WS /ws/painel', () => {
   let app: FastifyInstance;
@@ -11,6 +12,7 @@ describe('WS /ws/painel', () => {
 
   async function montar(amb: AmbienteEmMemoria) {
     app = await construirApp({
+      ...operadorEmMemoria().deps,
       verificarBanco: async () => true,
       contadores: amb.contadores,
       ingestao: amb.servico,

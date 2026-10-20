@@ -451,3 +451,51 @@ export interface RespostaLeaderboard {
   /** Em ordem de posição. Vazio quando nenhuma corrida válida foi concluída. */
   itens: PosicaoLeaderboard[];
 }
+
+// ============================================================================
+// API HTTP — operador: login, anulação e apresentações (RF-96, RF-97, RNF-55)
+// ============================================================================
+// Referência: `protocolo/v1/API.md`. As rotas de escrita exigem o token do login no
+// cabeçalho `Authorization: Bearer <token>`; sem ele, a resposta é `401`.
+
+/** Corpo de `POST /api/auth/login`. */
+export interface RequisicaoLogin {
+  login: string;
+  senha: string;
+}
+
+/** Resposta de `POST /api/auth/login`. */
+export interface RespostaLogin {
+  /** JWT para o cabeçalho `Authorization: Bearer <token>`. */
+  token: string;
+  /** Quando o token expira, ISO 8601 em UTC. */
+  expira_em: string;
+  operador: { login: string; nome: string };
+}
+
+/** Corpo de `POST /api/corridas/{id}/anulacao`. A resposta `201` é uma `AnulacaoCorrida`. */
+export interface RequisicaoAnulacao {
+  /** Justificativa, não vazia (por exemplo, "houve toque manual"). */
+  motivo: string;
+}
+
+/** Uma apresentação: agrupa as corridas e numera as tentativas (RF-97). */
+export interface Apresentacao {
+  id: string;
+  nome: string;
+  /** Dia da apresentação, `AAAA-MM-DD`. */
+  data: string;
+  /** Só uma apresentação fica ativa por vez; as corridas novas entram nela. */
+  ativa: boolean;
+  criada_em: string;
+}
+
+/** Corpo de `POST /api/apresentacoes`: abre uma apresentação e encerra a que estiver ativa. */
+export interface RequisicaoAbrirApresentacao {
+  nome: string;
+}
+
+/** Corpo de `PATCH /api/apresentacoes/{id}`: hoje, só encerrar. */
+export interface RequisicaoAlterarApresentacao {
+  ativa: false;
+}

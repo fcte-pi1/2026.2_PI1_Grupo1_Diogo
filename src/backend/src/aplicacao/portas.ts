@@ -9,7 +9,12 @@ import type {
   StatusCorrida,
   TipoLabirinto,
 } from '../dominio/index.js';
-import type { DetalheCorrida, PosicaoLeaderboard } from '../../protocolo/tipos.js';
+import type {
+  AnulacaoCorrida,
+  Apresentacao,
+  DetalheCorrida,
+  PosicaoLeaderboard,
+} from '../../protocolo/tipos.js';
 
 export interface Dispositivo {
   id: string;
@@ -169,4 +174,40 @@ export interface RepositorioConsulta {
     labirinto: TipoLabirinto,
     apresentacaoId: string | null,
   ): Promise<PosicaoLeaderboard[]>;
+}
+
+/** Um operador cadastrado (RNF-55). */
+export interface Operador {
+  id: string;
+  login: string;
+  nome: string;
+  senhaHash: string;
+}
+
+export interface RepositorioOperadores {
+  buscarPorLogin(login: string): Promise<Operador | null>;
+}
+
+/** O que a anulação precisa saber da corrida. */
+export interface SituacaoCorrida {
+  status: StatusCorrida;
+  labirinto: TipoLabirinto | null;
+  anulada: boolean;
+}
+
+export interface RepositorioAnulacao {
+  situacao(corridaId: string): Promise<SituacaoCorrida | null>;
+  /**
+   * Grava a anulação (só em `anulacao`: a corrida não muda, RNF-54). Devolve `null` se a
+   * corrida já tinha sido anulada, inclusive por outra requisição ao mesmo tempo.
+   */
+  anular(corridaId: string, operadorId: string, motivo: string): Promise<AnulacaoCorrida | null>;
+}
+
+export interface RepositorioApresentacoes {
+  listar(): Promise<Apresentacao[]>;
+  /** Encerra a apresentação ativa, se houver, e abre esta, numa transação. */
+  abrir(nome: string): Promise<Apresentacao>;
+  /** `null` se a apresentação não existe. */
+  encerrar(id: string): Promise<Apresentacao | null>;
 }

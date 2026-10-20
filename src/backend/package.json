@@ -28,6 +28,7 @@
     "depcruise": "depcruise src --config .dependency-cruiser.cjs"
   },
   "dependencies": {
+    "@fastify/jwt": "10.2.2",
     "@fastify/websocket": "11.3.3",
     "ajv": "8.20.0",
     "argon2": "0.45.1",
