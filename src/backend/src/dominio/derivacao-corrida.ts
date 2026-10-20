@@ -22,6 +22,15 @@ export function paredesEmBits(paredes: ParedesCelula): number {
   );
 }
 
+export function paredesDeBits(bits: number): ParedesCelula {
+  return {
+    norte: (bits & BIT_PAREDE.norte) !== 0,
+    leste: (bits & BIT_PAREDE.leste) !== 0,
+    sul: (bits & BIT_PAREDE.sul) !== 0,
+    oeste: (bits & BIT_PAREDE.oeste) !== 0,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Mensagens que a derivação entende (subconjunto do protocolo v1)
 // ---------------------------------------------------------------------------
@@ -230,6 +239,11 @@ export class DerivacaoCorrida {
   /** A corrida terminou com sucesso ou falha: nada mais muda nela (RNF-54). */
   get finalizada(): boolean {
     return this.status === 'CONCLUIDA' || this.status === 'FALHOU';
+  }
+
+  /** Relógio do robô no início da corrida; `null` antes da primeira mensagem aplicada. */
+  get tempoInicio(): number | null {
+    return this.tempoInicioMs;
   }
 
   get ultimaSequencia(): number {

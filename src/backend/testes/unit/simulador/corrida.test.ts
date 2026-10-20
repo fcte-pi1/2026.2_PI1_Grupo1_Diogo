@@ -140,3 +140,62 @@ describe('corrida gerada', () => {
     expect(corrida('4x4', 17).mensagens).toEqual(corrida('4x4', 17).mensagens);
   });
 });
+
+describe('sequência de tensões configurável (CT-BE-18 e CT-BE-19)', () => {
+  function comTensoes(tensoes: number[], tipo: TipoLabirinto = '4x4', semente = 42) {
+    const aleatorio = criarAleatorio(semente);
+    const labirinto = gerarLabirinto(tipo, aleatorio);
+    return gerarCorrida({
+      labirinto,
+      percurso: explorar(labirinto),
+      boot: '9f3a1c',
+      inicioMs: 12_000,
+      resultado: 'sucesso',
+      aleatorio,
+      tensoes,
+    });
+  }
+
+  it('usa exatamente as tensões dadas, em degraus, na ordem, da primeira à última leitura', () => {
+    const pedidas = [7.2, 6.9, 6.8, 7.05, 6.9, 7.2, 6.9];
+    const energias = doTipo(comTensoes(pedidas).mensagens, 'energia');
+    const lidas = energias.map((e) => e.tensao_v);
+
+    expect(lidas[0]).toBe(7.2);
+    expect(lidas.at(-1)).toBe(6.9);
+    // Sem as repetições de cada degrau, a sequência é a pedida.
+    const degraus = lidas.filter((v, i) => i === 0 || v !== lidas[i - 1]);
+    expect(degraus).toEqual(pedidas);
+    // Degraus iguais: nenhum tem mais que uma leitura a mais que outro.
+    const tamanhos = degraus.map(() => 0);
+    let degrau = 0;
+    for (let i = 0; i < lidas.length; i++) {
+      if (i > 0 && lidas[i] !== lidas[i - 1]) degrau++;
+      tamanhos[degrau]!++;
+    }
+    expect(Math.max(...tamanhos) - Math.min(...tamanhos)).toBeLessThanOrEqual(1);
+    for (const e of energias) expect(e.potencia_w).toBeCloseTo(e.tensao_v * e.corrente_a, 2);
+  });
+
+  it('CT-BE-18: 8,2 → 7,6 V dá a tensão inicial e a final do caso de teste', () => {
+    const energias = doTipo(comTensoes([8.2, 8.0, 7.8, 7.6]).mensagens, 'energia');
+    expect(energias[0]!.tensao_v).toBe(8.2);
+    expect(energias.at(-1)!.tensao_v).toBe(7.6);
+  });
+
+  it('não muda o resto da corrida: a mesma semente dá o mesmo percurso e as mesmas correntes', () => {
+    const normal = corrida('8x4', 3).mensagens;
+    const fixa = comTensoes([7.5], '8x4', 3).mensagens;
+    expect(fixa.length).toBe(normal.length);
+    expect(doTipo(fixa, 'celula')).toEqual(doTipo(normal, 'celula'));
+    expect(doTipo(fixa, 'energia').map((e) => e.corrente_a)).toEqual(
+      doTipo(normal, 'energia').map((e) => e.corrente_a),
+    );
+  });
+
+  it('recusa mais tensões do que leituras de energia', () => {
+    expect(() => comTensoes(Array.from({ length: 5000 }, () => 7.4))).toThrow(
+      /leituras de energia/,
+    );
+  });
+});

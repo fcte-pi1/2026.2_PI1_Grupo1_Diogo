@@ -20,6 +20,16 @@ export default defineConfig({
           hookTimeout: 120_000,
         },
       },
+      {
+        // Simulador de robô → backend completo → PostgreSQL real (Testcontainers): requer Docker.
+        test: {
+          name: 'e2e',
+          include: ['testes/e2e/**/*.test.ts'],
+          environment: 'node',
+          testTimeout: 120_000,
+          hookTimeout: 120_000,
+        },
+      },
     ],
     coverage: {
       provider: 'v8',

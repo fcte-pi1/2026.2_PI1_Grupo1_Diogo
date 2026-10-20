@@ -13,7 +13,12 @@ import {
   SequenciaCorrida,
   type ConfiguracaoDerivacao,
   type Efeito,
+  type EstadoMapa,
   type MensagemDerivavel,
+  type Metricas,
+  type MotivoTermino,
+  type StatusCorrida,
+  type TipoLabirinto,
 } from '../dominio/index.js';
 import type { MensagemCorrida } from '../../protocolo/tipos.js';
 import type { EstadoCorrida } from './estado.js';
@@ -41,6 +46,20 @@ export interface DependenciasCorrida {
   prazoLacunaMs?: number;
 }
 
+export interface EstadoAoVivo {
+  corridaId: string;
+  labirinto: TipoLabirinto | null;
+  /** Última sequência aplicada: os eventos seguintes começam depois dela. */
+  sequenciaCorte: number;
+  tempoInicioMs: number | null;
+  mapa: EstadoMapa;
+  metricas: Metricas;
+  status: StatusCorrida;
+  motivo: MotivoTermino | null;
+  /** O sinal do robô está perdido agora (RF-92). */
+  sinalPerdido: boolean;
+}
+
 export interface IdentificacaoCorrida {
   dispositivoId: string;
   boot: string;
@@ -54,6 +73,8 @@ export class ServicoCorrida {
   // apresentação) e a distribuição (#327) as usa para o snapshot; se crescer, removê-las
   // alguns minutos depois do fim.
   private readonly carregadas = new Map<string, EstadoCorrida>();
+  /** Último `boot` com que cada dispositivo se identificou. */
+  private readonly bootAtual = new Map<string, string>();
   private readonly agora: () => number;
   private readonly configuracao: ConfiguracaoDerivacao;
   private readonly prazoLacunaMs: number;
@@ -97,14 +118,54 @@ export class ServicoCorrida {
     await this.deps.corridas.definirInicio(corrida.id, inicio.labirinto, inicio.tempo_ms);
   }
 
-  registrarAtividade(corrida: EstadoCorrida): void {
-    corrida.ultimaMensagemEm = this.agora();
-    corrida.sinalPerdidoEm = null;
+  /**
+   * Chegou uma mensagem desta corrida, por qualquer conexão: o sinal está de volta.
+   * Devolve `true` se ele estava perdido. A ingestão passa o mesmo instante que guardou na
+   * conexão, para a comparação de `sinalPerdido` não depender de milissegundos.
+   */
+  registrarAtividade(corrida: EstadoCorrida, em = this.agora()): boolean {
+    corrida.ultimaMensagemEm = em;
+    return this.sinalRetomado(corrida);
   }
 
-  /** A ingestão declarou o sinal perdido em `em`: os 120 s da interrupção contam daí. */
-  sinalPerdido(corrida: EstadoCorrida, em: number): void {
-    corrida.sinalPerdidoEm ??= em;
+  /**
+   * Uma conexão do robô ficou muda ou caiu, em `em`: os 120 s da interrupção contam daí, e
+   * os painéis são avisados (RF-92). A corrida é a única fonte do estado do sinal: a conexão
+   * que perdeu o sinal pode não ser a mesma que o retoma.
+   *
+   * `ultimaDaConexao` é o último sinal de vida recebido por essa conexão. Se a corrida
+   * recebeu algo mais novo por outra conexão (o robô já voltou por ela), a declaração é de
+   * uma conexão antiga e é ignorada: sem isso, o painel veria uma perda falsa.
+   */
+  sinalPerdido(corrida: EstadoCorrida, em: number, ultimaDaConexao: number): void {
+    if (corrida.sinalPerdidoEm !== null || corrida.derivacao.status !== 'EM_ANDAMENTO') return;
+    if (corrida.ultimaMensagemEm > ultimaDaConexao) return;
+    corrida.sinalPerdidoEm = em;
+    this.deps.eventos.publicar('sinal-alterado', { corridaId: corrida.id, estado: 'PERDIDO' });
+  }
+
+  /**
+   * O robô se identificou de novo com o mesmo `boot` (reconexão do Bluetooth ou da ponte).
+   * As corridas dele que estavam sem sinal o retomam, mesmo antes da próxima mensagem
+   * (CT-BE-25). Devolve também a corrida que a conexão nova passa a vigiar: a retomada mais
+   * recente ou, sem retomada, a em andamento com a atividade mais recente. O `hello` conta
+   * como sinal de vida só para essas, para uma corrida abandonada continuar sendo
+   * interrompida aos 120 s.
+   */
+  roboIdentificado(
+    dispositivoId: string,
+    boot: string,
+    em = this.agora(),
+  ): { ativa: EstadoCorrida | null; retomadas: EstadoCorrida[] } {
+    const doRobo = [...this.carregadas.values()]
+      .filter((c) => c.dispositivoId === dispositivoId && c.boot === boot)
+      .sort((a, b) => b.ultimaMensagemEm - a.ultimaMensagemEm);
+    const retomadas = doRobo.filter((c) => this.sinalRetomado(c));
+    const ativa = retomadas[0] ?? doRobo.find((c) => c.derivacao.status === 'EM_ANDAMENTO') ?? null;
+    for (const corrida of new Set([...retomadas, ...(ativa ? [ativa] : [])])) {
+      corrida.ultimaMensagemEm = em;
+    }
+    return { ativa, retomadas };
   }
 
   /**
@@ -112,10 +173,23 @@ export class ServicoCorrida {
    * iniciadas com o `boot` anterior viram INTERROMPIDA (REINICIO_ROBO) — RF-81, CA1.
    */
   reinicioDetectado(dispositivoId: string, bootNovo: string): void {
+    this.bootAtual.set(dispositivoId, bootNovo);
     for (const corrida of this.carregadas.values()) {
       if (corrida.dispositivoId !== dispositivoId || corrida.boot === bootNovo) continue;
       this.executar(corrida, corrida.derivacao.interromper('REINICIO_ROBO'));
     }
+  }
+
+  /**
+   * Uma corrida que só termina de carregar depois do `hello` com o boot novo escapa do laço
+   * de `reinicioDetectado`: ou ela ainda estava sendo carregada do banco, ou a primeira
+   * mensagem dela ainda estava na fila da conexão antiga. Com o robô já reiniciado, ela
+   * também vira INTERROMPIDA (REINICIO_ROBO).
+   */
+  private interromperSeReiniciou(corrida: EstadoCorrida): void {
+    const atual = this.bootAtual.get(corrida.dispositivoId);
+    if (atual === undefined || atual === corrida.boot) return;
+    this.executar(corrida, corrida.derivacao.interromper('REINICIO_ROBO'));
   }
 
   /**
@@ -149,8 +223,41 @@ export class ServicoCorrida {
       const estado = await this.obterPorId(id, corrida.idCorridaRobo);
       // O relógio do silêncio continua de onde parou, e não do instante da recuperação.
       estado.ultimaMensagemEm = corrida.ultimaMensagemEm ?? this.agora();
+      // Sem conexão do robô, a corrida está sem sinal até ele voltar: o snapshot mostra isso
+      // e a volta gera RETOMADO (RF-92). O instante é o mesmo que o monitor de silêncio daria,
+      // então a interrupção continua aos 120 s da perda.
+      estado.sinalPerdidoEm ??= estado.ultimaMensagemEm + LIMITE_SILENCIO_MS;
     }
     return emAndamento.length;
+  }
+
+  /**
+   * Estado atual de uma corrida carregada, para o snapshot de quem se inscreve no meio
+   * (RF-89). Lido no mesmo tick em que a inscrição é registrada, o corte e os eventos
+   * seguintes não se sobrepõem nem deixam buracos.
+   */
+  estadoAoVivo(corridaId: string): EstadoAoVivo | null {
+    const corrida = [...this.carregadas.values()].find((c) => c.id === corridaId);
+    if (!corrida) return null;
+    const { derivacao } = corrida;
+    return {
+      corridaId,
+      labirinto: derivacao.labirinto ?? corrida.labirinto,
+      sequenciaCorte: derivacao.ultimaSequencia,
+      tempoInicioMs: derivacao.tempoInicio,
+      mapa: derivacao.mapa,
+      metricas: derivacao.metricas,
+      status: derivacao.status,
+      motivo: derivacao.motivo,
+      sinalPerdido: corrida.sinalPerdidoEm !== null,
+    };
+  }
+
+  /** Corridas em andamento carregadas, para quem se inscreve no canal `ao_vivo`. */
+  corridasEmAndamento(): EstadoAoVivo[] {
+    return [...this.carregadas.values()]
+      .filter((c) => c.derivacao.status === 'EM_ANDAMENTO')
+      .map((c) => this.estadoAoVivo(c.id)!);
   }
 
   /** Espera todos os efeitos pendentes serem gravados (testes e encerramento). */
@@ -184,6 +291,7 @@ export class ServicoCorrida {
     const corrida = this.novoEstado(id.dispositivoId, mensagem.corrida, persistida);
     await this.reconstruir(corrida, persistida);
     this.carregadas.set(chaveDe(id.dispositivoId, mensagem.corrida), corrida);
+    this.interromperSeReiniciou(corrida);
     return corrida;
   }
 
@@ -207,6 +315,7 @@ export class ServicoCorrida {
       ultimaMensagemEm: this.agora(),
       sinalPerdidoEm: null,
       aguardandoGravacao: new Set(),
+      sessoes: new Set(),
       efeitos: Promise.resolve(),
       temporizadorLacuna: null,
       progressoGravadoEm: 0,
@@ -229,6 +338,13 @@ export class ServicoCorrida {
     this.aplicarDisponiveis(corrida);
     // Status que não vem das mensagens: uma interrupção feita antes do reinício.
     corrida.derivacao.restaurarStatus(persistida.status, persistida.motivo);
+  }
+
+  private sinalRetomado(corrida: EstadoCorrida): boolean {
+    if (corrida.sinalPerdidoEm === null) return false;
+    corrida.sinalPerdidoEm = null;
+    this.deps.eventos.publicar('sinal-alterado', { corridaId: corrida.id, estado: 'RETOMADO' });
+    return true;
   }
 
   private aplicarDisponiveis(corrida: EstadoCorrida): void {
@@ -292,7 +408,10 @@ export class ServicoCorrida {
   private executar(corrida: EstadoCorrida, efeitos: Efeito[], silencioso = false): void {
     for (const efeito of efeitos) {
       corrida.efeitos = corrida.efeitos
-        .then(() => this.gravarEfeito(corrida, efeito))
+        .then(async () => {
+          await this.gravarEfeito(corrida, efeito);
+          if (!silencioso) this.publicarGravado(corrida, efeito);
+        })
         .catch((erro: unknown) =>
           this.deps.log.error(
             { erro, corrida: corrida.id, efeito: efeito.tipo },
@@ -337,10 +456,19 @@ export class ServicoCorrida {
         motivo: efeito.motivo,
         detalhe: efeito.detalhe,
         sequencia: efeito.sequencia,
+        tempoMs: efeito.tempoMs,
         metricas: corrida.derivacao.metricas,
       });
     } else if (efeito.tipo === 'alerta_tensao') {
       eventos.publicar('alerta-tensao', { corridaId: corrida.id, tensaoV: efeito.tensaoV });
+    }
+  }
+
+  /** Eventos que só podem sair depois de o efeito estar no banco. */
+  private publicarGravado(corrida: EstadoCorrida, efeito: Efeito): void {
+    const labirinto = corrida.derivacao.labirinto;
+    if (efeito.tipo === 'status' && efeito.status === 'CONCLUIDA' && labirinto) {
+      this.deps.eventos.publicar('ranking-alterado', { corridaId: corrida.id, labirinto });
     }
   }
 

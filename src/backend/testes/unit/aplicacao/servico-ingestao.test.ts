@@ -200,6 +200,35 @@ describe('ServicoIngestao', () => {
       expect(amb.sequenciasGravadasDe('c-A')).toEqual([1, 2]);
     });
 
+    it('a lacuna preenchida pela conexão antiga também confirma na conexão nova (CT-BE-04)', async () => {
+      // Caso do CI: depois de uma queda, a conexão nova (B) entrega o fim do buffer antes de a
+      // antiga (A) terminar de entregar o começo. Quem preenche a lacuna é a gravação de A, e o
+      // ack atualizado tem de chegar a B, que é a conexão que continua aberta (RF-74).
+      const acksDeA: number[] = [];
+      const acksDeB: number[] = [];
+      const abrir = async (acks: number[]) => {
+        const resultado = await amb.servico.autenticar(hello(), (ack) => acks.push(ack.sequencia));
+        if (!resultado.ok) throw new Error('hello recusado');
+        return resultado.sessao;
+      };
+      const a = await abrir(acksDeA);
+      await enviar(a, [mensagem('inicio_corrida', 1)]);
+
+      const b = await abrir(acksDeB);
+      await enviar(b, [mensagem('posicao', 4), mensagem('posicao', 5)]);
+      expect(acksDeB.at(-1)).toBe(1);
+
+      await enviar(a, [mensagem('posicao', 2), mensagem('posicao', 3)]);
+      expect(acksDeB.at(-1)).toBe(5);
+
+      // A conexão encerrada deixa de receber acks.
+      await amb.servico.encerrar(a);
+      const acksDeAntes = acksDeA.length;
+      await enviar(b, [mensagem('posicao', 6)]);
+      expect(acksDeB.at(-1)).toBe(6);
+      expect(acksDeA).toHaveLength(acksDeAntes);
+    });
+
     it('o ack para na lacuna e avança quando ela é preenchida (HU-BE-03, CA3)', async () => {
       const sessao = await conectar();
       await enviar(sessao, [

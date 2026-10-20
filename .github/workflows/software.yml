@@ -48,6 +48,9 @@ jobs:
       - name: Integration tests (PostgreSQL via Testcontainers)
         run: npm run test:integracao
 
+      - name: E2E tests (robot simulator + PostgreSQL via Testcontainers)
+        run: npm run test:e2e
+
       - name: Build
         run: npm run build
 
