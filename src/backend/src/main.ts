@@ -69,6 +69,7 @@ const app = await construirApp({
   consulta: new ServicoConsulta(new RepositorioConsultaPg(banco)),
   distribuicao,
   validador,
+  painelDir: config.painelDir,
 });
 
 // Corridas que estavam em andamento quando o backend parou (RNF-52).
