@@ -1,4 +1,4 @@
-import type { ErroDetalhe, StatusCorrida } from '../dominio';
+import type { ErroDetalhe, MotivoTermino, StatusCorrida } from '../dominio';
 
 export function mensagemErroDetalhe(erro: ErroDetalhe): string {
   switch (erro) {
@@ -11,19 +11,19 @@ export function mensagemErroDetalhe(erro: ErroDetalhe): string {
   }
 }
 
-const MOTIVOS: Readonly<Record<string, string>> = {
-  TIMEOUT: 'Tempo limite excedido',
-  TEMPO_LIMITE: 'Tempo limite excedido',
-  ESTOURO_TEMPO: 'Tempo limite excedido',
-  ERRO_FIRMWARE: 'Erro do firmware',
-  FIRMWARE: 'Erro do firmware',
-  PERDA_COMUNICACAO: 'Perda de comunicação',
+// `Record<MotivoTermino, …>`: um motivo novo no backend sem rótulo aqui quebra o typecheck.
+const MOTIVOS: Readonly<Record<MotivoTermino, string>> = {
+  SUCESSO: 'Concluída com sucesso',
+  FALHA_REPORTADA: 'Falha reportada pelo robô',
+  SEM_SINAL: 'Perda de comunicação',
+  REINICIO_ROBO: 'Reinício do robô',
 };
+const ROTULOS: Readonly<Record<string, string>> = MOTIVOS;
 
 /** Motivo do término recebido do backend; códigos desconhecidos aparecem como vieram. */
 export function rotuloMotivoTermino(motivo: string | null): string {
   if (motivo === null || motivo.trim() === '') return 'Motivo não informado';
-  const rotulo = MOTIVOS[motivo.trim().toUpperCase()];
+  const rotulo = ROTULOS[motivo.trim().toUpperCase()];
   return rotulo ? `${rotulo} (${motivo})` : motivo;
 }
 

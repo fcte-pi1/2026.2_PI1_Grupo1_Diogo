@@ -113,16 +113,16 @@ describe('montarJsonExecucao (CT-FE-15 passo 2)', () => {
       montarJsonExecucao({
         dados: execucao({
           status: 'FALHOU',
-          motivoTermino: 'TIMEOUT',
-          detalheFalha: 'Tempo limite de 10 min excedido',
+          motivoTermino: 'FALHA_REPORTADA',
+          detalheFalha: 'Erro: sensor ToF 3',
         }),
         iniciadaEm: INICIO,
       }),
     );
     expect(corpo).toMatchObject({
       status: 'FALHOU',
-      motivo_termino: 'TIMEOUT',
-      detalhe: 'Tempo limite de 10 min excedido',
+      motivo_termino: 'FALHA_REPORTADA',
+      detalhe: 'Erro: sensor ToF 3',
     });
   });
 

@@ -1,6 +1,7 @@
 export type TipoLabirinto = '4x4' | '8x4' | '12x4';
 export type StatusCorrida = 'EM_ANDAMENTO' | 'CONCLUIDA' | 'FALHOU' | 'INTERROMPIDA';
 export type Orientacao = 'NORTE' | 'LESTE' | 'SUL' | 'OESTE';
+export type MotivoTermino = 'SUCESSO' | 'FALHA_REPORTADA' | 'SEM_SINAL' | 'REINICIO_ROBO';
 
 /**
  * Os tipos abaixo espelham, campo a campo, os de `protocolo/tipos.ts`. O dominio/ não pode
@@ -59,7 +60,7 @@ export interface DadosExecucao {
   tempoMs: number | null;
   status: StatusCorrida | null;
   /** Motivo do término informado pelo backend (ex.: tempo limite, erro do firmware). */
-  motivoTermino: string | null;
+  motivoTermino: MotivoTermino | null;
   /** Detalhe textual da falha, quando o backend o envia (HU-FE-13 CA2). */
   detalheFalha: string | null;
   tensaoV: number | null;

@@ -13,11 +13,11 @@ const OUTRA = 'a1b2c3d4-0000-4000-8000-000000000002';
 beforeEach(reiniciarStore);
 
 describe('descreverFalha (CT-FE-13 passo 2)', () => {
-  it('falha com timeout traz título, motivo traduzido e detalhe', () => {
-    expect(descreverFalha('FALHOU', 'TIMEOUT', 'Tempo limite de 10 min excedido')).toEqual({
+  it('falha reportada traz título, motivo traduzido e detalhe', () => {
+    expect(descreverFalha('FALHOU', 'FALHA_REPORTADA', 'Erro: sensor ToF 3')).toEqual({
       titulo: 'Execução falhou',
-      motivo: 'Tempo limite excedido (TIMEOUT)',
-      detalhe: 'Tempo limite de 10 min excedido',
+      motivo: 'Falha reportada pelo robô (FALHA_REPORTADA)',
+      detalhe: 'Erro: sensor ToF 3',
     });
   });
 
@@ -26,19 +26,23 @@ describe('descreverFalha (CT-FE-13 passo 2)', () => {
   });
 
   it.each([['EM_ANDAMENTO'], ['CONCLUIDA'], [null]] as const)('status %s não é falha', (status) => {
-    expect(descreverFalha(status, 'TIMEOUT', 'x')).toBeNull();
+    expect(descreverFalha(status, 'FALHA_REPORTADA', 'x')).toBeNull();
   });
 
   it.each([[null], [''], ['   ']])('detalhe vazio (%j) não gera linha de detalhe', (detalhe) => {
-    expect(descreverFalha('FALHOU', 'ERRO_FIRMWARE', detalhe)?.detalhe).toBeNull();
+    expect(descreverFalha('FALHOU', 'FALHA_REPORTADA', detalhe)?.detalhe).toBeNull();
   });
 });
 
 describe('rotuloMotivoTermino', () => {
   it('traduz os motivos conhecidos, sem perder o código recebido', () => {
-    expect(rotuloMotivoTermino('TIMEOUT')).toBe('Tempo limite excedido (TIMEOUT)');
-    expect(rotuloMotivoTermino('ERRO_FIRMWARE')).toBe('Erro do firmware (ERRO_FIRMWARE)');
-    expect(rotuloMotivoTermino('timeout')).toBe('Tempo limite excedido (timeout)');
+    expect(rotuloMotivoTermino('SUCESSO')).toBe('Concluída com sucesso (SUCESSO)');
+    expect(rotuloMotivoTermino('FALHA_REPORTADA')).toBe(
+      'Falha reportada pelo robô (FALHA_REPORTADA)',
+    );
+    expect(rotuloMotivoTermino('SEM_SINAL')).toBe('Perda de comunicação (SEM_SINAL)');
+    expect(rotuloMotivoTermino('REINICIO_ROBO')).toBe('Reinício do robô (REINICIO_ROBO)');
+    expect(rotuloMotivoTermino('sem_sinal')).toBe('Perda de comunicação (sem_sinal)');
   });
 
   it('código desconhecido aparece como veio', () => {
@@ -125,13 +129,13 @@ describe('falha e sinal pelo WebSocket (CT-FE-13 e CT-FE-13b)', () => {
     ws.receber(
       eventoStatus('FALHOU', {
         motivo_termino: 'FALHA_REPORTADA',
-        detalhe: 'Tempo limite de 10 min excedido',
+        detalhe: 'Erro: sensor ToF 3',
       }),
     );
     expect(estado().aoVivo).toMatchObject({
       status: 'FALHOU',
       motivoTermino: 'FALHA_REPORTADA',
-      detalheFalha: 'Tempo limite de 10 min excedido',
+      detalheFalha: 'Erro: sensor ToF 3',
     });
   });
 

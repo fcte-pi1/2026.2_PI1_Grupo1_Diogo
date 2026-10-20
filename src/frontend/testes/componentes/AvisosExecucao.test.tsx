@@ -11,8 +11,8 @@ const acoes = () => usePainel.getState().acoes;
 
 const FALHA = {
   titulo: 'Execução falhou',
-  motivo: 'Tempo limite excedido (TIMEOUT)',
-  detalhe: 'Tempo limite de 10 min excedido',
+  motivo: 'Falha reportada pelo robô (FALHA_REPORTADA)',
+  detalhe: 'Erro: sensor ToF 3',
 };
 
 beforeEach(reiniciarStore);
@@ -23,11 +23,9 @@ describe('AvisosExecucao (HU-FE-13 / CT-FE-13)', () => {
     render(<AvisosExecucao status="FALHOU" falha={FALHA} />);
     expect(screen.getByTestId('alerta-falha')).toHaveTextContent('Execução falhou');
     expect(screen.getByTestId('alerta-falha-motivo')).toHaveTextContent(
-      'Motivo: Tempo limite excedido (TIMEOUT)',
+      'Motivo: Falha reportada pelo robô (FALHA_REPORTADA)',
     );
-    expect(screen.getByTestId('alerta-falha-detalhe')).toHaveTextContent(
-      'Tempo limite de 10 min excedido',
-    );
+    expect(screen.getByTestId('alerta-falha-detalhe')).toHaveTextContent('Erro: sensor ToF 3');
     expect(screen.queryByTestId('desafio-cumprido')).not.toBeInTheDocument();
   });
 
@@ -86,12 +84,12 @@ describe('avisos na tela ao vivo (CT-FE-13 / CT-FE-13b / CT-FE-13c)', () => {
     act(() =>
       acoes().atualizarExecucao({
         status: 'FALHOU',
-        motivoTermino: 'TIMEOUT',
-        detalheFalha: 'Tempo limite de 10 min excedido',
+        motivoTermino: 'FALHA_REPORTADA',
+        detalheFalha: 'Erro: sensor ToF 3',
       }),
     );
     expect(screen.getByTestId('alerta-falha-motivo')).toHaveTextContent(
-      'Motivo: Tempo limite excedido (TIMEOUT)',
+      'Motivo: Falha reportada pelo robô (FALHA_REPORTADA)',
     );
   });
 
