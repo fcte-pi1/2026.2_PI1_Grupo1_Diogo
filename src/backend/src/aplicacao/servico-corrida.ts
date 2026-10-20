@@ -315,6 +315,7 @@ export class ServicoCorrida {
       ultimaMensagemEm: this.agora(),
       sinalPerdidoEm: null,
       aguardandoGravacao: new Set(),
+      sessoes: new Set(),
       efeitos: Promise.resolve(),
       temporizadorLacuna: null,
       progressoGravadoEm: 0,

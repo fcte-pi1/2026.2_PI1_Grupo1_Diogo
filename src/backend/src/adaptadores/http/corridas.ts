@@ -1,5 +1,7 @@
 import type { FastifyInstance } from 'fastify';
+import type { TipoLabirinto } from '../../../protocolo/tipos.js';
 import type { ServicoConsulta } from '../../aplicacao/index.js';
+import { TIPOS_LABIRINTO } from '../../dominio/index.js';
 
 export interface DependenciasCorridasHttp {
   consulta: ServicoConsulta;
@@ -7,7 +9,7 @@ export interface DependenciasCorridasHttp {
 
 const UUID = '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$';
 
-/** Rotas de consulta das corridas (arquitetura do backend, §2.5; contrato em `protocolo/v1/API.md`). */
+/** Rotas de consulta das corridas e do ranking (arquitetura do backend, §2.5; contrato em `protocolo/v1/API.md`). */
 export async function rotasCorridas(
   app: FastifyInstance,
   { consulta }: DependenciasCorridasHttp,
@@ -36,5 +38,23 @@ export async function rotasCorridas(
       }
       return detalhe;
     },
+  );
+
+  // GET /api/leaderboard?labirinto&apresentacao — ranking por tipo de labirinto (RF-95).
+  app.get<{ Querystring: { labirinto: TipoLabirinto; apresentacao?: string } }>(
+    '/api/leaderboard',
+    {
+      schema: {
+        querystring: {
+          type: 'object',
+          properties: {
+            labirinto: { type: 'string', enum: [...TIPOS_LABIRINTO] },
+            apresentacao: { type: 'string', pattern: UUID },
+          },
+          required: ['labirinto'],
+        },
+      },
+    },
+    (req) => consulta.leaderboard(req.query.labirinto, req.query.apresentacao ?? null),
   );
 }

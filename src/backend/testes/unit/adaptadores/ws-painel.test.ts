@@ -16,7 +16,10 @@ describe('WS /ws/painel', () => {
       ingestao: amb.servico,
       distribuicao: amb.distribuicao,
       validador: criarValidadorProtocolo(),
-      consulta: new ServicoConsulta({ detalheCorrida: async () => null }),
+      consulta: new ServicoConsulta({
+        detalheCorrida: async () => null,
+        leaderboard: async () => [],
+      }),
     });
     await app.ready();
   }

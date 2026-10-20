@@ -20,6 +20,7 @@
     "test:watch": "vitest --project unit",
     "test:cobertura": "vitest run --project unit --coverage",
     "test:integracao": "vitest run --project integracao",
+    "test:e2e": "vitest run --project e2e",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "format": "prettier --write .",

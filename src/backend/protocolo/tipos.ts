@@ -410,3 +410,44 @@ export interface DetalheCorrida extends CorridaResumo {
   energia: LeituraEnergiaCorrida[];
   anulacao: AnulacaoCorrida | null;
 }
+
+// ============================================================================
+// API HTTP — GET /api/leaderboard (ranking por tipo de labirinto, RF-95)
+// ============================================================================
+// Referência: `protocolo/v1/API.md`.
+
+/** Parâmetros de consulta de `GET /api/leaderboard`. */
+export interface FiltrosLeaderboard {
+  /** Obrigatório: o ranking é sempre de um tipo de labirinto. */
+  labirinto: TipoLabirinto;
+  /** Id (UUID) de uma apresentação: só as corridas dela. Sem ele, todas. */
+  apresentacao?: string;
+}
+
+/** Uma corrida no ranking. */
+export interface PosicaoLeaderboard {
+  /** A partir de 1. Corridas com o mesmo tempo e a mesma distância dividem a posição. */
+  posicao: number;
+  /** Id (UUID) da corrida no backend, o mesmo de `/api/corridas/{id}`. */
+  id: string;
+  /** Id da corrida gerado pelo robô. */
+  corrida_robo: string;
+  /** Número da tentativa na apresentação; `null` para corridas fora de apresentação. */
+  numero_tentativa: number | null;
+  /** Tempo oficial, pelo relógio do robô (RF-82). Primeiro critério da ordenação. */
+  tempo_conclusao_ms: number;
+  /** Transições × 0,18 m. Desempate: a menor distância fica à frente. */
+  distancia_m: number;
+  velocidade_media_mps: number | null;
+  /** Instante do encerramento, ISO 8601 em UTC. */
+  encerrada_em: string;
+}
+
+/** Resposta de `GET /api/leaderboard`: só corridas CONCLUIDA e não anuladas. */
+export interface RespostaLeaderboard {
+  labirinto: TipoLabirinto;
+  /** A apresentação filtrada, ou `null` quando o ranking é de todas as corridas. */
+  apresentacao: string | null;
+  /** Em ordem de posição. Vazio quando nenhuma corrida válida foi concluída. */
+  itens: PosicaoLeaderboard[];
+}
