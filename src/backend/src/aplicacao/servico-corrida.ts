@@ -73,6 +73,8 @@ export class ServicoCorrida {
   // apresentação) e a distribuição (#327) as usa para o snapshot; se crescer, removê-las
   // alguns minutos depois do fim.
   private readonly carregadas = new Map<string, EstadoCorrida>();
+  /** Último `boot` com que cada dispositivo se identificou. */
+  private readonly bootAtual = new Map<string, string>();
   private readonly agora: () => number;
   private readonly configuracao: ConfiguracaoDerivacao;
   private readonly prazoLacunaMs: number;
@@ -171,10 +173,23 @@ export class ServicoCorrida {
    * iniciadas com o `boot` anterior viram INTERROMPIDA (REINICIO_ROBO) — RF-81, CA1.
    */
   reinicioDetectado(dispositivoId: string, bootNovo: string): void {
+    this.bootAtual.set(dispositivoId, bootNovo);
     for (const corrida of this.carregadas.values()) {
       if (corrida.dispositivoId !== dispositivoId || corrida.boot === bootNovo) continue;
       this.executar(corrida, corrida.derivacao.interromper('REINICIO_ROBO'));
     }
+  }
+
+  /**
+   * Uma corrida que só termina de carregar depois do `hello` com o boot novo escapa do laço
+   * de `reinicioDetectado`: ou ela ainda estava sendo carregada do banco, ou a primeira
+   * mensagem dela ainda estava na fila da conexão antiga. Com o robô já reiniciado, ela
+   * também vira INTERROMPIDA (REINICIO_ROBO).
+   */
+  private interromperSeReiniciou(corrida: EstadoCorrida): void {
+    const atual = this.bootAtual.get(corrida.dispositivoId);
+    if (atual === undefined || atual === corrida.boot) return;
+    this.executar(corrida, corrida.derivacao.interromper('REINICIO_ROBO'));
   }
 
   /**
@@ -276,6 +291,7 @@ export class ServicoCorrida {
     const corrida = this.novoEstado(id.dispositivoId, mensagem.corrida, persistida);
     await this.reconstruir(corrida, persistida);
     this.carregadas.set(chaveDe(id.dispositivoId, mensagem.corrida), corrida);
+    this.interromperSeReiniciou(corrida);
     return corrida;
   }
 
