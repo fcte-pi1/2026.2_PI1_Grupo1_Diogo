@@ -32,6 +32,7 @@ import {
   VerificadorTokenArgon2,
   criarInserirLote,
 } from '../../src/infra/repositorios-pg.js';
+import { linhaDoTempoVazia } from '../apoio/linha-do-tempo-vazia.js';
 
 const SILENCIOSO = { info: () => {}, warn: () => {}, error: () => {} };
 
@@ -112,6 +113,7 @@ describe('simulador → backend → PostgreSQL', () => {
       log: SILENCIOSO,
     });
     app = await construirApp({
+      linhaDoTempo: linhaDoTempoVazia(),
       verificarBanco: async () => true,
       contadores,
       ingestao,

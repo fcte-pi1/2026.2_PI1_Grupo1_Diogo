@@ -9,7 +9,11 @@ import { runner } from 'node-pg-migrate';
 import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import WebSocketNode from 'ws';
-import type { DetalheCorrida, RespostaLeaderboard } from '../../protocolo/tipos.js';
+import type {
+  DetalheCorrida,
+  ItemLinhaDoTempo,
+  RespostaLeaderboard,
+} from '../../protocolo/tipos.js';
 import { criarValidadorProtocolo } from '../../protocolo/validador.js';
 import {
   AVISO_PAINEL_LENTO,
@@ -17,10 +21,16 @@ import {
   ServicoCorrida,
   ServicoDistribuicao,
   ServicoIngestao,
+  ServicoLinhaDoTempo,
 } from '../../src/aplicacao/index.js';
 import { construirApp } from '../../src/app.js';
+import {
+  CONFIGURACAO_PADRAO,
+  DerivacaoCorrida,
+  type MensagemDerivavel,
+} from '../../src/dominio/index.js';
 import { BarramentoEventos } from '../../src/infra/barramento-eventos.js';
-import { RepositorioConsultaPg } from '../../src/infra/consulta-pg.js';
+import { RepositorioConsultaPg, RepositorioLinhaDoTempoPg } from '../../src/infra/consulta-pg.js';
 import { criarContadores } from '../../src/infra/contadores.js';
 import { GravadorLote } from '../../src/infra/gravador-lote.js';
 import {
@@ -56,8 +66,11 @@ class Robo {
   enviar(...textos: string[]): void {
     for (const texto of textos) this.ws.send(texto);
   }
-  async esperarAck(corrida: string, sequencia: number): Promise<void> {
-    await esperar(() => this.acks.some((a) => a.corrida === corrida && a.sequencia === sequencia));
+  async esperarAck(corrida: string, sequencia: number, prazoMs?: number): Promise<void> {
+    await esperar(
+      () => this.acks.some((a) => a.corrida === corrida && a.sequencia === sequencia),
+      prazoMs,
+    );
   }
   fechar(): Promise<number> {
     this.ws.close();
@@ -136,6 +149,7 @@ describe('ingestão de telemetria com PostgreSQL real', () => {
       contadores,
       ingestao,
       consulta: new ServicoConsulta(new RepositorioConsultaPg(pool)),
+      linhaDoTempo: new ServicoLinhaDoTempo(new RepositorioLinhaDoTempoPg(pool)),
       distribuicao,
       validador: criarValidadorProtocolo(),
       prazoHelloMs: 300,
@@ -508,6 +522,83 @@ describe('ingestão de telemetria com PostgreSQL real', () => {
         { seq: 3, ordem: 2 },
         { seq: 4, ordem: 3 },
       ]);
+    });
+  });
+
+  describe('GET /api/corridas/{id}/linha-do-tempo (RF-94, CT-BE-27)', () => {
+    it('CT-BE-27: 500 mensagens, algumas fora de ordem; o replay reproduz o mapa do snapshot final', async () => {
+      const c = { corrida: 'replay' };
+      // 8x4: percorre as linhas indo e voltando, com posição e energia entre as células.
+      const mensagens: string[] = [
+        mensagem('inicio_corrida', 1, { ...c, labirinto: '8x4', tempo_ms: 0 }),
+      ];
+      for (let seq = 2; seq < 500; seq++) {
+        const passo = seq - 2;
+        const linha = Math.floor(passo / 24) % 4;
+        const coluna =
+          linha % 2 === 0 ? Math.floor(passo / 3) % 8 : 7 - (Math.floor(passo / 3) % 8);
+        const t = seq * 50;
+        const tipo = passo % 3 === 0 ? 'celula' : passo % 3 === 1 ? 'posicao' : 'energia';
+        const campos =
+          tipo === 'celula'
+            ? {
+                x: coluna,
+                y: linha,
+                paredes: {
+                  norte: linha === 0,
+                  leste: coluna === 7,
+                  sul: linha === 3,
+                  oeste: coluna === 0,
+                },
+              }
+            : tipo === 'posicao'
+              ? { x: coluna, y: linha, orientacao: 'LESTE', celulas: passo }
+              : { tensao_v: 8.1 - passo / 1000 };
+        mensagens.push(mensagem(tipo, seq, { ...c, ...campos, tempo_ms: t }));
+      }
+      mensagens.push(mensagem('fim_corrida', 500, { ...c, tempo_ms: 500 * 50 }));
+      // Algumas chegam fora de ordem: troca pares vizinhos a cada 37 mensagens.
+      const envio = [...mensagens];
+      for (let i = 10; i + 1 < envio.length - 1; i += 37)
+        [envio[i], envio[i + 1]] = [envio[i + 1]!, envio[i]!];
+
+      const robo = await Robo.conectar(url);
+      robo.enviar(hello({ boot: 'b-replay' }), ...envio);
+      await robo.esperarAck('replay', 500, 30_000);
+      await robo.fechar();
+      await corridas.esvaziar();
+      const [{ id }] = (await consulta<{ id: string }>(
+        `SELECT id FROM corrida WHERE id_corrida_robo = 'replay'`,
+      )) as [{ id: string }];
+
+      const resposta = await fetch(`${base}/api/corridas/${id}/linha-do-tempo`);
+      expect(resposta.headers.get('content-type')).toContain('application/x-ndjson');
+      const itens = (await resposta.text())
+        .trimEnd()
+        .split('\n')
+        .map((l) => JSON.parse(l) as ItemLinhaDoTempo);
+
+      // 500 registros, em ordem estritamente crescente de seq.
+      expect(itens).toHaveLength(500);
+      expect(itens.every((it, i) => i === 0 || it.sequencia > itens[i - 1]!.sequencia)).toBe(true);
+      expect(itens[0]).toMatchObject({ sequencia: 1, tipo: 'inicio_corrida', tempo_ms: 0 });
+
+      // Reproduzidas num estado vazio, dão o mesmo mapa do snapshot final.
+      const replay = new DerivacaoCorrida(null, CONFIGURACAO_PADRAO);
+      for (const it of itens) replay.aplicar(it.mensagem as MensagemDerivavel);
+      const [final] = await consulta<{ estado: { mapa: unknown } }>(
+        `SELECT estado FROM snapshot_mapa WHERE corrida_id = $1 ORDER BY seq_corte DESC LIMIT 1`,
+        [id],
+      );
+      expect(replay.mapa).toEqual(final!.estado.mapa);
+      expect(replay.status).toBe('CONCLUIDA');
+    }, 60_000);
+
+    it('404 para corrida inexistente', async () => {
+      const resposta = await fetch(
+        `${base}/api/corridas/0b6f7c0e-3a52-4c8e-9a51-1f0f5c1f2a33/linha-do-tempo`,
+      );
+      expect(resposta.status).toBe(404);
     });
   });
 

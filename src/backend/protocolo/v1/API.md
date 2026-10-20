@@ -259,3 +259,24 @@ A anulação (RF-96) também tira a corrida do ranking, porque a consulta exclui
 GET /api/leaderboard?labirinto=4x4
 GET /api/leaderboard?labirinto=8x4&apresentacao=0b6f7c0e-3a52-4c8e-9a51-1f0f5c1f2a33
 ```
+
+## `GET /api/corridas/{id}/linha-do-tempo` — replay
+
+Todas as mensagens aceitas da corrida, **em ordem estritamente crescente de `sequencia`**, para reproduzir a corrida no painel passo a passo (RF-94, HU-BE-23). Reproduzidas a partir de um estado vazio, elas dão o mesmo mapa do snapshot final (CT-BE-27).
+
+A resposta é **NDJSON** (`Content-Type: application/x-ndjson`): um objeto JSON por linha, um `ItemLinhaDoTempo` por mensagem. Ela é enviada em *stream*, à medida que as mensagens são lidas do banco, em lotes de 500, então o tamanho da corrida não pesa na memória do backend.
+
+```
+{"sequencia":1,"tempo_ms":12000,"tipo":"inicio_corrida","recebida_em":"2026-10-20T14:00:00.120Z","mensagem":{"versao":1,"tipo":"inicio_corrida","corrida":"ra1b2c3-1","sequencia":1,"tempo_ms":12000,"labirinto":"4x4"}}
+{"sequencia":2,"tempo_ms":12000,"tipo":"estado","recebida_em":"2026-10-20T14:00:00.130Z","mensagem":{"versao":1,"tipo":"estado","corrida":"ra1b2c3-1","sequencia":2,"tempo_ms":12000,"estado":"MAPEANDO"}}
+```
+
+| Campo | Observação |
+|:--|:--|
+| `sequencia`, `tempo_ms`, `tipo` | Da mensagem, repetidos para o painel não precisar abrir a `mensagem` para ordenar ou filtrar |
+| `recebida_em` | Quando o backend recebeu, ISO 8601 em UTC |
+| `mensagem` | A mensagem do robô **exatamente como foi aceita** (o formato do `README.md` deste protocolo) |
+
+Corrida inexistente: `404` (`CORRIDA_NAO_ENCONTRADA`). Id que não é UUID: `400`. Uma corrida em andamento também tem linha do tempo, com o que já foi gravado.
+
+Para ler no navegador: `fetch` e `response.body.getReader()`, separando o texto por `\n`; ou `await response.text()` e `split('\n')` para corridas pequenas.
