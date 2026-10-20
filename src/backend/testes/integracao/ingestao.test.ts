@@ -602,6 +602,62 @@ describe('ingestão de telemetria com PostgreSQL real', () => {
     });
   });
 
+  describe('GET /api/corridas/{id}/exportacao (RF-98, CT-BE-31)', () => {
+    it('CT-BE-31: corrida de 300 mensagens em JSON (igual ao detalhe) e em CSV (300 linhas em ordem)', async () => {
+      const c = { corrida: 'exporta' };
+      const mensagens = [mensagem('inicio_corrida', 1, { ...c, tempo_ms: 0 })];
+      for (let seq = 2; seq < 300; seq++) {
+        const t = seq * 50;
+        mensagens.push(
+          seq % 2 === 0
+            ? mensagem('energia', seq, { ...c, tensao_v: 8.1 - seq / 1000, tempo_ms: t })
+            : mensagem('posicao', seq, {
+                ...c,
+                x: 0,
+                y: 0,
+                orientacao: 'NORTE',
+                celulas: 0,
+                tempo_ms: t,
+              }),
+        );
+      }
+      mensagens.push(mensagem('fim_corrida', 300, { ...c, tempo_ms: 300 * 50 }));
+      const robo = await Robo.conectar(url);
+      robo.enviar(hello({ boot: 'b-exporta' }), ...mensagens);
+      await robo.esperarAck('exporta', 300, 30_000);
+      await robo.fechar();
+      await corridas.esvaziar();
+      const [{ id }] = (await consulta<{ id: string }>(
+        `SELECT id FROM corrida WHERE id_corrida_robo = 'exporta'`,
+      )) as [{ id: string }];
+
+      const json = await fetch(`${base}/api/corridas/${id}/exportacao?formato=json`);
+      expect(json.headers.get('content-type')).toContain('application/json');
+      expect(json.headers.get('content-disposition')).toBe(
+        `attachment; filename="corrida-${id}.json"`,
+      );
+      const exportado = (await json.json()) as DetalheCorrida;
+      const detalhe = await (await fetch(`${base}/api/corridas/${id}`)).json();
+      expect(exportado).toEqual(detalhe);
+      expect(exportado).toMatchObject({ status: 'CONCLUIDA' });
+      expect(exportado.energia).toHaveLength(149);
+
+      const resposta = await fetch(`${base}/api/corridas/${id}/exportacao?formato=csv`);
+      expect(resposta.headers.get('content-type')).toContain('text/csv');
+      expect(resposta.headers.get('content-disposition')).toBe(
+        `attachment; filename="corrida-${id}.csv"`,
+      );
+      // `text()` descarta o BOM; o cabeçalho vem logo em seguida.
+      const linhas = (await resposta.text()).trimEnd().split('\r\n');
+      expect(linhas[0]).toMatch(/^seq,t_robo_ms,tipo,recebida_em,/);
+      const dados = linhas.slice(1).map((l) => l.split(','));
+      expect(dados).toHaveLength(300);
+      expect(dados.map((d) => Number(d[0]))).toEqual(Array.from({ length: 300 }, (_, i) => i + 1));
+      expect(dados.every((d) => d.length === linhas[0]!.split(',').length)).toBe(true);
+      expect(dados[1]!.slice(0, 3)).toEqual(['2', '100', 'energia']);
+    }, 60_000);
+  });
+
   describe('GET /api/corridas/{id} (#325, parte 2)', () => {
     const idDe = async (idRobo: string) =>
       (

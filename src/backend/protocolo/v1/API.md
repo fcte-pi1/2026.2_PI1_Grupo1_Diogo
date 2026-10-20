@@ -280,3 +280,24 @@ A resposta é **NDJSON** (`Content-Type: application/x-ndjson`): um objeto JSON 
 Corrida inexistente: `404` (`CORRIDA_NAO_ENCONTRADA`). Id que não é UUID: `400`. Uma corrida em andamento também tem linha do tempo, com o que já foi gravado.
 
 Para ler no navegador: `fetch` e `response.body.getReader()`, separando o texto por `\n`; ou `await response.text()` e `split('\n')` para corridas pequenas.
+
+## `GET /api/corridas/{id}/exportacao?formato=json|csv` — exportação
+
+Download de uma corrida para o relatório e para planilhas (RF-98, HU-BE-27). O parâmetro `formato` é obrigatório. As duas respostas vêm com `Content-Disposition: attachment; filename="corrida-{id}.json"` (ou `.csv`), então um link `<a href download>` já baixa o arquivo.
+
+| `formato` | `Content-Type` | Conteúdo |
+|:--|:--|:--|
+| `json` | `application/json; charset=utf-8` | O mesmo `DetalheCorrida` de `GET /api/corridas/{id}`: resumo, métricas, trajeto e energia |
+| `csv` | `text/csv; charset=utf-8` | Uma linha por mensagem aceita, em ordem de `seq`, enviada em *stream* pelos mesmos lotes do replay |
+
+O CSV segue a RFC 4180: separador `,`, decimal com `.`, linhas terminadas em `\r\n`, aspas no texto que tem vírgula, aspas ou quebra de linha. Começa com o BOM do UTF-8, para a planilha mostrar os acentos. As colunas são fixas, a união dos campos de todos os tipos de mensagem; a mensagem que não tem o campo deixa a célula vazia:
+
+```
+seq,t_robo_ms,tipo,recebida_em,labirinto,x,y,orientacao,celulas,velocidade_media_mps,parede_norte,parede_leste,parede_sul,parede_oeste,tensao_v,corrente_a,potencia_w,estado,resultado,detalhe
+1,12000,inicio_corrida,2026-10-20T14:00:00.120Z,4x4,,,,,,,,,,,,,,,
+2,12000,celula,2026-10-20T14:00:00.130Z,,0,0,,,,true,false,false,true,,,,,,
+```
+
+O `detalhe` do `fim_corrida` é texto livre do robô: quando começa com `=`, `+`, `-` ou `@`, ganha um `'` na frente, para a planilha não o executar como fórmula.
+
+Corrida inexistente: `404` (`CORRIDA_NAO_ENCONTRADA`). Sem `formato`, com formato inválido ou com id que não é UUID: `400`.

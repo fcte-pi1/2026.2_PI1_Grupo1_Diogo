@@ -1,8 +1,9 @@
 import { Readable } from 'node:stream';
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyReply } from 'fastify';
 import type { TipoLabirinto } from '../../../protocolo/tipos.js';
 import type { ServicoConsulta, ServicoLinhaDoTempo } from '../../aplicacao/index.js';
 import { TIPOS_LABIRINTO } from '../../dominio/index.js';
+import { csv } from './exportacao-csv.js';
 
 export interface DependenciasCorridasHttp {
   consulta: ServicoConsulta;
@@ -39,6 +40,45 @@ export async function rotasCorridas(
         });
       }
       return reply.type('application/x-ndjson; charset=utf-8').send(Readable.from(ndjson(itens)));
+    },
+  );
+
+  // GET /api/corridas/{id}/exportacao?formato=json|csv — download da corrida (RF-98, HU-BE-27).
+  app.get<{ Params: { id: string }; Querystring: { formato: 'json' | 'csv' } }>(
+    '/api/corridas/:id/exportacao',
+    {
+      schema: {
+        params: {
+          type: 'object',
+          properties: { id: { type: 'string', pattern: UUID } },
+          required: ['id'],
+        },
+        querystring: {
+          type: 'object',
+          properties: { formato: { type: 'string', enum: ['json', 'csv'] } },
+          required: ['formato'],
+        },
+      },
+    },
+    async (req, reply) => {
+      const { id } = req.params;
+      const arquivo = `attachment; filename="corrida-${id}.${req.query.formato}"`;
+      if (req.query.formato === 'json') {
+        // O mesmo conteúdo do detalhe: resumo, métricas, trajeto e energia (CA1).
+        const detalhe = await consulta.detalheCorrida(id);
+        if (!detalhe) return corridaNaoEncontrada(reply);
+        return reply
+          .header('content-disposition', arquivo)
+          .type('application/json; charset=utf-8')
+          .send(detalhe);
+      }
+      // Uma linha por mensagem, em stream pelos mesmos lotes do replay (CA2, CA3).
+      const itens = await linhaDoTempo.linhaDoTempo(id);
+      if (!itens) return corridaNaoEncontrada(reply);
+      return reply
+        .header('content-disposition', arquivo)
+        .type('text/csv; charset=utf-8')
+        .send(Readable.from(csv(itens)));
     },
   );
 
@@ -85,6 +125,15 @@ export async function rotasCorridas(
     },
     (req) => consulta.leaderboard(req.query.labirinto, req.query.apresentacao ?? null),
   );
+}
+
+function corridaNaoEncontrada(reply: FastifyReply): FastifyReply {
+  return reply.code(404).send({
+    statusCode: 404,
+    code: 'CORRIDA_NAO_ENCONTRADA',
+    error: 'Not Found',
+    message: 'corrida não encontrada',
+  });
 }
 
 /** Um objeto JSON por linha (NDJSON), à medida que os lotes chegam do banco. */
