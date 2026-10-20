@@ -8,8 +8,6 @@ Este documento descreve o **contrato**. A implementação de cada rota está ind
 
 Lista as corridas gravadas, **da mais recente para a mais antiga** (RF-93, HU-BE-22). É a rota usada pela tela de histórico do painel (RF-65, RF-66).
 
-*Implementação: #328. Enquanto ela não entra, a rota ainda não existe no backend.*
-
 ### Parâmetros de consulta
 
 Todos são opcionais e podem ser combinados. Tipo: `FiltrosListaCorridas`.
@@ -18,14 +16,23 @@ Todos são opcionais e podem ser combinados. Tipo: `FiltrosListaCorridas`.
 |:--|:--|:--|:--|
 | `tipo` | `4x4`, `8x4`, `12x4` | todos | Só corridas desse tipo de labirinto |
 | `status` | `EM_ANDAMENTO`, `CONCLUIDA`, `FALHOU`, `INTERROMPIDA` | todos | Só corridas nesse status |
-| `de` | data e hora em ISO 8601 | sem limite | Corridas iniciadas a partir desse instante |
-| `ate` | data e hora em ISO 8601 | sem limite | Corridas iniciadas até esse instante |
+| `de` | data, ou data e hora, em ISO 8601 | sem limite | Corridas iniciadas a partir desse instante |
+| `ate` | data, ou data e hora, em ISO 8601 | sem limite | Corridas iniciadas até esse instante |
 | `pagina` | inteiro ≥ 1 | `1` | Página pedida |
 | `tamanho` | inteiro de 1 a 100 | `20` | Itens por página. Um valor acima de 100 é **limitado a 100**, sem erro |
 
 Para listar todos os tipos, **omita** o parâmetro `tipo`. Não existe o valor "todos".
 
-Um parâmetro com valor inválido (por exemplo, `tipo=5x5` ou `pagina=0`) devolve `400`.
+**Datas:** `de` e `ate` aceitam a data com hora e fuso (`2026-10-14T18:00:00Z` ou `2026-10-14T00:00:00-03:00`) ou só a data (`2026-10-14`). Só a data vale o **dia inteiro em UTC**: `de=2026-10-14&ate=2026-10-14` traz as corridas de todo o dia 14 (UTC). Para o dia no horário de Brasília, envie a data e a hora com o fuso `-03:00`.
+
+Um parâmetro com valor inválido devolve `400`:
+
+| Caso | `code` |
+|:--|:--|
+| `tipo` ou `status` fora da lista, `pagina` ou `tamanho` menor que 1 (por exemplo, `tipo=5x5` ou `pagina=0`) | `FST_ERR_VALIDATION` |
+| Data que não é ISO 8601 ou não existe (`14/10/2026`, `2026-02-30`), ou `de` depois de `ate` | `FILTRO_INVALIDO` |
+
+Uma página depois da última devolve `itens` vazio, com o `total` dos filtros.
 
 ### Resposta `200`
 
@@ -80,6 +87,7 @@ GET /api/corridas
 GET /api/corridas?tipo=8x4
 GET /api/corridas?tipo=4x4&status=CONCLUIDA&pagina=2&tamanho=20
 GET /api/corridas?de=2026-10-13T00:00:00Z&ate=2026-10-13T23:59:59Z
+GET /api/corridas?de=2026-10-13&ate=2026-10-13
 ```
 
 ## `GET /api/corridas/{id}` — detalhe da corrida

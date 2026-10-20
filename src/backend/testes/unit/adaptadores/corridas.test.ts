@@ -1,8 +1,12 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import type { FastifyInstance } from 'fastify';
-import type { DetalheCorrida, PosicaoLeaderboard } from '../../../protocolo/tipos.js';
+import type {
+  CorridaResumo,
+  DetalheCorrida,
+  PosicaoLeaderboard,
+} from '../../../protocolo/tipos.js';
 import { criarValidadorProtocolo } from '../../../protocolo/validador.js';
-import { ServicoConsulta } from '../../../src/aplicacao/index.js';
+import { ServicoConsulta, type FiltrosListagem } from '../../../src/aplicacao/index.js';
 import { construirApp } from '../../../src/app.js';
 import { AmbienteEmMemoria } from '../../apoio/ingestao-em-memoria.js';
 
@@ -13,6 +17,8 @@ const PRIMEIRA = { posicao: 1, id: ID, tempo_conclusao_ms: 60_000 } as PosicaoLe
 let app: FastifyInstance;
 const consultados: string[] = [];
 const rankings: [string, string | null][] = [];
+const listagens: FiltrosListagem[] = [];
+const RESUMO = { id: ID, status: 'CONCLUIDA' } as CorridaResumo;
 afterEach(() => app.close());
 
 async function montar() {
@@ -27,6 +33,10 @@ async function montar() {
       detalheCorrida: async (id) => {
         consultados.push(id);
         return id === ID ? DETALHE : null;
+      },
+      listarCorridas: async (filtros) => {
+        listagens.push(filtros);
+        return { itens: [RESUMO], total: 45 };
       },
       leaderboard: async (labirinto, apresentacao) => {
         rankings.push([labirinto, apresentacao]);
@@ -100,5 +110,67 @@ describe('GET /api/leaderboard', () => {
     const resposta = await app.inject({ method: 'GET', url });
     expect(resposta.statusCode).toBe(400);
     expect(rankings).toHaveLength(0);
+  });
+});
+
+describe('GET /api/corridas', () => {
+  const listar = async (url: string) => {
+    await montar();
+    listagens.length = 0;
+    return app.inject({ method: 'GET', url });
+  };
+
+  it('sem filtros: primeira página de 20, da mais recente para a mais antiga', async () => {
+    const resposta = await listar('/api/corridas');
+    expect(resposta.statusCode).toBe(200);
+    expect(resposta.json()).toEqual({ itens: [RESUMO], total: 45, pagina: 1, tamanho: 20 });
+    expect(listagens).toEqual([
+      { tipo: null, status: null, de: null, antesDe: null, limite: 20, deslocamento: 0 },
+    ]);
+  });
+
+  it('filtros combinados e a página pedida', async () => {
+    await listar('/api/corridas?tipo=4x4&status=CONCLUIDA&pagina=3&tamanho=10');
+    expect(listagens[0]).toMatchObject({
+      tipo: '4x4',
+      status: 'CONCLUIDA',
+      limite: 10,
+      deslocamento: 20,
+    });
+  });
+
+  it('tamanho acima de 100 é limitado a 100, sem erro', async () => {
+    const resposta = await listar('/api/corridas?tamanho=500');
+    expect(resposta.statusCode).toBe(200);
+    expect(resposta.json()).toMatchObject({ tamanho: 100 });
+    expect(listagens[0]!.limite).toBe(100);
+  });
+
+  it('só a data vale o dia inteiro em UTC; data e hora valem como vieram', async () => {
+    await listar('/api/corridas?de=2026-10-14&ate=2026-10-14');
+    expect(listagens[0]).toMatchObject({
+      de: new Date('2026-10-14T00:00:00Z'),
+      antesDe: new Date('2026-10-15T00:00:00Z'),
+    });
+    await listar('/api/corridas?de=2026-10-14T00:00:00-03:00&ate=2026-10-14T23:59:59-03:00');
+    expect(listagens[0]).toMatchObject({
+      de: new Date('2026-10-14T03:00:00Z'),
+      antesDe: new Date('2026-10-15T02:59:59.001Z'),
+    });
+  });
+
+  it.each([
+    ['tipo inexistente', '/api/corridas?tipo=5x5', 'FST_ERR_VALIDATION'],
+    ['status inexistente', '/api/corridas?status=PERDIDA', 'FST_ERR_VALIDATION'],
+    ['página zero', '/api/corridas?pagina=0', 'FST_ERR_VALIDATION'],
+    ['tamanho zero', '/api/corridas?tamanho=0', 'FST_ERR_VALIDATION'],
+    ['data que não é ISO 8601', '/api/corridas?de=14/10/2026', 'FILTRO_INVALIDO'],
+    ['data impossível', '/api/corridas?ate=2026-02-30T10:00:00Z', 'FILTRO_INVALIDO'],
+    ['de depois de ate', '/api/corridas?de=2026-10-15&ate=2026-10-14', 'FILTRO_INVALIDO'],
+  ])('400 com %s, sem consultar o banco', async (_, url, code) => {
+    const resposta = await listar(url);
+    expect(resposta.statusCode).toBe(400);
+    expect(resposta.json()).toMatchObject({ code });
+    expect(listagens).toHaveLength(0);
   });
 });
