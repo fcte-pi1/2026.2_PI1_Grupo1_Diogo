@@ -56,8 +56,11 @@ class Robo {
   enviar(...textos: string[]): void {
     for (const texto of textos) this.ws.send(texto);
   }
-  async esperarAck(corrida: string, sequencia: number): Promise<void> {
-    await esperar(() => this.acks.some((a) => a.corrida === corrida && a.sequencia === sequencia));
+  async esperarAck(corrida: string, sequencia: number, prazoMs?: number): Promise<void> {
+    await esperar(
+      () => this.acks.some((a) => a.corrida === corrida && a.sequencia === sequencia),
+      prazoMs,
+    );
   }
   fechar(): Promise<number> {
     this.ws.close();
@@ -933,7 +936,8 @@ describe('ingestão de telemetria com PostgreSQL real', () => {
           );
         }
         robo.enviar(...lote);
-        await robo.esperarAck('painel-lento', sequencia);
+        // Prazo maior que o padrão: no runner do CI, um lote de 500 já passou de 5 s.
+        await robo.esperarAck('painel-lento', sequencia, 30_000);
       }
       await esperar(() => avisosDistribuicao.includes(AVISO_PAINEL_LENTO), 5000);
 
