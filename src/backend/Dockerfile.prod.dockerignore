@@ -1,0 +1,11 @@
+# O contexto de build é src/ (Dockerfile.prod). Só entram o backend e o frontend.
+*
+!backend
+!frontend
+**/node_modules
+**/dist
+**/coverage
+**/.env
+**/playwright-report
+**/test-results
+backend/ponte

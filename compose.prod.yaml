@@ -1,0 +1,61 @@
+# Implantação do sistema web do Micromouse (RNF-58): banco + backend, com o painel compilado
+# servido pelo backend na mesma porta.
+#   cp .env.example .env      (troque as senhas, o JWT_SECRET e o SEED_ROBO_TOKEN)
+#   docker compose -f compose.prod.yaml up -d
+# Painel e API: http://<endereço-do-notebook>:8080 · Detalhes em DESENVOLVIMENTO.md.
+# O ambiente de desenvolvimento (hot reload) continua no compose.yaml.
+
+name: rato-borrachudo-prod
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?defina no .env}
+      POSTGRES_USER: ${POSTGRES_USER:?defina no .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?defina no .env}
+      DB_APP_PASSWORD: ${DB_APP_PASSWORD:?defina no .env}
+    # Sem porta publicada: só o backend fala com o banco.
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./infra/postgres/initdb:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  backend:
+    image: rato-borrachudo/sistema-web:latest
+    build:
+      context: ./src
+      dockerfile: backend/Dockerfile.prod
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PORT: 8080
+      LOG_LEVEL: ${LOG_LEVEL_PROD:-info}
+      JWT_SECRET: ${JWT_SECRET:?defina no .env}
+      # Dono do banco: migrações e seed
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      # Papel restrito da aplicação (arquitetura do backend, §7.3)
+      DATABASE_URL_APP: postgres://rato_app:${DB_APP_PASSWORD}@db:5432/${POSTGRES_DB}
+      SEED_DISPOSITIVO_TOKEN: ${SEED_DISPOSITIVO_TOKEN:-T-VALIDO}
+      SEED_ROBO_TOKEN: ${SEED_ROBO_TOKEN:-troque-em-build}
+      SEED_OPERADOR_SENHA: ${SEED_OPERADOR_SENHA:-op1-dev}
+      CURVA_CARGA: ${CURVA_CARGA:-}
+      LIMIAR_TENSAO_BAIXA_V: ${LIMIAR_TENSAO_BAIXA_V:-}
+    ports:
+      - "${BACKEND_PORT:-8080}:8080"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:8080/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 20s
+
+volumes:
+  pgdata:
