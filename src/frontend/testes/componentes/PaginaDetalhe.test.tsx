@@ -92,8 +92,8 @@ describe('PaginaDetalhe — abrir uma execução (HU-FE-11 / CT-FE-11)', () => {
         resposta(
           detalheHttp({
             status: 'FALHOU',
-            motivo_termino: 'TIMEOUT',
-            detalhe: 'Tempo limite de 10 min excedido',
+            motivo_termino: 'FALHA_REPORTADA',
+            detalhe_termino: 'Erro: sensor ToF 3',
           }),
         ),
       ),
@@ -102,11 +102,9 @@ describe('PaginaDetalhe — abrir uma execução (HU-FE-11 / CT-FE-11)', () => {
 
     expect(await screen.findByTestId('alerta-falha')).toHaveTextContent('Execução falhou');
     expect(screen.getByTestId('alerta-falha-motivo')).toHaveTextContent(
-      'Motivo: Tempo limite excedido (TIMEOUT)',
+      'Motivo: Falha reportada pelo robô (FALHA_REPORTADA)',
     );
-    expect(screen.getByTestId('alerta-falha-detalhe')).toHaveTextContent(
-      'Tempo limite de 10 min excedido',
-    );
+    expect(screen.getByTestId('alerta-falha-detalhe')).toHaveTextContent('Erro: sensor ToF 3');
     expect(screen.queryByTestId('desafio-cumprido')).not.toBeInTheDocument();
     expect(screen.getByTestId('status-desafio')).toHaveTextContent('Falhou');
   });
