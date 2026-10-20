@@ -54,7 +54,7 @@ A inscrição só vale para corridas que o backend tem em memória: as em andame
 | `continuo` | Inscritos na corrida | Posição e energia, **no máximo 10 por segundo** por corrida, em qualquer janela de 1 s. No fim da corrida, o último pode chegar logo depois do `evento` de status, já com as métricas finais |
 | `sinal` | Inscritos na corrida | `PERDIDO` após 3 s sem mensagens do robô, ou na hora, se a conexão cair; `RETOMADO` quando ele volta, pela mesma conexão ou por outra: no `hello` com o mesmo `boot` ou na próxima mensagem. Cada mudança sai uma vez só, mesmo com mais de uma conexão do robô; o silêncio ou o fechamento de uma conexão antiga, com o robô já falando por outra, não é perda. Depois de um reinício do backend, a corrida em andamento fica `PERDIDO` até o robô voltar |
 | `alerta` | Inscritos na corrida | Tensão abaixo de 7,0 V (`TENSAO_BAIXA`), sem repetir a cada leitura |
-| `leaderboard` | Inscritos no canal | Uma corrida terminou `CONCLUIDA`: o ranking daquele labirinto pode ter mudado. Sai depois de a corrida estar gravada, então o `GET /api/leaderboard` feito ao recebê-lo já a inclui |
+| `leaderboard` | Inscritos no canal | Uma corrida terminou `CONCLUIDA`: o ranking daquele labirinto pode ter mudado. Sai depois de a corrida estar gravada, então o `GET /api/leaderboard` feito ao recebê-lo já a inclui. Também quando um operador anula uma corrida que estava no ranking (RF-96) |
 | `keepalive` | Todos os painéis | A cada 1 s, também fora das corridas |
 
 ### Regras para o painel

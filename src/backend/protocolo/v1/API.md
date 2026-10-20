@@ -259,3 +259,45 @@ A anulação (RF-96) também tira a corrida do ranking, porque a consulta exclui
 GET /api/leaderboard?labirinto=4x4
 GET /api/leaderboard?labirinto=8x4&apresentacao=0b6f7c0e-3a52-4c8e-9a51-1f0f5c1f2a33
 ```
+
+## Rotas do operador: login, anulação e apresentações
+
+As únicas escritas que não vêm do robô (RF-96, RF-97). O painel continua só lendo; essas rotas exigem o token do login no cabeçalho `Authorization: Bearer <token>`. Sem ele, ou com um token inválido ou vencido, a resposta é `401` (`NAO_AUTENTICADO`), antes de qualquer outra validação.
+
+### `POST /api/auth/login`
+
+Corpo `RequisicaoLogin`: `{ "login": "op1", "senha": "..." }`. Resposta `200` (`RespostaLogin`):
+
+```json
+{
+  "token": "eyJhbGciOi...",
+  "expira_em": "2026-10-20T23:00:00.000Z",
+  "operador": { "login": "op1", "nome": "Operador 1" }
+}
+```
+
+O token vale 8 horas. Login inexistente e senha errada dão a mesma resposta, `401` com `CREDENCIAIS_INVALIDAS`, para não revelar quais logins existem.
+
+### `POST /api/corridas/{id}/anulacao`
+
+Anula uma corrida com justificativa (RF-96, HU-BE-25). Corpo `RequisicaoAnulacao`: `{ "motivo": "houve toque manual" }`.
+
+| Código | Quando |
+|:--|:--|
+| `201` | Anulada. O corpo é a `AnulacaoCorrida`: `{ motivo, anulada_em, operador }` |
+| `400` | `MOTIVO_VAZIO`: motivo vazio ou só com espaços |
+| `401` | Sem login |
+| `404` | `CORRIDA_NAO_ENCONTRADA` |
+| `409` | `CORRIDA_EM_ANDAMENTO` (só uma corrida terminada pode ser anulada) ou `CORRIDA_JA_ANULADA` (cada corrida, uma vez só) |
+
+A corrida não muda (RNF-54): a anulação fica só na tabela `anulacao`, com o operador, a data e o motivo. A corrida continua na listagem e no detalhe, com `anulada: true`, e sai do ranking. Se ela estava no ranking (`CONCLUIDA`), os painéis inscritos no `ao_vivo` recebem a mensagem `leaderboard`.
+
+### Apresentações
+
+Uma apresentação agrupa as corridas e numera as tentativas por tipo de labirinto (RF-97). Só uma fica ativa por vez, e as corridas novas entram nela. Tipo: `Apresentacao` (`id`, `nome`, `data`, `ativa`, `criada_em`).
+
+| Rota | Login | O que faz |
+|:--|:--|:--|
+| `GET /api/apresentacoes` | Não | Lista, da mais recente para a mais antiga |
+| `POST /api/apresentacoes` | Sim | Corpo `{ "nome": "Final" }`. Abre a apresentação e encerra a que estava ativa. Resposta `201` |
+| `PATCH /api/apresentacoes/{id}` | Sim | Corpo `{ "ativa": false }`. Encerra. Resposta `200`, ou `404` (`APRESENTACAO_NAO_ENCONTRADA`) |
