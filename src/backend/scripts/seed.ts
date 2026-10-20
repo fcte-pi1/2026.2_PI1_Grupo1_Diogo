@@ -1,7 +1,8 @@
 /**
  * Seed do ambiente padrão de testes (AMB — docs/software/backend/4_casos_de_teste.md):
  * dispositivo `sim-01`, operador `op1` e apresentação "Teste" ativa. Cadastra também o
- * robô real (`rato-01`), com o token gravado no firmware.
+ * `sim-02`, para dois simuladores ao mesmo tempo (CT-BE-21), e o robô real (`rato-01`), com
+ * o token gravado no firmware.
  * Idempotente: pode ser executado várias vezes. Usa a conexão do dono do banco (DATABASE_URL).
  */
 import argon2 from 'argon2';
@@ -23,9 +24,9 @@ try {
 
   const dispositivo = await cliente.query(
     `INSERT INTO dispositivo (identificador, nome, token_hash)
-     VALUES ('sim-01', 'Simulador de robô', $1)
+     VALUES ('sim-01', 'Simulador de robô', $1), ('sim-02', 'Simulador de robô 2', $2)
      ON CONFLICT (identificador) DO NOTHING`,
-    [await argon2.hash(token)],
+    [await argon2.hash(token), await argon2.hash(token)],
   );
 
   // O token do robô é atualizado a cada execução: basta mudar SEED_ROBO_TOKEN e rodar de novo.

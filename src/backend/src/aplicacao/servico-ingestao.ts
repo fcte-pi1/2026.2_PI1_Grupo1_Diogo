@@ -196,6 +196,7 @@ export class ServicoIngestao {
     if (this.deps.corridas.registrarAtividade(corrida, sessao.ultimaMensagemEm)) {
       await this.registrarRetomada(sessao, corrida);
     }
+    if (!sessao.encerrada) corrida.sessoes.add(sessao);
 
     const violacao = verificarRegras(
       dadosParaRegras(mensagem),
@@ -257,6 +258,7 @@ export class ServicoIngestao {
 
   /** A conexão fechou. Durante uma corrida, isso também é perda de sinal. */
   async encerrar(sessao: SessaoRobo): Promise<void> {
+    sessao.encerrada = true;
     if (sessao.corridaAtiva !== null && !sessao.sinalPerdido) {
       sessao.sinalPerdido = true;
       this.deps.corridas.sinalPerdido(sessao.corridaAtiva, this.agora(), sessao.ultimaMensagemEm);
@@ -356,6 +358,13 @@ export class ServicoIngestao {
       this.agendarAck(sessao, corrida);
       for (const outra of corrida.aguardandoGravacao) this.agendarAck(outra, corrida);
       corrida.aguardandoGravacao.clear();
+      // A gravação pode ter preenchido uma lacuna de outra conexão do mesmo robô (a antiga,
+      // depois de uma queda, entregando o começo enquanto a nova já entregou o fim): todas as
+      // conexões abertas desta corrida recebem o ack atualizado (RF-74, CT-BE-04).
+      for (const outra of corrida.sessoes) {
+        if (outra.encerrada) corrida.sessoes.delete(outra);
+        else this.agendarAck(outra, corrida);
+      }
     } catch (erro) {
       // Sem confirmação não há ack: o robô reenvia e a mensagem é aceita de novo.
       corrida.sequencias.descartar(mensagem.sequencia);
