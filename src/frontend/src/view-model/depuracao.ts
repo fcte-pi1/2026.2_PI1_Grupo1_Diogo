@@ -1,5 +1,4 @@
 import { useMemo } from 'react';
-import { QUANTIDADE_SENSORES_TOF } from '../dominio';
 import { usePainel } from '../estado';
 import { formatarAngulo, formatarContagem, formatarDistanciaMm } from '../formatacao';
 
@@ -17,14 +16,14 @@ export function useDepuracao() {
   const leitura = usePainel((s) => s.depuracao);
 
   return useMemo(() => {
-    const sensoresTof: CampoDepuracao[] = Array.from(
-      { length: QUANTIDADE_SENSORES_TOF },
-      (_, i) => ({
-        id: `tof-${i + 1}`,
-        rotulo: `ToF ${i + 1}`,
-        valor: formatarDistanciaMm(leitura?.tof[i] ?? null),
-      }),
-    );
+    const lidos: CampoDepuracao[] = (leitura?.tof ?? []).map((distancia, i) => ({
+      id: `tof-${i + 1}`,
+      rotulo: `ToF ${i + 1}`,
+      valor: formatarDistanciaMm(distancia),
+    }));
+    // Sem leitura, ainda não se sabe quantos sensores virão: uma linha só, indisponível.
+    const sensoresTof: CampoDepuracao[] =
+      lidos.length > 0 ? lidos : [{ id: 'tof', rotulo: 'Sensores ToF', valor: '—' }];
     const mpu: CampoDepuracao = {
       id: 'mpu-angulo',
       rotulo: 'MPU-6050 (ângulo)',

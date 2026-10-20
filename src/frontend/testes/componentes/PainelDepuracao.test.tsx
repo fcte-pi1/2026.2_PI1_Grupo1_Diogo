@@ -25,7 +25,7 @@ describe('PainelDepuracao (HU-FE-14 / CT-FE-14)', () => {
   it('sem leitura, avisa que está aguardando e mostra "—" em todos os campos', () => {
     render(<PainelDepuracao />);
     expect(screen.getByTestId('depuracao-aguardando')).toBeInTheDocument();
-    for (let i = 1; i <= 7; i++) expect(texto(`tof-${i}`)).toBe('—');
+    expect(texto('tof')).toBe('—');
     expect(texto('mpu-angulo')).toBe('—');
     expect(texto('encoder-esquerdo')).toBe('—');
     expect(texto('encoder-direito')).toBe('—');
@@ -48,6 +48,15 @@ describe('PainelDepuracao (HU-FE-14 / CT-FE-14)', () => {
     expect(texto('mpu-angulo')).toBe('12,5°');
     expect(texto('encoder-esquerdo')).toBe('1.500');
     expect(texto('encoder-direito')).toBe('1.498');
+  });
+
+  it('CA1: o robô de 3 sensores mostra só os 3 ToF, sem linhas vazias para os outros', () => {
+    render(<PainelDepuracao />);
+    act(() => acoes().atualizarDepuracao({ ...LEITURA, tof: [120, 85, 300] }));
+
+    expect([1, 2, 3].map((i) => texto(`tof-${i}`))).toEqual(['120 mm', '85 mm', '300 mm']);
+    expect(screen.queryByTestId('depuracao-tof-4')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('depuracao-tof')).not.toBeInTheDocument();
   });
 
   it('uma nova leitura atualiza os valores na tela', () => {

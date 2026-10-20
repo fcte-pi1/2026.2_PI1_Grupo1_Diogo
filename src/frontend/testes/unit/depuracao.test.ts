@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ClientePainelWS } from '../../src/adaptadores/ws';
-import { lerDepuracao, QUANTIDADE_SENSORES_TOF } from '../../src/dominio';
+import { lerDepuracao, MAXIMO_SENSORES_TOF } from '../../src/dominio';
 import type { LeituraDepuracao } from '../../src/dominio';
 import { usePainel } from '../../src/estado';
 import { formatarAngulo, formatarContagem, formatarDistanciaMm } from '../../src/formatacao';
@@ -29,8 +29,18 @@ beforeEach(reiniciarStore);
 
 describe('lerDepuracao (CT-FE-14 passos 2 e 4)', () => {
   it('lê os sete ToF, o ângulo do MPU-6050 e os encoders', () => {
-    expect(QUANTIDADE_SENSORES_TOF).toBe(7);
+    expect(MAXIMO_SENSORES_TOF).toBe(7);
     expect(lerDepuracao(BRUTO, 12100)).toEqual(LEITURA);
+  });
+
+  it('aceita o robô de 3 sensores ToF (frente, esquerda e direita)', () => {
+    const leitura = lerDepuracao({ ...BRUTO, tof_mm: [120, 85, 300] });
+    expect(leitura?.tof).toEqual([120, 85, 300]);
+  });
+
+  it('ignora o que passar do teto de sete sensores', () => {
+    const leitura = lerDepuracao({ ...BRUTO, tof_mm: [1, 2, 3, 4, 5, 6, 7, 8, 9] });
+    expect(leitura?.tof).toEqual([1, 2, 3, 4, 5, 6, 7]);
   });
 
   it.each([[undefined], [null], ['texto'], [42]])(
@@ -47,7 +57,7 @@ describe('lerDepuracao (CT-FE-14 passos 2 e 4)', () => {
       encoder_esquerdo: 10,
       encoder_direito: 1.5,
     });
-    expect(leitura?.tof).toEqual([120, null, null, null, null, null, null]);
+    expect(leitura?.tof).toEqual([120, null, null, null, null]);
     expect(leitura?.anguloMpuGraus).toBeNull();
     expect(leitura?.encoderEsquerdo).toBe(10);
     expect(leitura?.encoderDireito).toBeNull();
@@ -60,9 +70,9 @@ describe('lerDepuracao (CT-FE-14 passos 2 e 4)', () => {
     expect(leitura?.anguloMpuGraus).toBe(0);
   });
 
-  it('lista de ToF ausente ou curta completa com null até sete posições', () => {
-    expect(lerDepuracao({})?.tof).toEqual(Array(7).fill(null));
-    expect(lerDepuracao({ tof_mm: [10, 20] })?.tof).toEqual([10, 20, null, null, null, null, null]);
+  it('lista de ToF ausente fica vazia, sem inventar sensores', () => {
+    expect(lerDepuracao({})?.tof).toEqual([]);
+    expect(lerDepuracao({ tof_mm: 'texto' })?.tof).toEqual([]);
   });
 
   it('encoder pode ser negativo (marcha à ré)', () => {
@@ -177,7 +187,7 @@ describe('depuração pelo WebSocket', () => {
   it('dados ausentes e inválidos chegam como indisponíveis', () => {
     ws.receber(continuoComDepuracao({ tof_mm: [100, 'x'], mpu_angulo_graus: null }));
 
-    expect(estado().depuracao?.tof).toEqual([100, null, null, null, null, null, null]);
+    expect(estado().depuracao?.tof).toEqual([100, null]);
     expect(estado().depuracao?.anguloMpuGraus).toBeNull();
   });
 
