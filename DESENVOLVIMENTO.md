@@ -76,6 +76,42 @@ cat corrida.ndjson | npm run ponte -- --porta -
 
 O formato das mensagens está em [src/backend/protocolo/v1/README.md](src/backend/protocolo/v1/README.md).
 
+## Implantação (apresentação e testes de integração)
+
+Para usar o sistema de verdade (sem hot reload), há uma imagem de produção: o backend compilado, com o painel compilado servido por ele na **mesma porta** (RNF-58, CT-BE-38).
+
+```bash
+cp .env.example .env        # troque as senhas, o JWT_SECRET e o SEED_ROBO_TOKEN
+docker compose -f compose.prod.yaml up -d --build
+```
+
+- **Painel e API:** `http://<endereço-do-notebook>:8080`. O painel deriva o endereço do WebSocket da própria página, então funciona com o IP que o notebook receber na rede local. Os outros computadores e celulares da rede acessam o mesmo endereço.
+- **Ao subir**, o backend aplica as migrações e roda o seed (idempotente): dispositivos `sim-01`, `sim-02` e `rato-01`, com os tokens do `.env`, o operador `op1` e a apresentação "Teste".
+- **Banco** em volume próprio (`rato-borrachudo-prod_pgdata`), separado do de desenvolvimento, e sem porta publicada.
+- **Parar:** `docker compose -f compose.prod.yaml down`. Para apagar os dados: `down -v`.
+- Logs com `LOG_LEVEL_PROD` (padrão `info`).
+
+### Rede isolada, sem internet
+
+Gere as imagens numa máquina com internet e leve o arquivo no pendrive (cerca de 200 MB):
+
+```bash
+# Na máquina com internet. A plataforma é a do NOTEBOOK que vai rodar o sistema
+# (linux/amd64 para os notebooks x86 comuns), e vale para o banco e para o backend.
+export DOCKER_DEFAULT_PLATFORM=linux/amd64
+docker compose -f compose.prod.yaml pull db
+docker compose -f compose.prod.yaml build
+docker save --platform linux/amd64 rato-borrachudo/sistema-web:latest postgres:16-alpine | gzip > rato-imagens.tar.gz
+
+# No notebook da apresentação, com o repositório e o .env
+docker load -i rato-imagens.tar.gz
+docker compose -f compose.prod.yaml up -d --no-build
+```
+
+> **Atenção à arquitetura.** Uma imagem gerada num Mac com Apple Silicon é ARM e **não roda** num notebook Windows ou Linux comum (x86). O `DOCKER_DEFAULT_PLATFORM=linux/amd64` resolve, desde que esteja definido **antes** do `pull` e do `build`, e o `docker save` também leve `--platform` (o Docker Desktop guarda as duas arquiteturas do PostgreSQL com o mesmo nome e, sem ele, salva a da máquina). No PowerShell: `$env:DOCKER_DEFAULT_PLATFORM="linux/amd64"`.
+
+Medido em 20/10, num Mac com as imagens já carregadas: do `up` ao `/health` com `200` em **3,5 s**, com o banco vazio (migrações e seed incluídos). A meta do RNF-58 é 2 min.
+
 ## Estrutura
 
 ```
