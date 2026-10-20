@@ -10,8 +10,10 @@
 import type { FastifyInstance } from 'fastify';
 import { afterEach, describe, expect, it } from 'vitest';
 import type { FimCorrida } from '../../../protocolo/tipos.js';
+import { criarValidadorProtocolo } from '../../../protocolo/validador.js';
 import { TIPOS_ANOMALIA } from '../../../simulador/anomalias.js';
 import { criarSimulador, type Simulador } from '../../../simulador/simulador.js';
+import { ServicoConsulta } from '../../../src/aplicacao/index.js';
 import { construirApp } from '../../../src/app.js';
 import { AmbienteEmMemoria, DISPOSITIVO } from '../../apoio/ingestao-em-memoria.js';
 
@@ -40,6 +42,13 @@ async function subirBackend(): Promise<Backend> {
     verificarBanco: async () => true,
     contadores: amb.contadores,
     ingestao: amb.servico,
+    // Os cenários só usam /ws/telemetria: a consulta fica vazia, como no teste do /health.
+    consulta: new ServicoConsulta({
+      detalheCorrida: async () => null,
+      leaderboard: async () => [],
+    }),
+    distribuicao: amb.distribuicao,
+    validador: criarValidadorProtocolo(),
   });
   await app.listen({ port: 0, host: '127.0.0.1' });
   const { port } = app.server.address() as { port: number };

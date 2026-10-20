@@ -13,9 +13,15 @@ import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { criarValidadorProtocolo } from '../../protocolo/validador.js';
 import { criarSimulador, type OpcoesSimulador } from '../../simulador/simulador.js';
-import { ServicoCorrida, ServicoIngestao } from '../../src/aplicacao/index.js';
+import {
+  ServicoConsulta,
+  ServicoCorrida,
+  ServicoDistribuicao,
+  ServicoIngestao,
+} from '../../src/aplicacao/index.js';
 import { construirApp } from '../../src/app.js';
 import { BarramentoEventos } from '../../src/infra/barramento-eventos.js';
+import { RepositorioConsultaPg } from '../../src/infra/consulta-pg.js';
 import { criarContadores } from '../../src/infra/contadores.js';
 import { GravadorLote } from '../../src/infra/gravador-lote.js';
 import {
@@ -42,6 +48,7 @@ describe('simulador → backend → PostgreSQL', () => {
   let pool: pg.Pool;
   let app: FastifyInstance;
   let url: string;
+  let distribuicao: ServicoDistribuicao;
 
   const consulta = async <T extends pg.QueryResultRow>(sql: string, parametros: unknown[] = []) =>
     (await pool.query<T>(sql, parametros)).rows;
@@ -79,13 +86,21 @@ describe('simulador → backend → PostgreSQL', () => {
     );
 
     const contadores = criarContadores();
+    const eventos = new BarramentoEventos();
     const corridas = new ServicoCorrida({
       corridas: new RepositorioCorridasPg(pool),
       projecoes: new RepositorioProjecoesPg(pool),
-      eventos: new BarramentoEventos(),
+      eventos,
       log: SILENCIOSO,
     });
     await corridas.recuperar();
+    // A mesma montagem do main.ts: a distribuição aos painéis assina os eventos da corrida.
+    distribuicao = new ServicoDistribuicao({ corridas, log: SILENCIOSO });
+    eventos.assinar('mensagem-aplicada', (d) => distribuicao.aoAplicar(d));
+    eventos.assinar('status-alterado', (d) => distribuicao.aoMudarStatus(d));
+    eventos.assinar('alerta-tensao', (d) => distribuicao.aoAlertar(d));
+    eventos.assinar('sinal-alterado', (d) => distribuicao.aoMudarSinal(d));
+    eventos.assinar('ranking-alterado', (d) => distribuicao.aoMudarRanking(d));
     const ingestao = new ServicoIngestao({
       dispositivos: new RepositorioDispositivosPg(pool),
       tokens: new VerificadorTokenArgon2(),
@@ -96,12 +111,20 @@ describe('simulador → backend → PostgreSQL', () => {
       contadores,
       log: SILENCIOSO,
     });
-    app = await construirApp({ verificarBanco: async () => true, contadores, ingestao });
+    app = await construirApp({
+      verificarBanco: async () => true,
+      contadores,
+      ingestao,
+      consulta: new ServicoConsulta(new RepositorioConsultaPg(pool)),
+      distribuicao,
+      validador: criarValidadorProtocolo(),
+    });
     const endereco = await app.listen({ port: 0, host: '127.0.0.1' });
     url = `${endereco.replace('http', 'ws')}/ws/telemetria`;
   });
 
   afterAll(async () => {
+    distribuicao?.parar();
     await app?.close();
     await pool?.end();
     await container?.stop();

@@ -85,6 +85,8 @@ export class ServicoIngestao {
     );
     // Uma conexão nova com outro boot interrompe a corrida anterior do robô (RF-81, CA1).
     this.deps.corridas.reinicioDetectado(dispositivo.id, hello.boot);
+    // Com o mesmo boot, é o robô voltando: o sinal das corridas dele está de volta.
+    await this.retomarSinal(sessao);
     return { ok: true, sessao };
   }
 
@@ -155,6 +157,7 @@ export class ServicoIngestao {
     const reiniciou = conferido.hello.boot !== sessao.boot;
     sessao.boot = conferido.hello.boot;
     if (reiniciou) this.deps.corridas.reinicioDetectado(sessao.dispositivoId, sessao.boot);
+    else await this.retomarSinal(sessao);
     sessao.versaoProtocolo = conferido.hello.versao;
     await this.deps.auditoria.eventoConexao({
       dispositivoId: sessao.dispositivoId,
@@ -174,7 +177,7 @@ export class ServicoIngestao {
    */
   async receber(sessao: SessaoRobo, texto: string): Promise<PedidoFechamento | void> {
     const { validador, contadores } = this.deps;
-    await this.registrarAtividade(sessao);
+    this.registrarAtividade(sessao);
 
     const json = interpretarJson(texto);
     if (!json.ok) {
@@ -190,7 +193,9 @@ export class ServicoIngestao {
     const mensagem = validada.mensagem;
 
     const corrida = await this.obterCorrida(sessao, mensagem);
-    this.deps.corridas.registrarAtividade(corrida);
+    if (this.deps.corridas.registrarAtividade(corrida, sessao.ultimaMensagemEm)) {
+      await this.registrarRetomada(sessao, corrida);
+    }
     if (!sessao.encerrada) corrida.sessoes.add(sessao);
 
     const violacao = verificarRegras(
@@ -246,6 +251,7 @@ export class ServicoIngestao {
     this.deps.corridas.sinalPerdido(
       sessao.corridaAtiva,
       sessao.ultimaMensagemEm + LIMITE_SILENCIO_MS,
+      sessao.ultimaMensagemEm,
     );
     await this.registrarEvento(sessao, 'SINAL_PERDIDO');
   }
@@ -255,22 +261,49 @@ export class ServicoIngestao {
     sessao.encerrada = true;
     if (sessao.corridaAtiva !== null && !sessao.sinalPerdido) {
       sessao.sinalPerdido = true;
-      this.deps.corridas.sinalPerdido(sessao.corridaAtiva, this.agora());
+      this.deps.corridas.sinalPerdido(sessao.corridaAtiva, this.agora(), sessao.ultimaMensagemEm);
       await this.registrarEvento(sessao, 'SINAL_PERDIDO');
     }
     await this.registrarEvento(sessao, 'DESCONECTADO');
   }
 
-  private async registrarAtividade(sessao: SessaoRobo): Promise<void> {
+  /**
+   * O robô se identificou com o mesmo `boot`: a corrida atual dele passa a ser a ativa
+   * desta conexão, para o monitor de silêncio continuar valendo, e as que tinham perdido o
+   * sinal, inclusive por outra conexão, o retomam.
+   */
+  private async retomarSinal(sessao: SessaoRobo): Promise<void> {
+    const { ativa, retomadas } = this.deps.corridas.roboIdentificado(
+      sessao.dispositivoId,
+      sessao.boot,
+      sessao.ultimaMensagemEm,
+    );
+    sessao.corridaAtiva ??= ativa;
+    for (const corrida of retomadas) await this.registrarRetomada(sessao, corrida);
+  }
+
+  private async registrarRetomada(sessao: SessaoRobo, corrida: EstadoCorrida): Promise<void> {
+    this.deps.log.info(
+      { dispositivo: sessao.identificador, corrida: corrida.id },
+      'evento de conexão: sinal retomado',
+    );
+    await this.deps.auditoria.eventoConexao({
+      dispositivoId: sessao.dispositivoId,
+      corridaId: corrida.id,
+      tipo: 'SINAL_RETOMADO',
+      boot: sessao.boot,
+    });
+  }
+
+  /** A retomada é registrada por corrida, quando ela volta a ter sinal (ver `retomarSinal`). */
+  private registrarAtividade(sessao: SessaoRobo): void {
     sessao.ultimaMensagemEm = this.agora();
-    if (!sessao.sinalPerdido) return;
     sessao.sinalPerdido = false;
-    await this.registrarEvento(sessao, 'SINAL_RETOMADO');
   }
 
   private async registrarEvento(
     sessao: SessaoRobo,
-    tipo: 'SINAL_PERDIDO' | 'SINAL_RETOMADO' | 'DESCONECTADO',
+    tipo: 'SINAL_PERDIDO' | 'DESCONECTADO',
   ): Promise<void> {
     this.deps.log.info({ dispositivo: sessao.identificador, tipo }, 'evento de conexão');
     await this.deps.auditoria.eventoConexao({

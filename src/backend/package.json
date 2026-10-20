@@ -35,8 +35,7 @@
     "node-pg-migrate": "9.0.0",
     "pg": "8.23.1",
     "pino": "10.4.0",
-    "serialport": "13.0.0",
-    "ws": "8.22.0"
+    "serialport": "13.0.0"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
@@ -53,7 +52,8 @@
     "tsx": "4.23.15",
     "typescript": "6.0.3",
     "typescript-eslint": "8.71.1",
-    "vitest": "5.0.3"
+    "vitest": "5.0.3",
+    "ws": "8.22.0"
   },
   "allowScripts": {
     "argon2@0.45.1": true,
