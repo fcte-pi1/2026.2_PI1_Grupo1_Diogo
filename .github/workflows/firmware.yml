@@ -4,11 +4,13 @@ on:
   push:
     paths:
       - 'src/firmware/**'
+      - 'src/backend/protocolo/**'
       - 'src/backend/testes/contrato/**'
       - '.github/workflows/firmware.yml'
   pull_request:
     paths:
       - 'src/firmware/**'
+      - 'src/backend/protocolo/**'
       - 'src/backend/testes/contrato/**'
       - '.github/workflows/firmware.yml'
 
