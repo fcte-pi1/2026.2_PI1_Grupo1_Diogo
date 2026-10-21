@@ -15,6 +15,7 @@ idf_component_register(
         "${CORE_ROOT}/src/protocol/ProtocolV1.cpp"
         "${CORE_ROOT}/src/telemetry/TelemetryBuffer.cpp"
         "${CORE_ROOT}/src/telemetry/TelemetryEmitter.cpp"
+        "${CORE_ROOT}/src/telemetry/TelemetryRepeater.cpp"
         # Adapters - só compilam aqui, no alvo
         "${CORE_ROOT}/src/adapters/I2cBus.cpp"
         "${CORE_ROOT}/src/adapters/MotorDriver.cpp"
