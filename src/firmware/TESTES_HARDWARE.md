@@ -73,7 +73,7 @@ As tolerâncias (±10 mm, ±0,05 V, ±10 mA) são **sugestões**: o `4.3` não d
 | 3.12 | Motores com encoders: velocidade | `motor 0.3 0.3 2000`, `motor 0.6 0.6 2000`, `motor 1 1 2000` | Pulsos/s crescem com a potência, e as duas rodas ficam parecidas (anote a diferença) |
 | 3.13 | DIP switch | `dip`, em cada combinação | Vias 1/2: abertas = 4x4, só a 1 = 8x4, só a 2 = 12x4, as duas = "combinação reservada". Via 3: canto de partida |
 | 3.14 | Botão, LEDs e buzzer | `botao`, `led pronto`, `led erro`, `led apagar`, `buzzer` | Cada toque aparece como "pressionado"/"solto"; os LEDs e o buzzer acionam |
-| 3.15 | Bluetooth: transmissão | `ble 60`, e no PC a ponte com `--print-only` (pasta `bridge/`) | As mensagens chegam na ponte com o `n` de 0 até o fim, sem faltar nenhum |
+| 3.15 | Bluetooth: transmissão | `ble 60`, e no PC a ponte com `--print-only` (pasta `bridge/`), encerrada com Ctrl+C no fim | O resumo da ponte mostra `corrida diagnostico: seq 1 a N, faltando 0`, e o console mostra `0 descartadas`. Se faltar algo, a tabela do `bridge/README.md` diz onde a mensagem se perdeu |
 | 3.16 | Verificação geral | `verificar` | Todos os itens com `[ OK ]` |
 
 ### Sobre os ToF (3.3 a 3.5)

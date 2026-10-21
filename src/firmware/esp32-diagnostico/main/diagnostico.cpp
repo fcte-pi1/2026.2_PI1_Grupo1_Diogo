@@ -467,17 +467,27 @@ int cmdBle(int argc, char** argv) {
             wasConnected = connected;
         }
         if (connected) {
-            char line[96];
-            std::snprintf(line, sizeof line, R"({"tipo":"diagnostico","n":%ld,"tempo_ms":%lld})",
-                          sent, static_cast<long long>((nowUs() - start) / 1000));
+            // `corrida` e `sequencia` (a partir de 1) deixam a ponte contar as lacunas.
+            char line[128];
+            std::snprintf(
+                line, sizeof line,
+                R"({"tipo":"diagnostico","corrida":"diagnostico","sequencia":%ld,"tempo_ms":%lld})",
+                sent + 1, static_cast<long long>((nowUs() - start) / 1000));
             gBle.publish(line);
             ++sent;
         }
         sleepMs(100);
     }
-    std::printf("%ld mensagens enviadas (n de 0 a %ld). Falta de algum n na ponte = perda no "
-                "caminho (#381).\n",
-                sent, sent > 0 ? sent - 1 : 0);
+    const adapters::BleStats stats = gBle.stats();
+    std::printf("%ld mensagens publicadas (sequência 1 a %ld). Do lado da placa: %u entregues "
+                "à pilha BLE, %u descartadas, %u notify recusados, %u erros de status, MTU %u.\n",
+                sent, sent, static_cast<unsigned>(stats.sentMessages),
+                static_cast<unsigned>(stats.droppedMessages),
+                static_cast<unsigned>(stats.failedNotifies),
+                static_cast<unsigned>(stats.statusErrors), static_cast<unsigned>(stats.mtu));
+    std::printf("Compare com o resumo da ponte (Ctrl+C nela): faltar sequência lá, com zero "
+                "descartadas aqui, "
+                "indica perda no rádio ou no receptor (bridge/README.md, #381).\n");
     return 0;
 }
 
