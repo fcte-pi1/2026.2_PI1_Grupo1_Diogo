@@ -89,6 +89,57 @@ def _fields(line: str):
     return message.get("tipo"), message.get("corrida"), message.get("sequencia")
 
 
+class ReceptionStats:
+    """Conta o que chega do robô, para localizar a perda de mensagens (#381). Não faz I/O.
+
+    Por corrida, guarda a maior `sequencia` vista e as que faltam abaixo dela. Uma
+    sequência que falta e chega depois (o firmware reenvia o buffer ao reconectar) sai
+    da lista. Linhas que não são JSON chegaram quebradas: a perda foi na divisão da
+    mensagem em notificações, e não no rádio.
+    """
+
+    def __init__(self, log=print):
+        self.received = 0
+        self.invalid = 0
+        self.repeated = 0
+        self.highest: dict[str, int] = {}
+        self.missing: dict[str, set[int]] = {}
+        self._log = log
+
+    def observe(self, line: str) -> None:
+        self.received += 1
+        tipo, corrida, sequencia = _fields(line)
+        if tipo is None:
+            self.invalid += 1
+            self._log(f"[rx] linha inválida ({len(line)} bytes): {line[:60]}")
+            return
+        if not isinstance(corrida, str) or not isinstance(sequencia, int):
+            return  # hello
+        highest = self.highest.get(corrida, 0)
+        missing = self.missing.setdefault(corrida, set())
+        if sequencia > highest + 1:
+            gap = range(highest + 1, sequencia)
+            missing.update(gap)
+            self._log(f"[rx] lacuna na corrida {corrida}: seq {gap.start} a {gap.stop - 1}")
+        if sequencia > highest:
+            self.highest[corrida] = sequencia
+        elif sequencia in missing:
+            missing.discard(sequencia)
+        else:
+            self.repeated += 1  # cópia de mensagem crítica ou reenvio do buffer
+
+    def summary(self) -> str:
+        parts = [f"[rx] {self.received} linhas: {self.invalid} inválidas, {self.repeated} repetidas"]
+        for corrida, highest in self.highest.items():
+            missing = sorted(self.missing.get(corrida, ()))
+            shown = ", ".join(map(str, missing[:20])) + (" ..." if len(missing) > 20 else "")
+            parts.append(
+                f"corrida {corrida}: seq 1 a {highest}, faltando {len(missing)}"
+                + (f" ({shown})" if missing else "")
+            )
+        return "; ".join(parts)
+
+
 class Outbox:
     """O que a ponte guarda entre o robô e o backend. Não faz I/O.
 
@@ -193,8 +244,11 @@ def _is_robot(name: str):
     return match
 
 
-async def produce_from_ble(device_name: str, deliver):
-    """Produtor real: procura o robô, assina as notificações e repete se cair."""
+async def produce_from_ble(device_name: str, deliver, on_disconnect=None):
+    """Produtor real: procura o robô, assina as notificações e repete se cair.
+
+    `on_disconnect` é chamado a cada queda do BLE (por exemplo, para o resumo da recepção).
+    """
     from bleak import BleakClient, BleakScanner
     from bleak.exc import BleakDBusError, BleakError
 
@@ -239,6 +293,8 @@ async def produce_from_ble(device_name: str, deliver):
         except (BleakError, OSError, asyncio.TimeoutError) as exc:
             print(f"[ble] falha na conexão ({exc})")
         print("[ble] desconectado; procurando de novo em 1 s")
+        if on_disconnect is not None:
+            on_disconnect()
         await asyncio.sleep(1.0)
 
 
@@ -325,18 +381,24 @@ async def consume_to_ws(ws_url: str, outbox: Outbox, connect=None):
 
 async def run(args):
     if args.ws is None:
-        def deliver(line):
+        def forward(line):
             print("[rx]", line)
 
         outbox = None
     else:
         outbox = Outbox()
-        deliver = outbox.receive
+        forward = outbox.receive
+
+    stats = ReceptionStats()
+
+    def deliver(line):
+        stats.observe(line)
+        forward(line)
 
     if args.replay is not None:
         producer = produce_from_replay(args.replay, deliver, args.interval)
     else:
-        producer = produce_from_ble(args.name, deliver)
+        producer = produce_from_ble(args.name, deliver, lambda: print(stats.summary()))
 
     consumer_task = asyncio.ensure_future(consume_to_ws(args.ws, outbox)) if outbox else None
     try:
@@ -353,6 +415,7 @@ async def run(args):
                     "sem confirmação do backend"
                 )
     finally:
+        print(stats.summary())
         if consumer_task is not None:
             consumer_task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
