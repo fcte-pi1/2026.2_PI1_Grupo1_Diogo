@@ -132,7 +132,12 @@ export interface Metricas {
   tempoDecorridoMs: number | null;
   /** Só existe quando a corrida termina com sucesso (RF-82). */
   tempoConclusaoMs: number | null;
-  /** Movimentos entre células: as mensagens `celula` depois da primeira. */
+  /**
+   * Movimentos entre células: a soma da distância de Manhattan entre passagens seguidas.
+   * Entre células vizinhas, 1 por passagem. Se mensagens `celula` se perderam no caminho
+   * (#382), o salto entre as passagens que chegaram conta o mínimo de células percorridas,
+   * e não 1.
+   */
   transicoes: number;
   distanciaM: number;
   revisitas: number;
@@ -210,6 +215,8 @@ export class DerivacaoCorrida {
   private tempoUltimaCelulaMs: number | null = null;
   private tempoFimMs: number | null = null;
   private passagens = 0;
+  private transicoes = 0;
+  private ultimaPassagem: { x: number; y: number } | null = null;
   private revisitas = 0;
   private readonly visitadas = new Map<string, CelulaConhecida>();
   private posicao: EstadoMapa['posicao'] = null;
@@ -309,7 +316,7 @@ export class DerivacaoCorrida {
   }
 
   get metricas(): Metricas {
-    const transicoes = Math.max(0, this.passagens - 1);
+    const { transicoes } = this;
     const distanciaM = arredondar(transicoes * this.config.tamanhoCelulaM, 2);
     const fimOuAgora = this.tempoFimMs ?? this.tempoUltimoMs;
     const tempoDecorridoMs =
@@ -352,6 +359,11 @@ export class DerivacaoCorrida {
     const chave = `${mensagem.x},${mensagem.y}`;
     const revisita = this.visitadas.has(chave);
     this.passagens++;
+    if (this.ultimaPassagem) {
+      this.transicoes +=
+        Math.abs(mensagem.x - this.ultimaPassagem.x) + Math.abs(mensagem.y - this.ultimaPassagem.y);
+    }
+    this.ultimaPassagem = { x: mensagem.x, y: mensagem.y };
     if (revisita) this.revisitas++;
     this.tempoUltimaCelulaMs = mensagem.tempo_ms;
     this.visitadas.set(chave, { x: mensagem.x, y: mensagem.y, paredes: { ...mensagem.paredes } });

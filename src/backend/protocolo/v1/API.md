@@ -168,7 +168,7 @@ Além dos campos de `CorridaResumo` (listagem):
 |:--|:--|
 | `tempo_decorrido_ms` | Do `inicio_corrida` ao `fim_corrida`; numa corrida em andamento, até a última mensagem gravada |
 | `tempo_conclusao_ms` | Tempo oficial (RF-82). Só existe para corridas concluídas com sucesso |
-| `celulas_percorridas` | Movimentos entre células: as passagens menos a de partida |
+| `celulas_percorridas` | Movimentos entre células: a soma da distância de Manhattan entre passagens seguidas. Entre células vizinhas, é 1 por passagem (as passagens menos a de partida). Se mensagens `celula` se perderam no caminho, o salto entre as passagens que chegaram conta o mínimo de células percorridas, e não 1 (#382). Compare com `sequencias_faltantes` |
 | `distancia_m` | `celulas_percorridas` × 0,18 m |
 | `revisitas` | Passagens por células já visitadas |
 | `velocidade_media_mps` | Distância ÷ tempo, no relógio do robô (RF-83) |

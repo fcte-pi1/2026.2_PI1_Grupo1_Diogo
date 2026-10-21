@@ -53,6 +53,16 @@ const fim = (resultado: 'sucesso' | 'falha', t: number, detalhe?: string): Mensa
   ...(detalhe !== undefined && { detalhe }),
 });
 
+/**
+ * A k-ésima célula de um percurso em serpentina (linha 0 para a direita, linha 1 para a
+ * esquerda, ...): células seguidas são sempre vizinhas, como num percurso real.
+ */
+function serpentina(k: number, colunas: number): [number, number] {
+  const linha = Math.floor(k / colunas);
+  const passo = k % colunas;
+  return [linha % 2 === 0 ? passo : colunas - 1 - passo, linha];
+}
+
 function aplicarTodas(d: DerivacaoCorrida, mensagens: MensagemDerivavel[]): Efeito[] {
   return mensagens.flatMap((m) => d.aplicar(m));
 }
@@ -83,9 +93,7 @@ describe('DerivacaoCorrida', () => {
       seq = 0;
       const d = new DerivacaoCorrida(null);
       const primeira = inicio(0);
-      const celulas = Array.from({ length: 31 }, (_, i) =>
-        celula(i % 12, Math.floor(i / 12), i * 1500),
-      );
+      const celulas = Array.from({ length: 31 }, (_, i) => celula(...serpentina(i, 12), i * 1500));
       aplicarTodas(d, [primeira, ...celulas, fim('sucesso', 45_000)]);
 
       expect(d.metricas.transicoes).toBe(30);
@@ -101,6 +109,32 @@ describe('DerivacaoCorrida', () => {
 
       d.aplicar(celula(0, 2, 1800));
       expect(d.metricas.velocidadeMediaMps).toBe(0.1);
+    });
+  });
+
+  describe('mensagens celula perdidas (#382)', () => {
+    it('conta o salto entre as passagens que chegaram, e não 1 por passagem', () => {
+      seq = 0;
+      const d = new DerivacaoCorrida(null);
+      // De (0, 3) a (3, 3): faltaram as mensagens de (1, 3) e (2, 3).
+      aplicarTodas(d, [inicio(0), celula(0, 3, 0), celula(3, 3, 5400), fim('sucesso', 5400)]);
+      expect(d.metricas.transicoes).toBe(3);
+      expect(d.metricas.distanciaM).toBe(0.54);
+      expect(d.metricas.velocidadeMediaMps).toBe(0.1);
+    });
+
+    it('entre células vizinhas continua 1 por passagem, inclusive na volta', () => {
+      seq = 0;
+      const d = new DerivacaoCorrida(null);
+      aplicarTodas(d, [celula(0, 0, 0), celula(0, 1, 1), celula(1, 1, 2), celula(0, 1, 3)]);
+      expect(d.metricas.transicoes).toBe(3);
+    });
+
+    it('a mesma célula duas vezes seguidas não é movimento', () => {
+      seq = 0;
+      const d = new DerivacaoCorrida(null);
+      aplicarTodas(d, [celula(0, 0, 0), celula(0, 0, 1), celula(0, 1, 2)]);
+      expect(d.metricas.transicoes).toBe(1);
     });
   });
 
@@ -186,9 +220,10 @@ describe('DerivacaoCorrida', () => {
       seq = 0;
       const d = new DerivacaoCorrida(null);
       const primeira = inicio(0, '8x4');
-      // 45 passagens num labirinto de 32 células: as 13 últimas são revisitas.
+      // 45 passagens num labirinto de 32 células: percorre as 32 em serpentina e volta pelo
+      // mesmo caminho, então as 13 últimas são revisitas.
       const passagens = Array.from({ length: 45 }, (_, i) => {
-        const [x, y] = [i % 8, Math.floor(i / 8) % 4];
+        const [x, y] = serpentina(i < 32 ? i : 62 - i, 8);
         return [celula(x, y, i * 100), posicao(x, y, i * 100 + 50)];
       }).flat();
       const snapshots = doTipo(
@@ -202,7 +237,8 @@ describe('DerivacaoCorrida', () => {
       expect(snapshots[0]!.mapa.celulas).toHaveLength(20);
       const final = snapshots.at(-1)!;
       expect(final.mapa.celulas).toHaveLength(32);
-      expect(final.mapa.posicao).toEqual({ x: 4, y: 1, orientacao: 'LESTE' });
+      // A 45ª passagem é a 19ª célula da serpentina (volta), em (2, 2).
+      expect(final.mapa.posicao).toEqual({ x: 2, y: 2, orientacao: 'LESTE' });
       expect(final.metricas.transicoes).toBe(44);
     });
   });

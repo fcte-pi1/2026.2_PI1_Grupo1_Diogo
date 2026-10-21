@@ -373,7 +373,10 @@ export interface MetricasCorrida {
   tempo_decorrido_ms: number | null;
   /** Tempo oficial: só existe para corridas concluídas com sucesso (RF-82). */
   tempo_conclusao_ms: number | null;
-  /** Movimentos entre células (as passagens menos a de partida). */
+  /**
+   * Movimentos entre células: 1 por passagem entre células vizinhas. Se mensagens `celula`
+   * se perderam, o salto entre as passagens que chegaram conta o mínimo percorrido (#382).
+   */
   celulas_percorridas: number;
   distancia_m: number;
   revisitas: number;

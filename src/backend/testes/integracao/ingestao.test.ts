@@ -352,14 +352,18 @@ describe('ingestão de telemetria com PostgreSQL real', () => {
     it('CT-BE-12, 15, 16 e 18: encerra com status, tempo, velocidade e energia gravados', async () => {
       const c = { corrida: 'met' };
       const robo = await Robo.conectar(url);
-      const celulas = Array.from({ length: 31 }, (_, i) =>
-        mensagem('celula', i + 2, {
+      // 31 passagens por células vizinhas: serpentina pelas 16 células do 4x4 e volta pelo
+      // mesmo caminho (a distância conta o salto entre passagens, #382).
+      const celulas = Array.from({ length: 31 }, (_, i) => {
+        const k = i < 16 ? i : 30 - i;
+        const linha = Math.floor(k / 4);
+        return mensagem('celula', i + 2, {
           ...c,
-          x: i % 4,
-          y: 3 - (Math.floor(i / 4) % 4),
+          x: linha % 2 === 0 ? k % 4 : 3 - (k % 4),
+          y: 3 - linha,
           tempo_ms: 1000 + i * 1500,
-        }),
-      );
+        });
+      });
       const energias = [8.2, 8.0, 7.8, 7.6].map((v, i) =>
         mensagem('energia', 33 + i, { ...c, tensao_v: v, tempo_ms: 46_000 + i }),
       );
