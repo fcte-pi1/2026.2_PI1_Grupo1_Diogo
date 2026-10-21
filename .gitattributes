@@ -1,0 +1,6 @@
+# Arquivos executados dentro dos containers Linux: sempre LF, mesmo num clone no Windows
+# (core.autocrlf=true). Com CRLF, o initdb do Postgres falha no meio do script e o papel
+# rato_app fica sem senha, e o backend não sobe ("password authentication failed").
+*.sh text eol=lf
+Dockerfile text eol=lf
+Dockerfile.* text eol=lf

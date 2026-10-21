@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rato-borrachudo.local/protocolo/v1/hello.schema.json",
+  "title": "hello",
+  "description": "Primeira mensagem de cada conexão: identifica e autentica o dispositivo (RF-72). Não tem seq.",
+  "type": "object",
+  "properties": {
+    "tipo": {
+      "const": "hello"
+    },
+    "versao": {
+      "$ref": "comum.schema.json#/$defs/versao"
+    },
+    "dispositivo": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "token": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "boot": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "description": "Valor aleatório gerado a cada boot do ESP32."
+    }
+  },
+  "required": ["tipo", "versao", "dispositivo", "token", "boot"],
+  "additionalProperties": false
+}

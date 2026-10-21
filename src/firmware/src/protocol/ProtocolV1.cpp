@@ -21,11 +21,33 @@ std::string num(double value) {
 
 const char* boolJson(bool value) { return value ? "true" : "false"; }
 
+// Espelha o maxLength do esquema fim_corrida (protocolo v1).
+constexpr std::size_t kMaxDetailChars = 200;
+
+std::string truncateUtf8(const std::string& str, std::size_t maxCodePoints) {
+    std::size_t codePoints = 0;
+    std::size_t byteIndex = 0;
+    while (byteIndex < str.size()) {
+        const auto byte = static_cast<unsigned char>(str[byteIndex]);
+        // Byte de início (ou caractere ASCII de 1 byte): não é byte de continuação (10xxxxxx)
+        if ((byte & 0xC0) != 0x80) {
+            if (codePoints == maxCodePoints) {
+                return str.substr(0, byteIndex);
+            }
+            ++codePoints;
+        }
+        ++byteIndex;
+    }
+    return str;
+}
+
 std::string jsonEscape(const std::string& in) {
+    constexpr char kHexDigits[] = "0123456789abcdef";
     std::string out;
     out.reserve(in.size() + 2);
     for (const char c : in) {
-        switch (c) {
+        const auto uc = static_cast<unsigned char>(c);
+        switch (uc) {
             case '"':
                 out += "\\\"";
                 break;
@@ -42,7 +64,13 @@ std::string jsonEscape(const std::string& in) {
                 out += "\\t";
                 break;
             default:
-                out += c;
+                if (uc < 0x20) {
+                    out += "\\u00";
+                    out += kHexDigits[(uc >> 4) & 0x0F];
+                    out += kHexDigits[uc & 0x0F];
+                } else {
+                    out += c;
+                }
                 break;
         }
     }
@@ -153,7 +181,7 @@ std::string Encoder::encodePosition(long time,                     //
                       R"(,"orientacao":")" + directionToString(direction) +
                       R"(","celulas":)" + std::to_string(cells);
     if (speed.has_value()) {
-        msg += R"(,"velocidade_media_mps":)" + num(*speed);
+        msg += R"(,"velocidade_media_mps":)" + num(*speed / 1000.0);
     }
     msg += "}";
     return msg;
@@ -177,7 +205,8 @@ std::string Encoder::encodeRunResult(long time, RunResult result,
                       std::to_string(nextSequence()) + R"(,"tempo_ms":)" + std::to_string(time) +
                       R"(,"resultado":")" + std::string(resultStr) + R"(")";
     if (message.has_value()) {
-        msg += R"(,"detalhe":")" + jsonEscape(*message) + R"(")";
+        const std::string truncated = truncateUtf8(*message, kMaxDetailChars);
+        msg += R"(,"detalhe":")" + jsonEscape(truncated) + R"(")";
     }
     msg += "}";
     return msg;

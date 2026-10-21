@@ -27,11 +27,23 @@ export default defineConfig({
           environment: 'node',
         },
       },
+      {
+        // Simulador de robô → backend completo → PostgreSQL real (Testcontainers): requer Docker.
+        test: {
+          name: 'e2e',
+          include: ['testes/e2e/**/*.test.ts'],
+          environment: 'node',
+          testTimeout: 120_000,
+          hookTimeout: 120_000,
+        },
+      },
     ],
     coverage: {
       provider: 'v8',
-      include: ['src/**/*.ts'],
-      exclude: ['src/main.ts'],
+      // O simulador e o validador do protocolo também são código de produção dos testes
+      // (RNF-53). Os pontos de entrada de linha de comando ficam de fora, como o main.ts.
+      include: ['src/**/*.ts', 'protocolo/**/*.ts', 'simulador/**/*.ts'],
+      exclude: ['src/main.ts', '**/cli.ts'],
       reporter: ['text', 'html'],
       // RNF-53: cobertura mínima de 80 % nos módulos de validação e derivação.
       thresholds: {

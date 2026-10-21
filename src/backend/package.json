@@ -14,10 +14,13 @@
     "migrate": "node-pg-migrate --migrations-dir migracoes --migration-file-language sql --database-url-var DATABASE_URL",
     "migrate:create": "node-pg-migrate create --migrations-dir migracoes --migration-file-language sql --migration-filename-format utc",
     "seed": "tsx scripts/seed.ts",
+    "ponte": "tsx ponte/cli.ts",
+    "simulador": "tsx simulador/cli.ts",
     "test": "vitest run --project unit",
     "test:watch": "vitest --project unit",
     "test:cobertura": "vitest run --project unit --coverage",
     "test:integracao": "vitest run --project integracao",
+    "test:e2e": "vitest run --project e2e",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "format": "prettier --write .",
@@ -31,7 +34,8 @@
     "fastify": "5.12.5",
     "node-pg-migrate": "9.0.0",
     "pg": "8.23.1",
-    "pino": "10.4.0"
+    "pino": "10.4.0",
+    "serialport": "13.0.0"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
@@ -48,10 +52,12 @@
     "tsx": "4.23.15",
     "typescript": "6.0.3",
     "typescript-eslint": "8.71.1",
-    "vitest": "5.0.3"
+    "vitest": "5.0.3",
+    "ws": "8.22.0"
   },
   "allowScripts": {
     "argon2@0.45.1": true,
-    "esbuild@0.28.2": true
+    "esbuild@0.28.2": true,
+    "@serialport/bindings-cpp@13.0.0": true
   }
 }

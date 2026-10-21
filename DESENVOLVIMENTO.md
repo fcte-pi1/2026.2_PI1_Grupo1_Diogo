@@ -28,6 +28,15 @@ Ao subir, o backend instala as dependências que faltarem, aplica as migrações
 
 O **seed** cria o ambiente AMB dos [casos de teste](docs/software/backend/4_casos_de_teste.md): o dispositivo `sim-01` (token `T-VALIDO`), o operador `op1` (senha em `SEED_OPERADOR_SENHA`) e a apresentação "Teste" ativa. Ele pode ser executado várias vezes sem duplicar dados.
 
+### Parâmetros da derivação
+
+Ambos são opcionais. Ficam comentados no `.env.example`, com os valores padrão, e o `compose.yaml` os repassa ao backend. Um valor inválido impede o backend de subir, com a mensagem de erro no log.
+
+| Variável | Padrão | Uso |
+|:--|:--|:--|
+| `CURVA_CARGA` | `8.4:100,7.6:50,7.0:10,6.0:0` | Curva `tensão:carga %` da bateria, interpolada entre os pontos, para a carga estimada (RF-85). Precisa ser validada com a frente de Energia |
+| `LIMIAR_TENSAO_BAIXA_V` | `7.0` | Abaixo dele, os painéis recebem o alerta `TENSAO_BAIXA` (RF-86). O alerta só volta a disparar depois de a tensão subir 0,1 V acima do limiar |
+
 ## Comandos do dia a dia
 
 ```bash
@@ -52,6 +61,21 @@ docker compose down -v     # para tudo e APAGA o banco e os node_modules dos con
 cd src/backend && npm install && npm run test:integracao
 ```
 
+## Receber dados do robô (Bluetooth)
+
+O robô envia a telemetria por Bluetooth de baixa energia (BLE). Como o container não enxerga o Bluetooth do computador, uma **ponte** roda no notebook, fora do Docker, e repassa as mensagens ao backend em `/ws/telemetria`.
+
+A ponte oficial é a do firmware, em Python: `src/firmware/bridge/ble_ws_bridge.py` (entra no repositório com o PR do firmware). O robô real se identifica como `rato-01`; o seed já o cadastra com o token de `SEED_ROBO_TOKEN`.
+
+A pasta `src/backend/ponte/` é uma versão anterior, para Bluetooth Clássico, que **não conversa com o robô** e será removida. Ela ainda serve para enviar um arquivo de mensagens ao backend sem o robô:
+
+```bash
+cd src/backend && npm install
+cat corrida.ndjson | npm run ponte -- --porta -
+```
+
+O formato das mensagens está em [src/backend/protocolo/v1/README.md](src/backend/protocolo/v1/README.md).
+
 ## Estrutura
 
 ```
@@ -61,6 +85,7 @@ infra/postgres/initdb/           # cria o papel rato_app na criação do banco
 src/backend/
 ├── migracoes/                   # SQL versionado (node-pg-migrate) — DER da arquitetura §7
 ├── protocolo/                   # tipos.ts (compartilhado com o painel via @protocolo) e esquemas v1
+├── ponte/                       # versão anterior da ponte (Bluetooth Clássico); será removida
 ├── scripts/seed.ts
 ├── src/{config,adaptadores,aplicacao,dominio,infra}
 └── testes/{unit,integracao,e2e}
@@ -86,4 +111,5 @@ Uma tabela nova precisa de `GRANT` para `rato_app` na própria migração.
 | Alterações não recarregam | Defina `CHOKIDAR_USEPOLLING=true` no `.env` e rode `docker compose up -d` |
 | Erro de dependência após `git pull` | `docker compose restart backend frontend` (o `npm install` roda na subida) |
 | `password authentication failed for user "rato_app"` | O `DB_APP_PASSWORD` mudou depois da criação do volume: `docker compose down -v` e suba de novo |
+| O mesmo erro no **Windows**, num clone feito antes do `.gitattributes` | O script `infra/postgres/initdb/01-papel-aplicacao.sh` ficou com CRLF. O `git pull` não o reescreve: apague o arquivo e restaure-o com `git checkout -- infra/postgres/initdb/01-papel-aplicacao.sh` (ele volta com LF), depois `docker compose down -v` e suba de novo |
 | Banco em estado estranho | `docker compose down -v && docker compose up -d`, depois rode o seed de novo |
