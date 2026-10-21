@@ -8,6 +8,8 @@ namespace micromouse::domain {
 
 namespace {
 
+constexpr double kPi = 3.14159265358979323846;  // kPi não é C++ padrão
+
 WheelConfig makeConfig() {
     return {
         32.0,  //
@@ -25,7 +27,7 @@ TEST(Odometry, StartsAtZero) {
 TEST(Odometry, OneTurnTravelsOneCircumference) {
     Odometry odometry(makeConfig());
     odometry.onEncoderPulses(360);
-    EXPECT_NEAR(odometry.distanceMm(), M_PI * 32.0, 1e-9);
+    EXPECT_NEAR(odometry.distanceMm(), kPi * 32.0, 1e-9);
     EXPECT_EQ(odometry.pulses(), 360);
 }
 
@@ -33,7 +35,7 @@ TEST(Odometry, PulsesAccumulateAndScale) {
     Odometry odometry(makeConfig());
     odometry.onEncoderPulses(90);
     odometry.onEncoderPulses(90);
-    EXPECT_NEAR(odometry.distanceMm(), (M_PI * 32.0) / 2.0, 1e-9);
+    EXPECT_NEAR(odometry.distanceMm(), (kPi * 32.0) / 2.0, 1e-9);
 }
 
 TEST(Odometry, CountsCellsWithFloorDivision) {
@@ -45,7 +47,7 @@ TEST(Odometry, CountsCellsWithFloorDivision) {
 TEST(Odometry, AverageSpeedGuardsAgainstDivisionByZero) {
     Odometry odometry(makeConfig());
     odometry.onEncoderPulses(360);
-    EXPECT_NEAR(odometry.averageSpeedMmPerS(0.5), (M_PI * 32.0) / 0.5, 1e-9);
+    EXPECT_NEAR(odometry.averageSpeedMmPerS(0.5), (kPi * 32.0) / 0.5, 1e-9);
     EXPECT_DOUBLE_EQ(odometry.averageSpeedMmPerS(0.0), 0.0);
 }
 
@@ -53,7 +55,7 @@ TEST(Odometry, ReversesWithNegativePulses) {
     Odometry odometry(makeConfig());
     odometry.onEncoderPulses(360);
     odometry.onEncoderPulses(-180);
-    EXPECT_NEAR(odometry.distanceMm(), (M_PI * 32.0) / 2.0, 1e-9);
+    EXPECT_NEAR(odometry.distanceMm(), (kPi * 32.0) / 2.0, 1e-9);
     EXPECT_EQ(odometry.pulses(), 180);
 }
 

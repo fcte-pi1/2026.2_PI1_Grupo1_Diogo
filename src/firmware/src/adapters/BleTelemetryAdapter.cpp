@@ -42,7 +42,6 @@ void BleTelemetryAdapter::begin(const std::string& deviceName) {
     NimBLEService* service = server->createService(kNusService);
     txCharacteristic_ = service->createCharacteristic(kNusTxChar, NIMBLE_PROPERTY::NOTIFY);
     txCharacteristic_->setCallbacks(new TxCallbacks());
-    service->start();  // NimBLE 2.x inicia os serviços junto com o servidor; chamada mantida por clareza
 
     NimBLEAdvertising* advertising = NimBLEDevice::getAdvertising();
     advertising->addServiceUUID(kNusService);

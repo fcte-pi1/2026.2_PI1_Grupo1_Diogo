@@ -4,6 +4,7 @@
 
 #include <cstdio>
 #include <optional>
+#include <stdexcept>
 #include <string>
 
 #include "adapters/BenchMotionAdapter.hpp"
@@ -131,7 +132,23 @@ void navigationTask(void*) {
         }
     }
 
-    const domain::MazeSetup setup = gDip.read();
+    // Vias 1 e 2 fechadas juntas são uma combinação reservada: o decoder lança. Sem tratar,
+    // a exceção aborta a tarefa e a placa reinicia em laço; aqui sinaliza a falha e para.
+    std::optional<domain::MazeSetup> parsedSetup;
+    try {
+        parsedSetup = gDip.read();
+    } catch (const std::invalid_argument&) {
+    }
+    if (!parsedSetup) {
+        session.fault();
+        telemetry::Snapshot state{};
+        state.phase = session.getCurrentPhase();
+        writeState(state);
+        while (true) {
+            vTaskDelay(pdMS_TO_TICKS(200));
+        }
+    }
+    const domain::MazeSetup setup = *parsedSetup;
     TeleEvent startEvent{};
     startEvent.kind = TeleEvent::Start;
     startEvent.time = nowMs();

@@ -8,6 +8,8 @@ namespace micromouse::domain {
 
 namespace {
 
+constexpr double kPi = 3.14159265358979323846;  // M_PI não é C++ padrão
+
 double requirePositive(double value, const char* what) {
     if (!(value > 0.0)) {
         throw std::invalid_argument(std::string("Odometry: ") + what + " deve ser positivo");
@@ -28,7 +30,7 @@ void Odometry::onEncoderPulses(long ticks) noexcept { pulses_ += ticks; }
 long Odometry::pulses() const noexcept { return pulses_; }
 
 double Odometry::distanceMm() const {
-    const double circumference = M_PI * wheelConfig_.wheelDiameterMm;
+    const double circumference = kPi * wheelConfig_.wheelDiameterMm;
     const double revolutions = static_cast<double>(pulses_) / wheelConfig_.countsPerRevolution;
     return revolutions * circumference;
 }
