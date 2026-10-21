@@ -1,10 +1,54 @@
 #pragma once
 
 #include "driver/gpio.h"
-
-// Mapa de pinos do "Rato Borrachudo" (ESP32-S3-N16R8). Ponto único de verdade.
+#include "sdkconfig.h"
 
 namespace micromouse::adapters::pins {
+
+#if CONFIG_IDF_TARGET_ESP32
+
+// Mapa de BANCADA para o ESP32 clássico (DevKit ESP-WROOM-32), só para testar a
+// telemetria enquanto a placa oficial não chega. Não corresponde ao esquemático.
+// Evita os GPIO 6-11 (flash SPI) e os 34-39 (só entrada, sem pull-up interno).
+
+// Barramento I²C (pinos padrão do ESP32)
+constexpr gpio_num_t kI2cSda = GPIO_NUM_21;
+constexpr gpio_num_t kI2cScl = GPIO_NUM_22;
+
+// XSHUT dos VL53L1X
+constexpr gpio_num_t kTofFrontXshut = GPIO_NUM_25;
+constexpr gpio_num_t kTofLeftXshut = GPIO_NUM_26;
+constexpr gpio_num_t kTofRightXshut = GPIO_NUM_27;
+
+// DRV8833 (motor 1 = roda direita, motor 2 = roda esquerda)
+constexpr gpio_num_t kMotorLeftIn1 = GPIO_NUM_32;
+constexpr gpio_num_t kMotorLeftIn2 = GPIO_NUM_33;
+constexpr gpio_num_t kMotorRightIn1 = GPIO_NUM_13;
+constexpr gpio_num_t kMotorRightIn2 = GPIO_NUM_14;
+
+// Encoders em quadratura
+constexpr gpio_num_t kEncLeftA = GPIO_NUM_16;
+constexpr gpio_num_t kEncLeftB = GPIO_NUM_17;
+constexpr gpio_num_t kEncRightA = GPIO_NUM_18;
+constexpr gpio_num_t kEncRightB = GPIO_NUM_19;
+
+// Interface local
+constexpr gpio_num_t kLedReady = GPIO_NUM_2;   // LED azul da DevKit
+constexpr gpio_num_t kLedError = GPIO_NUM_4;
+constexpr gpio_num_t kBuzzer = GPIO_NUM_12;    // strapping: não ligar carga com pull-up
+constexpr gpio_num_t kButton = GPIO_NUM_0;     // botão BOOT da DevKit (pull-up na placa)
+
+// DIP switch (todas abertas = pull-up interno em nível alto)
+constexpr gpio_num_t kDip1 = GPIO_NUM_5;
+constexpr gpio_num_t kDip2 = GPIO_NUM_15;
+constexpr gpio_num_t kDip3 = GPIO_NUM_23;
+
+// Interrupção da MPU-6050 (não usada; o firmware faz polling)
+constexpr gpio_num_t kImuInt = GPIO_NUM_39;
+
+#else
+
+// Mapa de pinos do "Rato Borrachudo" (ESP32-S3-N16R8). Ponto único de verdade.
 
 // Barramento I²C (compartilhado: ToF + MPU-6050 + INA219)
 constexpr gpio_num_t kI2cSda = GPIO_NUM_2;  // SDA (pino 40)
@@ -40,5 +84,7 @@ constexpr gpio_num_t kDip3 = GPIO_NUM_46;  // DIP_SW3 (pino 14, canto de partida
 
 // Interrupção da MPU-6050 (disponível na placa; o firmware usa polling por ora)
 constexpr gpio_num_t kImuInt = GPIO_NUM_42;  // INT_MPU (pino 39)
+
+#endif
 
 }  // namespace micromouse::adapters::pins

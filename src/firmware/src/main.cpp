@@ -4,8 +4,10 @@
 
 #include <cstdio>
 #include <optional>
+#include <stdexcept>
 #include <string>
 
+#include "adapters/BenchMotionAdapter.hpp"
 #include "adapters/BleTelemetryAdapter.hpp"
 #include "adapters/DipReaderAdapter.hpp"
 #include "adapters/Drv8833MotionAdapter.hpp"
@@ -26,6 +28,7 @@
 #include "freertos/semphr.h"
 #include "freertos/task.h"
 #include "protocol/ProtocolV1.hpp"
+#include "sdkconfig.h"
 #include "telemetry/TelemetryBuffer.hpp"
 #include "telemetry/TelemetryEmitter.hpp"
 #include "use_cases/Navigator.hpp"
@@ -51,7 +54,12 @@ adapters::Mpu6050 gImu;
 adapters::Ina219 gPower;
 adapters::LocalInterfaceAdapter gLocal;
 adapters::DipReaderAdapter gDip;
+#if CONFIG_RATO_BANCADA
+// Modo bancada: placa solta, movimento simulado (ver Kconfig.projbuild).
+adapters::BenchMotionAdapter gMotion;
+#else
 adapters::Drv8833MotionAdapter gMotion{kWheels, kTurn, kStraightGains, gImu};
+#endif
 adapters::BleTelemetryAdapter gBle;
 
 telemetry::Snapshot gState{};
@@ -109,7 +117,11 @@ void navigationTask(void*) {
     }
     session.start();
 
+#if CONFIG_RATO_BANCADA
+    const bool selfTestOk = true;  // bancada: sem IMU nem INA219
+#else
     const bool selfTestOk = gImu.present() && gPower.present();
+#endif
     session.onSelfTestResult(selfTestOk);
     if (!selfTestOk) {
         telemetry::Snapshot state{};
@@ -120,7 +132,23 @@ void navigationTask(void*) {
         }
     }
 
-    const domain::MazeSetup setup = gDip.read();
+    // Vias 1 e 2 fechadas juntas são uma combinação reservada: o decoder lança. Sem tratar,
+    // a exceção aborta a tarefa e a placa reinicia em laço; aqui sinaliza a falha e para.
+    std::optional<domain::MazeSetup> parsedSetup;
+    try {
+        parsedSetup = gDip.read();
+    } catch (const std::invalid_argument&) {
+    }
+    if (!parsedSetup) {
+        session.fault();
+        telemetry::Snapshot state{};
+        state.phase = session.getCurrentPhase();
+        writeState(state);
+        while (true) {
+            vTaskDelay(pdMS_TO_TICKS(200));
+        }
+    }
+    const domain::MazeSetup setup = *parsedSetup;
     TeleEvent startEvent{};
     startEvent.kind = TeleEvent::Start;
     startEvent.time = nowMs();
@@ -234,9 +262,16 @@ void telemetryTask(void*) {
         if (running) {
             telemetry::Snapshot snapshot = readState();
             snapshot.speed.reset();
+#if CONFIG_RATO_BANCADA
+            // Bancada: sem INA219, valores fixos dentro da faixa aceita pelo backend.
+            snapshot.voltage = 7.4;
+            snapshot.amperage = 0.3;
+            snapshot.watts = 2.2;
+#else
             snapshot.voltage = gPower.busVoltageV();
             snapshot.amperage = gPower.currentA();
             snapshot.watts = gPower.powerW();
+#endif
             const long time = nowMs();
             for (const std::string& message : emitter.encodeCycle(time, snapshot)) {
                 buffer.add(time, message);
