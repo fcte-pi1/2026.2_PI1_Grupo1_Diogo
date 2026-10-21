@@ -1,0 +1,57 @@
+.painel {
+  display: grid;
+  gap: 0.5rem;
+  border: 1px solid var(--cor-borda);
+  border-radius: 0.25rem;
+  background: var(--cor-superficie);
+  padding: 0.75rem;
+}
+
+.aguardando {
+  margin: 0;
+  color: var(--cor-texto-suave);
+  font-size: 0.75rem;
+}
+
+.grupos {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: 1rem;
+}
+
+.grupo h4 {
+  margin: 0 0 0.375rem;
+  color: var(--cor-texto-suave);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.grupo dl {
+  display: grid;
+  gap: 0.25rem;
+  margin: 0;
+}
+
+.linha {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  border-bottom: 1px solid var(--cor-borda-clara);
+  padding-bottom: 0.125rem;
+}
+
+.linha dt {
+  color: var(--cor-texto-suave);
+  font-size: 0.75rem;
+}
+
+.linha dd {
+  margin: 0;
+  color: var(--cor-texto);
+  font-family: var(--fonte-mono);
+  font-size: 0.75rem;
+  font-weight: 500;
+}

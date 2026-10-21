@@ -83,4 +83,13 @@ endif()
 if(FIRMWARE_BUILD_TESTS)
     enable_testing()
     add_subdirectory(test)
+
+    add_executable(contract_dump
+        tools/contract_dump.cpp
+    )
+
+    target_link_libraries(contract_dump PRIVATE
+        firmware_logic
+        firmware_warnings
+    )
 endif()

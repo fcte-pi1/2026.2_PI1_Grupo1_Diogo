@@ -1,0 +1,47 @@
+.falha,
+.semSinal,
+.retomado,
+.desafioCumprido {
+  display: grid;
+  gap: 0.125rem;
+  border: 1px solid;
+  border-radius: 0.375rem;
+  padding: 0.5rem 0.75rem;
+}
+
+.falha strong,
+.semSinal strong,
+.retomado strong {
+  font-size: 0.8125rem;
+}
+
+.falha span,
+.semSinal span,
+.retomado span {
+  font-size: 0.75rem;
+}
+
+.falha {
+  border-color: #fecaca;
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+.semSinal {
+  border-color: #fde68a;
+  background: #fffbeb;
+  color: #b45309;
+}
+
+.retomado {
+  border-color: #bfdbfe;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.desafioCumprido {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+  color: #15803d;
+  font-weight: 600;
+}
