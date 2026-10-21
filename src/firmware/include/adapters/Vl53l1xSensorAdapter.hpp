@@ -12,14 +12,15 @@ private:
     i2c_master_bus_handle_t bus_{nullptr};
     double thresholdMm_;
 
-    [[nodiscard]] int rangeFrontMm() const;
-    [[nodiscard]] int rangeLeftMm() const;
-    [[nodiscard]] int rangeRightMm() const;
-
 public:
     explicit Vl53l1xSensorAdapter(double wallThresholdMm = 90.0);
     void begin(i2c_master_bus_handle_t bus);  // reendereça os sensores (RF-28)
     [[nodiscard]] ports::WallsAhead sense() const override;
+
+    // Distâncias em mm. Públicas para o firmware de diagnóstico (esp32-diagnostico/).
+    [[nodiscard]] int rangeFrontMm() const;
+    [[nodiscard]] int rangeLeftMm() const;
+    [[nodiscard]] int rangeRightMm() const;
 };
 
 }  // namespace micromouse::adapters

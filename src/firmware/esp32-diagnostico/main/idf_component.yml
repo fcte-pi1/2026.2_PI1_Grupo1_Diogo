@@ -1,0 +1,5 @@
+dependencies:
+  idf:
+    version: ">=5.1"
+  # A mesma versão do firmware do robô (../../esp32/main/idf_component.yml).
+  h2zero/esp-nimble-cpp: "^2.0.0"
