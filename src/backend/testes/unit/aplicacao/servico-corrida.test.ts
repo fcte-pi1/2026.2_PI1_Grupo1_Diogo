@@ -261,6 +261,45 @@ describe('ServicoCorrida', () => {
       expect(amb.sequenciasGravadasDe('c-A')).toEqual([1]);
     });
 
+    function adiar() {
+      let liberar!: () => void;
+      const promessa = new Promise<void>((resolver) => (liberar = resolver));
+      return { promessa, liberar };
+    }
+
+    it('o boot novo chega enquanto a corrida ainda carrega do banco: ela é interrompida ao terminar de carregar', async () => {
+      const antes = await conectar();
+      const carga = adiar();
+      amb.cargaLenta = carga.promessa;
+      // A primeira mensagem do boot antigo começa a carregar a corrida e fica presa no banco.
+      const recebendo = amb.servico.receber(antes, mensagem('inicio_corrida', 1));
+
+      await conectar(hello({ boot: 'b2' })); // o robô reiniciou
+      amb.cargaLenta = null;
+      carga.liberar();
+      await recebendo;
+      await amb.esvaziar();
+
+      expect([corridaA().status, corridaA().motivo]).toEqual(['INTERROMPIDA', 'REINICIO_ROBO']);
+      await enviar(antes, [mensagem('fim_corrida', 2)]);
+      expect(amb.rejeicoes.map((r) => r.motivoCodigo)).toEqual(['CORRIDA_FINALIZADA']);
+    });
+
+    it('mensagem do boot antigo que só cria a corrida depois do hello novo: corrida interrompida', async () => {
+      const antes = await conectar();
+      await conectar(hello({ boot: 'b2' }));
+      // Ainda na fila da conexão antiga, a primeira mensagem de uma corrida do boot b1.
+      await enviar(antes, [mensagem('inicio_corrida', 1)]);
+      expect([corridaA().status, corridaA().motivo]).toEqual(['INTERROMPIDA', 'REINICIO_ROBO']);
+    });
+
+    it('uma corrida do boot atual que carrega depois do hello segue normal', async () => {
+      await conectar();
+      const sessao = await conectar(hello({ boot: 'b1' }));
+      await enviar(sessao, [mensagem('inicio_corrida', 1)]);
+      expect(corridaA().status).toBe('EM_ANDAMENTO');
+    });
+
     it('novo hello com outro boot na mesma conexão também interrompe', async () => {
       const sessao = await conectar();
       await enviar(sessao, [mensagem('inicio_corrida', 1), hello({ boot: 'b2' })]);
@@ -335,6 +374,33 @@ describe('ServicoCorrida', () => {
       await amb.corrida.recuperar();
       await amb.esvaziar();
       expect(amb.publicados).toHaveLength(0);
+    });
+
+    it('avisa a mudança do ranking só depois de gravar o encerramento (RF-95, CT-BE-28)', async () => {
+      const gravadaAoAvisar: boolean[] = [];
+      const original = amb.eventosPublicados.publicar;
+      amb.eventosPublicados.publicar = (evento, dados) => {
+        if (evento === 'ranking-alterado') {
+          gravadaAoAvisar.push(amb.encerramentos.has((dados as { corridaId: string }).corridaId));
+        }
+        original(evento, dados);
+      };
+      const sessao = await conectar();
+      await enviar(sessao, [mensagem('inicio_corrida', 1), mensagem('fim_corrida', 2)]);
+
+      expect(publicados('ranking-alterado').map((p) => p.dados)).toEqual([
+        { corridaId: corridaA().id, labirinto: '4x4' },
+      ]);
+      expect(gravadaAoAvisar).toEqual([true]);
+    });
+
+    it('não avisa o ranking numa corrida que falhou ou foi interrompida', async () => {
+      const sessao = await conectar();
+      await enviar(sessao, [
+        mensagem('inicio_corrida', 1),
+        mensagem('fim_corrida', 2, { resultado: 'falha' }),
+      ]);
+      expect(publicados('ranking-alterado')).toHaveLength(0);
     });
 
     it('não publica as mensagens reconstruídas que esperavam uma lacuna; só a que a preenche', async () => {

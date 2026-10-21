@@ -14,6 +14,9 @@
  *
  * Em `falha`, o robô para no meio do caminho e, depois de DETECCAO_FALHA_MS, envia `estado ERRO`
  * e `fim_corrida falha` com `detalhe`.
+ *
+ * Com `tensoes`, a curva da bateria é trocada por uma sequência fixa de tensões (CT-BE-18 e
+ * CT-BE-19): a corrida é dividida em degraus iguais, um por valor, na ordem dada e sem ruído.
  */
 import type {
   Celula,
@@ -64,6 +67,11 @@ export interface OpcoesCorrida {
   aleatorio: Aleatorio;
   tensaoInicialV?: number;
   tensaoFinalV?: number;
+  /**
+   * Tensões das mensagens `energia`, em degraus iguais ao longo da corrida, exatamente como
+   * dadas. A primeira leitura tem a primeira tensão e a última leitura, a última.
+   */
+  tensoes?: readonly number[];
 }
 
 export interface CorridaGerada {
@@ -186,18 +194,26 @@ export function gerarCorrida(opcoes: OpcoesCorrida): CorridaGerada {
   const vInicial = opcoes.tensaoInicialV ?? TENSAO_INICIAL_V;
   const vFinal = opcoes.tensaoFinalV ?? TENSAO_FINAL_V;
   const duracao = Math.max(tFim - t0, 1);
+  const { tensoes } = opcoes;
+  const ciclos = Math.max(1, Math.ceil((tFim - t0) / CICLO_TELEMETRIA_MS));
+  if (tensoes && tensoes.length > ciclos) {
+    throw new RangeError(
+      `a corrida tem ${ciclos} leituras de energia, menos que as ${tensoes.length} tensões pedidas`,
+    );
+  }
   let m = 0;
-  for (let tc = t0; tc < tFim; tc += CICLO_TELEMETRIA_MS) {
+  let ciclo = 0;
+  for (let tc = t0; tc < tFim; tc += CICLO_TELEMETRIA_MS, ciclo++) {
     while (m + 1 < marcos.length && marcos[m + 1]!.t <= tc) m++;
     const marco = marcos[m]!;
 
     const corrente = Math.max(0, CORRENTE_A[marco.atividade] + realEntre(aleatorio, -0.02, 0.02));
     const emVazio = vInicial - (vInicial - vFinal) * ((tc - t0) / duracao);
-    const tensao = limitar(
-      emVazio - RESISTENCIA_INTERNA_OHM * corrente + realEntre(aleatorio, -0.005, 0.005),
-      5,
-      9,
-    );
+    const ruido = realEntre(aleatorio, -0.005, 0.005);
+    // Degrau `ciclo * n / ciclos`: com pelo menos n ciclos, todo valor aparece pelo menos uma vez.
+    const tensao = tensoes
+      ? tensoes[Math.floor((ciclo * tensoes.length) / ciclos)]!
+      : limitar(emVazio - RESISTENCIA_INTERNA_OHM * corrente + ruido, 5, 9);
     const instante = tc;
 
     itens.push({

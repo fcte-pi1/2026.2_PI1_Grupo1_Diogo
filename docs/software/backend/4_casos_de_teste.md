@@ -12,7 +12,7 @@ Estes casos guiam a automação E2E exigida no documento [`7.4 - Testes de softw
 
 | Item | Definição |
 |:--|:--|
-| **AMB — ambiente padrão** | Backend e PostgreSQL 16 subidos por `docker compose up`, banco com as migrações aplicadas e sem corridas. Dispositivo `sim-01` cadastrado com token `T-VALIDO`. Operador `op1` cadastrado. Apresentação "Teste" ativa. |
+| **AMB — ambiente padrão** | Backend e PostgreSQL 16 subidos por `docker compose up`, banco com as migrações aplicadas e sem corridas. Dispositivos `sim-01` e `sim-02` cadastrados com token `T-VALIDO` (o `sim-02` é o segundo simulador do CT-BE-21). Operador `op1` cadastrado. Apresentação "Teste" ativa. |
 | **SIM** | Simulador de robô (`src/backend/simulador`). Envia `hello` e mensagens do protocolo v1 com `seq`, `t` e taxa configuráveis. Permite derrubar e retomar a conexão, reiniciar (novo `boot`), silenciar o pong e reenviar o buffer retido. Como o robô real, o SIM é **emissor unidirecional**: nenhum passo do SIM depende de ler respostas do backend. Os `ack` recebidos são apenas registrados para verificação. |
 | **PNL** | Cliente de painel de teste: conecta em `/ws/painel`, se inscreve e grava cada mensagem recebida com o horário de chegada. Pode simular um consumidor lento (não lê o socket). |
 | **SQL** | Consultas diretas ao banco para verificar o estado persistido. |
@@ -149,7 +149,7 @@ Estes casos guiam a automação E2E exigida no documento [`7.4 - Testes de softw
   1. SIM envia `inicio_corrida {labirinto: "5x5"}`.
   2. Numa corrida válida, SIM envia `energia {tensao_v: 4.9}` e `energia {tensao_v: 9.1}`.
   3. SIM envia `seq` 20 com `t = 5000` e depois `seq` 21 com `t = 4900`.
-- **Resultado esperado:** as quatro mensagens inválidas são rejeitadas com os motivos `LABIRINTO_INVALIDO`, `TENSAO_FORA_DA_FAIXA` (duas vezes) e `TEMPO_DECRESCENTE`. A conexão continua aberta. Uma `energia {tensao_v: 7.4}` enviada logo depois é aceita.
+- **Resultado esperado:** as quatro mensagens inválidas são rejeitadas com os motivos `ESQUEMA_INVALIDO` (o tipo `5x5` não existe no esquema do protocolo), `TENSAO_FORA_DA_FAIXA` (duas vezes) e `TEMPO_REGRESSIVO`. A conexão continua aberta. Uma `energia {tensao_v: 7.4}` enviada logo depois é aceita.
 
 ### CT-BE-08 — Mensagem duplicada é confirmada, mas não gravada nem distribuída
 
@@ -404,7 +404,7 @@ Estes casos guiam a automação E2E exigida no documento [`7.4 - Testes de softw
 - **Pré-condições:** AMB. Corrida em andamento com 250 mensagens.
 - **Procedimentos:**
   1. Encerrar o processo do backend (`docker compose kill backend`) no instante T0 e reiniciá-lo.
-  2. SIM continua gerando mensagens e reenvia a partir do `ack` quando consegue reconectar.
+  2. SIM continua gerando mensagens e, ao reconectar, envia o `hello` e reenvia o buffer de 60 s inteiro, como o firmware: ele não usa o `ack` para decidir o que reenviar, e o backend descarta as duplicatas.
   3. Concluir a corrida.
 - **Resultado esperado:** **(critério do RNF-52)** encerrando e reiniciando o processo durante uma corrida simulada, ela deve ser retomada em até 5 s e, após o reenvio do robô, não deve haver lacunas nem duplicatas. `/health` responde "pronto" em até T0 + 5 s (descontado o tempo do contêiner). O estado reconstruído é igual ao de antes da queda, e `count(*) = count(DISTINCT seq) = max(seq)`.
 

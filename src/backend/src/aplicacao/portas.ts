@@ -9,6 +9,7 @@ import type {
   StatusCorrida,
   TipoLabirinto,
 } from '../dominio/index.js';
+import type { DetalheCorrida, PosicaoLeaderboard } from '../../protocolo/tipos.js';
 
 export interface Dispositivo {
   id: string;
@@ -157,4 +158,15 @@ export interface RegistroLog {
   info(dados: object, mensagem: string): void;
   warn(dados: object, mensagem: string): void;
   error(dados: object, mensagem: string): void;
+}
+
+/** Consultas de leitura para a API HTTP (ServicoConsulta, arquitetura do backend §3.1). */
+export interface RepositorioConsulta {
+  /** `null` quando a corrida não existe. */
+  detalheCorrida(corridaId: string): Promise<DetalheCorrida | null>;
+  /** Corridas CONCLUIDA e não anuladas do labirinto, já com a posição (RF-95). */
+  leaderboard(
+    labirinto: TipoLabirinto,
+    apresentacaoId: string | null,
+  ): Promise<PosicaoLeaderboard[]>;
 }
