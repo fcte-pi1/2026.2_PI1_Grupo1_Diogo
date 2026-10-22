@@ -3,13 +3,16 @@ import type {
   AmostraEnergia,
   CelulaMapa,
   DadosExecucao,
+  ErroDetalhe,
   ErroHistorico,
   EstadoConexao,
   FiltroTipoLabirinto,
+  LeituraDepuracao,
   PontoTrajeto,
   SinalRobo,
+  SituacaoDetalhe,
 } from '../dominio';
-import { TAMANHO_PAGINA_HISTORICO, execucaoInicial } from '../dominio';
+import { LIMITE_AMOSTRAS_ENERGIA, TAMANHO_PAGINA_HISTORICO, execucaoInicial } from '../dominio';
 import type { CorridaResumo } from '../protocolo';
 
 /** Saúde do backend (GET /health): prova de vida do ambiente. */
@@ -42,6 +45,40 @@ export const historicoInicial: FatiaHistorico = {
   erro: null,
 };
 
+/** Execução do histórico já convertida para os dados da tela (HU-FE-11). */
+export interface ResultadoDetalhe {
+  dados: DadosExecucao;
+  /** Instante de início da execução, ISO 8601. */
+  iniciadaEm: string;
+}
+
+/**
+ * Fatia `detalhe`: a execução passada aberta em `/historico/:id`. Fica separada de `aoVivo`,
+ * então mensagens do WebSocket nunca a alteram (HU-FE-11 CA2).
+ */
+export interface FatiaDetalhe {
+  /** Id da execução solicitada; `null` fora da tela de detalhe. */
+  corrida: string | null;
+  situacao: SituacaoDetalhe;
+  erro: ErroDetalhe | null;
+  iniciadaEm: string | null;
+  dados: DadosExecucao;
+}
+
+export const detalheInicial: FatiaDetalhe = {
+  corrida: null,
+  situacao: 'carregando',
+  erro: null,
+  iniciadaEm: null,
+  dados: execucaoInicial,
+};
+
+/** Fatia `alertas`: avisos de comunicação que não cabem no estado da execução (HU-FE-13). */
+export interface FatiaAlertas {
+  /** Instante (ms) em que o sinal do robô foi retomado após uma perda; `null` se não houve. */
+  retomadaEm: number | null;
+}
+
 /**
  * Store única do painel. Fatias previstas: conexao, aoVivo, detalhe, historico e alertas
  * (arquitetura do frontend, §3.1). No esqueleto, só a fatia `conexao` existe.
@@ -59,6 +96,10 @@ export interface EstadoPainel {
     saude: SaudeBackend;
   };
   historico: FatiaHistorico;
+  detalhe: FatiaDetalhe;
+  alertas: FatiaAlertas;
+  /** Última leitura bruta do modo de depuração; fora de `aoVivo`, para não tocar na tentativa (HU-FE-14 CA2). */
+  depuracao: LeituraDepuracao | null;
   acoes: {
     atualizarExecucao: (dados: Partial<DadosExecucao>) => void;
     reiniciarExecucao: (dados?: Partial<DadosExecucao>) => void;
@@ -72,6 +113,8 @@ export interface EstadoPainel {
     definirEstadoConexao: (estado: EstadoConexao) => void;
     definirSinal: (sinal: SinalRobo) => void;
     definirSaude: (saude: SaudeBackend) => void;
+    /** Substitui só a leitura bruta mais recente; a série de energia e o trajeto não mudam. */
+    atualizarDepuracao: (leitura: LeituraDepuracao) => void;
     registrarMensagem: () => void;
     /** Troca o filtro: volta à página 1 e descarta a lista anterior. */
     definirFiltroHistorico: (filtro: FiltroTipoLabirinto) => void;
@@ -82,6 +125,12 @@ export interface EstadoPainel {
     receberHistorico: (resposta: { itens: CorridaResumo[]; total: number }) => void;
     falharHistorico: (erro: ErroHistorico) => void;
     reiniciarHistorico: () => void;
+    /** Começa a abrir uma execução do histórico: descarta a anterior. */
+    iniciarDetalhe: (corrida: string) => void;
+    /** Ignorada se o usuário já abriu outra execução (resposta atrasada). */
+    receberDetalhe: (corrida: string, resultado: ResultadoDetalhe) => void;
+    falharDetalhe: (corrida: string, erro: ErroDetalhe) => void;
+    reiniciarDetalhe: () => void;
   };
 }
 
@@ -94,6 +143,9 @@ export const usePainel = create<EstadoPainel>()((set) => ({
     saude: { backend: 'desconhecido', banco: 'desconhecido' },
   },
   historico: historicoInicial,
+  detalhe: detalheInicial,
+  alertas: { retomadaEm: null },
+  depuracao: null,
   acoes: {
     atualizarExecucao: (dados) =>
       set((s) => {
@@ -112,7 +164,17 @@ export const usePainel = create<EstadoPainel>()((set) => ({
           },
         };
       }),
-    reiniciarExecucao: (dados) => set(() => ({ aoVivo: { ...execucaoInicial, ...dados } })),
+    reiniciarExecucao: (dados) =>
+      set((s) => {
+        const outraCorrida = dados?.corrida !== s.aoVivo.corrida;
+        return {
+          aoVivo: { ...execucaoInicial, ...dados },
+          alertas: { retomadaEm: null },
+          depuracao: null,
+          // O sinal pertence à corrida: a perda de uma não vale para a seguinte.
+          conexao: outraCorrida ? { ...s.conexao, sinal: 'DESCONHECIDO' as const } : s.conexao,
+        };
+      }),
     substituirSnapshot: (dados) =>
       set((s) => {
         const mesmaCorrida = s.aoVivo.corrida === dados.corrida;
@@ -161,7 +223,7 @@ export const usePainel = create<EstadoPainel>()((set) => ({
             tensaoV: amostra.tensaoV,
             correnteA: amostra.correnteA,
             potenciaW: amostra.potenciaW,
-            energia: [...s.aoVivo.energia, amostra].slice(-6000),
+            energia: [...s.aoVivo.energia, amostra].slice(-LIMITE_AMOSTRAS_ENERGIA),
           },
         };
       }),
@@ -171,8 +233,21 @@ export const usePainel = create<EstadoPainel>()((set) => ({
         return { aoVivo: { ...s.aoVivo, mapa: [...mapa, celula] } };
       }),
     definirEstadoConexao: (estado) => set((s) => ({ conexao: { ...s.conexao, estado } })),
-    definirSinal: (sinal) => set((s) => ({ conexao: { ...s.conexao, sinal } })),
+    definirSinal: (sinal) =>
+      set((s) => ({
+        conexao: { ...s.conexao, sinal },
+        // Retomada = sai de PERDIDO para OK; uma nova perda apaga o aviso anterior.
+        alertas: {
+          retomadaEm:
+            s.conexao.sinal === 'PERDIDO' && sinal === 'OK'
+              ? Date.now()
+              : sinal === 'PERDIDO'
+                ? null
+                : s.alertas.retomadaEm,
+        },
+      })),
     definirSaude: (saude) => set((s) => ({ conexao: { ...s.conexao, saude } })),
+    atualizarDepuracao: (leitura) => set(() => ({ depuracao: leitura })),
     registrarMensagem: () =>
       set((s) => ({
         telemetria: {
@@ -207,6 +282,20 @@ export const usePainel = create<EstadoPainel>()((set) => ({
         historico: { ...s.historico, itens: [], total: 0, carregando: false, erro },
       })),
     reiniciarHistorico: () => set(() => ({ historico: historicoInicial })),
+    iniciarDetalhe: (corrida) => set(() => ({ detalhe: { ...detalheInicial, corrida } })),
+    receberDetalhe: (corrida, { dados, iniciadaEm }) =>
+      set((s) =>
+        s.detalhe.corrida !== corrida
+          ? s
+          : { detalhe: { corrida, situacao: 'pronto', erro: null, iniciadaEm, dados } },
+      ),
+    falharDetalhe: (corrida, erro) =>
+      set((s) =>
+        s.detalhe.corrida !== corrida
+          ? s
+          : { detalhe: { ...detalheInicial, corrida, situacao: 'erro', erro } },
+      ),
+    reiniciarDetalhe: () => set(() => ({ detalhe: detalheInicial })),
   },
 }));
 

@@ -15,13 +15,13 @@
   },
   "cmake.options.statusBarVisibility": "visible",
   "files.exclude": {
-    "build/": true,
-    ".clang-format": true,
-    "cspell.json": true,
-    "CMakePresets.json": true,
-    // "**/CMakeLists.txt": true,
-    "README.md": true,
-    "GUIA_DESENVOLVIMENTO.md": true,
-    ".gitignore": true
+    "build/": false,
+    ".clang-format": false,
+    "cspell.json": false,
+    "CMakePresets.json": false,
+    "**/CMakeLists.txt": false,
+    "README.md": false,
+    "GUIA_DESENVOLVIMENTO.md": false,
+    ".gitignore": false
   }
 }
