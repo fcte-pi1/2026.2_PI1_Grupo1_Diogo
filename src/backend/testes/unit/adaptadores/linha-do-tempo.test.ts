@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify';
+import { pino } from 'pino';
 import { afterEach, describe, expect, it } from 'vitest';
 import { criarValidadorProtocolo } from '../../../protocolo/validador.js';
 import { ServicoConsulta, ServicoLinhaDoTempo } from '../../../src/aplicacao/index.js';
@@ -61,6 +62,59 @@ describe('GET /api/corridas/{id}/linha-do-tempo (RF-94)', () => {
       .map((l) => JSON.parse(l) as { sequencia: number });
     expect(linhas.map((l) => l.sequencia)).toEqual([1, 2, 3]);
     expect(resposta.body.endsWith('\n')).toBe(true);
+  });
+
+  it('falha do banco no segundo lote: registra o erro e aborta a conexão, sem fingir que terminou', async () => {
+    const amb = new AmbienteEmMemoria();
+    const logs: { level: number; msg: string; corrida?: string; enviadas?: number }[] = [];
+    app = await construirApp({
+      logger: pino({ level: 'info' }, { write: (linha: string) => logs.push(JSON.parse(linha)) }),
+      verificarBanco: async () => true,
+      contadores: amb.contadores,
+      ingestao: amb.servico,
+      distribuicao: amb.distribuicao,
+      validador: criarValidadorProtocolo(),
+      consulta: new ServicoConsulta({
+        detalheCorrida: async () => null,
+        leaderboard: async () => [],
+      }),
+      linhaDoTempo: new ServicoLinhaDoTempo(
+        {
+          corridaExiste: async () => true,
+          mensagensDepoisDe: async (_id, depoisDe) => {
+            if (depoisDe > 0) throw new Error('conexão com o banco perdida');
+            return [1, 2, 3].map((s) => ({
+              sequencia: s,
+              tempo_ms: s,
+              tipo: 'estado' as const,
+              recebida_em: new Date(0).toISOString(),
+              mensagem: {
+                versao: 1 as const,
+                tipo: 'estado' as const,
+                corrida: 'c1',
+                sequencia: s,
+                tempo_ms: s,
+                estado: 'MAPEANDO' as const,
+              },
+            }));
+          },
+        },
+        2,
+      ),
+    });
+
+    // O 200 já saiu com o primeiro lote: a conexão é abortada, e o cliente vê o erro.
+    await expect(
+      app.inject({ method: 'GET', url: `/api/corridas/${ID}/linha-do-tempo` }),
+    ).rejects.toThrow(/destroyed/);
+    expect(logs).toContainEqual(
+      expect.objectContaining({
+        level: 50,
+        msg: 'leitura interrompida no meio do stream',
+        corrida: ID,
+        enviadas: 2,
+      }),
+    );
   });
 
   it('404 para corrida inexistente e 400 para id que não é UUID', async () => {

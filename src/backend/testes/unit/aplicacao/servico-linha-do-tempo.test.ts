@@ -50,19 +50,27 @@ describe('ServicoLinhaDoTempo (RF-94)', () => {
     const { repo, pedidos } = repositorio([1, 2, 4, 5, 7]);
     const servico = new ServicoLinhaDoTempo(repo, 2);
     expect(await todos((await servico.linhaDoTempo('c1'))!)).toEqual([1, 2, 4, 5, 7]);
+    // Cada pedido traz uma a mais que o lote, só para saber se há outro.
     expect(pedidos).toEqual([
-      [0, 2],
-      [2, 2],
-      [5, 2],
+      [0, 3],
+      [2, 3],
+      [5, 3],
     ]);
   });
 
-  it('um lote exato no fim pede mais um, vazio, e para', async () => {
+  it('total múltiplo do lote: não faz uma consulta final vazia', async () => {
     const { repo, pedidos } = repositorio([1, 2, 3, 4]);
     expect(await todos((await new ServicoLinhaDoTempo(repo, 2).linhaDoTempo('c1'))!)).toEqual([
       1, 2, 3, 4,
     ]);
-    expect(pedidos.map(([d]) => d)).toEqual([0, 2, 4]);
+    expect(pedidos.map(([d]) => d)).toEqual([0, 2]);
+  });
+
+  it('a sequência extra de um lote sai no lote seguinte, sem repetir nem pular', async () => {
+    const { repo } = repositorio([1, 2, 3, 4, 5]);
+    expect(await todos((await new ServicoLinhaDoTempo(repo, 2).linhaDoTempo('c1'))!)).toEqual([
+      1, 2, 3, 4, 5,
+    ]);
   });
 
   it('corrida inexistente: null; corrida sem mensagens: vazia', async () => {
