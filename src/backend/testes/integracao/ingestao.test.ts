@@ -786,9 +786,17 @@ describe('ingestão de telemetria com PostgreSQL real', () => {
       const normal = await conectarPainel();
       normal.enviar({ tipo: 'inscrever', corrida: id });
       const lento = await painelNode();
+      let lentoInscrito = false;
+      lento.ws.on('message', (dados) => {
+        if ((JSON.parse(String(dados)) as { tipo?: string }).tipo === 'snapshot')
+          lentoInscrito = true;
+      });
       lento.ws.send(JSON.stringify({ tipo: 'inscrever', corrida: id }));
       await esperar(() => normal.doTipo('snapshot').length > 0);
-      await new Promise((resolver) => setTimeout(resolver, 100));
+      // O painel lento só é pausado depois de receber o snapshot: garante que ele está
+      // inscrito. Uma execução no CI enviou por 30 s sem o aviso de painel lento, e a causa não
+      // ficou clara; isto descarta uma inscrição atrasada. O registro abaixo mostra o resto.
+      await esperar(() => lentoInscrito);
       // O painel lento para de ler: o buffer de envio do backend para ele só cresce. O
       // pause() do cliente ws para de ler o socket (API pública, tipada em @types/ws).
       lento.ws.pause();
@@ -831,11 +839,14 @@ describe('ingestão de telemetria com PostgreSQL real', () => {
         // e os dois painéis disputando 2 vCPUs, uma vez passou dos 5 s padrão.
         await robo.esperarAck('painel-lento', sequencia, 30_000);
       }
-      await esperar(() => avisosDistribuicao.includes(AVISO_PAINEL_LENTO), 5000);
-      // Registro para calibrar o orçamento: quanto o CI precisou até detectar.
+      // Registro para calibrar o orçamento e, se falhar, explicar a falha: quanto foi enviado,
+      // em quanto tempo e se o aviso veio.
       console.info(
-        `CT-BE-24: painel lento detectado com ${sequencia} sequências (${celulasEnviadas} células) em ${Date.now() - inicioEnvio} ms`,
+        `CT-BE-24: ${sequencia} sequências (${celulasEnviadas} células) em ${Date.now() - inicioEnvio} ms; ` +
+          `aviso de painel lento: ${avisosDistribuicao.includes(AVISO_PAINEL_LENTO) ? 'sim' : 'NÃO'}; ` +
+          `avisos: ${JSON.stringify(avisosDistribuicao)}`,
       );
+      await esperar(() => avisosDistribuicao.includes(AVISO_PAINEL_LENTO), 5000);
 
       // O painel normal recebeu todas as células, em ordem, durante todo o episódio. No CI
       // podem ser dezenas de milhares: o prazo acompanha o orçamento de envio.
