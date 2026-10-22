@@ -302,7 +302,7 @@ Download de uma corrida para o relatório e para planilhas (RF-98, HU-BE-27). O 
 | `json` | `application/json; charset=utf-8` | O mesmo `DetalheCorrida` de `GET /api/corridas/{id}`: resumo, métricas, trajeto e energia |
 | `csv` | `text/csv; charset=utf-8` | Uma linha por mensagem aceita, em ordem de `seq`, enviada em *stream* pelos mesmos lotes do replay |
 
-O CSV segue a RFC 4180: separador `,`, decimal com `.`, linhas terminadas em `\r\n`, aspas no texto que tem vírgula, aspas ou quebra de linha. Começa com o BOM do UTF-8, para a planilha mostrar os acentos. As colunas são fixas, a união dos campos de todos os tipos de mensagem; a mensagem que não tem o campo deixa a célula vazia:
+O CSV segue a RFC 4180: separador `,`, decimal com `.`, linhas terminadas em `\r\n`, aspas no texto que tem vírgula, aspas ou quebra de linha. **Começa com o BOM do UTF-8** (`EF BB BF`), para a planilha mostrar os acentos. Quem lê o arquivo por script precisa tolerá-lo: em Python, `encoding="utf-8-sig"`; no navegador, o `response.text()` já o descarta. As colunas são fixas, a união dos campos de todos os tipos de mensagem; a mensagem que não tem o campo deixa a célula vazia:
 
 ```
 seq,t_robo_ms,tipo,recebida_em,labirinto,x,y,orientacao,celulas,velocidade_media_mps,parede_norte,parede_leste,parede_sul,parede_oeste,tensao_v,corrente_a,potencia_w,estado,resultado,detalhe
@@ -310,6 +310,16 @@ seq,t_robo_ms,tipo,recebida_em,labirinto,x,y,orientacao,celulas,velocidade_media
 2,12000,celula,2026-10-20T14:00:00.130Z,,0,0,,,,true,false,false,true,,,,,,
 ```
 
-O `detalhe` do `fim_corrida` é texto livre do robô: quando começa com `=`, `+`, `-` ou `@`, ganha um `'` na frente, para a planilha não o executar como fórmula.
+**Proteção contra fórmula (CSV Injection, OWASP).** O `detalhe` do `fim_corrida` é o único texto livre que vem do robô. Os outros textos (`tipo`, `labirinto`, `orientacao`, `estado`, `resultado`) são valores fixos dos esquemas, e o `recebida_em` é gerado pelo backend. Quando o `detalhe` começa com `=`, `+`, `-`, `@`, tabulação ou retorno de carro, ganha um `'` na frente, para a planilha não o executar como fórmula. Colunas numéricas, como um `-0.5` de corrente, saem sem alteração.
 
-Corrida inexistente: `404` (`CORRIDA_NAO_ENCONTRADA`). Sem `formato`, com formato inválido ou com id que não é UUID: `400`.
+### Erros
+
+Decididos antes do primeiro byte do corpo: `404` (`CORRIDA_NAO_ENCONTRADA`). E `400` (`FST_ERR_VALIDATION`) sem `formato`, com formato inválido ou com id que não é UUID. Os corpos têm o mesmo formato do detalhe da corrida.
+
+### Limitações
+
+As mesmas da linha do tempo, porque o CSV sai pelos mesmos lotes:
+- **Falha no meio do *stream*:** o backend registra o erro e aborta a conexão, em vez de entregar um arquivo truncado que pareceria completo.
+- **Corrida em andamento:** pode ter lacunas.
+
+O JSON não tem esse risco: ele é montado inteiro antes do envio.

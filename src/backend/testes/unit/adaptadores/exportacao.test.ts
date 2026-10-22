@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import type { FastifyInstance } from 'fastify';
+import { pino } from 'pino';
 import { afterEach, describe, expect, it } from 'vitest';
 import type {
   DetalheCorrida,
@@ -100,13 +101,32 @@ describe('linhaCsv (RF-98, HU-BE-27 CA2)', () => {
   });
 
   it('neutraliza texto que a planilha executaria como fórmula', () => {
-    for (const perigoso of ['=HYPERLINK("x")', '+1', '-1', '@SOMA(A1)']) {
+    // Os seis gatilhos da OWASP (CSV Injection): =, +, -, @, tabulação e retorno de carro.
+    for (const perigoso of ['=HYPERLINK("x")', '+1', '-1', '@SOMA(A1)', '\tcmd', '\r=1']) {
       const linha = linhaCsv(
         item({ ...env, tipo: 'fim_corrida', sequencia: 7, resultado: 'falha', detalhe: perigoso }),
       );
       const detalhe = linha.slice(linha.indexOf(',falha,') + ',falha,'.length);
       expect(detalhe.replace(/^"/, '').startsWith(`'${perigoso[0]}`)).toBe(true);
     }
+  });
+
+  it('não mexe nas colunas numéricas: um valor negativo legítimo sai sem o apóstrofo', () => {
+    const energia = colunas(MENSAGENS[3]!);
+    expect(energia.corrente_a).toBe('-0.5');
+    const linha = linhaCsv(
+      item({
+        ...env,
+        tipo: 'posicao',
+        sequencia: 8,
+        x: 0,
+        y: 0,
+        orientacao: 'SUL',
+        celulas: 0,
+        velocidade_media_mps: 0,
+      }),
+    );
+    expect(linha).not.toContain("'");
   });
 
   it('tem uma coluna para cada campo de payload do protocolo v1', () => {
@@ -200,5 +220,50 @@ describe('GET /api/corridas/{id}/exportacao (RF-98)', () => {
       '/api/corridas/123/exportacao?formato=csv',
     ])
       expect((await app.inject({ url })).statusCode).toBe(400);
+  });
+});
+
+describe('GET /api/corridas/{id}/exportacao?formato=csv com falha no meio (RF-98)', () => {
+  it('registra o erro e aborta a conexão: o arquivo não sai truncado como se estivesse completo', async () => {
+    const amb = new AmbienteEmMemoria();
+    const logs: {
+      level: number;
+      msg: string;
+      corrida?: string;
+      rota?: string;
+      enviadas?: number;
+    }[] = [];
+    const app = await construirApp({
+      logger: pino({ level: 'info' }, { write: (linha: string) => logs.push(JSON.parse(linha)) }),
+      verificarBanco: async () => true,
+      contadores: amb.contadores,
+      ingestao: amb.servico,
+      distribuicao: amb.distribuicao,
+      validador: criarValidadorProtocolo(),
+      consulta: new ServicoConsulta({
+        detalheCorrida: async () => null,
+        leaderboard: async () => [],
+      }),
+      linhaDoTempo: new ServicoLinhaDoTempo(
+        {
+          corridaExiste: async () => true,
+          mensagensDepoisDe: async (_id, depoisDe, limite) => {
+            if (depoisDe > 0) throw new Error('conexão com o banco perdida');
+            return MENSAGENS.slice(0, limite).map(item);
+          },
+        },
+        2,
+      ),
+    });
+    try {
+      await expect(
+        app.inject({ url: `/api/corridas/${ID}/exportacao?formato=csv` }),
+      ).rejects.toThrow(/destroyed/);
+      expect(logs).toContainEqual(
+        expect.objectContaining({ level: 50, corrida: ID, rota: 'exportacao', enviadas: 2 }),
+      );
+    } finally {
+      await app.close();
+    }
   });
 });
