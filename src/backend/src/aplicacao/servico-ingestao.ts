@@ -53,6 +53,12 @@ export type ResultadoHello = { ok: true; sessao: SessaoRobo } | ({ ok: false } &
 
 export class ServicoIngestao {
   private readonly agora: () => number;
+  /**
+   * Conta os `hello` na ordem em que chegam. O número é tirado antes de qualquer `await`:
+   * a autenticação (argon2) leva um tempo variável, e a ordem em que ela termina não é a
+   * ordem em que o robô se identificou.
+   */
+  private ultimoHello = 0;
 
   constructor(private readonly deps: DependenciasIngestao) {
     this.agora = deps.agora ?? Date.now;
@@ -60,6 +66,7 @@ export class ServicoIngestao {
 
   /** Valida a primeira mensagem da conexão e autentica o dispositivo (RF-72). */
   async autenticar(texto: string, enviarAck: (ack: Ack) => void): Promise<ResultadoHello> {
+    const ordem = ++this.ultimoHello;
     const json = interpretarJson(texto);
     const conferido = await this.conferirHello(json.ok ? json.mensagem : undefined);
     if (!conferido.ok) return conferido;
@@ -84,9 +91,18 @@ export class ServicoIngestao {
       'robô conectado',
     );
     // Uma conexão nova com outro boot interrompe a corrida anterior do robô (RF-81, CA1).
-    this.deps.corridas.reinicioDetectado(dispositivo.id, hello.boot);
-    // Com o mesmo boot, é o robô voltando: o sinal das corridas dele está de volta.
-    await this.retomarSinal(sessao);
+    const bootAtual = this.deps.corridas.bootIdentificado(dispositivo.id, hello.boot, ordem);
+    if (bootAtual) {
+      // Com o mesmo boot, é o robô voltando: o sinal das corridas dele está de volta.
+      await this.retomarSinal(sessao);
+    } else {
+      // Um hello de antes do reinício que terminou de autenticar por último: a conexão segue,
+      // mas não retoma nada, e as corridas desse boot são interrompidas ao chegar.
+      this.deps.log.info(
+        { dispositivo: dispositivo.identificador, boot: hello.boot },
+        'hello de um boot já substituído: o boot atual não muda',
+      );
+    }
     return { ok: true, sessao };
   }
 
@@ -143,6 +159,7 @@ export class ServicoIngestao {
     sessao: SessaoRobo,
     bruto: unknown,
   ): Promise<PedidoFechamento | void> {
+    const ordem = ++this.ultimoHello;
     const conferido = await this.conferirHello(bruto);
     if (!conferido.ok) return conferido;
     if (conferido.dispositivo.id !== sessao.dispositivoId) {
@@ -156,7 +173,7 @@ export class ServicoIngestao {
 
     const reiniciou = conferido.hello.boot !== sessao.boot;
     sessao.boot = conferido.hello.boot;
-    if (reiniciou) this.deps.corridas.reinicioDetectado(sessao.dispositivoId, sessao.boot);
+    if (reiniciou) this.deps.corridas.bootIdentificado(sessao.dispositivoId, sessao.boot, ordem);
     else await this.retomarSinal(sessao);
     sessao.versaoProtocolo = conferido.hello.versao;
     await this.deps.auditoria.eventoConexao({
@@ -196,7 +213,10 @@ export class ServicoIngestao {
     if (this.deps.corridas.registrarAtividade(corrida, sessao.ultimaMensagemEm)) {
       await this.registrarRetomada(sessao, corrida);
     }
-    if (!sessao.encerrada) corrida.sessoes.add(sessao);
+    if (!sessao.encerrada) {
+      corrida.sessoes.add(sessao);
+      sessao.corridas.add(corrida);
+    }
 
     const violacao = verificarRegras(
       dadosParaRegras(mensagem),
@@ -259,6 +279,10 @@ export class ServicoIngestao {
   /** A conexão fechou. Durante uma corrida, isso também é perda de sinal. */
   async encerrar(sessao: SessaoRobo): Promise<void> {
     sessao.encerrada = true;
+    // Sai de todas as corridas por onde passou, inclusive das que já terminaram e não vão
+    // gravar mais nada (#369).
+    for (const corrida of sessao.corridas) corrida.sessoes.delete(sessao);
+    sessao.corridas.clear();
     if (sessao.corridaAtiva !== null && !sessao.sinalPerdido) {
       sessao.sinalPerdido = true;
       this.deps.corridas.sinalPerdido(sessao.corridaAtiva, this.agora(), sessao.ultimaMensagemEm);
@@ -360,11 +384,9 @@ export class ServicoIngestao {
       corrida.aguardandoGravacao.clear();
       // A gravação pode ter preenchido uma lacuna de outra conexão do mesmo robô (a antiga,
       // depois de uma queda, entregando o começo enquanto a nova já entregou o fim): todas as
-      // conexões abertas desta corrida recebem o ack atualizado (RF-74, CT-BE-04).
-      for (const outra of corrida.sessoes) {
-        if (outra.encerrada) corrida.sessoes.delete(outra);
-        else this.agendarAck(outra, corrida);
-      }
+      // conexões abertas desta corrida recebem o ack atualizado (RF-74, CT-BE-04). As
+      // fechadas já saíram de `sessoes` no `encerrar`.
+      for (const outra of corrida.sessoes) this.agendarAck(outra, corrida);
     } catch (erro) {
       // Sem confirmação não há ack: o robô reenvia e a mensagem é aceita de novo.
       corrida.sequencias.descartar(mensagem.sequencia);

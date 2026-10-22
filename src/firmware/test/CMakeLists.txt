@@ -19,12 +19,16 @@ add_executable(firmware_tests
     simulation/SimulatedRobot.hpp
     use_cases/NavigatorTest.cpp
     spy/SpySignalPort.hpp
+    spy/SpyTelemetryPort.hpp
     use_cases/SessionManagerTest.cpp
     domain/OdometryTest.cpp
     domain/DipDecoderTest.cpp
     domain/PidTest.cpp
     controller/MotionControllerTest.cpp
     protocol/ProtocolV1Test.cpp
+    telemetry/TelemetryBufferTest.cpp
+    telemetry/TelemetryEmitterTest.cpp
+    domain/ManeuverTest.cpp
 )
 
 target_include_directories(firmware_tests PRIVATE
