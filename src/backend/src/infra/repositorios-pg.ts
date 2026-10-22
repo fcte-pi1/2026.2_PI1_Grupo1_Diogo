@@ -122,6 +122,10 @@ export class RepositorioCorridasPg implements RepositorioCorridas {
    * que está numa apresentação, já tem o labirinto e ainda não tem número: chamar de novo
    * não muda nada. A linha da apresentação fica travada durante a conta, para duas corridas
    * simultâneas (dois simuladores, por exemplo) não pegarem o mesmo número.
+   *
+   * Uma corrida já terminada (CONCLUIDA ou FALHOU) não é numerada: o `tg_corrida_imutavel`
+   * recusaria o UPDATE. Sem essa condição, uma numeração que falhou antes do fim faria a
+   * recarga dessa corrida lançar erro para sempre (revisão do #375).
    */
   private async numerarTentativa(corridaId: string): Promise<void> {
     const cliente = await this.banco.connect();
@@ -131,11 +135,20 @@ export class RepositorioCorridasPg implements RepositorioCorridas {
         apresentacao_id: string | null;
         tipo_labirinto: TipoLabirinto | null;
         numero_tentativa: number | null;
-      }>(`SELECT apresentacao_id, tipo_labirinto, numero_tentativa FROM corrida WHERE id = $1`, [
-        corridaId,
-      ]);
+        status: string;
+      }>(
+        `SELECT apresentacao_id, tipo_labirinto, numero_tentativa, status FROM corrida
+         WHERE id = $1`,
+        [corridaId],
+      );
       const corrida = rows[0];
-      if (corrida?.apresentacao_id && corrida.tipo_labirinto && corrida.numero_tentativa === null) {
+      const terminada = corrida?.status === 'CONCLUIDA' || corrida?.status === 'FALHOU';
+      if (
+        corrida?.apresentacao_id &&
+        corrida.tipo_labirinto &&
+        corrida.numero_tentativa === null &&
+        !terminada
+      ) {
         await cliente.query('SELECT 1 FROM apresentacao WHERE id = $1 FOR UPDATE', [
           corrida.apresentacao_id,
         ]);

@@ -582,7 +582,7 @@ describe('ingestão de telemetria com PostgreSQL real', () => {
       await correr('tent-5', '4x4', 'sucesso', 'b-tent-2');
       expect(await numeroDe('tent-5')).toEqual({ numero_tentativa: 1, nome: 'Final CT-BE-30' });
 
-      // O número aparece na listagem.
+      // O número aparece no detalhe da corrida.
       const resposta = await fetch(
         `${base}/api/corridas/${
           (
@@ -605,6 +605,63 @@ describe('ingestão de telemetria com PostgreSQL real', () => {
          ORDER BY numero_tentativa`,
       );
       expect(numeros.map((n) => n.numero_tentativa)).toEqual([1, 2, 3, 4, 5]);
+    });
+
+    it('20 corridas criadas ao mesmo tempo no repositório recebem números distintos', async () => {
+      // Pelo WebSocket, as corridas quase não se sobrepõem na numeração: sem o FOR UPDATE, o
+      // teste anterior ainda passa. Direto no repositório, as 20 disputam a mesma contagem.
+      await ativar('Concorrência no repositório');
+      const [{ id: dispositivoId }] = (await consulta<{ id: string }>(
+        `SELECT id FROM dispositivo WHERE identificador = 'sim-01'`,
+      )) as [{ id: string }];
+      const repositorio = new RepositorioCorridasPg(pool);
+      await Promise.all(
+        Array.from({ length: 20 }, (_, i) =>
+          repositorio.obterOuCriar({
+            dispositivoId,
+            idCorridaRobo: `repo-conc-${i}`,
+            boot: 'b-repo-conc',
+            versaoProtocolo: 1,
+            labirinto: '4x4',
+            tempoInicioRoboMs: 0,
+          }),
+        ),
+      );
+      const numeros = await consulta<{ numero_tentativa: number }>(
+        `SELECT numero_tentativa FROM corrida WHERE id_corrida_robo LIKE 'repo-conc-%'
+         ORDER BY numero_tentativa`,
+      );
+      expect(numeros.map((n) => n.numero_tentativa)).toEqual(
+        Array.from({ length: 20 }, (_, i) => i + 1),
+      );
+    });
+
+    it('corrida já terminada e sem número: a recarga não tenta numerar nem falha', async () => {
+      // A numeração falhou antes do fim (por exemplo, o banco caiu nesse instante) e a corrida
+      // terminou sem número. O tg_corrida_imutavel recusa qualquer UPDATE nela.
+      await ativar('Terminada sem número');
+      const [{ id: dispositivoId }] = (await consulta<{ id: string }>(
+        `SELECT id FROM dispositivo WHERE identificador = 'sim-01'`,
+      )) as [{ id: string }];
+      await pool.query(
+        `INSERT INTO corrida (dispositivo_id, id_corrida_robo, boot, tipo_labirinto, status,
+                              motivo_termino, versao_protocolo, apresentacao_id, encerrada_em)
+         VALUES ($1, 'terminada-sem-numero', 'b-term', '4x4', 'FALHOU', 'FALHA_REPORTADA', 1,
+                 (SELECT id FROM apresentacao WHERE ativa), now())`,
+        [dispositivoId],
+      );
+      // A recarga (reinício do backend, RNF-52) passa pelo obterOuCriar.
+      await expect(
+        new RepositorioCorridasPg(pool).obterOuCriar({
+          dispositivoId,
+          idCorridaRobo: 'terminada-sem-numero',
+          boot: 'b-term',
+          versaoProtocolo: 1,
+          labirinto: '4x4',
+          tempoInicioRoboMs: 0,
+        }),
+      ).resolves.toMatchObject({ status: 'FALHOU' });
+      expect((await numeroDe('terminada-sem-numero'))!.numero_tentativa).toBeNull();
     });
 
     it('sem labirinto, a corrida espera o inicio_corrida para ser numerada', async () => {
