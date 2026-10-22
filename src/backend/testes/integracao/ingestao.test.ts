@@ -794,10 +794,14 @@ describe('ingestão de telemetria com PostgreSQL real', () => {
       lento.ws.pause();
       avisosDistribuicao.length = 0;
 
-      // O robô envia até o backend desconectar o painel lento. Os buffers do sistema
-      // operacional variam, então a quantidade não é fixa.
+      // O robô envia até o backend desconectar o painel lento. Antes de o bufferedAmount do
+      // backend crescer, os dados enchem os buffers TCP do sistema operacional, que no Linux
+      // do CI crescem até alguns MB: a quantidade necessária varia com a máquina. Por isso o
+      // laço tem um orçamento de TEMPO, e não de mensagens (com um teto de 40 000, o painel
+      // às vezes não era detectado no CI).
       let sequencia = 1;
-      while (!avisosDistribuicao.includes(AVISO_PAINEL_LENTO) && sequencia < 40_000) {
+      const fimDoOrcamento = Date.now() + 30_000;
+      while (!avisosDistribuicao.includes(AVISO_PAINEL_LENTO) && Date.now() < fimDoOrcamento) {
         const lote: string[] = [];
         for (let i = 0; i < 500; i++) {
           sequencia++;
@@ -818,15 +822,18 @@ describe('ingestão de telemetria com PostgreSQL real', () => {
           );
         }
         robo.enviar(...lote);
-        // Prazo maior que o padrão: no runner do CI, um lote de 500 já passou de 5 s.
+        // Localmente, um lote de 500 é confirmado em ~25 ms. No runner do CI, com o PostgreSQL
+        // e os dois painéis disputando 2 vCPUs, uma vez passou dos 5 s padrão.
         await robo.esperarAck('painel-lento', sequencia, 30_000);
       }
       await esperar(() => avisosDistribuicao.includes(AVISO_PAINEL_LENTO), 5000);
 
-      // O painel normal recebeu todas as células, em ordem, durante todo o episódio.
+      // O painel normal recebeu todas as células, em ordem, durante todo o episódio. No CI
+      // podem ser dezenas de milhares: o prazo acompanha o orçamento de envio.
       const celulasEnviadas = Math.floor(sequencia / 2);
       await esperar(
         () => normal.recebidas.filter((m) => m.evento === 'celula').length === celulasEnviadas,
+        30_000,
       );
       const sequencias = normal.recebidas
         .filter((m) => m.evento === 'celula')
@@ -838,7 +845,7 @@ describe('ingestão de telemetria com PostgreSQL real', () => {
       expect(await lento.fechou).toBeGreaterThan(0);
       normal.fechar();
       await robo.fechar();
-    }, 60_000);
+    }, 120_000);
 
     it('fecha o painel que não responde ao ping (conexão meio aberta)', async () => {
       const mudo = await painelNode({ autoPong: false });
