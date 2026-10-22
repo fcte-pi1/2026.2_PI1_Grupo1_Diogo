@@ -73,8 +73,8 @@ export class ServicoCorrida {
   // apresentação) e a distribuição (#327) as usa para o snapshot; se crescer, removê-las
   // alguns minutos depois do fim.
   private readonly carregadas = new Map<string, EstadoCorrida>();
-  /** Último `boot` com que cada dispositivo se identificou. */
-  private readonly bootAtual = new Map<string, string>();
+  /** Último `boot` com que cada dispositivo se identificou, com a ordem de chegada do `hello`. */
+  private readonly bootAtual = new Map<string, { boot: string; ordem: number }>();
   private readonly agora: () => number;
   private readonly configuracao: ConfiguracaoDerivacao;
   private readonly prazoLacunaMs: number;
@@ -169,25 +169,36 @@ export class ServicoCorrida {
   }
 
   /**
-   * O robô se identificou com outro `boot`: as corridas em andamento do mesmo dispositivo
-   * iniciadas com o `boot` anterior viram INTERROMPIDA (REINICIO_ROBO) — RF-81, CA1.
+   * O robô se identificou com `boot` num `hello` que chegou na posição `ordem`. As corridas
+   * em andamento do mesmo dispositivo iniciadas com outro `boot` viram INTERROMPIDA
+   * (REINICIO_ROBO) — RF-81, CA1.
+   *
+   * Um `hello` que chegou antes do último já aplicado não muda o boot atual. Se o robô
+   * reinicia logo depois de conectar, os dois `hello` são autenticados ao mesmo tempo, e o do
+   * boot antigo pode terminar por último (o argon2 leva um tempo variável). Sem esta checagem,
+   * ele desfaria a detecção do reinício.
+   *
+   * Devolve se `boot` é o boot atual do dispositivo depois da chamada.
    */
-  reinicioDetectado(dispositivoId: string, bootNovo: string): void {
-    this.bootAtual.set(dispositivoId, bootNovo);
+  bootIdentificado(dispositivoId: string, boot: string, ordem: number): boolean {
+    const ultimo = this.bootAtual.get(dispositivoId);
+    if (ultimo && ordem < ultimo.ordem) return ultimo.boot === boot;
+    this.bootAtual.set(dispositivoId, { boot, ordem });
     for (const corrida of this.carregadas.values()) {
-      if (corrida.dispositivoId !== dispositivoId || corrida.boot === bootNovo) continue;
+      if (corrida.dispositivoId !== dispositivoId || corrida.boot === boot) continue;
       this.executar(corrida, corrida.derivacao.interromper('REINICIO_ROBO'));
     }
+    return true;
   }
 
   /**
    * Uma corrida que só termina de carregar depois do `hello` com o boot novo escapa do laço
-   * de `reinicioDetectado`: ou ela ainda estava sendo carregada do banco, ou a primeira
+   * de `bootIdentificado`: ou ela ainda estava sendo carregada do banco, ou a primeira
    * mensagem dela ainda estava na fila da conexão antiga. Com o robô já reiniciado, ela
    * também vira INTERROMPIDA (REINICIO_ROBO).
    */
   private interromperSeReiniciou(corrida: EstadoCorrida): void {
-    const atual = this.bootAtual.get(corrida.dispositivoId);
+    const atual = this.bootAtual.get(corrida.dispositivoId)?.boot;
     if (atual === undefined || atual === corrida.boot) return;
     this.executar(corrida, corrida.derivacao.interromper('REINICIO_ROBO'));
   }

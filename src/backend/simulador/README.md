@@ -178,6 +178,8 @@ npm run simulador -- --labirinto 8x4 --semente 42 --silencio 100 --duracao-silen
 
 O robô reinicia logo depois da sequência pedida: a conexão cai, a RAM (e com ela o buffer) se perde, o relógio do robô recomeça e, 1 s depois (`DURACAO_REINICIO_MS`, o tempo de o ESP32 ligar e o BLE voltar), ele se conecta com **outro** `boot`. A corrida antiga nunca recebe o `fim_corrida`.
 
+A linha de comando sempre usa 1 s. Pela API, o roteiro aceita `duracaoReinicioMs` junto com `reinicioApos`; com `0`, o `hello` do boot novo chega enquanto o backend ainda processa as últimas mensagens do boot antigo, que é a reconexão imediata do procedimento do CT-BE-14 e o cenário corrigido no #366. O E2E roda os dois casos.
+
 ```bash
 npm run simulador -- --labirinto 8x4 --semente 42 --reinicio 200
 ```
@@ -319,6 +321,7 @@ const corrida = await sim.iniciarCorrida({
   silencios: [{ apos: 500, duracaoMs: 4000 }], // 4 s sem mensagens e sem pong
   anomalias: [{ tipo: 'duplicada', sequencia: 30 }, { tipo: 'nao-json' }],
   // reinicioApos: 200, // reinicia o robô depois da 200 (a corrida fica sem fim)
+  // duracaoReinicioMs: 0, // e reconecta sem esperar (padrão: 1000; só com reinicioApos)
 });
 ```
 
