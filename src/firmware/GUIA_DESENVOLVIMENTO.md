@@ -1,188 +1,204 @@
 # Guia de desenvolvimento do firmware
 
-Este guia descreve como o projeto do firmware está organizado e como compilar, executar, testar e medir a cobertura de testes do código.
+Como o firmware do micromouse está organizado e como **compilar, testar, medir cobertura (no PC)** e **gravar na placa** (ESP32-S3).
+
+> **Público:** quem mexe no código do firmware. Se você é de **outra equipe** (Eletrônica, Energia, Backend) e só precisa *usar* o firmware, comece pelo [`INTEGRACAO_FIRMWARE.md`](INTEGRACAO_FIRMWARE.md) - ele descreve as fronteiras, os contratos e **todas as ferramentas a instalar por equipe**.
+
+## Arquitetura
+
+O projeto segue **arquitetura limpa**: as dependências apontam sempre para dentro. O núcleo (domínio, casos de uso, portas) é C++17 puro e **não conhece hardware**; os *adapters* ficam na borda e **implementam as portas**.
+
+```mermaid
+graph RL
+    A[main] --> B[Adapters]
+    B --> C[Ports]
+    C --> D[Use Cases]
+    D --> E[Entities]
+```
+
+Por isso existem **dois alvos de build** sobre o mesmo código-fonte:
+
+| Alvo      | Onde                              | Compila                          | Precisa de placa? |
+| :-------- | :-------------------------------- | :------------------------------- | :---------------: |
+| **Host**  | raiz (`CMakeLists.txt` + presets) | núcleo (A–K) + testes            |        não        |
+| **Placa** | `esp32/` (ESP-IDF)                | núcleo + adapters (L–P) + `main` |        sim        |
+
+O build de host compila **apenas o núcleo** - os adapters (`src/adapters/`) incluem `driver/*.h`, que só existe no ESP-IDF, então ficam de fora dos testes. O build da placa compila tudo.
 
 ## Estrutura do projeto
 
 ```text
 firmware/
-├── CMakeLists.txt          # Build principal: biblioteca, executável e opções
-├── CMakePresets.json       # Presets de configuração (debug, release, coverage)
-├── .clang-format           # Estilo de código (base Google, indentação 4, 100 colunas)
-├── .gitignore              # Ignora a pasta build/
-├── .vscode/                # Configuração compartilhada do VS Code
-│   ├── extensions.json     # Extensões recomendadas
-│   ├── settings.json       # Integração com CMake Tools e IntelliSense
-│   ├── tasks.json          # Tarefas: configurar, compilar, executar, testar, cobertura
-│   └── launch.json         # Depuração com gdb
-├── include/                # Headers públicos (.hpp)
-│   └── hello.hpp
-├── src/                    # Implementação (.cpp)
-│   ├── hello.cpp           # Lógica do firmware (vira a biblioteca "hello")
-│   └── main.cpp            # Ponto de entrada (executável "firmware")
-├── tests/                  # Testes nativos com GoogleTest
-│   ├── CMakeLists.txt      # Baixa o GoogleTest e define os alvos de teste/cobertura
-│   └── test_hello.cpp
-└── build/                  # Gerada pelo CMake (não versionada)
+├── CMakeLists.txt          # build de HOST (núcleo + testes) + opções
+├── CMakePresets.json       # presets: debug / release / coverage
+├── .clang-format           # estilo (base Google, indent 4, 100 colunas)
+├── GUIA_DESENVOLVIMENTO.md  # este guia (firmware)
+├── INTEGRACAO_FIRMWARE.md   # guia para as outras equipes (contratos + ferramentas)
+├── include/                # headers (.hpp), por camada
+│   ├── domain/             # Maze, FloodFill, Odometry, DipDecoder, Pid, Maneuver
+│   ├── controller/         # MotionController
+│   ├── use_cases/          # Navigator, SessionManager
+│   ├── ports/              # Sensor/Motion/Signal/Telemetry (interfaces)
+│   ├── protocol/           # ProtocolV1
+│   ├── telemetry/          # TelemetryEmitter, TelemetryBuffer
+│   └── adapters/           # hardware (só compila no alvo ESP-IDF); BoardPins.hpp aqui
+├── src/                    # implementação (.cpp), espelha include/
+│   ├── main.cpp        # composition root (ESP-IDF) - parâmetros físicos
+│   └── main.cpp            # stub do host (o executável "firmware")
+├── test/                   # testes nativos (GoogleTest)
+│   ├── <camada>/*Test.cpp
+│   ├── simulation/         # SimulatedRobot (duplo que implementa as portas)
+│   └── spy/                # SpySignalPort, SpyTelemetryPort
+├── esp32/                  # subprojeto ESP-IDF (alvo placa)
+│   ├── sdkconfig.defaults  # config da N16R8 (16 MB, PSRAM, BLE/NimBLE)
+│   ├── partitions.csv
+│   └── main/CMakeLists.txt # registra núcleo + adapters + main
+│       main/idf_component.yml   # dependências da placa (esp-nimble-cpp)
+└── bridge/                 # ponte BLE -> WebSocket (Python, roda no PC)
 ```
-
-### Organização do código
-
-- **A lógica fica em bibliotecas.** O código em `src/` (exceto `main.cpp`) é compilado como biblioteca e usado tanto pelo executável quanto pelos testes. Assim os testes rodam no computador sem precisar do microcontrolador.
-- **`main.cpp` deve ser mínimo.** Ele só inicializa e chama a lógica da biblioteca. Por isso fica fora do cálculo de cobertura.
-- **Headers em `include/`, implementação em `src/`.** Todo o código usa o namespace `firmware`.
-- **Cada módulo tem seu arquivo de teste** em `tests/`, chamado `test_<modulo>.cpp`.
 
 ## Pré-requisitos
 
-| Ferramenta       | Versão mínima   | Uso                                           |
-| ---------------- | --------------- | --------------------------------------------- |
-| CMake            | 3.21            | Configuração e build (os presets exigem 3.21) |
-| GCC/G++ ou Clang | suporte a C++17 | Compilador                                    |
-| gcovr            | —               | Relatório de cobertura (opcional)             |
-| gdb              | —               | Depuração (opcional)                          |
+A lista completa de instalação, por equipe e por sistema operacional, está no [`INTEGRACAO_FIRMWARE.md` §0](INTEGRACAO_FIRMWARE.md). Resumo para o firmware:
 
-O **GoogleTest não precisa ser instalado**: o CMake baixa a versão 1.17.0 automaticamente via `FetchContent` na primeira configuração, então é preciso ter internet nesse momento.
+| Ferramenta       | Versão             | Uso                                                |
+| :--------------- | :----------------- | :------------------------------------------------- |
+| CMake            | ≥ 3.21             | Build de host (os presets exigem 3.21)             |
+| GCC/G++ ou Clang | C++17              | Compilador do host                                 |
+| gcovr            | -                  | Relatório de cobertura (opcional)                  |
+| ESP-IDF          | v5.x (testado 5.3) | Build/gravação na placa (traz toolchain + esptool) |
+| Python           | ≥ 3.10             | Ponte BLE -> WebSocket                             |
 
-Para instalar o gcovr:
+O **GoogleTest não precisa ser instalado**: o CMake baixa a versão 1.17.0 via `FetchContent` na 1ª configuração (precisa de internet nesse momento). O **esp-nimble-cpp** é resolvido pelo *component manager* do ESP-IDF.
 
-```bash
-sudo apt install gcovr
-```
+## Build de host (núcleo + testes) - sem placa
 
-## Como usar
+### Presets
 
-Todos os comandos devem ser executados dentro da pasta `src/firmware/`.
+| Preset     | Build   | Testes | Cobertura | Saída             |
+| :--------- | :------ | :----- | :-------- | :---------------- |
+| `debug`    | Debug   | sim    | não       | `build/debug/`    |
+| `release`  | Release | não    | não       | `build/release/`  |
+| `coverage` | Debug   | sim    | sim       | `build/coverage/` |
 
-### Presets disponíveis
-
-| Preset     | Tipo de build | Testes | Cobertura | Pasta de saída    |
-| ---------- | ------------- | ------ | --------- | ----------------- |
-| `debug`    | Debug         | Sim    | Não       | `build/debug/`    |
-| `release`  | Release       | Não    | Não       | `build/release/`  |
-| `coverage` | Debug         | Sim    | Sim       | `build/coverage/` |
-
-### Compilar e executar
+### Compilar e testar
 
 ```bash
-cmake --preset debug             # configura (só é necessário na primeira vez ou ao mudar o CMake)
-cmake --build --preset debug     # compila
-./build/debug/firmware           # executa
+cmake --preset debug             # configura (1ª vez)
+cmake --build --preset debug     # compila núcleo + testes
+ctest --preset debug             # roda os testes (81)
 ```
 
-### Rodar os testes
+Formas úteis:
 
 ```bash
-cmake --build --preset debug
-ctest --preset debug
+ctest --preset debug -R Maze                              # filtra por nome
+./build/debug/test/firmware_tests                         # binário direto (saída GoogleTest)
+./build/debug/test/firmware_tests --gtest_filter='Maze.*' # filtra pela suíte
 ```
 
-Outras formas úteis:
-
-```bash
-ctest --preset debug -R HelloMessage                            # roda só os testes cujo nome casa com o filtro
-./build/debug/tests/firmware_tests                              # roda o binário de testes direto (saída do GoogleTest)
-./build/debug/tests/firmware_tests --gtest_filter='SayHello.*'  # filtra pelo nome da suite de testes
-```
-
-### Gerar o relatório de cobertura
+### Cobertura
 
 ```bash
 cmake --preset coverage
 cmake --build --preset coverage --target coverage
 ```
 
-Esse build compila o código com instrumentação (`--coverage`), roda todos os testes e gera o relatório:
+Gera resumo no terminal e HTML em `build/coverage/coverage/index.html`. O build **falha se a cobertura de linhas ficar abaixo de 80%**. Sem o gcovr, o alvo `coverage` apenas não é criado (aviso).
 
-- **Resumo no terminal**: percentual de linhas, funções e branches.
-- **Relatório HTML**: `build/coverage/coverage/index.html`.
+## Build da placa (firmware completo) - ESP-IDF
 
-O build **falha se a cobertura de linhas ficar abaixo de 80%**, que é a meta da etapa. Se o gcovr não estiver instalado, o CMake só mostra um aviso e o alvo `coverage` não é criado.
-
-### Build de release
+Compila o projeto **por inteiro** (núcleo + adapters + `main`).
 
 ```bash
-cmake --preset release
-cmake --build --preset release
+. ~/esp/esp-idf/export.sh            # ativa o ESP-IDF no terminal
+idf.py -C esp32 reconfigure          # baixa deps do idf_component.yml (esp-nimble-cpp 2.x)
+idf.py -C esp32 set-target esp32s3   # 1ª vez
+idf.py -C esp32 build                # compila tudo
+idf.py -C esp32 -p /dev/ttyACM0 flash monitor   # grava e monitora (ajuste a porta)
 ```
 
-### Opções do CMake
+O `-C esp32` aponta para o subprojeto `esp32/`, que reutiliza `../include` e `../src` (inclusive `src/adapters/` e `src/main.cpp`).
 
-Os presets já definem estas opções. Elas também podem ser passadas manualmente com `-D`:
+> **Sensores ToF (VL53L1X):** as leituras de distância estão como *stub* (retornam 9999) e a dependência do componente está comentada em `esp32/main/idf_component.yml`, então o firmware **compila e grava** mesmo assim (o sensoriamento de parede fica inativo). Para ler os ToF de verdade: escolha o componente VL53L1X, descomente/ajuste a dependência, rode `idf.py -C esp32 reconfigure` e implemente as leituras reais em `src/adapters/Vl53l1xSensorAdapter.cpp`.
 
-| Opção                         | Padrão | Descrição                              |
-| ----------------------------- | ------ | -------------------------------------- |
-| `FIRMWARE_BUILD_TESTS`        | `ON`   | Compila os testes com GoogleTest       |
-| `FIRMWARE_ENABLE_COVERAGE`    | `OFF`  | Instrumenta o código para o gcov       |
-| `FIRMWARE_WARNINGS_AS_ERRORS` | `OFF`  | Trata warnings do compilador como erro |
+### Modo bancada (ESP32 clássico / ESP-WROOM-32)
 
-## Usando no VS Code
+Enquanto a placa oficial não chega, dá para testar a telemetria BLE ponta a ponta numa DevKit ESP-WROOM-32 solta, sem sensores nem motores:
 
-Ao abrir a pasta `src/firmware/` no VS Code, instale as extensões recomendadas (_C/C++_ e _CMake Tools_). O projeto é configurado automaticamente com o preset `debug`.
+```bash
+idf.py -C esp32 set-target esp32     # aplica sdkconfig.defaults.esp32 (4 MB, modo bancada)
+idf.py -C esp32 build
+idf.py -C esp32 -p COM5 flash monitor   # Windows: COMx do CP2102/CH340
+```
 
-Tarefas disponíveis em **Terminal → Run Task**:
+Com `CONFIG_RATO_BANCADA` (ligado só no alvo `esp32`), o firmware:
 
-| Tarefa                             | Atalho         | O que faz                   |
-| ---------------------------------- | -------------- | --------------------------- |
-| CMake: configurar (debug)          | —              | `cmake --preset debug`      |
-| CMake: compilar (debug)            | `Ctrl+Shift+B` | Configura e compila         |
-| Executar firmware                  | —              | Compila e executa o binário |
-| CTest: executar testes (debug)     | —              | Compila e roda os testes    |
-| Cobertura: gerar relatório (gcovr) | —              | Build de cobertura completo |
+- usa o mapa de pinos de bancada em `BoardPins.hpp` (não corresponde ao esquemático);
+- pula o auto-teste do IMU e do INA219 e envia energia fixa (7,4 V, 0,3 A, 2,2 W);
+- simula o movimento com atrasos fixos (`BenchMotionAdapter`), e como os ToF são *stub* (sem paredes), percorre o labirinto aberto até o objetivo.
 
-Para depurar, use **F5** com a configuração _Depurar firmware (gdb)_.
+A corrida começa ao apertar o botão **BOOT** da DevKit. Sem nada ligado nos pinos do DIP (pull-up), o labirinto é o 4×4. Para testar o 8×4, ligue o GPIO 5 ao GND; para o 12×4, ligue o GPIO 15 ao GND. Para voltar à placa oficial: `idf.py -C esp32 set-target esp32s3`.
 
-O código é formatado automaticamente ao salvar, seguindo o `.clang-format`.
+### Onde mexer quando o hardware muda
 
-### Trocando o que o F7 compila
+- **Pinos:** `include/adapters/BoardPins.hpp` (ponto único de verdade; segue o `4.3 §9`). Trocou um pino na placa? Altere só aqui.
+- **Parâmetros físicos** (roda, pulsos/volta, bitola): `src/main.cpp` (`WheelConfig`, `TurnConfig`). **Aferir em bancada** antes da corrida.
+- **Calibração de energia** (resistor de *shunt*): adapter `Ina219`.
 
-O **F7** (_CMake: Build_) compila conforme o preset e o alvo selecionados na extensão CMake Tools. Para trocar, use a paleta de comandos (`Ctrl+Shift+P`) ou o painel do CMake na barra lateral:
+## Ponte BLE -> WebSocket - no PC
 
-1. `CMake: Select Configure Preset` → `debug`, `release` ou `coverage`
-2. `CMake: Select Build Preset` → o preset de mesmo nome
-3. `CMake: Set Build Target` → `all`, `firmware`, `firmware_tests` ou `coverage`
+```bash
+cd bridge
+python3 -m venv .venv && source .venv/bin/activate   # no fish: source .venv/bin/activate.fish
+pip install -r requirements.txt
+```
 
-Para gerar a cobertura pelo F7, selecione o preset `coverage` e o alvo `coverage`. Para voltar ao normal, selecione o preset `debug` e o alvo `all`.
+Operação e testes sem placa / sem Bluetooth (detalhes em `bridge/README.md`):
 
-## Adicionando código novo (fluxo TDD)
+```bash
+# BLE real  ->  só imprime o que o robô envia
+python ble_ws_bridge.py --print-only
 
-1. **Escreva o teste primeiro.** Crie `tests/test_<modulo>.cpp` e registre o arquivo em `tests/CMakeLists.txt`:
+# BLE real  ->  WebSocket do backend
+python ble_ws_bridge.py --ws ws://localhost:8080/ws/telemetria
 
-   ```cmake
-   add_executable(firmware_tests
-       test_hello.cpp
-       test_<modulo>.cpp
-   )
-   ```
+# SEM placa/BLE: reenvia uma corrida de exemplo (formato do contrato)
+python ble_ws_bridge.py --replay exemplo/corrida.jsonl --print-only
+python ble_ws_bridge.py --replay exemplo/corrida.jsonl --ws ws://localhost:8080/ws/telemetria
 
-2. **Declare a interface** em `include/<modulo>.hpp`.
-3. **Implemente** em `src/<modulo>.cpp` e adicione o arquivo a uma biblioteca no `CMakeLists.txt` da raiz. Ele pode entrar na biblioteca existente ou em uma nova; nesse caso, ligue a nova biblioteca a `firmware` e a `firmware_tests` com `target_link_libraries`.
+# Alvo de teste no lugar do backend (imprime o que recebe)
+python test_ws_server.py [--ack]
+```
+
+## Fluxo TDD (código novo do núcleo)
+
+1. **Escreva o teste primeiro** em `test/<camada>/<Modulo>Test.cpp` e registre-o em `test/CMakeLists.txt` (dentro do `add_executable(firmware_tests ...)`).
+2. **Declare a interface** em `include/<camada>/<Modulo>.hpp`.
+3. **Implemente** em `src/<camada>/<Modulo>.cpp` e adicione o arquivo à `firmware_logic` no `CMakeLists.txt` da raiz.
 4. **Rode os testes** (`ctest --preset debug`) até passarem.
-5. **Confira a cobertura** (`cmake --build --preset coverage --target coverage`) antes de abrir o merge request.
+5. **Confira a cobertura** (`cmake --build --preset coverage --target coverage`) antes do merge request.
 
-Exemplo de teste:
+Os nomes de testes e variáveis no código são em inglês; os testes são descobertos por `gtest_discover_tests` (não é preciso registrar cada `TEST`).
 
-```cpp
-#include "module.hpp"
+### Adapters (hardware)
 
-#include <gtest/gtest.h>
-
-namespace {
-
-TEST(NomeDoModulo, DescricaoDoComportamento) {
-    EXPECT_EQ(firmware::funcao(2), 4);
-}
-
-}  // namespace
-```
-
-Os nomes dos testes e variáveis no código-fonte são escritos em inglês. Os testes são descobertos automaticamente pelo `gtest_discover_tests`, então não é preciso registrar cada `TEST` no CMake.
+Adapters **não** têm teste de unidade (dependem de hardware). Para adicionar um: declare em `include/adapters/`, implemente em `src/adapters/` e registre o `.cpp` em `esp32/main/CMakeLists.txt`. Valide em bancada. Mantenha a regra: o adapter **implementa uma porta** de `ports/` - o núcleo nunca inclui `driver/*.h`.
 
 ## Solução de problemas
 
-| Problema                                         | Solução                                                                             |
-| ------------------------------------------------ | ----------------------------------------------------------------------------------- |
-| Erro ao baixar o GoogleTest                      | Verifique a conexão com a internet; o download acontece só na primeira configuração |
-| `gcovr not found: 'coverage' target unavailable` | Instale o gcovr e rode `cmake --preset coverage` de novo                            |
-| IntelliSense não encontra os headers             | Rode `cmake --preset debug` para gerar o `build/debug/compile_commands.json`        |
-| Comportamento estranho após mudar o CMake        | Apague a pasta do preset (ex.: `rm -rf build/debug`) e configure de novo            |
+| Problema                                                           | Causa / Solução                                                                                                                      |
+| :----------------------------------------------------------------- | :----------------------------------------------------------------------------------------------------------------------------------- |
+| Erro ao baixar o GoogleTest                                        | Verifique a internet; o download ocorre só na 1ª configuração                                                                        |
+| `gcovr not found`                                                  | Instale o gcovr e rode `cmake --preset coverage` de novo                                                                             |
+| IntelliSense não acha os headers                                   | Rode `cmake --preset debug` (gera `compile_commands.json`)                                                                           |
+| `driver/gpio.h: No such file`                                      | Você tentou compilar adapter no build de host; adapters só compilam via `idf.py -C esp32`                                            |
+| `idf.py: command not found`                                        | Rode `. ~/esp/esp-idf/export.sh` naquele terminal                                                                                    |
+| `no versions of h2zero/esp-nimble-cpp match ^1.5`                  | Versão inexistente; o manifesto usa `^2.0.0` (API 2.x). Rode `idf.py -C esp32 reconfigure`                                           |
+| `conflicting declaration 'pcnt_unit_t'`                            | Conflito de drivers PCNT: use o **novo** `driver/pulse_cnt.h` (não o legado `driver/pcnt.h`) nos adapters de encoder                 |
+| `Could not open /dev/ttyACM0 ... No such file`                     | A placa não está conectada/visível. Veja a porta real: `ls /dev/ttyACM* /dev/ttyUSB*`; ajuste o `-p`. Sem placa, não há o que gravar |
+| `flash`: *Permission denied* na porta                              | Entre no grupo `dialout`: `sudo usermod -aG dialout $USER` (logout/login)                                                            |
+| Ponte: `org.bluez was not provided`                                | BlueZ inativo/ausente (ou WSL sem Bluetooth). `sudo systemctl enable --now bluetooth`; ou use `--replay`                           |
+| `apt install` com `404 Not Found`                                  | Índice do apt desatualizado: `sudo apt update` e reinstale                                                                           |
+| fish: `'case' builtin not inside of switch block` ao ativar o venv | Script errado para o shell: `source .venv/bin/activate.fish` (ou rode `.venv/bin/python` direto)                                     |
+| Falha ao baixar componente no `reconfigure`                        | Confirme o nome/versão no `esp32/main/idf_component.yml` e a internet                                                                |
