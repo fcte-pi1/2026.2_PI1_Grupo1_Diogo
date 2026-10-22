@@ -1,0 +1,32 @@
+name: Ponte BLE CI
+
+on:
+  push:
+    paths:
+      - 'src/firmware/bridge/**'
+      - '.github/workflows/ponte.yml'
+  pull_request:
+    paths:
+      - 'src/firmware/bridge/**'
+      - '.github/workflows/ponte.yml'
+
+jobs:
+  testes:
+    name: Ponte BLE — testes
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src/firmware/bridge
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: src/firmware/bridge/requirements-dev.txt
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt
+      - name: Compile
+        run: python -m py_compile ble_ws_bridge.py test_ws_server.py
+      - name: Tests
+        run: pytest -q
