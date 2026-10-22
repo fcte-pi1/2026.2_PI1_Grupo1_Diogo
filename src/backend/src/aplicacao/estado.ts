@@ -63,6 +63,12 @@ export class SessaoRobo {
   /** A conexão fechou: não recebe mais acks. */
   encerrada = false;
   readonly acksPendentes = new Set<EstadoCorrida>();
+  /**
+   * Corridas em cujo `sessoes` esta conexão entrou. No fechamento, ela sai de todas: uma
+   * corrida que já terminou não grava mais nada e, sem isso, seguraria a sessão (e o socket,
+   * pelo `enviarAck`) enquanto estiver carregada em memória.
+   */
+  readonly corridas = new Set<EstadoCorrida>();
 
   constructor(
     readonly dispositivoId: string,

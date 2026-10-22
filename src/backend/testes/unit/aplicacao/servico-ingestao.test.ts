@@ -229,6 +229,38 @@ describe('ServicoIngestao', () => {
       expect(acksDeA).toHaveLength(acksDeAntes);
     });
 
+    it('a conexão fechada sai de corrida.sessoes no encerrar, sem esperar outra gravação (#369)', async () => {
+      // Duas corridas na mesma conexão: c-A termina e c-B fica em andamento. Nenhuma das duas
+      // recebe mensagem depois do fechamento, então só o encerrar pode tirar a sessão delas.
+      const sessao = await conectar();
+      await enviar(sessao, [
+        mensagem('inicio_corrida', 1),
+        mensagem('fim_corrida', 2),
+        mensagem('inicio_corrida', 1, { corrida: 'c-B' }),
+      ]);
+      const tocadas = [...sessao.corridas];
+      expect(tocadas.map((c) => c.idRobo).sort()).toEqual(['c-A', 'c-B']);
+      expect(tocadas.every((c) => c.sessoes.has(sessao))).toBe(true);
+
+      await amb.servico.encerrar(sessao);
+
+      expect(tocadas.every((c) => !c.sessoes.has(sessao))).toBe(true);
+      expect(sessao.corridas.size).toBe(0);
+    });
+
+    it('fechar uma conexão não tira a outra, ainda aberta, da mesma corrida', async () => {
+      const a = await conectar();
+      await enviar(a, [mensagem('inicio_corrida', 1)]);
+      const b = await conectar();
+      await enviar(b, [mensagem('posicao', 2)]);
+      const [corrida] = [...a.corridas];
+
+      await amb.servico.encerrar(a);
+
+      expect([...corrida!.sessoes]).toEqual([b]);
+      expect(b.corridas.has(corrida!)).toBe(true);
+    });
+
     it('o ack para na lacuna e avança quando ela é preenchida (HU-BE-03, CA3)', async () => {
       const sessao = await conectar();
       await enviar(sessao, [
