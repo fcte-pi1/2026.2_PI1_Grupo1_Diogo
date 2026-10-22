@@ -1,9 +1,9 @@
 import { Readable } from 'node:stream';
-import type { FastifyInstance, FastifyReply } from 'fastify';
+import type { FastifyBaseLogger, FastifyInstance, FastifyReply } from 'fastify';
 import type { TipoLabirinto } from '../../../protocolo/tipos.js';
 import type { ServicoConsulta, ServicoLinhaDoTempo } from '../../aplicacao/index.js';
 import { TIPOS_LABIRINTO } from '../../dominio/index.js';
-import { csv } from './exportacao-csv.js';
+import { CABECALHO_CSV, linhaCsv } from './exportacao-csv.js';
 
 export interface DependenciasCorridasHttp {
   consulta: ServicoConsulta;
@@ -39,7 +39,11 @@ export async function rotasCorridas(
           message: 'corrida não encontrada',
         });
       }
-      return reply.type('application/x-ndjson; charset=utf-8').send(Readable.from(ndjson(itens)));
+      const linhas = emLinhas(itens, (item) => `${JSON.stringify(item)}\n`, req.log, {
+        corrida: req.params.id,
+        rota: 'linha-do-tempo',
+      });
+      return reply.type('application/x-ndjson; charset=utf-8').send(Readable.from(linhas));
     },
   );
 
@@ -75,10 +79,14 @@ export async function rotasCorridas(
       // Uma linha por mensagem, em stream pelos mesmos lotes do replay (CA2, CA3).
       const itens = await linhaDoTempo.linhaDoTempo(id);
       if (!itens) return corridaNaoEncontrada(reply);
+      const linhas = emLinhas(itens, (item) => `${linhaCsv(item)}\r\n`, req.log, {
+        corrida: id,
+        rota: 'exportacao',
+      });
       return reply
         .header('content-disposition', arquivo)
         .type('text/csv; charset=utf-8')
-        .send(Readable.from(csv(itens)));
+        .send(Readable.from(comCabecalho(CABECALHO_CSV, linhas)));
     },
   );
 
@@ -136,7 +144,38 @@ function corridaNaoEncontrada(reply: FastifyReply): FastifyReply {
   });
 }
 
-/** Um objeto JSON por linha (NDJSON), à medida que os lotes chegam do banco. */
-async function* ndjson(itens: AsyncIterable<unknown>): AsyncGenerator<string> {
-  for await (const item of itens) yield `${JSON.stringify(item)}\n`;
+/**
+ * Uma linha por item, à medida que os lotes chegam do banco. O `Readable.from` só pede o
+ * próximo item quando o cliente consome o anterior (backpressure).
+ *
+ * Se a leitura falhar no meio, o `200` e parte do corpo já saíram: não há como mudar o
+ * status. O erro é registrado com o contexto e relançado, e o Fastify aborta a conexão. O
+ * cliente vê a transferência interrompida (o `fetch` rejeita), e não um arquivo truncado
+ * que pareceria completo, o que aconteceria se o stream terminasse normalmente.
+ */
+async function* emLinhas<T>(
+  itens: AsyncIterable<T>,
+  formatar: (item: T) => string,
+  log: FastifyBaseLogger,
+  contexto: Record<string, string>,
+): AsyncGenerator<string> {
+  let enviadas = 0;
+  try {
+    for await (const item of itens) {
+      yield formatar(item);
+      enviadas++;
+    }
+  } catch (erro) {
+    log.error({ err: erro, ...contexto, enviadas }, 'leitura interrompida no meio do stream');
+    throw erro;
+  }
+}
+
+/** O cabeçalho primeiro, depois as linhas. */
+async function* comCabecalho(
+  cabecalho: string,
+  linhas: AsyncIterable<string>,
+): AsyncGenerator<string> {
+  yield cabecalho;
+  yield* linhas;
 }

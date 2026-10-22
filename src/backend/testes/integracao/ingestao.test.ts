@@ -149,7 +149,8 @@ describe('ingestão de telemetria com PostgreSQL real', () => {
       contadores,
       ingestao,
       consulta: new ServicoConsulta(new RepositorioConsultaPg(pool)),
-      linhaDoTempo: new ServicoLinhaDoTempo(new RepositorioLinhaDoTempoPg(pool)),
+      // Lote de 100 (em produção, 500): as corridas de teste atravessam vários lotes.
+      linhaDoTempo: new ServicoLinhaDoTempo(new RepositorioLinhaDoTempoPg(pool), 100),
       distribuicao,
       validador: criarValidadorProtocolo(),
       prazoHelloMs: 300,
@@ -594,11 +595,16 @@ describe('ingestão de telemetria com PostgreSQL real', () => {
       expect(replay.status).toBe('CONCLUIDA');
     }, 60_000);
 
-    it('404 para corrida inexistente', async () => {
-      const resposta = await fetch(
+    it('404 para corrida inexistente e 400 para id que não é UUID', async () => {
+      const inexistente = await fetch(
         `${base}/api/corridas/0b6f7c0e-3a52-4c8e-9a51-1f0f5c1f2a33/linha-do-tempo`,
       );
-      expect(resposta.status).toBe(404);
+      expect(inexistente.status).toBe(404);
+      expect(await inexistente.json()).toMatchObject({ code: 'CORRIDA_NAO_ENCONTRADA' });
+
+      const invalido = await fetch(`${base}/api/corridas/123/linha-do-tempo`);
+      expect(invalido.status).toBe(400);
+      expect(await invalido.json()).toMatchObject({ code: 'FST_ERR_VALIDATION' });
     });
   });
 

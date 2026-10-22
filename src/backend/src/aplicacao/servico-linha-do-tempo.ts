@@ -27,9 +27,17 @@ export class ServicoLinhaDoTempo {
   private async *lotes(corridaId: string): AsyncGenerator<ItemLinhaDoTempo> {
     let depoisDe = 0;
     for (;;) {
-      const lote = await this.mensagens.mensagensDepoisDe(corridaId, depoisDe, this.tamanhoLote);
+      // Uma a mais que o lote diz se ainda há outro, sem uma consulta final vazia quando o
+      // total é múltiplo do lote.
+      const lido = await this.mensagens.mensagensDepoisDe(
+        corridaId,
+        depoisDe,
+        this.tamanhoLote + 1,
+      );
+      const haMais = lido.length > this.tamanhoLote;
+      const lote = haMais ? lido.slice(0, this.tamanhoLote) : lido;
       yield* lote;
-      if (lote.length < this.tamanhoLote) return;
+      if (!haMais) return;
       depoisDe = lote.at(-1)!.sequencia;
     }
   }

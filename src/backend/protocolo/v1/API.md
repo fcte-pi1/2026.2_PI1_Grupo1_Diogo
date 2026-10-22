@@ -264,7 +264,7 @@ GET /api/leaderboard?labirinto=8x4&apresentacao=0b6f7c0e-3a52-4c8e-9a51-1f0f5c1f
 
 Todas as mensagens aceitas da corrida, **em ordem estritamente crescente de `sequencia`**, para reproduzir a corrida no painel passo a passo (RF-94, HU-BE-23). Reproduzidas a partir de um estado vazio, elas dão o mesmo mapa do snapshot final (CT-BE-27).
 
-A resposta é **NDJSON** (`Content-Type: application/x-ndjson`): um objeto JSON por linha, um `ItemLinhaDoTempo` por mensagem. Ela é enviada em *stream*, à medida que as mensagens são lidas do banco, em lotes de 500, então o tamanho da corrida não pesa na memória do backend.
+A resposta é **NDJSON** (`Content-Type: application/x-ndjson; charset=utf-8`): um objeto JSON por linha, um `ItemLinhaDoTempo` por mensagem. Ela é enviada em *stream*, à medida que as mensagens são lidas do banco, em lotes de 500, então o tamanho da corrida não pesa na memória do backend. Cada lote só é lido quando o cliente já consumiu o anterior (*backpressure*).
 
 ```
 {"sequencia":1,"tempo_ms":12000,"tipo":"inicio_corrida","recebida_em":"2026-10-20T14:00:00.120Z","mensagem":{"versao":1,"tipo":"inicio_corrida","corrida":"ra1b2c3-1","sequencia":1,"tempo_ms":12000,"labirinto":"4x4"}}
@@ -277,7 +277,19 @@ A resposta é **NDJSON** (`Content-Type: application/x-ndjson`): um objeto JSON 
 | `recebida_em` | Quando o backend recebeu, ISO 8601 em UTC |
 | `mensagem` | A mensagem do robô **exatamente como foi aceita** (o formato do `README.md` deste protocolo) |
 
-Corrida inexistente: `404` (`CORRIDA_NAO_ENCONTRADA`). Id que não é UUID: `400`. Uma corrida em andamento também tem linha do tempo, com o que já foi gravado.
+### Erros
+
+Os dois são decididos antes do primeiro byte do corpo, com o mesmo formato do detalhe da corrida:
+
+```json
+{ "statusCode": 404, "code": "CORRIDA_NAO_ENCONTRADA", "error": "Not Found", "message": "corrida não encontrada" }
+{ "statusCode": 400, "code": "FST_ERR_VALIDATION", "error": "Bad Request", "message": "params/id must match pattern ..." }
+```
+
+### Limitações
+
+- **Falha no meio do *stream*.** Se o banco falhar depois do primeiro lote, o `200` já foi enviado. O backend registra o erro (com a corrida e quantas linhas saíram) e **aborta a conexão**, em vez de encerrar a resposta normalmente. O cliente vê a transferência interrompida (o `fetch` rejeita ao ler o corpo) e deve tratar a linha do tempo como incompleta. Um arquivo truncado que parecesse completo seria pior.
+- **Corrida em andamento.** A resposta é o que já estava gravado no momento de cada lote, e pode ter lacunas. A paginação avança pela `sequencia` (`seq > última lida`). Uma mensagem que preenche uma lacuna (reenvio do robô, RNF-50) e é gravada depois de o cursor passar daquela sequência não aparece nesta resposta. Para o replay completo, peça a linha do tempo de uma corrida encerrada, ou peça de novo. Numa corrida encerrada, tudo já está gravado, e a resposta é completa (CT-BE-27).
 
 Para ler no navegador: `fetch` e `response.body.getReader()`, separando o texto por `\n`; ou `await response.text()` e `split('\n')` para corridas pequenas.
 

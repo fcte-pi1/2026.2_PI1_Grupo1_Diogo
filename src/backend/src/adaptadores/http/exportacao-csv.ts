@@ -29,14 +29,12 @@ export const COLUNAS_CSV = [
   'detalhe',
 ] as const;
 
-/** Marca de ordem de bytes: faz a planilha abrir o arquivo como UTF-8 (acentos do `detalhe`). */
-const BOM = '﻿';
-
-/** O cabeçalho (com o BOM) e uma linha por item, à medida que os lotes chegam do banco. */
-export async function* csv(itens: AsyncIterable<ItemLinhaDoTempo>): AsyncGenerator<string> {
-  yield `${BOM}${COLUNAS_CSV.join(',')}\r\n`;
-  for await (const item of itens) yield `${linhaCsv(item)}\r\n`;
-}
+/**
+ * Cabeçalho do CSV. Começa com a marca de ordem de bytes do UTF-8 (BOM), que faz a planilha
+ * abrir o arquivo como UTF-8 (acentos do `detalhe`). Quem lê o arquivo por script precisa
+ * tolerá-la (em Python, `encoding="utf-8-sig"`).
+ */
+export const CABECALHO_CSV = `\uFEFF${COLUNAS_CSV.join(',')}\r\n`;
 
 export function linhaCsv(item: ItemLinhaDoTempo): string {
   const m = item.mensagem as unknown as Record<string, unknown>;
