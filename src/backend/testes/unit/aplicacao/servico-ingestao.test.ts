@@ -61,6 +61,48 @@ describe('ServicoIngestao', () => {
     });
   });
 
+  describe('dois hello ao mesmo tempo (reinício logo depois de conectar, CT-BE-14)', () => {
+    /** Começa a autenticar com o token lento e devolve como liberar o token e a sessão. */
+    function autenticarDevagar(texto: string) {
+      let liberar!: () => void;
+      amb.tokenLento = new Promise<void>((resolver) => (liberar = resolver));
+      const sessao = conectar(texto);
+      return { liberar, sessao };
+    }
+
+    it('o hello do boot antigo que termina de autenticar depois do novo não desfaz o reinício', async () => {
+      // O robô conectou com b1, mandou a corrida e reiniciou antes de o argon2 do hello b1
+      // terminar: o hello b2 chega depois, mas é autenticado antes.
+      const antigo = autenticarDevagar(hello({ boot: 'b1' }));
+      const novo = await conectar(hello({ boot: 'b2' }));
+      antigo.liberar();
+      const sessaoAntiga = await antigo.sessao;
+      await enviar(sessaoAntiga, [mensagem('inicio_corrida', 1), mensagem('posicao', 2)]);
+
+      expect(amb.porIdRobo('c-A')).toMatchObject({
+        boot: 'b1',
+        status: 'INTERROMPIDA',
+        motivo: 'REINICIO_ROBO',
+      });
+      // O boot atual continua sendo o b2: uma corrida dele segue normalmente.
+      await enviar(novo, [mensagem('inicio_corrida', 1, { corrida: 'c-B' })]);
+      expect(amb.porIdRobo('c-B')).toMatchObject({ boot: 'b2', status: 'EM_ANDAMENTO' });
+    });
+
+    it('com o mesmo boot, o hello que termina depois é aceito normalmente', async () => {
+      // Duas conexões do mesmo boot (a ponte reconectou): não há reinício nenhum.
+      const primeira = autenticarDevagar(hello());
+      const segunda = await conectar(hello());
+      primeira.liberar();
+      const sessao = await primeira.sessao;
+      await enviar(sessao, [mensagem('inicio_corrida', 1)]);
+      await enviar(segunda, [mensagem('posicao', 2)]);
+
+      expect(amb.porIdRobo('c-A')).toMatchObject({ boot: 'b1', status: 'EM_ANDAMENTO' });
+      expect(amb.ultimoAck()?.sequencia).toBe(2);
+    });
+  });
+
   describe('novo hello na mesma conexão (o BLE do robô caiu e voltou)', () => {
     it('aceita, sem contar como rejeição, e segue recebendo o buffer reenviado', async () => {
       const sessao = await conectar();
