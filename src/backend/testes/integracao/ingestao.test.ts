@@ -35,6 +35,7 @@ import {
   VerificadorTokenArgon2,
   criarInserirLote,
 } from '../../src/infra/repositorios-pg.js';
+import { gerarHistorico } from '../../scripts/historico.js';
 import { hello, mensagem } from '../apoio/ingestao-em-memoria.js';
 
 const SILENCIOSO = { info: () => {}, warn: () => {}, error: () => {} };
@@ -518,8 +519,6 @@ describe('ingestão de telemetria com PostgreSQL real', () => {
   describe('GET /api/corridas (CT-BE-26)', () => {
     // 200 corridas em 3 dias de 2025, longe das corridas que os outros testes criam agora.
     const DIAS = ['2025-03-01', '2025-03-02', '2025-03-03'];
-    const TIPOS = ['4x4', '8x4', '12x4'];
-    const STATUS = ['CONCLUIDA', 'FALHOU', 'INTERROMPIDA', 'EM_ANDAMENTO'];
     const listar = async (consultaUrl: string) => {
       const inicio = performance.now();
       const resposta = await fetch(`${base}/api/corridas${consultaUrl}`);
@@ -532,52 +531,11 @@ describe('ingestão de telemetria com PostgreSQL real', () => {
     };
 
     beforeAll(async () => {
-      const [{ id: dispositivo }] = (await consulta<{ id: string }>(
+      const [{ id: dispositivoId }] = (await consulta<{ id: string }>(
         `SELECT id FROM dispositivo WHERE identificador = 'sim-01'`,
       )) as [{ id: string }];
-      for (let i = 0; i < 200; i++) {
-        const dia = DIAS[i % 3]!;
-        const hora = String(i % 24).padStart(2, '0');
-        const minuto = String(Math.floor(i / 24)).padStart(2, '0');
-        const tipo = TIPOS[i % 3]!;
-        // Nenhuma CONCLUIDA no 12x4: esse labirinto é o do ranking do CT-BE-28, sem filtro.
-        const status = tipo === '12x4' && STATUS[i % 4] === 'CONCLUIDA' ? 'FALHOU' : STATUS[i % 4]!;
-        const motivo = {
-          CONCLUIDA: 'SUCESSO',
-          FALHOU: 'FALHA_REPORTADA',
-          INTERROMPIDA: 'SEM_SINAL',
-        }[status as 'CONCLUIDA'];
-        const iniciada = `${dia}T${hora}:${minuto}:00Z`;
-        // Como no fluxo real: a terminada tem motivo e fim, e a concluída tem o tempo oficial.
-        const encerrada =
-          status === 'EM_ANDAMENTO' ? null : new Date(Date.parse(iniciada) + 60_000).toISOString();
-        await pool.query(
-          `INSERT INTO corrida (dispositivo_id, id_corrida_robo, boot, tipo_labirinto, status,
-                                motivo_termino, tempo_conclusao_ms, versao_protocolo,
-                                iniciada_em, encerrada_em)
-           VALUES ($1, $2, 'lista', $3, $4, $5, $6, 1, $7, $8)`,
-          [
-            dispositivo,
-            `lista-${i}`,
-            tipo,
-            status,
-            motivo ?? null,
-            status === 'CONCLUIDA' ? 60_000 + i : null,
-            iniciada,
-            encerrada,
-          ],
-        );
-      }
-      // Uma delas anulada, para conferir o campo `anulada`.
-      await pool.query(
-        `INSERT INTO operador (login, nome, senha_hash) VALUES ('op-lista', 'Operador', 'x')
-         ON CONFLICT DO NOTHING`,
-      );
-      await pool.query(
-        `INSERT INTO anulacao (corrida_id, operador_id, motivo)
-         SELECT c.id, o.id, 'toque manual' FROM corrida c, operador o
-         WHERE c.id_corrida_robo = 'lista-0' AND o.login = 'op-lista'`,
-      );
+      // Os mesmos dados do `npm run seed:historico` (#328), em dias fixos de 2025.
+      await gerarHistorico(pool, { dispositivoId, dias: DIAS, prefixo: 'lista' });
     });
 
     it('passo 1: tipo e status combinados, página de 20, mais recente primeiro e total igual ao SQL', async () => {
@@ -594,6 +552,37 @@ describe('ingestão de telemetria com PostgreSQL real', () => {
       const instantes = corpo.itens.map((c) => Date.parse(c.iniciada_em));
       expect(instantes).toEqual([...instantes].sort((a, b) => b - a));
       expect(ms).toBeLessThan(2000);
+
+      // As 4x4 CONCLUIDA são menos de 20: com página de 5, o limite corta de verdade.
+      const pequena = await listar('?tipo=4x4&status=CONCLUIDA&pagina=1&tamanho=5');
+      expect(pequena.corpo).toMatchObject({ total: n, tamanho: 5 });
+      expect(pequena.corpo.itens.map((c) => c.id)).toEqual(
+        corpo.itens.slice(0, 5).map((c) => c.id),
+      );
+    });
+
+    it('corridas no mesmo instante: o desempate pelo id não repete nem pula entre páginas', async () => {
+      const [{ id: dispositivoId }] = (await consulta<{ id: string }>(
+        `SELECT id FROM dispositivo WHERE identificador = 'sim-01'`,
+      )) as [{ id: string }];
+      for (const i of [0, 1, 2]) {
+        await pool.query(
+          `INSERT INTO corrida (dispositivo_id, id_corrida_robo, boot, tipo_labirinto, status,
+                                versao_protocolo, iniciada_em)
+           VALUES ($1, $2, 'empate', '4x4', 'EM_ANDAMENTO', 1, '2025-03-05T12:00:00Z')`,
+          [dispositivoId, `empate-${i}`],
+        );
+      }
+      const ids: string[] = [];
+      for (const pagina of [1, 2, 3]) {
+        const { corpo } = await listar(`?de=2025-03-05&ate=2025-03-05&tamanho=1&pagina=${pagina}`);
+        expect(corpo.total).toBe(3);
+        ids.push(...corpo.itens.map((c) => c.id));
+      }
+      const esperado = await consulta<{ id: string }>(
+        `SELECT id FROM corrida WHERE id_corrida_robo LIKE 'empate-%' ORDER BY id DESC`,
+      );
+      expect(ids).toEqual(esperado.map((e) => e.id));
     });
 
     it('passo 2: só as corridas do dia 2, percorrendo todas as páginas', async () => {
