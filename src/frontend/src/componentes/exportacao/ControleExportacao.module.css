@@ -1,0 +1,42 @@
+.controle {
+  display: grid;
+  gap: 0.375rem;
+}
+
+.botoes {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.rotulo {
+  color: var(--cor-texto-suave);
+  font-size: 0.75rem;
+}
+
+.botao {
+  border: 1px solid var(--cor-borda);
+  border-radius: 0.25rem;
+  background: var(--cor-superficie);
+  color: var(--cor-petroleo);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 500;
+  padding: 0.375rem 0.75rem;
+}
+
+.botao:hover {
+  background: var(--cor-fundo);
+}
+
+.erro {
+  margin: 0;
+  border: 1px solid #fecaca;
+  border-radius: 0.25rem;
+  background: #fef2f2;
+  color: #b91c1c;
+  font-size: 0.75rem;
+  padding: 0.375rem 0.625rem;
+}

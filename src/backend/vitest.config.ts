@@ -21,6 +21,13 @@ export default defineConfig({
         },
       },
       {
+        test: {
+          name: 'contrato',
+          include: ['testes/contrato/**/*.test.ts'],
+          environment: 'node',
+        },
+      },
+      {
         // Simulador de robô → backend completo → PostgreSQL real (Testcontainers): requer Docker.
         test: {
           name: 'e2e',
