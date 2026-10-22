@@ -338,6 +338,24 @@ describe('simulador: cenários de falha', () => {
       ]);
       expect(sim.boot).not.toBe('b1');
     });
+
+    it('roteiro com duracaoReinicioMs: 0 reconecta logo depois da queda (#368)', async () => {
+      servidor = await subirServidor();
+      const sim = criarSimulador({ url: servidor.url, taxa: 0, semente: 1, boot: 'b1' });
+      await sim.conectar();
+      const inicio = performance.now();
+      const corrida = await sim.iniciarCorrida({ reinicioApos: 25, duracaoReinicioMs: 0 });
+      // Sem a espera padrão de DURACAO_REINICIO_MS: só o tempo de derrubar e conectar de novo.
+      expect(performance.now() - inicio).toBeLessThan(DURACAO_REINICIO_MS / 2);
+      await ate(() => servidor!.conexoes[1]?.mensagens.length === 1);
+      await sim.encerrar();
+
+      expect(corrida).toMatchObject({ reiniciou: true, mensagens: 25 });
+      expect(sequencias(servidor.conexoes[0]!)).toEqual(intervalo(1, 25));
+      expect(servidor.conexoes[1]!.mensagens).toEqual([
+        expect.objectContaining({ tipo: 'hello', boot: sim.boot }),
+      ]);
+    });
   });
 
   describe('anomalias, atraso de rede e dois simuladores', () => {
@@ -434,6 +452,14 @@ describe('simulador: cenários de falha', () => {
       /retorno/,
     );
     await expect(sim.iniciarCorrida({ reinicioApos: 0 })).rejects.toThrow(/reinicioApos/);
+    await expect(sim.iniciarCorrida({ duracaoReinicioMs: 0 })).rejects.toThrow(
+      /só vale junto com reinicioApos/,
+    );
+    await expect(sim.iniciarCorrida({ reinicioApos: 10, duracaoReinicioMs: -1 })).rejects.toThrow(
+      /duracaoReinicioMs inválida/,
+    );
+    // Os roteiros recusados não emitiram nada: a conexão continua só com o hello.
+    expect(sim.enviadas).toHaveLength(1);
     await expect(sim.conectar()).rejects.toThrow(/já está conectado/);
     await sim.encerrar();
   });

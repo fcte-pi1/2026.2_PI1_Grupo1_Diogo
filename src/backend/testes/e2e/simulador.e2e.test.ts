@@ -209,14 +209,33 @@ describe('simulador → backend → PostgreSQL', () => {
     expect((await contagemDe(corrida.corrida)).distintas).toBe(corrida.total);
   });
 
-  it('CT-BE-14: o reinício do simulador interrompe a corrida com REINICIO_ROBO', async () => {
-    const sim = simulador();
-    await sim.conectar();
-    const corrida = await sim.iniciarCorrida({ reinicioApos: 150 });
-    await esperar(async () => (await corridaDe(corrida.corrida))?.status === 'INTERROMPIDA', 2000);
-    expect(await corridaDe(corrida.corrida)).toMatchObject({ motivo_termino: 'REINICIO_ROBO' });
-    await sim.encerrar();
-  });
+  // Com 0 ms, o hello do boot novo chega enquanto o backend ainda processa o fim do boot
+  // antigo: é o caso que falhava 2 em 10 antes da correção do #366 (#368).
+  it.each([
+    { caso: 'com a espera padrão de 1 s', duracaoReinicioMs: undefined },
+    { caso: 'com reconexão imediata', duracaoReinicioMs: 0 },
+  ])(
+    'CT-BE-14: o reinício do simulador interrompe a corrida com REINICIO_ROBO, $caso',
+    async ({ duracaoReinicioMs }) => {
+      const sim = simulador();
+      await sim.conectar();
+      const bootAntigo = sim.boot;
+      const corrida = await sim.iniciarCorrida({
+        reinicioApos: 150,
+        ...(duracaoReinicioMs !== undefined && { duracaoReinicioMs }),
+      });
+      await esperar(
+        async () => (await corridaDe(corrida.corrida))?.status === 'INTERROMPIDA',
+        2000,
+      );
+      expect(await corridaDe(corrida.corrida)).toMatchObject({
+        boot: bootAntigo,
+        motivo_termino: 'REINICIO_ROBO',
+      });
+      expect(sim.boot).not.toBe(bootAntigo);
+      await sim.encerrar();
+    },
+  );
 
   it('CT-BE-21: sim-01 e sim-02 ao mesmo tempo, cada corrida no seu dispositivo', async () => {
     const sims = [
