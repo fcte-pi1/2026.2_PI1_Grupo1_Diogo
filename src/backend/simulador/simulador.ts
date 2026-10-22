@@ -122,9 +122,15 @@ export interface Roteiro {
   silencios?: readonly Interrupcao[];
   /**
    * Reinicia o robô logo depois desta sequência (CT-BE-14): a corrida fica sem fim e o simulador
-   * se conecta de novo com outro `boot`, depois de `DURACAO_REINICIO_MS`.
+   * se conecta de novo com outro `boot`, depois de `duracaoReinicioMs`.
    */
   reinicioApos?: number;
+  /**
+   * Tempo entre a queda e a reconexão no `reinicioApos` (padrão: `DURACAO_REINICIO_MS`). Com 0,
+   * o `hello` do boot novo chega enquanto o backend ainda processa o fim do boot antigo, o
+   * cenário da #366. Só vale junto com `reinicioApos`.
+   */
+  duracaoReinicioMs?: number;
   /** Mensagens duplicadas, fora de ordem, malformadas ou impossíveis (`anomalias.ts`). */
   anomalias?: readonly Anomalia[];
 }
@@ -569,6 +575,7 @@ export function criarSimulador(opcoes: OpcoesSimulador = {}): Simulador {
       plano = planejarEnvio(corrida.mensagens, labirinto, roteiro.anomalias ?? [], aleatorio);
       pendentes = ordenarInterrupcoes(roteiro, total);
       validarSequencia('reinicioApos', roteiro.reinicioApos, total);
+      validarDuracaoReinicio(roteiro);
     } catch (erro) {
       // Roteiro inválido: a corrida não aconteceu, e a próxima mantém o número.
       ({ corridas, fimUltimaCorrida, ultimaCorrida } = estadoAntes);
@@ -658,7 +665,9 @@ export function criarSimulador(opcoes: OpcoesSimulador = {}): Simulador {
 
       if (roteiro.reinicioApos === sequencia) {
         reiniciou = true;
-        await reiniciar();
+        await reiniciar(
+          roteiro.duracaoReinicioMs === undefined ? {} : { duracaoMs: roteiro.duracaoReinicioMs },
+        );
         break;
       }
       for (const interrupcao of pendentes.filter((p) => p.apos === sequencia)) {
@@ -807,6 +816,20 @@ function validarSequencia(nome: string, valor: number | undefined, total: number
   if (valor === undefined) return;
   if (!(Number.isInteger(valor) && valor >= 1 && valor <= total)) {
     throw new RangeError(`${nome} deve ser uma sequência de 1 a ${total} (a corrida tem ${total})`);
+  }
+}
+
+/**
+ * Valida a duração do reinício antes de a corrida começar: um erro aqui não deixa a corrida
+ * pela metade, como aconteceria se ele só aparecesse no `reiniciar()`.
+ */
+function validarDuracaoReinicio({ reinicioApos, duracaoReinicioMs }: Roteiro): void {
+  if (duracaoReinicioMs === undefined) return;
+  if (reinicioApos === undefined) {
+    throw new RangeError('duracaoReinicioMs só vale junto com reinicioApos');
+  }
+  if (!(Number.isFinite(duracaoReinicioMs) && duracaoReinicioMs >= 0)) {
+    throw new RangeError(`duracaoReinicioMs inválida: ${duracaoReinicioMs}`);
   }
 }
 

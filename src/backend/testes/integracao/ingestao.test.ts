@@ -936,9 +936,17 @@ describe('ingestão de telemetria com PostgreSQL real', () => {
       const normal = await conectarPainel();
       normal.enviar({ tipo: 'inscrever', corrida: id });
       const lento = await painelNode();
+      let lentoInscrito = false;
+      lento.ws.on('message', (dados) => {
+        if ((JSON.parse(String(dados)) as { tipo?: string }).tipo === 'snapshot')
+          lentoInscrito = true;
+      });
       lento.ws.send(JSON.stringify({ tipo: 'inscrever', corrida: id }));
       await esperar(() => normal.doTipo('snapshot').length > 0);
-      await new Promise((resolver) => setTimeout(resolver, 100));
+      // O painel lento só é pausado depois de receber o snapshot: garante que ele está
+      // inscrito. Uma execução no CI enviou por 30 s sem o aviso de painel lento, e a causa não
+      // ficou clara; isto descarta uma inscrição atrasada. O registro abaixo mostra o resto.
+      await esperar(() => lentoInscrito);
       // O painel lento para de ler: o buffer de envio do backend para ele só cresce. O
       // pause() do cliente ws para de ler o socket (API pública, tipada em @types/ws).
       lento.ws.pause();
@@ -947,16 +955,21 @@ describe('ingestão de telemetria com PostgreSQL real', () => {
       // O robô envia até o backend desconectar o painel lento. Antes de o bufferedAmount do
       // backend crescer, os dados enchem os buffers TCP do sistema operacional, que no Linux
       // do CI crescem até alguns MB: a quantidade necessária varia com a máquina. Por isso o
-      // laço tem um orçamento de TEMPO, e não de mensagens (com um teto de 40 000, o painel
-      // às vezes não era detectado no CI).
+      // laço tem um orçamento de TEMPO, e não de mensagens. Quase tudo é `celula`: os
+      // contínuos (`posicao`) não chegam ao painel lento, então só as células enchem o buffer
+      // dele. Com metade de `posicao` e 30 s, o CI ainda não detectava às vezes (#387).
       let sequencia = 1;
-      const fimDoOrcamento = Date.now() + 30_000;
+      let celulasEnviadas = 0;
+      const inicioEnvio = Date.now();
+      const fimDoOrcamento = inicioEnvio + 60_000;
       while (!avisosDistribuicao.includes(AVISO_PAINEL_LENTO) && Date.now() < fimDoOrcamento) {
         const lote: string[] = [];
         for (let i = 0; i < 500; i++) {
           sequencia++;
+          const celula = sequencia % 10 !== 0;
+          if (celula) celulasEnviadas++;
           lote.push(
-            sequencia % 2 === 0
+            celula
               ? mensagem('celula', sequencia, {
                   ...c,
                   x: sequencia % 12,
@@ -976,14 +989,20 @@ describe('ingestão de telemetria com PostgreSQL real', () => {
         // e os dois painéis disputando 2 vCPUs, uma vez passou dos 5 s padrão.
         await robo.esperarAck('painel-lento', sequencia, 30_000);
       }
+      // Registro para calibrar o orçamento e, se falhar, explicar a falha: quanto foi enviado,
+      // em quanto tempo e se o aviso veio.
+      console.info(
+        `CT-BE-24: ${sequencia} sequências (${celulasEnviadas} células) em ${Date.now() - inicioEnvio} ms; ` +
+          `aviso de painel lento: ${avisosDistribuicao.includes(AVISO_PAINEL_LENTO) ? 'sim' : 'NÃO'}; ` +
+          `avisos: ${JSON.stringify(avisosDistribuicao)}`,
+      );
       await esperar(() => avisosDistribuicao.includes(AVISO_PAINEL_LENTO), 5000);
 
       // O painel normal recebeu todas as células, em ordem, durante todo o episódio. No CI
       // podem ser dezenas de milhares: o prazo acompanha o orçamento de envio.
-      const celulasEnviadas = Math.floor(sequencia / 2);
       await esperar(
         () => normal.recebidas.filter((m) => m.evento === 'celula').length === celulasEnviadas,
-        30_000,
+        60_000,
       );
       const sequencias = normal.recebidas
         .filter((m) => m.evento === 'celula')
@@ -995,7 +1014,7 @@ describe('ingestão de telemetria com PostgreSQL real', () => {
       expect(await lento.fechou).toBeGreaterThan(0);
       normal.fechar();
       await robo.fechar();
-    }, 120_000);
+    }, 180_000);
 
     it('fecha o painel que não responde ao ping (conexão meio aberta)', async () => {
       const mudo = await painelNode({ autoPong: false });
