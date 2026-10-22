@@ -48,6 +48,8 @@ export async function rotasTelemetria(
 
     socket.on('message', (dados, binario) => {
       if (binario) return;
+      // Antes da fila da conexão: a espera nela também conta na latência (RNF-48, CT-BE-32).
+      const recebidaEm = performance.now();
       const texto = dados.toString();
 
       if (primeiraMensagem) {
@@ -69,7 +71,7 @@ export async function rotasTelemetria(
       fila = fila
         .then(async () => {
           if (!sessao) return;
-          const fechar = await ingestao.receber(sessao, texto);
+          const fechar = await ingestao.receber(sessao, texto, recebidaEm);
           if (fechar) socket.close(fechar.codigoFechamento, fechar.motivo);
         })
         .catch(registrarFalha);

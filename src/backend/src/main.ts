@@ -16,6 +16,7 @@ import { BarramentoEventos } from './infra/barramento-eventos.js';
 import { RepositorioConsultaPg } from './infra/consulta-pg.js';
 import { criarContadores } from './infra/contadores.js';
 import { GravadorLote } from './infra/gravador-lote.js';
+import { HistogramasLatencia } from './infra/latencia.js';
 import { opcoesLogger } from './infra/logger.js';
 import {
   RegistroAuditoriaPg,
@@ -43,7 +44,9 @@ const corridas = new ServicoCorrida({
 });
 
 const validador = criarValidadorProtocolo();
-const distribuicao = new ServicoDistribuicao({ corridas, log });
+// Latência recepção → envio ao painel, exposta no /health (RNF-48, CT-BE-32).
+const latencia = new HistogramasLatencia();
+const distribuicao = new ServicoDistribuicao({ corridas, log, latencia });
 eventos.assinar('mensagem-aplicada', (dados) => distribuicao.aoAplicar(dados));
 eventos.assinar('status-alterado', (dados) => distribuicao.aoMudarStatus(dados));
 eventos.assinar('alerta-tensao', (dados) => distribuicao.aoAlertar(dados));
@@ -65,6 +68,7 @@ const app = await construirApp({
   logger: log,
   verificarBanco: () => verificarBanco(banco),
   contadores,
+  latencia,
   ingestao,
   consulta: new ServicoConsulta(new RepositorioConsultaPg(banco)),
   distribuicao,

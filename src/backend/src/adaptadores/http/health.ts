@@ -5,6 +5,8 @@ import type { Contadores } from '../../aplicacao/portas.js';
 export interface DependenciasHealth {
   verificarBanco: () => Promise<boolean>;
   contadores: Contadores;
+  /** Latência recepção → envio ao painel (RNF-48, CT-BE-32). Sem ela, o campo não aparece. */
+  latencia?: { resumo(): unknown };
 }
 
 /** GET /health — saúde, banco, contadores da ingestão e atraso do event loop (RNF-49, RNF-56). */
@@ -32,6 +34,7 @@ export async function rotasHealth(app: FastifyInstance, deps: DependenciasHealth
         mensagens_rejeitadas: deps.contadores.mensagensRejeitadas,
         conexoes_recusadas: deps.contadores.conexoesRecusadas,
       },
+      ...(deps.latencia && { latencia_painel_ms: deps.latencia.resumo() }),
     });
   });
 }

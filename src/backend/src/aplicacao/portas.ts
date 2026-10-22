@@ -154,6 +154,15 @@ export interface Contadores {
   conexoesRecusadas: number;
 }
 
+/**
+ * Latência da recepção do quadro WebSocket até o envio ao painel (RNF-48, CT-BE-32), em ms.
+ * `evento`: células (sem limite de taxa). `continuo`: posição e energia, que esperam a janela
+ * de 100 ms do RF-90.
+ */
+export interface RegistroLatencia {
+  registrar(tipo: 'evento' | 'continuo', ms: number): void;
+}
+
 export interface RegistroLog {
   info(dados: object, mensagem: string): void;
   warn(dados: object, mensagem: string): void;

@@ -20,6 +20,8 @@ export interface EstadoCorrida {
   derivacao: DerivacaoCorrida;
   /** Mensagens gravadas que esperam uma lacuna anterior ser preenchida para serem aplicadas. */
   retidas: Map<number, MensagemCorrida>;
+  /** Chegada (`performance.now()`) das retidas, até serem aplicadas (RNF-48, CT-BE-32). */
+  recebidasEm: Map<number, number>;
   /**
    * Um `fim_corrida` já foi aceito (talvez ainda não aplicado): outro é rejeitado com
    * CORRIDA_FINALIZADA, mesmo antes de o primeiro mudar o status (CT-BE-20).

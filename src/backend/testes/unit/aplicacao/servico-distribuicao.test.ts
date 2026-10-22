@@ -741,3 +741,112 @@ describe('ServicoDistribuicao: ritmo dos contínuos e painéis lentos', () => {
     expect(conexao.doTipo('keepalive')).toHaveLength(2);
   });
 });
+
+describe('ServicoDistribuicao: latência recepção → envio ao painel (RNF-48, CT-BE-32)', () => {
+  const CORRIDA = 'corrida-lat';
+  let agora: number;
+  let amostras: ['evento' | 'continuo', number][];
+  let distribuicao: ServicoDistribuicao;
+  const derivacao = new DerivacaoCorrida('4x4', CONFIGURACAO_PADRAO);
+  const estado: EstadoAoVivo = {
+    corridaId: CORRIDA,
+    labirinto: '4x4',
+    sequenciaCorte: 0,
+    tempoInicioMs: 0,
+    mapa: { celulas: [], posicao: null },
+    metricas: derivacao.metricas,
+    sinalPerdido: false,
+    status: 'EM_ANDAMENTO',
+    motivo: null,
+  };
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    agora = 1000;
+    amostras = [];
+    distribuicao = new ServicoDistribuicao({
+      corridas: { estadoAoVivo: () => estado, corridasEmAndamento: () => [estado] },
+      log: { info: () => {}, warn: () => {}, error: () => {} },
+      latencia: { registrar: (tipo, ms) => amostras.push([tipo, ms]) },
+      agora: () => agora,
+    });
+  });
+  afterEach(() => {
+    distribuicao.parar();
+    vi.useRealTimers();
+  });
+
+  const aplicada = (
+    m: Record<string, unknown>,
+    recebidaEm?: number,
+  ): MapaEventos['mensagem-aplicada'] => ({
+    corridaId: CORRIDA,
+    labirinto: '4x4',
+    mensagem: { versao: 1, corrida: 'r1', ...m } as MapaEventos['mensagem-aplicada']['mensagem'],
+    revisita: false,
+    metricas: derivacao.metricas,
+    ...(recebidaEm !== undefined && { recebidaEm }),
+  });
+  const celula = (sequencia: number, recebidaEm?: number) =>
+    aplicada(
+      {
+        tipo: 'celula',
+        sequencia,
+        tempo_ms: sequencia,
+        x: 0,
+        y: 0,
+        paredes: { norte: true, leste: false, sul: false, oeste: true },
+      },
+      recebidaEm,
+    );
+  const posicao = (sequencia: number, recebidaEm?: number) =>
+    aplicada(
+      {
+        tipo: 'posicao',
+        sequencia,
+        tempo_ms: sequencia,
+        x: 0,
+        y: 0,
+        orientacao: 'LESTE',
+        celulas: 0,
+      },
+      recebidaEm,
+    );
+  function inscrever() {
+    const painel = distribuicao.conectar(new ConexaoFalsa(() => agora));
+    distribuicao.receber(painel, { tipo: 'inscrever', corrida: CORRIDA });
+  }
+
+  it('célula: uma amostra de evento com o tempo desde a chegada, mesmo com dois painéis', () => {
+    inscrever();
+    inscrever();
+    distribuicao.aoAplicar(celula(2, 988)); // chegou 12 ms antes do envio
+    expect(amostras).toEqual([['evento', 12]]);
+  });
+
+  it('sem painel inscrito, nada é enviado e nada é medido', () => {
+    distribuicao.aoAplicar(celula(2, 990));
+    expect(amostras).toEqual([]);
+  });
+
+  it('contínuo: a amostra inclui a espera da janela de 100 ms (RF-90) da mensagem mais recente', async () => {
+    inscrever();
+    distribuicao.aoAplicar(posicao(2, 995)); // sai na hora: 5 ms
+    agora += 30;
+    distribuicao.aoAplicar(posicao(3, 1028)); // espera a janela: sai em 1100
+    agora += 40;
+    distribuicao.aoAplicar(posicao(4, 1068)); // substitui a 3: sai em 1100 com a 4
+    agora = 1100;
+    await vi.advanceTimersByTimeAsync(100);
+    expect(amostras).toEqual([
+      ['continuo', 5],
+      ['continuo', 32],
+    ]);
+  });
+
+  it('mensagem reaplicada na reconstrução (sem recebidaEm) não entra na medição', () => {
+    inscrever();
+    distribuicao.aoAplicar(celula(2));
+    expect(amostras).toEqual([]);
+  });
+});
