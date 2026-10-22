@@ -292,3 +292,34 @@ Os dois são decididos antes do primeiro byte do corpo, com o mesmo formato do d
 - **Corrida em andamento.** A resposta é o que já estava gravado no momento de cada lote, e pode ter lacunas. A paginação avança pela `sequencia` (`seq > última lida`). Uma mensagem que preenche uma lacuna (reenvio do robô, RNF-50) e é gravada depois de o cursor passar daquela sequência não aparece nesta resposta. Para o replay completo, peça a linha do tempo de uma corrida encerrada, ou peça de novo. Numa corrida encerrada, tudo já está gravado, e a resposta é completa (CT-BE-27).
 
 Para ler no navegador: `fetch` e `response.body.getReader()`, separando o texto por `\n`; ou `await response.text()` e `split('\n')` para corridas pequenas.
+
+## `GET /api/corridas/{id}/exportacao?formato=json|csv` — exportação
+
+Download de uma corrida para o relatório e para planilhas (RF-98, HU-BE-27). O parâmetro `formato` é obrigatório. As duas respostas vêm com `Content-Disposition: attachment; filename="corrida-{id}.json"` (ou `.csv`), então um link `<a href download>` já baixa o arquivo.
+
+| `formato` | `Content-Type` | Conteúdo |
+|:--|:--|:--|
+| `json` | `application/json; charset=utf-8` | O mesmo `DetalheCorrida` de `GET /api/corridas/{id}`: resumo, métricas, trajeto e energia |
+| `csv` | `text/csv; charset=utf-8` | Uma linha por mensagem aceita, em ordem de `seq`, enviada em *stream* pelos mesmos lotes do replay |
+
+O CSV segue a RFC 4180: separador `,`, decimal com `.`, linhas terminadas em `\r\n`, aspas no texto que tem vírgula, aspas ou quebra de linha. **Começa com o BOM do UTF-8** (`EF BB BF`), para a planilha mostrar os acentos. Quem lê o arquivo por script precisa tolerá-lo: em Python, `encoding="utf-8-sig"`; no navegador, o `response.text()` já o descarta. As colunas são fixas, a união dos campos de todos os tipos de mensagem; a mensagem que não tem o campo deixa a célula vazia:
+
+```
+seq,t_robo_ms,tipo,recebida_em,labirinto,x,y,orientacao,celulas,velocidade_media_mps,parede_norte,parede_leste,parede_sul,parede_oeste,tensao_v,corrente_a,potencia_w,estado,resultado,detalhe
+1,12000,inicio_corrida,2026-10-20T14:00:00.120Z,4x4,,,,,,,,,,,,,,,
+2,12000,celula,2026-10-20T14:00:00.130Z,,0,0,,,,true,false,false,true,,,,,,
+```
+
+**Proteção contra fórmula (CSV Injection, OWASP).** O `detalhe` do `fim_corrida` é o único texto livre que vem do robô. Os outros textos (`tipo`, `labirinto`, `orientacao`, `estado`, `resultado`) são valores fixos dos esquemas, e o `recebida_em` é gerado pelo backend. Quando o `detalhe` começa com `=`, `+`, `-`, `@`, tabulação ou retorno de carro, ganha um `'` na frente, para a planilha não o executar como fórmula. Colunas numéricas, como um `-0.5` de corrente, saem sem alteração.
+
+### Erros
+
+Decididos antes do primeiro byte do corpo: `404` (`CORRIDA_NAO_ENCONTRADA`). E `400` (`FST_ERR_VALIDATION`) sem `formato`, com formato inválido ou com id que não é UUID. Os corpos têm o mesmo formato do detalhe da corrida.
+
+### Limitações
+
+As mesmas da linha do tempo, porque o CSV sai pelos mesmos lotes:
+- **Falha no meio do *stream*:** o backend registra o erro e aborta a conexão, em vez de entregar um arquivo truncado que pareceria completo.
+- **Corrida em andamento:** pode ter lacunas.
+
+O JSON não tem esse risco: ele é montado inteiro antes do envio.

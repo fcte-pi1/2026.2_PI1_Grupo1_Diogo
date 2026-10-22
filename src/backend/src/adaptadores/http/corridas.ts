@@ -1,8 +1,9 @@
 import { Readable } from 'node:stream';
-import type { FastifyBaseLogger, FastifyInstance } from 'fastify';
+import type { FastifyBaseLogger, FastifyInstance, FastifyReply } from 'fastify';
 import type { TipoLabirinto } from '../../../protocolo/tipos.js';
 import type { ServicoConsulta, ServicoLinhaDoTempo } from '../../aplicacao/index.js';
 import { TIPOS_LABIRINTO } from '../../dominio/index.js';
+import { CABECALHO_CSV, linhaCsv } from './exportacao-csv.js';
 
 export interface DependenciasCorridasHttp {
   consulta: ServicoConsulta;
@@ -43,6 +44,49 @@ export async function rotasCorridas(
         rota: 'linha-do-tempo',
       });
       return reply.type('application/x-ndjson; charset=utf-8').send(Readable.from(linhas));
+    },
+  );
+
+  // GET /api/corridas/{id}/exportacao?formato=json|csv — download da corrida (RF-98, HU-BE-27).
+  app.get<{ Params: { id: string }; Querystring: { formato: 'json' | 'csv' } }>(
+    '/api/corridas/:id/exportacao',
+    {
+      schema: {
+        params: {
+          type: 'object',
+          properties: { id: { type: 'string', pattern: UUID } },
+          required: ['id'],
+        },
+        querystring: {
+          type: 'object',
+          properties: { formato: { type: 'string', enum: ['json', 'csv'] } },
+          required: ['formato'],
+        },
+      },
+    },
+    async (req, reply) => {
+      const { id } = req.params;
+      const arquivo = `attachment; filename="corrida-${id}.${req.query.formato}"`;
+      if (req.query.formato === 'json') {
+        // O mesmo conteúdo do detalhe: resumo, métricas, trajeto e energia (CA1).
+        const detalhe = await consulta.detalheCorrida(id);
+        if (!detalhe) return corridaNaoEncontrada(reply);
+        return reply
+          .header('content-disposition', arquivo)
+          .type('application/json; charset=utf-8')
+          .send(detalhe);
+      }
+      // Uma linha por mensagem, em stream pelos mesmos lotes do replay (CA2, CA3).
+      const itens = await linhaDoTempo.linhaDoTempo(id);
+      if (!itens) return corridaNaoEncontrada(reply);
+      const linhas = emLinhas(itens, (item) => `${linhaCsv(item)}\r\n`, req.log, {
+        corrida: id,
+        rota: 'exportacao',
+      });
+      return reply
+        .header('content-disposition', arquivo)
+        .type('text/csv; charset=utf-8')
+        .send(Readable.from(comCabecalho(CABECALHO_CSV, linhas)));
     },
   );
 
@@ -91,6 +135,15 @@ export async function rotasCorridas(
   );
 }
 
+function corridaNaoEncontrada(reply: FastifyReply): FastifyReply {
+  return reply.code(404).send({
+    statusCode: 404,
+    code: 'CORRIDA_NAO_ENCONTRADA',
+    error: 'Not Found',
+    message: 'corrida não encontrada',
+  });
+}
+
 /**
  * Uma linha por item, à medida que os lotes chegam do banco. O `Readable.from` só pede o
  * próximo item quando o cliente consome o anterior (backpressure).
@@ -116,4 +169,13 @@ async function* emLinhas<T>(
     log.error({ err: erro, ...contexto, enviadas }, 'leitura interrompida no meio do stream');
     throw erro;
   }
+}
+
+/** O cabeçalho primeiro, depois as linhas. */
+async function* comCabecalho(
+  cabecalho: string,
+  linhas: AsyncIterable<string>,
+): AsyncGenerator<string> {
+  yield cabecalho;
+  yield* linhas;
 }
