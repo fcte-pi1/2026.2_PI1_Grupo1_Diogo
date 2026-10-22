@@ -18,7 +18,7 @@ Todos são opcionais e podem ser combinados. Tipo: `FiltrosListaCorridas`.
 | `status` | `EM_ANDAMENTO`, `CONCLUIDA`, `FALHOU`, `INTERROMPIDA` | todos | Só corridas nesse status |
 | `de` | data, ou data e hora, em ISO 8601 | sem limite | Corridas iniciadas a partir desse instante |
 | `ate` | data, ou data e hora, em ISO 8601 | sem limite | Corridas iniciadas até esse instante |
-| `pagina` | inteiro ≥ 1 | `1` | Página pedida |
+| `pagina` | inteiro de 1 a 100000 | `1` | Página pedida. Com `tamanho` ≤ 100, isso cobre até 10 milhões de corridas |
 | `tamanho` | inteiro de 1 a 100 | `20` | Itens por página. Um valor acima de 100 é **limitado a 100**, sem erro |
 
 Para listar todos os tipos, **omita** o parâmetro `tipo`. Não existe o valor "todos".
@@ -29,7 +29,7 @@ Um parâmetro com valor inválido devolve `400`:
 
 | Caso | `code` |
 |:--|:--|
-| `tipo` ou `status` fora da lista, `pagina` ou `tamanho` menor que 1 (por exemplo, `tipo=5x5` ou `pagina=0`) | `FST_ERR_VALIDATION` |
+| `tipo` ou `status` fora da lista, `pagina` ou `tamanho` menor que 1, ou `pagina` acima de 100000 (por exemplo, `tipo=5x5`, `pagina=0` ou `pagina=100001`) | `FST_ERR_VALIDATION` |
 | Data que não é ISO 8601 ou não existe (`14/10/2026`, `2026-02-30`), ou `de` depois de `ate` | `FILTRO_INVALIDO` |
 
 Uma página depois da última devolve `itens` vazio, com o `total` dos filtros.

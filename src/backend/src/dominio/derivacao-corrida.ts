@@ -8,6 +8,16 @@
 import type { TipoLabirinto } from './labirinto.js';
 
 export type StatusCorrida = 'EM_ANDAMENTO' | 'CONCLUIDA' | 'FALHOU' | 'INTERROMPIDA';
+
+// Um `Record` obriga a listar todas as chaves do tipo: um status novo sem entrada aqui
+// quebra o typecheck, e a lista abaixo (usada na validação da API) não fica desatualizada.
+const STATUS: Record<StatusCorrida, true> = {
+  EM_ANDAMENTO: true,
+  CONCLUIDA: true,
+  FALHOU: true,
+  INTERROMPIDA: true,
+};
+export const STATUS_CORRIDA = Object.keys(STATUS) as StatusCorrida[];
 export type MotivoTermino = 'SUCESSO' | 'FALHA_REPORTADA' | 'SEM_SINAL' | 'REINICIO_ROBO';
 export type Lado = 'norte' | 'leste' | 'sul' | 'oeste';
 export type ParedesCelula = Record<Lado, boolean>;

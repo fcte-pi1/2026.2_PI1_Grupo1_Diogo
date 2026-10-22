@@ -1,14 +1,14 @@
 import type { FastifyInstance } from 'fastify';
 import type { FiltrosListaCorridas, TipoLabirinto } from '../../../protocolo/tipos.js';
 import { FiltroInvalido, type ServicoConsulta } from '../../aplicacao/index.js';
-import { TIPOS_LABIRINTO } from '../../dominio/index.js';
+import { STATUS_CORRIDA, TIPOS_LABIRINTO } from '../../dominio/index.js';
 
 export interface DependenciasCorridasHttp {
   consulta: ServicoConsulta;
 }
 
-/** Valores de `status_corrida` no banco (`StatusCorrida` em `@protocolo`). */
-const STATUS_CORRIDA = ['EM_ANDAMENTO', 'CONCLUIDA', 'FALHOU', 'INTERROMPIDA'] as const;
+/** Maior `pagina` aceita na listagem. */
+const PAGINA_MAXIMA = 100_000;
 
 const UUID = '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$';
 
@@ -29,7 +29,9 @@ export async function rotasCorridas(
             status: { type: 'string', enum: [...STATUS_CORRIDA] },
             de: { type: 'string', maxLength: 40 },
             ate: { type: 'string', maxLength: 40 },
-            pagina: { type: 'integer', minimum: 1 },
+            // Com tamanho ≤ 100, limita o deslocamento a 10⁷: sem o máximo, uma página enorme
+            // passaria pela validação e estouraria o bigint no banco (500).
+            pagina: { type: 'integer', minimum: 1, maximum: PAGINA_MAXIMA },
             // Acima de 100 não é erro: o serviço limita a 100 (contrato em API.md).
             tamanho: { type: 'integer', minimum: 1 },
           },

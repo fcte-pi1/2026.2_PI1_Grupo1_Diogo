@@ -163,6 +163,12 @@ describe('GET /api/corridas', () => {
     ['tipo inexistente', '/api/corridas?tipo=5x5', 'FST_ERR_VALIDATION'],
     ['status inexistente', '/api/corridas?status=PERDIDA', 'FST_ERR_VALIDATION'],
     ['página zero', '/api/corridas?pagina=0', 'FST_ERR_VALIDATION'],
+    ['página acima de 100000', '/api/corridas?pagina=100001', 'FST_ERR_VALIDATION'],
+    [
+      'página gigante (estouraria o bigint)',
+      '/api/corridas?pagina=100000000000000000000',
+      'FST_ERR_VALIDATION',
+    ],
     ['tamanho zero', '/api/corridas?tamanho=0', 'FST_ERR_VALIDATION'],
     ['data que não é ISO 8601', '/api/corridas?de=14/10/2026', 'FILTRO_INVALIDO'],
     ['data impossível', '/api/corridas?ate=2026-02-30T10:00:00Z', 'FILTRO_INVALIDO'],

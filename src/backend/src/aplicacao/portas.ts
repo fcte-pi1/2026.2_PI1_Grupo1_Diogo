@@ -160,7 +160,6 @@ export interface RegistroLog {
   error(dados: object, mensagem: string): void;
 }
 
-/** Consultas de leitura para a API HTTP (ServicoConsulta, arquitetura do backend §3.1). */
 /** Filtros da listagem já interpretados: os ausentes são `null`. */
 export interface FiltrosListagem {
   tipo: TipoLabirinto | null;
@@ -173,6 +172,7 @@ export interface FiltrosListagem {
   deslocamento: number;
 }
 
+/** Consultas de leitura para a API HTTP (ServicoConsulta, arquitetura do backend §3.1). */
 export interface RepositorioConsulta {
   /** Uma página da listagem, da mais recente para a mais antiga, e o total dos filtros (RF-93). */
   listarCorridas(filtros: FiltrosListagem): Promise<{ itens: CorridaResumo[]; total: number }>;
