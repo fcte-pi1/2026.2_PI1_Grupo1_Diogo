@@ -9,10 +9,18 @@ import { runner } from 'node-pg-migrate';
 import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import WebSocketNode from 'ws';
-import type { DetalheCorrida, RespostaLeaderboard } from '../../protocolo/tipos.js';
+import type {
+  Apresentacao,
+  DetalheCorrida,
+  RespostaLeaderboard,
+  RespostaLogin,
+} from '../../protocolo/tipos.js';
 import { criarValidadorProtocolo } from '../../protocolo/validador.js';
 import {
   AVISO_PAINEL_LENTO,
+  ServicoAnulacao,
+  ServicoApresentacoes,
+  ServicoAutenticacao,
   ServicoConsulta,
   ServicoCorrida,
   ServicoDistribuicao,
@@ -21,6 +29,11 @@ import {
 import { construirApp } from '../../src/app.js';
 import { BarramentoEventos } from '../../src/infra/barramento-eventos.js';
 import { RepositorioConsultaPg } from '../../src/infra/consulta-pg.js';
+import {
+  RepositorioAnulacaoPg,
+  RepositorioApresentacoesPg,
+  RepositorioOperadoresPg,
+} from '../../src/infra/operador-pg.js';
 import { criarContadores } from '../../src/infra/contadores.js';
 import { GravadorLote } from '../../src/infra/gravador-lote.js';
 import {
@@ -139,6 +152,13 @@ describe('ingestão de telemetria com PostgreSQL real', () => {
       contadores,
       ingestao,
       consulta: new ServicoConsulta(new RepositorioConsultaPg(pool)),
+      autenticacao: new ServicoAutenticacao({
+        operadores: new RepositorioOperadoresPg(pool),
+        senhas: new VerificadorTokenArgon2(),
+      }),
+      anulacao: new ServicoAnulacao({ anulacoes: new RepositorioAnulacaoPg(pool), eventos }),
+      apresentacoes: new ServicoApresentacoes(new RepositorioApresentacoesPg(pool)),
+      jwtSegredo: 'segredo-de-teste',
       distribuicao,
       validador: criarValidadorProtocolo(),
       prazoHelloMs: 300,
@@ -511,6 +531,148 @@ describe('ingestão de telemetria com PostgreSQL real', () => {
         { seq: 3, ordem: 2 },
         { seq: 4, ordem: 3 },
       ]);
+    });
+  });
+
+  describe('operador: anulação e apresentações (RF-96, RF-97, CT-BE-29, CT-BE-35)', () => {
+    const SENHA = 'senha-do-op1';
+    let token = '';
+    const autorizacao = () => ({ authorization: `Bearer ${token}` });
+    const corridaPorRobo = async (idRobo: string) =>
+      (
+        await consulta<Record<string, unknown> & { id: string }>(
+          `SELECT * FROM corrida WHERE id_corrida_robo = $1`,
+          [idRobo],
+        )
+      )[0]!;
+    const anular = (id: string, motivo: string | undefined, comToken = true) =>
+      fetch(`${base}/api/corridas/${id}/anulacao`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', ...(comToken ? autorizacao() : {}) },
+        body: JSON.stringify(motivo === undefined ? {} : { motivo }),
+      });
+
+    beforeAll(async () => {
+      await pool.query(
+        `INSERT INTO operador (login, nome, senha_hash) VALUES ('op1', 'Operador 1', $1)
+         ON CONFLICT (login) DO UPDATE SET senha_hash = EXCLUDED.senha_hash`,
+        [await argon2.hash(SENHA)],
+      );
+      const login = await fetch(`${base}/api/auth/login`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ login: 'op1', senha: SENHA }),
+      });
+      expect(login.status).toBe(200);
+      token = ((await login.json()) as RespostaLogin).token;
+    });
+
+    it('login com a senha errada: 401', async () => {
+      const resposta = await fetch(`${base}/api/auth/login`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ login: 'op1', senha: 'errada' }),
+      });
+      expect(resposta.status).toBe(401);
+    });
+
+    it('CT-BE-29 e CT-BE-35: anulação autenticada, auditada e sem alterar a corrida', async () => {
+      // Corrida A, CONCLUIDA no ranking do 8x4.
+      const c = { corrida: 'anular-a' };
+      const robo = await Robo.conectar(url);
+      robo.enviar(
+        hello({ boot: 'b-anul' }),
+        mensagem('inicio_corrida', 1, { ...c, labirinto: '8x4', tempo_ms: 0 }),
+        mensagem('celula', 2, { ...c, tempo_ms: 100 }),
+        mensagem('fim_corrida', 3, { ...c, tempo_ms: 30_000 }),
+      );
+      await robo.esperarAck('anular-a', 3);
+      await robo.fechar();
+      await corridas.esvaziar();
+      const antes = await corridaPorRobo('anular-a');
+      const ranking = async () =>
+        (
+          (await (
+            await fetch(`${base}/api/leaderboard?labirinto=8x4`)
+          ).json()) as RespostaLeaderboard
+        ).itens.map((i) => i.id);
+      expect(await ranking()).toContain(antes.id);
+
+      // Um painel no ao_vivo, para o aviso de ranking.
+      const avisos: unknown[] = [];
+      const painel = new WebSocket(url.replace('/ws/telemetria', '/ws/painel'));
+      painel.addEventListener('message', (e) => {
+        const m = JSON.parse(String(e.data)) as { tipo: string };
+        if (m.tipo === 'leaderboard') avisos.push(m);
+      });
+      await new Promise((resolver) => painel.addEventListener('open', resolver));
+      painel.send(JSON.stringify({ tipo: 'inscrever', canal: 'ao_vivo' }));
+      await new Promise((resolver) => setTimeout(resolver, 100));
+
+      expect((await anular(antes.id, 'houve toque manual', false)).status).toBe(401); // passo 1
+      expect((await anular(antes.id, '   ')).status).toBe(400); // passo 2
+      const terceiro = await anular(antes.id, 'houve toque manual'); // passo 3
+      expect(terceiro.status).toBe(201);
+      expect(await terceiro.json()).toMatchObject({
+        motivo: 'houve toque manual',
+        operador: 'op1',
+      });
+      expect((await anular(antes.id, 'houve toque manual')).status).toBe(409); // passo 4
+
+      // Passo 5: a corrida continua, marcada como anulada, e saiu do ranking.
+      const detalhe = (await (
+        await fetch(`${base}/api/corridas/${antes.id}`)
+      ).json()) as DetalheCorrida;
+      expect(detalhe).toMatchObject({ anulada: true, anulacao: { operador: 'op1' } });
+      expect(await ranking()).not.toContain(antes.id);
+      const [linha] = await consulta<{ login: string; motivo: string }>(
+        `SELECT o.login, a.motivo FROM anulacao a JOIN operador o ON o.id = a.operador_id
+         WHERE a.corrida_id = $1`,
+        [antes.id],
+      );
+      expect(linha).toEqual({ login: 'op1', motivo: 'houve toque manual' });
+      // CT-BE-35: a linha de `corrida` não mudou; a anulação fica só em `anulacao`.
+      expect(await corridaPorRobo('anular-a')).toEqual(antes);
+      // Os painéis no ao_vivo são avisados de que o ranking do 8x4 mudou.
+      await esperar(() => avisos.length === 1);
+      expect(avisos[0]).toEqual({ tipo: 'leaderboard', labirinto: '8x4' });
+      painel.close();
+
+      // Passo 6: corrida em andamento, 409.
+      const andamento = await Robo.conectar(url);
+      andamento.enviar(
+        hello({ boot: 'b-anul' }),
+        mensagem('inicio_corrida', 1, { corrida: 'anular-b' }),
+      );
+      await andamento.esperarAck('anular-b', 1);
+      const b = await corridaPorRobo('anular-b');
+      expect((await anular(b.id, 'toque manual')).status).toBe(409);
+      await andamento.fechar();
+    });
+
+    it('abrir uma apresentação pela API encerra a ativa, e encerrar a deixa inativa', async () => {
+      const abrir = (nome: string) =>
+        fetch(`${base}/api/apresentacoes`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', ...autorizacao() },
+          body: JSON.stringify({ nome }),
+        });
+      const teste = (await (await abrir('Teste API')).json()) as Apresentacao;
+      const final = (await (await abrir('Final API')).json()) as Apresentacao;
+      const ativas = await consulta<{ nome: string }>(`SELECT nome FROM apresentacao WHERE ativa`);
+      expect(ativas).toEqual([{ nome: 'Final API' }]);
+      expect(teste).toMatchObject({ nome: 'Teste API', ativa: true });
+
+      const lista = (await (await fetch(`${base}/api/apresentacoes`)).json()) as Apresentacao[];
+      expect(lista.find((a) => a.id === final.id)).toMatchObject({ ativa: true });
+
+      const encerrar = await fetch(`${base}/api/apresentacoes/${final.id}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json', ...autorizacao() },
+        body: JSON.stringify({ ativa: false }),
+      });
+      expect(encerrar.status).toBe(200);
+      expect(await consulta(`SELECT 1 FROM apresentacao WHERE ativa`)).toEqual([]);
     });
   });
 

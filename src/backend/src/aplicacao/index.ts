@@ -8,3 +8,4 @@ export * from './servico-consulta.js';
 export * from './servico-corrida.js';
 export * from './servico-distribuicao.js';
 export * from './servico-ingestao.js';
+export * from './servico-operador.js';

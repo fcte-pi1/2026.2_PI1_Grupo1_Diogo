@@ -4,6 +4,9 @@
 import { pino } from 'pino';
 import { criarValidadorProtocolo } from '../protocolo/validador.js';
 import {
+  ServicoAnulacao,
+  ServicoApresentacoes,
+  ServicoAutenticacao,
   ServicoConsulta,
   ServicoCorrida,
   ServicoDistribuicao,
@@ -17,6 +20,11 @@ import { RepositorioConsultaPg } from './infra/consulta-pg.js';
 import { criarContadores } from './infra/contadores.js';
 import { GravadorLote } from './infra/gravador-lote.js';
 import { opcoesLogger } from './infra/logger.js';
+import {
+  RepositorioAnulacaoPg,
+  RepositorioApresentacoesPg,
+  RepositorioOperadoresPg,
+} from './infra/operador-pg.js';
 import {
   RegistroAuditoriaPg,
   RepositorioCorridasPg,
@@ -69,6 +77,14 @@ const app = await construirApp({
   consulta: new ServicoConsulta(new RepositorioConsultaPg(banco)),
   distribuicao,
   validador,
+  // Ações do operador (RF-96, RF-97, RNF-55). A anulação avisa os painéis pelo barramento.
+  autenticacao: new ServicoAutenticacao({
+    operadores: new RepositorioOperadoresPg(banco),
+    senhas: new VerificadorTokenArgon2(),
+  }),
+  anulacao: new ServicoAnulacao({ anulacoes: new RepositorioAnulacaoPg(banco), eventos }),
+  apresentacoes: new ServicoApresentacoes(new RepositorioApresentacoesPg(banco)),
+  jwtSegredo: config.jwtSegredo,
 });
 
 // Corridas que estavam em andamento quando o backend parou (RNF-52).

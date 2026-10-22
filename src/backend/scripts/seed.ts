@@ -37,10 +37,12 @@ try {
     [await argon2.hash(tokenRobo)],
   );
 
-  const operador = await cliente.query(
+  // A senha do operador também é atualizada a cada execução: ela protege a anulação e a
+  // abertura de apresentações (RNF-55), então basta mudar SEED_OPERADOR_SENHA e rodar de novo.
+  await cliente.query(
     `INSERT INTO operador (login, nome, senha_hash)
      VALUES ('op1', 'Operador 1', $1)
-     ON CONFLICT (login) DO NOTHING`,
+     ON CONFLICT (login) DO UPDATE SET senha_hash = EXCLUDED.senha_hash`,
     [await argon2.hash(senha)],
   );
 
@@ -53,8 +55,9 @@ try {
 
   await cliente.query('COMMIT');
   console.log(
-    `seed concluído — dispositivo: ${dispositivo.rowCount}, operador: ${operador.rowCount}, ` +
-      `apresentação: ${apresentacao.rowCount} (0 = já existia)`,
+    `seed concluído — dispositivos novos: ${dispositivo.rowCount}, ` +
+      `apresentação nova: ${apresentacao.rowCount} (0 = já existia); ` +
+      `senha do op1 e token do rato-01 atualizados`,
   );
 } catch (erro) {
   await cliente.query('ROLLBACK');

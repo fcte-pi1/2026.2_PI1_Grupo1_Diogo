@@ -16,6 +16,7 @@ import { criarSimulador, type Simulador } from '../../../simulador/simulador.js'
 import { ServicoConsulta } from '../../../src/aplicacao/index.js';
 import { construirApp } from '../../../src/app.js';
 import { AmbienteEmMemoria, DISPOSITIVO } from '../../apoio/ingestao-em-memoria.js';
+import { operadorEmMemoria } from '../../apoio/operador-em-memoria.js';
 
 interface Backend {
   amb: AmbienteEmMemoria;
@@ -39,6 +40,7 @@ async function subirBackend(): Promise<Backend> {
     ativo: true,
   });
   const app = await construirApp({
+    ...operadorEmMemoria().deps,
     verificarBanco: async () => true,
     contadores: amb.contadores,
     ingestao: amb.servico,

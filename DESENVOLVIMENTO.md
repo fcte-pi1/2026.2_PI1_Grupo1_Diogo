@@ -76,6 +76,32 @@ cat corrida.ndjson | npm run ponte -- --porta -
 
 O formato das mensagens está em [src/backend/protocolo/v1/README.md](src/backend/protocolo/v1/README.md).
 
+## Ações do operador (dia da apresentação)
+
+Abrir a apresentação oficial e anular uma corrida inválida (por exemplo, quando alguém tocou no robô) são as únicas escritas que não vêm do robô, e exigem o login do operador (RF-96, RF-97, RNF-55). O painel ainda não tem tela para isso; os comandos abaixo fazem o mesmo, de qualquer computador da rede:
+
+```bash
+API=http://localhost:8080      # ou o endereço do notebook na rede
+
+# 1. Login: a senha do op1 é a do SEED_OPERADOR_SENHA no .env. O token vale 8 h.
+TOKEN=$(curl -s -X POST $API/api/auth/login -H 'content-type: application/json' \
+  -d '{"login":"op1","senha":"op1-dev"}' | python3 -c "import json,sys;print(json.load(sys.stdin)['token'])")
+
+# 2. Abrir a apresentação oficial: as tentativas recomeçam do 1 em cada labirinto.
+curl -s -X POST $API/api/apresentacoes -H "authorization: Bearer $TOKEN" \
+  -H 'content-type: application/json' -d '{"nome":"Final"}'
+
+# 3. Anular uma corrida (o id está na listagem ou no detalhe): ela sai do ranking.
+curl -s -X POST $API/api/corridas/<id-da-corrida>/anulacao -H "authorization: Bearer $TOKEN" \
+  -H 'content-type: application/json' -d '{"motivo":"houve toque manual"}'
+
+# 4. Encerrar a apresentação no fim.
+curl -s -X PATCH $API/api/apresentacoes/<id-da-apresentacao> -H "authorization: Bearer $TOKEN" \
+  -H 'content-type: application/json' -d '{"ativa":false}'
+```
+
+Antes da apresentação, troque no `.env` a `SEED_OPERADOR_SENHA` e o `JWT_SECRET` (a chave que assina os tokens), e rode o seed de novo. Detalhes e códigos de erro em [`src/backend/protocolo/v1/API.md`](src/backend/protocolo/v1/API.md).
+
 ## Estrutura
 
 ```

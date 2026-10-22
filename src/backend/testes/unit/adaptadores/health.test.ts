@@ -4,6 +4,7 @@ import { criarValidadorProtocolo } from '../../../protocolo/validador.js';
 import { ServicoConsulta } from '../../../src/aplicacao/index.js';
 import { construirApp } from '../../../src/app.js';
 import { AmbienteEmMemoria } from '../../apoio/ingestao-em-memoria.js';
+import { operadorEmMemoria } from '../../apoio/operador-em-memoria.js';
 
 describe('GET /health', () => {
   let app: FastifyInstance;
@@ -21,7 +22,11 @@ describe('GET /health', () => {
   afterEach(() => app.close());
 
   it('responde 200 quando o banco está disponível', async () => {
-    app = await construirApp({ ...deps, verificarBanco: async () => true });
+    app = await construirApp({
+      ...operadorEmMemoria().deps,
+      ...deps,
+      verificarBanco: async () => true,
+    });
     const resposta = await app.inject({ method: 'GET', url: '/health' });
 
     expect(resposta.statusCode).toBe(200);
@@ -36,7 +41,11 @@ describe('GET /health', () => {
   });
 
   it('responde 503 quando o banco está indisponível', async () => {
-    app = await construirApp({ ...deps, verificarBanco: async () => false });
+    app = await construirApp({
+      ...operadorEmMemoria().deps,
+      ...deps,
+      verificarBanco: async () => false,
+    });
     const resposta = await app.inject({ method: 'GET', url: '/health' });
 
     expect(resposta.statusCode).toBe(503);
