@@ -259,3 +259,35 @@ A anulação (RF-96) também tira a corrida do ranking, porque a consulta exclui
 GET /api/leaderboard?labirinto=4x4
 GET /api/leaderboard?labirinto=8x4&apresentacao=0b6f7c0e-3a52-4c8e-9a51-1f0f5c1f2a33
 ```
+
+## `GET /health` — saúde e medições
+
+Saúde do backend e do banco (`200`, ou `503` com o banco indisponível), contadores da ingestão, atraso do *event loop* (RNF-49) e a **latência da recepção ao envio ao painel** (RNF-48, CT-BE-32).
+
+```json
+{
+  "status": "ok",
+  "banco": "ok",
+  "uptime_s": 132,
+  "event_loop_atraso_ms": { "p50": 1.3, "p99": 5.2 },
+  "ingestao": { "mensagens_aceitas": 2622, "mensagens_duplicadas": 0, "mensagens_rejeitadas": 0, "conexoes_recusadas": 0 },
+  "latencia_painel_ms": {
+    "eventos":   { "amostras": 122,  "p50": 13.53, "p95": 15.61, "p99": 16.69,  "max": 80.19 },
+    "continuos": { "amostras": 1294, "p50": 43.39, "p95": 64.74, "p99": 107.71, "max": 113.09 }
+  }
+}
+```
+
+### `latencia_painel_ms` (RNF-48, CT-BE-32)
+
+Tempo, em ms, entre a chegada do quadro WebSocket do robô e o envio da mensagem aos painéis. O tempo passa pela fila da conexão, pela gravação no banco, pela ordenação por `sequencia` e pela distribuição. Há uma amostra por mensagem enviada a pelo menos um painel, e não uma por painel, porque o envio aos painéis é um laço síncrono.
+
+| Campo | O que mede |
+|:--|:--|
+| `eventos` | Células, que vão aos painéis sem limite de taxa. **É aqui que vale o critério do RNF-48 (p95 ≤ 50 ms)** |
+| `continuos` | Posição e energia. Inclui a espera da janela do RF-90 (no máximo 10/s): o valor mais recente espera até 100 ms pela próxima janela. Então o p95 fica perto de 60 a 70 ms por construção, e não por lentidão |
+
+**Como medir:**
+- Os histogramas valem desde o início do processo. Para uma medição limpa, reinicie o backend antes (`docker compose restart backend`), rode o cenário e consulte o `/health` no fim.
+- Sem amostras, os percentis são `null`.
+- As mensagens reaplicadas na recuperação depois de um reinício (RNF-52) não entram na medição.
