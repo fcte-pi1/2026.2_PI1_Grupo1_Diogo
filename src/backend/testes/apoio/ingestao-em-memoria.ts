@@ -61,6 +61,11 @@ export class AmbienteEmMemoria {
   falhaNaGravacao: Error | null = null;
   /** Quando definido, a criação/carga das corridas espera esta promessa (carga lenta do banco). */
   cargaLenta: Promise<void> | null = null;
+  /**
+   * Quando definido, só a próxima verificação de token espera esta promessa: o argon2 de um
+   * `hello` demorando mais que o de outro que chegou depois.
+   */
+  tokenLento: Promise<void> | null = null;
   prazoLacunaMs = 5000;
 
   corrida!: ServicoCorrida;
@@ -94,7 +99,14 @@ export class AmbienteEmMemoria {
       contadores: this.contadores,
       agora: () => this.relogio,
       log: SILENCIOSO,
-      tokens: { confere: async (token, hash) => hash === `hash:${token}` },
+      tokens: {
+        confere: async (token, hash) => {
+          const lento = this.tokenLento;
+          this.tokenLento = null;
+          if (lento) await lento;
+          return hash === `hash:${token}`;
+        },
+      },
       dispositivos: {
         buscarPorIdentificador: async (identificador) =>
           this.dispositivos.get(identificador) ?? null,
