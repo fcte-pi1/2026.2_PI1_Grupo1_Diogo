@@ -9,6 +9,7 @@ import { criarValidadorProtocolo } from '../../../protocolo/validador.js';
 import { ServicoConsulta, type FiltrosListagem } from '../../../src/aplicacao/index.js';
 import { construirApp } from '../../../src/app.js';
 import { AmbienteEmMemoria } from '../../apoio/ingestao-em-memoria.js';
+import { linhaDoTempoVazia } from '../../apoio/linha-do-tempo-vazia.js';
 
 const ID = '0b6f7c0e-3a52-4c8e-9a51-1f0f5c1f2a33';
 const DETALHE = { id: ID, corrida_robo: 'r1', status: 'CONCLUIDA' } as DetalheCorrida;
@@ -24,6 +25,7 @@ afterEach(() => app.close());
 async function montar() {
   const amb = new AmbienteEmMemoria();
   app = await construirApp({
+    linhaDoTempo: linhaDoTempoVazia(),
     verificarBanco: async () => true,
     contadores: amb.contadores,
     ingestao: amb.servico,

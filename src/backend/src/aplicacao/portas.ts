@@ -9,7 +9,12 @@ import type {
   StatusCorrida,
   TipoLabirinto,
 } from '../dominio/index.js';
-import type { CorridaResumo, DetalheCorrida, PosicaoLeaderboard } from '../../protocolo/tipos.js';
+import type {
+  CorridaResumo,
+  DetalheCorrida,
+  ItemLinhaDoTempo,
+  PosicaoLeaderboard,
+} from '../../protocolo/tipos.js';
 
 export interface Dispositivo {
   id: string;
@@ -190,4 +195,15 @@ export interface RepositorioConsulta {
     labirinto: TipoLabirinto,
     apresentacaoId: string | null,
   ): Promise<PosicaoLeaderboard[]>;
+}
+
+/** As mensagens gravadas de uma corrida, em lotes por sequência (RF-94, RF-98). */
+export interface RepositorioLinhaDoTempo {
+  corridaExiste(corridaId: string): Promise<boolean>;
+  /** Até `limite` mensagens com sequência maior que `depoisDe`, em ordem de sequência. */
+  mensagensDepoisDe(
+    corridaId: string,
+    depoisDe: number,
+    limite: number,
+  ): Promise<ItemLinhaDoTempo[]>;
 }

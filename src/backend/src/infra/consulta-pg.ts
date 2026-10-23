@@ -2,11 +2,17 @@
  * Consultas da API HTTP em PostgreSQL. As chaves da resposta seguem o contrato publicado
  * em `protocolo/tipos.ts` (arquivo `protocolo/v1/API.md`).
  */
-import type { FiltrosListagem, RepositorioConsulta } from '../aplicacao/portas.js';
+import type {
+  FiltrosListagem,
+  RepositorioConsulta,
+  RepositorioLinhaDoTempo,
+} from '../aplicacao/portas.js';
 import { paredesDeBits, type MotivoTermino, type StatusCorrida } from '../dominio/index.js';
 import type {
   CorridaResumo,
   DetalheCorrida,
+  ItemLinhaDoTempo,
+  MensagemCorrida,
   PosicaoLeaderboard,
   TipoLabirinto,
 } from '../../protocolo/tipos.js';
@@ -235,6 +241,41 @@ export class RepositorioConsultaPg implements RepositorioConsulta {
       distancia_m: Number(r.distancia_m),
       velocidade_media_mps: numeroOuNulo(r.velocidade_media_mps),
       encerrada_em: r.encerrada_em.toISOString(),
+    }));
+  }
+}
+
+/** Mensagens gravadas em lotes por sequência, pela chave primária `(corrida_id, seq)`. */
+export class RepositorioLinhaDoTempoPg implements RepositorioLinhaDoTempo {
+  constructor(private readonly banco: Banco) {}
+
+  async corridaExiste(corridaId: string): Promise<boolean> {
+    const { rowCount } = await this.banco.query('SELECT 1 FROM corrida WHERE id = $1', [corridaId]);
+    return (rowCount ?? 0) > 0;
+  }
+
+  async mensagensDepoisDe(
+    corridaId: string,
+    depoisDe: number,
+    limite: number,
+  ): Promise<ItemLinhaDoTempo[]> {
+    const { rows } = await this.banco.query<{
+      seq: number;
+      t_robo_ms: string;
+      tipo: MensagemCorrida['tipo'];
+      recebida_em: Date;
+      payload: MensagemCorrida;
+    }>(
+      `SELECT seq, t_robo_ms, tipo, recebida_em, payload FROM mensagem
+       WHERE corrida_id = $1 AND seq > $2 ORDER BY seq LIMIT $3`,
+      [corridaId, depoisDe, limite],
+    );
+    return rows.map((m) => ({
+      sequencia: m.seq,
+      tempo_ms: Number(m.t_robo_ms),
+      tipo: m.tipo,
+      recebida_em: m.recebida_em.toISOString(),
+      mensagem: m.payload,
     }));
   }
 }

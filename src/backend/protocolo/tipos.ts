@@ -451,3 +451,20 @@ export interface RespostaLeaderboard {
   /** Em ordem de posição. Vazio quando nenhuma corrida válida foi concluída. */
   itens: PosicaoLeaderboard[];
 }
+
+// ============================================================================
+// API HTTP — GET /api/corridas/{id}/linha-do-tempo (replay, RF-94)
+// ============================================================================
+// Referência: `protocolo/v1/API.md`. A resposta é NDJSON: um `ItemLinhaDoTempo` por linha.
+
+/** Uma mensagem aceita da corrida, como o robô a enviou. */
+export interface ItemLinhaDoTempo {
+  sequencia: number;
+  /** Relógio do robô. */
+  tempo_ms: number;
+  tipo: MensagemCorrida['tipo'];
+  /** Quando o backend recebeu a mensagem, ISO 8601 em UTC. */
+  recebida_em: string;
+  /** A mensagem original, exatamente como foi aceita. */
+  mensagem: MensagemCorrida;
+}
