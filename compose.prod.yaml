@@ -1,7 +1,8 @@
 # Implantação do sistema web do Micromouse (RNF-58): banco + backend, com o painel compilado
 # servido pelo backend na mesma porta.
-#   cp .env.example .env      (troque as senhas, o JWT_SECRET e o SEED_ROBO_TOKEN)
-#   docker compose -f compose.prod.yaml up -d
+#   cp .env.example .env      (troque as senhas, o JWT_SECRET e os SEED_*)
+#   docker compose -f compose.prod.yaml up -d --build
+# Sem o --build, uma imagem já presente não é reconstruída, e o código novo não entra.
 # Painel e API: http://<endereço-do-notebook>:8080 · Detalhes em DESENVOLVIMENTO.md.
 # O ambiente de desenvolvimento (hot reload) continua no compose.yaml.
 
@@ -21,7 +22,9 @@ services:
       - pgdata:/var/lib/postgresql/data
       - ./infra/postgres/initdb:/docker-entrypoint-initdb.d:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      # -h 127.0.0.1: pelo socket Unix, o servidor temporário do initdb já responde na primeira
+      # subida, e o backend começaria antes de o banco aceitar conexões TCP.
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 2s
       timeout: 3s
       retries: 30
@@ -43,9 +46,10 @@ services:
       DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
       # Papel restrito da aplicação (arquitetura do backend, §7.3)
       DATABASE_URL_APP: postgres://rato_app:${DB_APP_PASSWORD}@db:5432/${POSTGRES_DB}
-      SEED_DISPOSITIVO_TOKEN: ${SEED_DISPOSITIVO_TOKEN:-T-VALIDO}
-      SEED_ROBO_TOKEN: ${SEED_ROBO_TOKEN:-troque-em-build}
-      SEED_OPERADOR_SENHA: ${SEED_OPERADOR_SENHA:-op1-dev}
+      # Sem padrão: em produção, as credenciais vêm sempre do .env (o seed também confere).
+      SEED_DISPOSITIVO_TOKEN: ${SEED_DISPOSITIVO_TOKEN:?defina no .env}
+      SEED_ROBO_TOKEN: ${SEED_ROBO_TOKEN:?defina no .env}
+      SEED_OPERADOR_SENHA: ${SEED_OPERADOR_SENHA:?defina no .env}
       CURVA_CARGA: ${CURVA_CARGA:-}
       LIMIAR_TENSAO_BAIXA_V: ${LIMIAR_TENSAO_BAIXA_V:-}
     ports:

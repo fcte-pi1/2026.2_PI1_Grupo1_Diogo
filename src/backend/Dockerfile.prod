@@ -37,5 +37,8 @@ COPY backend/migracoes ./migracoes
 COPY --from=painel /workspace/frontend/dist ./painel
 USER node
 EXPOSE 8080
-# Migrações e seed (idempotente: dispositivos, operador e apresentação) a cada subida.
-CMD ["sh", "-c", "npm run migrate up && npm run seed:prod && npm start"]
+# Migrações e seed (idempotente: dispositivos, operador e apresentação) a cada subida. O
+# `exec` troca o shell pelo node, que vira o PID 1 e recebe o SIGTERM do `docker stop`: assim
+# o main.ts fecha o servidor e grava a fila em memória antes de sair. Sem ele, o shell (PID 1)
+# ignora o sinal e o Docker mata o processo (código 137), perdendo o que estava na fila.
+CMD ["sh", "-c", "npm run migrate up && npm run seed:prod && exec node dist/src/main.js"]
