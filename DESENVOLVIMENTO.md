@@ -81,9 +81,19 @@ O formato das mensagens está em [src/backend/protocolo/v1/README.md](src/backen
 Para usar o sistema de verdade (sem hot reload), há uma imagem de produção: o backend compilado, com o painel compilado servido por ele na **mesma porta** (RNF-58, CT-BE-38).
 
 ```bash
-cp .env.example .env        # troque as senhas, o JWT_SECRET e o SEED_ROBO_TOKEN
+cp .env.example .env        # troque as senhas, o JWT_SECRET e os SEED_*
 docker compose -f compose.prod.yaml up -d --build
 ```
+
+Use sempre o `--build`: sem ele, uma imagem `rato-borrachudo/sistema-web` já presente não é reconstruída, e quem atualizou o código sobe a versão antiga sem perceber.
+
+**Credenciais.** O compose de produção não sobe sem `SEED_DISPOSITIVO_TOKEN`, `SEED_ROBO_TOKEN` e `SEED_OPERADOR_SENHA` no `.env`. O seed também confere: em produção, falha se faltar alguma e avisa no log se uma delas ainda tiver o valor público de desenvolvimento do `.env.example`. O `SEED_ROBO_TOKEN` precisa ser o mesmo `TELEMETRY_TOKEN` compilado no firmware.
+
+**Senhas nas URLs do banco.** O `POSTGRES_PASSWORD` e o `DB_APP_PASSWORD` entram no `DATABASE_URL` sem codificação. Use só letras e números. Um `@`, `:`, `/`, `#` ou `%` gera uma URL inválida e um erro de conexão difícil de entender.
+
+**Seed em quem já subiu antes.** O banco fica no volume, e o seed não troca tudo a cada subida:
+- **Atualizados a cada subida:** o token do `rato-01` (`SEED_ROBO_TOKEN`) e, com o #376, a senha do `op1` (`SEED_OPERADOR_SENHA`).
+- **Gravados só na primeira subida:** os tokens do `sim-01` e do `sim-02` (`SEED_DISPOSITIVO_TOKEN`). Para trocá-los, apague o volume (`down -v`). Os dois simuladores ficam cadastrados também em produção, com o mesmo token, para os testes com o simulador na rede da apresentação.
 
 - **Painel e API:** `http://<endereço-do-notebook>:8080`. O painel deriva o endereço do WebSocket da própria página, então funciona com o IP que o notebook receber na rede local. Os outros computadores e celulares da rede acessam o mesmo endereço.
 - **Ao subir**, o backend aplica as migrações e roda o seed (idempotente): dispositivos `sim-01`, `sim-02` e `rato-01`, com os tokens do `.env`, o operador `op1` e a apresentação "Teste".
@@ -110,7 +120,7 @@ docker compose -f compose.prod.yaml up -d --no-build
 
 > **Atenção à arquitetura.** Uma imagem gerada num Mac com Apple Silicon é ARM e **não roda** num notebook Windows ou Linux comum (x86). O `DOCKER_DEFAULT_PLATFORM=linux/amd64` resolve, desde que esteja definido **antes** do `pull` e do `build`, e o `docker save` também leve `--platform` (o Docker Desktop guarda as duas arquiteturas do PostgreSQL com o mesmo nome e, sem ele, salva a da máquina). No PowerShell: `$env:DOCKER_DEFAULT_PLATFORM="linux/amd64"`.
 
-Medido em 20/10, num Mac com as imagens já carregadas: do `up` ao `/health` com `200` em **3,5 s**, com o banco vazio (migrações e seed incluídos). A meta do RNF-58 é 2 min.
+Medido em 20/10, num Mac com as imagens já construídas ou carregadas: do `up` ao `/health` com `200` em **3,5 s**, com o banco vazio (migrações e seed incluídos). A meta do RNF-58 é 2 min. A construção a frio da imagem (`npm ci` do backend e do painel, `vite build` e `tsc`) não entra nessa conta: ela é feita antes, na máquina com internet, como no roteiro acima.
 
 ## Estrutura
 
