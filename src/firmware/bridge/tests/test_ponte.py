@@ -126,6 +126,53 @@ def test_remonta_linhas_fragmentadas_e_descarta_pedaco_ao_reconectar():
     assert list(r.feed(b'{"c":3}\n')) == ['{"c":3}']
 
 
+# --- Contagem da recepção (#381) ------------------------------------------------
+
+
+def test_recepcao_aponta_lacunas_e_as_tira_quando_a_mensagem_chega_depois():
+    avisos = []
+    stats = ponte.ReceptionStats(log=avisos.append)
+    stats.observe(hello())
+    for sequencia in (1, 2, 5, 6):
+        stats.observe(mensagem(sequencia))
+    assert stats.missing["c1"] == {3, 4}
+    assert avisos == ["[rx] lacuna na corrida c1: seq 3 a 4"]
+
+    stats.observe(mensagem(3))  # o firmware reenvia o buffer ao reconectar
+    assert stats.missing["c1"] == {4}
+    assert stats.repeated == 0
+    assert "corrida c1: seq 1 a 6, faltando 1 (4)" in stats.summary()
+
+
+def test_recepcao_conta_repetidas_e_separa_as_corridas():
+    stats = ponte.ReceptionStats(log=lambda *_: None)
+    for sequencia in (1, 2, 2, 1):  # cópias do inicio_corrida e reenvio
+        stats.observe(mensagem(sequencia))
+    stats.observe(mensagem(1, corrida="c2"))
+    assert stats.repeated == 2
+    assert stats.highest == {"c1": 2, "c2": 1}
+    assert stats.missing == {"c1": set(), "c2": set()}
+
+
+def test_recepcao_conta_as_mensagens_do_firmware_de_diagnostico():
+    # Formato do comando `ble` do esp32-diagnostico (TESTES_HARDWARE.md, teste 3.15).
+    stats = ponte.ReceptionStats(log=lambda *_: None)
+    for sequencia in (1, 2, 4):
+        stats.observe(
+            '{"tipo":"diagnostico","corrida":"diagnostico","sequencia":%d,"tempo_ms":0}' % sequencia
+        )
+    assert "corrida diagnostico: seq 1 a 4, faltando 1 (3)" in stats.summary()
+
+
+def test_recepcao_conta_linha_quebrada_como_invalida():
+    avisos = []
+    stats = ponte.ReceptionStats(log=avisos.append)
+    stats.observe('{"versao":1,"tipo":"posicao","corr')  # pedaço que falhou no meio
+    assert stats.invalid == 1
+    assert stats.received == 1
+    assert avisos[0].startswith("[rx] linha inválida (34 bytes)")
+
+
 # --- Outbox (sem rede) ---------------------------------------------------------
 
 

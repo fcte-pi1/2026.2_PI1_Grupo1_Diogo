@@ -21,6 +21,7 @@
 #include "domain/Maze.hpp"
 #include "domain/Odometry.hpp"
 #include "domain/Pid.hpp"
+#include "esp_log.h"
 #include "esp_random.h"
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
@@ -31,6 +32,7 @@
 #include "sdkconfig.h"
 #include "telemetry/TelemetryBuffer.hpp"
 #include "telemetry/TelemetryEmitter.hpp"
+#include "telemetry/TelemetryRepeater.hpp"
 #include "use_cases/Navigator.hpp"
 #include "use_cases/SessionManager.hpp"
 
@@ -221,9 +223,12 @@ void telemetryTask(void*) {
     std::snprintf(boot, sizeof(boot), "%06x", static_cast<unsigned>(esp_random() & 0xFFFFFF));
     telemetry::TelemetryEmitter emitter(protocol::Encoder("rato-01", TELEMETRY_TOKEN, boot));
     telemetry::TelemetryBuffer buffer(60000, 4000);
+    // Cópias de inicio_corrida e fim_corrida, com a mesma sequência (#381).
+    telemetry::TelemetryRepeater repeater;
 
     bool running = false;
     bool wasConnected = false;
+    long nextStatsLog = 0;
 
     while (true) {
         const bool connected = gBle.isConnected();
@@ -257,6 +262,12 @@ void telemetryTask(void*) {
             }
             buffer.add(event.time, message);
             gBle.publish(message);
+            if (event.kind != TeleEvent::Cell) {
+                repeater.schedule(nowMs(), message);
+            }
+        }
+        for (const std::string& copy : repeater.due(nowMs())) {
+            gBle.publish(copy);
         }
 
         if (running) {
@@ -276,6 +287,18 @@ void telemetryTask(void*) {
             for (const std::string& message : emitter.encodeCycle(time, snapshot)) {
                 buffer.add(time, message);
                 gBle.publish(message);
+            }
+
+            // Contadores do BLE no log serial, para medir a perda na placa (#381).
+            if (time >= nextStatsLog) {
+                const adapters::BleStats stats = gBle.stats();
+                ESP_LOGI("ble", "enviadas %u, descartadas %u, notify recusado %u, erro de status %u, MTU %u",
+                         static_cast<unsigned>(stats.sentMessages),
+                         static_cast<unsigned>(stats.droppedMessages),
+                         static_cast<unsigned>(stats.failedNotifies),
+                         static_cast<unsigned>(stats.statusErrors),
+                         static_cast<unsigned>(stats.mtu));
+                nextStatsLog = time + 10000;
             }
         }
 

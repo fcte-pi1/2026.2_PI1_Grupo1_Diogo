@@ -47,6 +47,35 @@ nome `RatoBorrachudo` (`--name` muda o nome).
 | BLE cai no meio da corrida | Procura o robô de novo; ao reconectar, o firmware reenvia o `hello` e o buffer de 60 s |
 | Backend fora do ar por muito tempo | A fila guarda até 2000 mensagens; acima disso descarta as mais antigas e avisa quantas |
 
+## Diagnóstico de perda de mensagens (#381)
+
+A ponte confere a `sequencia` de cada corrida e avisa na hora quando falta alguma:
+
+```
+[rx] lacuna na corrida r9f3a1c-1: seq 41 a 42
+[rx] linha inválida (87 bytes): {"versao":1,"tipo":"posicao","corrida":"r9f3a1c-1","sequ
+```
+
+A cada queda do BLE, e ao encerrar a ponte, ela mostra um resumo:
+
+```
+[rx] 312 linhas: 0 inválidas, 4 repetidas; corrida r9f3a1c-1: seq 1 a 308, faltando 2 (41, 42)
+```
+
+O firmware mostra no log serial, a cada 10 s de corrida, os contadores do lado dele: `enviadas`, `descartadas`, `notify recusado`, `erro de status` e o `MTU`. Comparar os dois lados mostra onde a mensagem some:
+
+| Firmware | Ponte | Onde a mensagem se perdeu |
+|:--|:--|:--|
+| `descartadas` > 0 | Faltam sequências | **No firmware:** a pilha BLE recusou a notificação (fila cheia) |
+| Tudo em 0 | **Linhas inválidas** | **Na divisão em notificações:** a mensagem chegou quebrada |
+| Tudo em 0 | Faltam sequências, nenhuma linha inválida | **No rádio ou no receptor:** Bluetooth do PC, driver ou `bleak`. Repita com a ponte em outro sistema operacional para confirmar |
+
+As "repetidas" são esperadas:
+- o robô manda o `inicio_corrida` e o `fim_corrida` três vezes, com a mesma sequência, para que uma perda não deixe a corrida sem início ou sem resultado;
+- ao reconectar, o robô reenvia o buffer de 60 s.
+
+O backend descarta as cópias.
+
 ## Testes SEM placa e SEM Bluetooth
 
 O `--replay` reenvia as linhas JSON de um arquivo, uma mensagem por linha. O
