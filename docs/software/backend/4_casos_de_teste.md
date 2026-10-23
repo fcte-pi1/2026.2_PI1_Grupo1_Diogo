@@ -386,7 +386,7 @@ Estes casos guiam a automação E2E exigida no documento [`7.4 - Testes de softw
 - **Rastreabilidade:** [RNF-48](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/226) · [HU-BE-17](1_historias_de_usuario.md#hu-be-17--receber-só-as-atualizações-da-corrida-acompanhada), [HU-BE-19](1_historias_de_usuario.md#hu-be-19--receber-dados-contínuos-em-ritmo-controlado)
 - **Objetivo:** medir as latências p95.
 - **Pré-condições:** AMB. 1 SIM a 20 mensagens/s e 5 PNL inscritos, na mesma rede local.
-- **Procedimentos:** executar a corrida por 5 min. O backend registra o instante de recepção e o de envio de cada mensagem. SIM e PNL registram o envio e a recepção com relógios sincronizados (mesma máquina ou NTP local).
+- **Procedimentos:** reiniciar o backend e executar a corrida por 5 min. O backend mede, para cada mensagem enviada aos painéis, o tempo desde a recepção e expõe os percentis agregados no `GET /health` (`latencia_painel_ms`, com `eventos` e `continuos`; nos contínuos, a espera pela janela de 100 ms do RF-90 fica de fora). SIM e PNL registram o envio e a recepção com relógios sincronizados (mesma máquina ou NTP local).
 - **Resultado esperado:** p95 (recepção → envio ao painel) ≤ 50 ms e p95 ponta a ponta (robô → painel) ≤ 300 ms.
 
 ### CT-BE-33 — Carga sustentada sem bloqueio do event loop

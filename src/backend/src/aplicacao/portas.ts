@@ -163,6 +163,20 @@ export interface RegistroLatencia {
   registrar(tipo: 'evento' | 'continuo', ms: number): void;
 }
 
+/** Percentis de um histograma de latência, em ms. Sem amostras, os valores são `null`. */
+export interface ResumoLatencia {
+  amostras: number;
+  p50: number | null;
+  p95: number | null;
+  p99: number | null;
+  max: number | null;
+}
+
+/** O que o `/health` mostra da latência até o painel (`latencia_painel_ms`). */
+export interface FonteResumoLatencia {
+  resumo(): { eventos: ResumoLatencia; continuos: ResumoLatencia };
+}
+
 export interface RegistroLog {
   info(dados: object, mensagem: string): void;
   warn(dados: object, mensagem: string): void;

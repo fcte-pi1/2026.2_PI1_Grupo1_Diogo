@@ -1,12 +1,12 @@
 import { monitorEventLoopDelay } from 'node:perf_hooks';
 import type { FastifyInstance } from 'fastify';
-import type { Contadores } from '../../aplicacao/portas.js';
+import type { Contadores, FonteResumoLatencia } from '../../aplicacao/portas.js';
 
 export interface DependenciasHealth {
   verificarBanco: () => Promise<boolean>;
   contadores: Contadores;
   /** Latência recepção → envio ao painel (RNF-48, CT-BE-32). Sem ela, o campo não aparece. */
-  latencia?: { resumo(): unknown };
+  latencia?: FonteResumoLatencia;
 }
 
 /** GET /health — saúde, banco, contadores da ingestão e atraso do event loop (RNF-49, RNF-56). */

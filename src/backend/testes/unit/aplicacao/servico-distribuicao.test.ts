@@ -829,19 +829,41 @@ describe('ServicoDistribuicao: latência recepção → envio ao painel (RNF-48,
     expect(amostras).toEqual([]);
   });
 
-  it('contínuo: a amostra inclui a espera da janela de 100 ms (RF-90) da mensagem mais recente', async () => {
+  it('contínuo: conta a partir da abertura da janela do RF-90, e não da chegada', async () => {
     inscrever();
-    distribuicao.aoAplicar(posicao(2, 995)); // sai na hora: 5 ms
-    agora += 30;
-    distribuicao.aoAplicar(posicao(3, 1028)); // espera a janela: sai em 1100
-    agora += 40;
-    distribuicao.aoAplicar(posicao(4, 1068)); // substitui a 3: sai em 1100 com a 4
-    agora = 1100;
-    await vi.advanceTimersByTimeAsync(100);
+    distribuicao.aoAplicar(posicao(2, 995)); // janela aberta: sai na hora, 5 ms
+    agora = 1030;
+    distribuicao.aoAplicar(posicao(3, 1028)); // espera a janela, que abre em 1100
+    agora = 1070;
+    distribuicao.aoAplicar(posicao(4, 1068)); // substitui a 3
+    // O temporizador dispara 10 ms atrasado: esse atraso conta, a espera até 1100 não.
+    agora = 1110;
+    await vi.advanceTimersByTimeAsync(110);
     expect(amostras).toEqual([
       ['continuo', 5],
-      ['continuo', 32],
+      ['continuo', 10],
     ]);
+  });
+
+  it('contínuo que chega com a janela já aberta conta desde a chegada', async () => {
+    inscrever();
+    distribuicao.aoAplicar(posicao(2, 1000));
+    agora = 1250;
+    distribuicao.aoAplicar(posicao(3, 1243)); // a janela abriu em 1100, antes da chegada
+    expect(amostras).toEqual([
+      ['continuo', 0],
+      ['continuo', 7],
+    ]);
+  });
+
+  it('com todos os painéis lentos, o contínuo não sai e não gera amostra', () => {
+    const conexao = new ConexaoFalsa(() => agora);
+    const painel = distribuicao.conectar(conexao);
+    distribuicao.receber(painel, { tipo: 'inscrever', corrida: CORRIDA });
+    conexao.bytes = LIMITE_BUFFER_BYTES + 1;
+    distribuicao.aoAplicar(posicao(2, 990));
+    expect(conexao.doTipo('continuo')).toHaveLength(0);
+    expect(amostras).toEqual([]);
   });
 
   it('mensagem reaplicada na reconstrução (sem recebidaEm) não entra na medição', () => {

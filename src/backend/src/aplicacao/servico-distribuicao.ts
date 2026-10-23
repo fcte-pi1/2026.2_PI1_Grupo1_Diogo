@@ -344,8 +344,9 @@ export class ServicoDistribuicao {
       this.limparSeFinalizada(corridaId);
       return;
     }
-    const espera =
-      (this.ultimoContinuoEm.get(corridaId) ?? -Infinity) + this.intervaloContinuoMs - this.agora();
+    const janelaAbreEm =
+      (this.ultimoContinuoEm.get(corridaId) ?? -Infinity) + this.intervaloContinuoMs;
+    const espera = janelaAbreEm - this.agora();
     if (espera > 0) {
       this.temporizadores.set(
         corridaId,
@@ -376,7 +377,12 @@ export class ServicoDistribuicao {
         enviados++;
       }
     }
-    if (enviados > 0) this.medirLatencia('continuo', pendente.recebidaEm);
+    // A espera pela janela do RF-90 é proposital e fica de fora: a latência conta a partir
+    // de quando o contínuo podia sair (a chegada, ou a abertura da janela, o que vier depois).
+    // Um atraso do temporizador ou do event loop depois disso continua contando (RNF-48).
+    if (enviados > 0 && pendente.recebidaEm !== undefined) {
+      this.medirLatencia('continuo', Math.max(pendente.recebidaEm, janelaAbreEm));
+    }
     this.limparSeFinalizada(corridaId);
   }
 

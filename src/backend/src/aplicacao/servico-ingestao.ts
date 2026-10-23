@@ -191,8 +191,7 @@ export class ServicoIngestao {
   /**
    * Processa uma mensagem de uma conexão já autenticada. Nunca lança por causa do conteúdo.
    * Devolve um pedido de fechamento só quando um novo `hello` é recusado.
-   */
-  /**
+   *
    * `recebidaEm`: chegada do quadro WebSocket (`performance.now()`), medida no adaptador antes
    * da fila da conexão, para a latência até o painel (RNF-48, CT-BE-32).
    */

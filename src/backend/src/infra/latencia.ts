@@ -4,17 +4,9 @@
  * antes da corrida de medição.
  */
 import { createHistogram, type RecordableHistogram } from 'node:perf_hooks';
-import type { RegistroLatencia } from '../aplicacao/portas.js';
+import type { FonteResumoLatencia, RegistroLatencia, ResumoLatencia } from '../aplicacao/portas.js';
 
-export interface ResumoLatencia {
-  amostras: number;
-  p50: number | null;
-  p95: number | null;
-  p99: number | null;
-  max: number | null;
-}
-
-export class HistogramasLatencia implements RegistroLatencia {
+export class HistogramasLatencia implements RegistroLatencia, FonteResumoLatencia {
   // Em microssegundos: o histograma só guarda inteiros ≥ 1.
   private readonly eventos: RecordableHistogram = createHistogram();
   private readonly continuos: RecordableHistogram = createHistogram();

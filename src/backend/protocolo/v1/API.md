@@ -280,12 +280,15 @@ Saúde do backend e do banco (`200`, ou `503` com o banco indisponível), contad
 
 ### `latencia_painel_ms` (RNF-48, CT-BE-32)
 
-Tempo, em ms, entre a chegada do quadro WebSocket do robô e o envio da mensagem aos painéis. O tempo passa pela fila da conexão, pela gravação no banco, pela ordenação por `sequencia` e pela distribuição. Há uma amostra por mensagem enviada a pelo menos um painel, e não uma por painel, porque o envio aos painéis é um laço síncrono.
+Tempo, em ms, entre a chegada do quadro WebSocket do robô e o envio da mensagem aos painéis. O tempo passa pela fila da conexão, pela gravação no banco, pela ordenação por `sequencia` e pela distribuição. Há uma amostra por mensagem enviada a pelo menos um painel, e não uma por painel, porque o envio aos painéis é um laço síncrono. O critério do RNF-48 (**p95 ≤ 50 ms**) vale para os dois histogramas.
 
 | Campo | O que mede |
 |:--|:--|
-| `eventos` | Células, que vão aos painéis sem limite de taxa. **É aqui que vale o critério do RNF-48 (p95 ≤ 50 ms)** |
-| `continuos` | Posição e energia. Inclui a espera da janela do RF-90 (no máximo 10/s): o valor mais recente espera até 100 ms pela próxima janela. Então o p95 fica perto de 60 a 70 ms por construção, e não por lentidão |
+| `eventos` | Células, que vão aos painéis sem limite de taxa: da chegada ao envio |
+| `continuos` | Posição e energia, que saem no máximo 10 vezes por segundo (RF-90). A espera pela janela de 100 ms é proposital e **fica de fora**: a latência conta a partir de quando o contínuo podia sair, ou seja, a chegada ou a abertura da janela, o que vier depois. Um atraso do temporizador ou do *event loop* depois disso continua contando |
+
+- **Lacunas:** uma mensagem que chega depois de uma lacuna espera a mensagem que falta (no máximo alguns segundos) antes de ser aplicada e enviada. Essa espera **entra** na latência dela.
+- **Aquecimento e máximo:** logo depois de iniciar, o primeiro envio pode demorar mais (aquecimento do Node e da conexão com o banco). Isso afeta o `max`, e não o p95 de uma medição de minutos. Para o `max` da medição oficial, faça uma corrida curta de aquecimento depois de reiniciar o backend, anote os valores e desconte-os, ou registre o `max` como "inclui o aquecimento".
 
 **Como medir:**
 - Os histogramas valem desde o início do processo. Para uma medição limpa, reinicie o backend antes (`docker compose restart backend`), rode o cenário e consulte o `/health` no fim.
