@@ -51,6 +51,8 @@ constexpr uint16_t kAddrIna219 = 0x40;
 constexpr uint16_t kAddrMpu6050 = 0x68;
 constexpr int kProbeTimeoutMs = 50;
 constexpr int kStubMm = 9999;  // valor do stub do Vl53l1xSensorAdapter
+// Potência até a qual os N20 (6 V) ficam na tensão nominal com a bateria 2S cheia (8,4 V).
+constexpr double kPotenciaNominal = 0.7;
 
 adapters::I2cBus gI2c;
 adapters::Vl53l1xSensorAdapter gSensor;
@@ -331,6 +333,13 @@ int cmdMotor(int argc, char** argv) {
     if (!parseDouble(argv[1], -1.0, 1.0, left) || !parseDouble(argv[2], -1.0, 1.0, right) ||
         !optionalLong(argc, argv, 3, 50, 5000, 1000, ms)) {
         return 1;
+    }
+    // Fração da tensão da bateria: com a 2S cheia (8,4 V), acima de 0.7 os N20 (6 V) recebem
+    // mais que a tensão nominal.
+    if (std::fabs(left) > kPotenciaNominal || std::fabs(right) > kPotenciaNominal) {
+        std::printf("Atenção: acima de %.1f, com a bateria cheia (8,4 V), os motores N20 de 6 V "
+                    "recebem mais que a tensão nominal. Use no máximo 2 s.\n",
+                    kPotenciaNominal);
     }
     ensureMotors();
     ensureEncoders();

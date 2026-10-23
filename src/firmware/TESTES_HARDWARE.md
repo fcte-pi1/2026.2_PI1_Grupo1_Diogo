@@ -70,11 +70,15 @@ As tolerâncias (±10 mm, ±0,05 V, ±10 mA) são **sugestões**: o `4.3` não d
 | 3.9 | Motores: acionamento básico | `motor 0.5 0.5`, `motor -0.5 -0.5`, `motor 0.5 -0.5` | As duas rodas para frente, para trás, e girando em sentidos opostos. **Robô suspenso, com as rodas fora da mesa** |
 | 3.10 | Encoders: sentido | `motor 0.5 0.5` | Os dois encoders contam **positivo** para frente |
 | 3.11 | Encoders: pulsos por volta | `enc zerar`, girar a roda **uma volta** à mão, `enc 1` | O valor de cada roda. O firmware usa **280**: se der outro, avise a equipe de firmware |
-| 3.12 | Motores com encoders: velocidade | `motor 0.3 0.3 2000`, `motor 0.6 0.6 2000`, `motor 1 1 2000` | Pulsos/s crescem com a potência, e as duas rodas ficam parecidas (anote a diferença) |
+| 3.12 | Motores com encoders: velocidade | `motor 0.3 0.3 2000`, `motor 0.5 0.5 2000`, `motor 0.7 0.7 2000` | Pulsos/s crescem com a potência, e as duas rodas ficam parecidas (anote a diferença). **Não passe de 0.7** (aviso abaixo) |
 | 3.13 | DIP switch | `dip`, em cada combinação | Vias 1/2: abertas = 4x4, só a 1 = 8x4, só a 2 = 12x4, as duas = "combinação reservada". Via 3: canto de partida |
 | 3.14 | Botão, LEDs e buzzer | `botao`, `led pronto`, `led erro`, `led apagar`, `buzzer` | Cada toque aparece como "pressionado"/"solto"; os LEDs e o buzzer acionam |
 | 3.15 | Bluetooth: transmissão | `ble 60`, e no PC a ponte com `--print-only` (pasta `bridge/`) | As mensagens chegam na ponte com o `n` de 0 até o fim, sem faltar nenhum |
 | 3.16 | Verificação geral | `verificar` | Todos os itens com `[ OK ]` |
+
+### Sobre os motores (3.9 a 3.12)
+
+> ⚠️ **Robô sempre suspenso, com as rodas fora da mesa.** A potência do comando `motor` é uma fração da tensão da bateria. Com a 2S cheia (8,4 V), `1` aplica 8,4 V nos motores N20, que são de **6 V**. Até `0.7` (cerca de 5,9 V), eles ficam na tensão nominal. Comece por `0.3`, use no máximo 2 s por comando e não passe de `0.7`. O próprio comando avisa acima disso.
 
 ### Sobre os ToF (3.3 a 3.5)
 
