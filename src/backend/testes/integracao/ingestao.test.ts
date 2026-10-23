@@ -519,6 +519,181 @@ describe('ingestão de telemetria com PostgreSQL real', () => {
     });
   });
 
+  describe('numeração de tentativas por apresentação (RF-97, CT-BE-30)', () => {
+    const numeroDe = async (idRobo: string) =>
+      (
+        await consulta<{ numero_tentativa: number | null; nome: string | null }>(
+          `SELECT c.numero_tentativa, a.nome FROM corrida c
+           LEFT JOIN apresentacao a ON a.id = c.apresentacao_id
+           WHERE c.id_corrida_robo = $1`,
+          [idRobo],
+        )
+      )[0];
+    const ativar = async (nome: string) => {
+      await pool.query('UPDATE apresentacao SET ativa = false WHERE ativa');
+      await pool.query(`INSERT INTO apresentacao (nome, ativa) VALUES ($1, true)`, [nome]);
+    };
+    /** Uma corrida curta: inicio, uma célula e, se pedido, o fim. */
+    async function correr(
+      idRobo: string,
+      labirinto: string,
+      fim?: 'sucesso' | 'falha',
+      boot = 'b-tent',
+    ): Promise<void> {
+      const c = { corrida: idRobo };
+      const robo = await Robo.conectar(url);
+      robo.enviar(
+        hello({ boot }),
+        mensagem('inicio_corrida', 1, { ...c, labirinto }),
+        mensagem('celula', 2, c),
+        ...(fim ? [mensagem('fim_corrida', 3, { ...c, resultado: fim })] : []),
+      );
+      await robo.esperarAck(idRobo, fim ? 3 : 2);
+      await robo.fechar();
+    }
+
+    afterAll(async () => {
+      // Os outros testes rodam sem apresentação ativa.
+      await pool.query('UPDATE apresentacao SET ativa = false WHERE ativa');
+    });
+
+    it('CT-BE-30: numera por (apresentação, labirinto), contando falha, interrupção e anulação', async () => {
+      await ativar('Teste CT-BE-30');
+      await correr('tent-1', '4x4', 'falha');
+      await correr('tent-2', '4x4', 'sucesso');
+      await correr('tent-3', '8x4'); // fica em andamento...
+      await correr('tent-4', '4x4', 'sucesso', 'b-tent-2'); // ...e é interrompida pelo reinício
+      await esperar(async () => {
+        const [c] = await consulta<{ status: string }>(
+          `SELECT status FROM corrida WHERE id_corrida_robo = 'tent-3'`,
+        );
+        return c?.status === 'INTERROMPIDA';
+      });
+      // A 4x4 de sucesso é anulada depois: continua com o número dela.
+      await pool.query(
+        `INSERT INTO operador (login, nome, senha_hash) VALUES ('op-tent', 'Operador', 'x')
+         ON CONFLICT DO NOTHING`,
+      );
+      await pool.query(
+        `INSERT INTO anulacao (corrida_id, operador_id, motivo)
+         SELECT c.id, o.id, 'toque manual' FROM corrida c, operador o
+         WHERE c.id_corrida_robo = 'tent-4' AND o.login = 'op-tent'`,
+      );
+
+      expect(await numeroDe('tent-1')).toEqual({ numero_tentativa: 1, nome: 'Teste CT-BE-30' });
+      expect((await numeroDe('tent-2'))!.numero_tentativa).toBe(2);
+      expect((await numeroDe('tent-3'))!.numero_tentativa).toBe(1); // o 8x4 tem a sua contagem
+      expect((await numeroDe('tent-4'))!.numero_tentativa).toBe(3);
+
+      // Na apresentação "Final", a contagem recomeça.
+      await ativar('Final CT-BE-30');
+      await correr('tent-5', '4x4', 'sucesso', 'b-tent-2');
+      expect(await numeroDe('tent-5')).toEqual({ numero_tentativa: 1, nome: 'Final CT-BE-30' });
+
+      // O número aparece no detalhe da corrida.
+      const resposta = await fetch(
+        `${base}/api/corridas/${
+          (
+            await consulta<{ id: string }>(
+              `SELECT id FROM corrida WHERE id_corrida_robo = 'tent-2'`,
+            )
+          )[0]!.id
+        }`,
+      );
+      expect(((await resposta.json()) as DetalheCorrida).numero_tentativa).toBe(2);
+    });
+
+    it('duas corridas ao mesmo tempo no mesmo labirinto recebem números diferentes', async () => {
+      await ativar('Concorrência');
+      await Promise.all(
+        Array.from({ length: 5 }, (_, i) => correr(`conc-${i}`, '12x4', undefined, 'b-conc')),
+      );
+      const numeros = await consulta<{ numero_tentativa: number }>(
+        `SELECT numero_tentativa FROM corrida WHERE id_corrida_robo LIKE 'conc-%'
+         ORDER BY numero_tentativa`,
+      );
+      expect(numeros.map((n) => n.numero_tentativa)).toEqual([1, 2, 3, 4, 5]);
+    });
+
+    it('20 corridas criadas ao mesmo tempo no repositório recebem números distintos', async () => {
+      // Pelo WebSocket, as corridas quase não se sobrepõem na numeração: sem o FOR UPDATE, o
+      // teste anterior ainda passa. Direto no repositório, as 20 disputam a mesma contagem.
+      await ativar('Concorrência no repositório');
+      const [{ id: dispositivoId }] = (await consulta<{ id: string }>(
+        `SELECT id FROM dispositivo WHERE identificador = 'sim-01'`,
+      )) as [{ id: string }];
+      const repositorio = new RepositorioCorridasPg(pool);
+      await Promise.all(
+        Array.from({ length: 20 }, (_, i) =>
+          repositorio.obterOuCriar({
+            dispositivoId,
+            idCorridaRobo: `repo-conc-${i}`,
+            boot: 'b-repo-conc',
+            versaoProtocolo: 1,
+            labirinto: '4x4',
+            tempoInicioRoboMs: 0,
+          }),
+        ),
+      );
+      const numeros = await consulta<{ numero_tentativa: number }>(
+        `SELECT numero_tentativa FROM corrida WHERE id_corrida_robo LIKE 'repo-conc-%'
+         ORDER BY numero_tentativa`,
+      );
+      expect(numeros.map((n) => n.numero_tentativa)).toEqual(
+        Array.from({ length: 20 }, (_, i) => i + 1),
+      );
+    });
+
+    it('corrida já terminada e sem número: a recarga não tenta numerar nem falha', async () => {
+      // A numeração falhou antes do fim (por exemplo, o banco caiu nesse instante) e a corrida
+      // terminou sem número. O tg_corrida_imutavel recusa qualquer UPDATE nela.
+      await ativar('Terminada sem número');
+      const [{ id: dispositivoId }] = (await consulta<{ id: string }>(
+        `SELECT id FROM dispositivo WHERE identificador = 'sim-01'`,
+      )) as [{ id: string }];
+      await pool.query(
+        `INSERT INTO corrida (dispositivo_id, id_corrida_robo, boot, tipo_labirinto, status,
+                              motivo_termino, versao_protocolo, apresentacao_id, encerrada_em)
+         VALUES ($1, 'terminada-sem-numero', 'b-term', '4x4', 'FALHOU', 'FALHA_REPORTADA', 1,
+                 (SELECT id FROM apresentacao WHERE ativa), now())`,
+        [dispositivoId],
+      );
+      // A recarga (reinício do backend, RNF-52) passa pelo obterOuCriar.
+      await expect(
+        new RepositorioCorridasPg(pool).obterOuCriar({
+          dispositivoId,
+          idCorridaRobo: 'terminada-sem-numero',
+          boot: 'b-term',
+          versaoProtocolo: 1,
+          labirinto: '4x4',
+          tempoInicioRoboMs: 0,
+        }),
+      ).resolves.toMatchObject({ status: 'FALHOU' });
+      expect((await numeroDe('terminada-sem-numero'))!.numero_tentativa).toBeNull();
+    });
+
+    it('sem labirinto, a corrida espera o inicio_corrida para ser numerada', async () => {
+      await ativar('Labirinto tardio');
+      const c = { corrida: 'tardia' };
+      const robo = await Robo.conectar(url);
+      // A primeira mensagem não é o inicio_corrida (ele se perdeu e vem no reenvio).
+      robo.enviar(hello({ boot: 'b-tardia' }), mensagem('celula', 2, c));
+      await robo.esperarAck('tardia', 0);
+      expect((await numeroDe('tardia'))!.numero_tentativa).toBeNull();
+
+      robo.enviar(mensagem('inicio_corrida', 1, { ...c, labirinto: '8x4' }));
+      await robo.esperarAck('tardia', 2);
+      await esperar(async () => (await numeroDe('tardia'))!.numero_tentativa === 1);
+      await robo.fechar();
+    });
+
+    it('sem apresentação ativa, a corrida fica sem número', async () => {
+      await pool.query('UPDATE apresentacao SET ativa = false WHERE ativa');
+      await correr('sem-apresentacao', '4x4', 'sucesso', 'b-sem');
+      expect(await numeroDe('sem-apresentacao')).toEqual({ numero_tentativa: null, nome: null });
+    });
+  });
+
   describe('GET /api/corridas (CT-BE-26)', () => {
     // 200 corridas em 3 dias de 2025, longe das corridas que os outros testes criam agora.
     const DIAS = ['2025-03-01', '2025-03-02', '2025-03-03'];
