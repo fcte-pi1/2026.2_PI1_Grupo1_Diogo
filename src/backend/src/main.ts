@@ -71,6 +71,7 @@ const app = await construirApp({
   linhaDoTempo: new ServicoLinhaDoTempo(new RepositorioLinhaDoTempoPg(banco)),
   distribuicao,
   validador,
+  painelDir: config.painelDir,
 });
 
 // Corridas que estavam em andamento quando o backend parou (RNF-52).

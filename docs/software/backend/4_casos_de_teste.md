@@ -439,6 +439,6 @@ Estes casos guiam a automação E2E exigida no documento [`7.4 - Testes de softw
 
 - **Rastreabilidade:** [RNF-58](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/236)
 - **Objetivo:** verificar a implantação num notebook limpo.
-- **Pré-condições:** notebook com Docker instalado, sem o repositório e sem imagens do projeto em cache. Rede com acesso ao registro de imagens, ou imagens previamente salvas em pendrive para uso em rede isolada.
-- **Procedimentos:** clonar o repositório, copiar `.env.example` para `.env`, executar `docker compose up -d` e cronometrar até `/health` responder `200`.
+- **Pré-condições:** notebook com Docker instalado e sem o repositório, com as imagens construídas numa máquina com internet e carregadas no notebook por `docker load` (roteiro da rede isolada, no `DESENVOLVIMENTO.md`). A imagem do sistema é uma tag local, que não existe em nenhum registro: sem o `docker load`, o notebook não tem como obtê-la. A construção a frio (`npm ci`, `vite build`, `tsc`) é feita antes, na máquina com internet, e não entra na meta de 2 min.
+- **Procedimentos:** clonar o repositório, copiar `.env.example` para `.env`, executar `docker compose -f compose.prod.yaml up -d --no-build` (o caminho offline, com as imagens já carregadas; o `compose.yaml` é o ambiente de desenvolvimento) e cronometrar até `/health` responder `200`.
 - **Resultado esperado:** backend pronto em ≤ 2 min, sem nenhum outro passo manual. CT-BE-01 passa em seguida.

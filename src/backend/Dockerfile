@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
-# Backend do Micromouse — imagem multi-stage.
-#   dev  : hot reload com tsx (usado pelo compose.yaml da raiz)
-#   prod : JavaScript compilado, apenas dependências de produção (RNF-58)
+# Backend do Micromouse — imagem de DESENVOLVIMENTO (hot reload com tsx), usada pelo
+# compose.yaml da raiz. A imagem de produção, com o painel compilado, é o Dockerfile.prod
+# (compose.prod.yaml, RNF-58).
 
 FROM node:22-bookworm-slim AS base
 WORKDIR /app
@@ -20,19 +20,3 @@ ENV NODE_ENV=development
 COPY . .
 EXPOSE 8080 9229
 CMD ["sh", "-c", "npm run migrate up && npm run dev"]
-
-# ---------- build ----------
-FROM deps AS build
-COPY . .
-RUN npm run build
-
-# ---------- produção ----------
-FROM base AS prod
-ENV NODE_ENV=production
-COPY package.json package-lock.json ./
-RUN npm ci --omit=dev
-COPY --from=build /app/dist ./dist
-COPY migracoes ./migracoes
-USER node
-EXPOSE 8080
-CMD ["sh", "-c", "npm run migrate up && npm start"]

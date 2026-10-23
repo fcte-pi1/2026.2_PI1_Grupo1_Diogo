@@ -2,6 +2,7 @@ import fastifyWebsocket from '@fastify/websocket';
 import Fastify, { type FastifyBaseLogger, type FastifyInstance } from 'fastify';
 import { rotasCorridas, type DependenciasCorridasHttp } from './adaptadores/http/corridas.js';
 import { rotasHealth, type DependenciasHealth } from './adaptadores/http/health.js';
+import { servirPainel } from './adaptadores/http/painel-estatico.js';
 import { rotasPainel, type DependenciasPainel } from './adaptadores/ws-painel/index.js';
 import { rotasTelemetria, type DependenciasTelemetria } from './adaptadores/ws-telemetria/index.js';
 
@@ -12,6 +13,8 @@ export interface DependenciasApp
   extends DependenciasHealth, DependenciasTelemetria, DependenciasCorridasHttp, DependenciasPainel {
   /** Sem logger, o servidor fica silencioso (testes). */
   logger?: FastifyBaseLogger;
+  /** Pasta do painel compilado. Sem ela (desenvolvimento), o painel roda no Vite. */
+  painelDir?: string | null;
 }
 
 /** Monta o servidor HTTP + WebSocket. Separado de main.ts para poder ser testado sem rede. */
@@ -23,6 +26,7 @@ export async function construirApp(deps: DependenciasApp): Promise<FastifyInstan
   await app.register(rotasCorridas, deps);
   await app.register(rotasTelemetria, deps);
   await app.register(rotasPainel, deps);
+  if (deps.painelDir) await servirPainel(app, deps.painelDir);
 
   return app;
 }

@@ -6,11 +6,13 @@ on:
       - 'src/backend/**'
       - 'src/frontend/**'
       - '.github/workflows/software.yml'
+      - 'compose.prod.yaml'
   pull_request:
     paths:
       - 'src/backend/**'
       - 'src/frontend/**'
       - '.github/workflows/software.yml'
+      - 'compose.prod.yaml'
 
 jobs:
   backend:
@@ -53,6 +55,12 @@ jobs:
 
       - name: Build
         run: npm run build
+
+      # Imagem de produção (RNF-58): backend e painel compilados. Só o build, para pegar
+      # quebras no Dockerfile.prod antes do dia da apresentação.
+      - name: Production image (backend + panel)
+        working-directory: .
+        run: docker build -f src/backend/Dockerfile.prod -t rato-borrachudo/sistema-web:ci src
 
   frontend:
     name: Frontend — lint, testes e build
