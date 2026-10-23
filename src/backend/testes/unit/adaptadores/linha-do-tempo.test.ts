@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { criarValidadorProtocolo } from '../../../protocolo/validador.js';
 import { ServicoConsulta, ServicoLinhaDoTempo } from '../../../src/aplicacao/index.js';
 import { construirApp } from '../../../src/app.js';
+import { lerComFetch } from '../../apoio/http-real.js';
 import { AmbienteEmMemoria } from '../../apoio/ingestao-em-memoria.js';
 
 const ID = '0b6f7c0e-3a52-4c8e-9a51-1f0f5c1f2a33';
@@ -103,10 +104,12 @@ describe('GET /api/corridas/{id}/linha-do-tempo (RF-94)', () => {
       ),
     });
 
-    // O 200 já saiu com o primeiro lote: a conexão é abortada, e o cliente vê o erro.
-    await expect(
-      app.inject({ method: 'GET', url: `/api/corridas/${ID}/linha-do-tempo` }),
-    ).rejects.toThrow(/destroyed/);
+    // Com um fetch de verdade: o 200 e o primeiro lote já saíram, e então a leitura do corpo
+    // falha. O cliente não recebe um fim normal que faria a linha do tempo parecer completa.
+    const leitura = await lerComFetch(app, `/api/corridas/${ID}/linha-do-tempo`);
+    expect(leitura.status).toBe(200);
+    expect(leitura.recebido.trimEnd().split('\n')).toHaveLength(2);
+    expect(leitura.erroAoLer).toBeInstanceOf(Error);
     expect(logs).toContainEqual(
       expect.objectContaining({
         level: 50,

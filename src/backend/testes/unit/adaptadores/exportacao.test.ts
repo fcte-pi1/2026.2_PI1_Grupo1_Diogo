@@ -11,6 +11,7 @@ import { criarValidadorProtocolo } from '../../../protocolo/validador.js';
 import { COLUNAS_CSV, linhaCsv } from '../../../src/adaptadores/http/exportacao-csv.js';
 import { ServicoConsulta, ServicoLinhaDoTempo } from '../../../src/aplicacao/index.js';
 import { construirApp } from '../../../src/app.js';
+import { lerComFetch } from '../../apoio/http-real.js';
 import { AmbienteEmMemoria } from '../../apoio/ingestao-em-memoria.js';
 
 const ID = '0b6f7c0e-3a52-4c8e-9a51-1f0f5c1f2a33';
@@ -256,9 +257,12 @@ describe('GET /api/corridas/{id}/exportacao?formato=csv com falha no meio (RF-98
       ),
     });
     try {
-      await expect(
-        app.inject({ url: `/api/corridas/${ID}/exportacao?formato=csv` }),
-      ).rejects.toThrow(/destroyed/);
+      // Com um fetch de verdade: cabeçalho e primeiro lote chegam, e a leitura falha. O
+      // navegador vê o download interrompido, e não um arquivo truncado e "completo".
+      const leitura = await lerComFetch(app, `/api/corridas/${ID}/exportacao?formato=csv`);
+      expect(leitura.status).toBe(200);
+      expect(leitura.recebido.trimEnd().split('\r\n')).toHaveLength(3); // cabeçalho e 2 linhas
+      expect(leitura.erroAoLer).toBeInstanceOf(Error);
       expect(logs).toContainEqual(
         expect.objectContaining({ level: 50, corrida: ID, rota: 'exportacao', enviadas: 2 }),
       );
