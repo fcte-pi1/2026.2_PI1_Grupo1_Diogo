@@ -34,6 +34,7 @@ describe('painel compilado servido pelo backend (produção, RNF-58)', () => {
       consulta: new ServicoConsulta({
         detalheCorrida: async () => null,
         leaderboard: async () => [],
+        listarCorridas: async () => ({ itens: [], total: 0 }),
       }),
       painelDir,
     });
@@ -87,7 +88,7 @@ describe('painel compilado servido pelo backend (produção, RNF-58)', () => {
 
   it('/ws/qualquer e /api são do backend; /healthcheck e /apis são rotas do painel', async () => {
     await montar(pasta);
-    for (const url of ['/ws/qualquer', '/api']) {
+    for (const url of ['/ws/qualquer', '/api', '/health/']) {
       expect((await app.inject({ method: 'GET', url })).statusCode, url).toBe(404);
     }
     for (const url of ['/healthcheck', '/apis']) {
