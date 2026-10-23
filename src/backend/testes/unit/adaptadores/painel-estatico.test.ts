@@ -7,6 +7,7 @@ import { criarValidadorProtocolo } from '../../../protocolo/validador.js';
 import { ServicoConsulta } from '../../../src/aplicacao/index.js';
 import { construirApp } from '../../../src/app.js';
 import { AmbienteEmMemoria } from '../../apoio/ingestao-em-memoria.js';
+import { linhaDoTempoVazia } from '../../apoio/linha-do-tempo-vazia.js';
 
 const INDEX = '<!doctype html><title>Painel</title>';
 
@@ -36,6 +37,7 @@ describe('painel compilado servido pelo backend (produção, RNF-58)', () => {
         leaderboard: async () => [],
         listarCorridas: async () => ({ itens: [], total: 0 }),
       }),
+      linhaDoTempo: linhaDoTempoVazia(),
       painelDir,
     });
   }
