@@ -2,7 +2,21 @@ import fastifyStatic from '@fastify/static';
 import type { FastifyInstance } from 'fastify';
 
 /** Caminhos do backend: um 404 neles é da API, e nunca vira a página do painel. */
-const PREFIXOS_BACKEND = ['/api/', '/ws/', '/health'];
+function doBackend(caminho: string): boolean {
+  if (caminho === '/health') return true;
+  // Por segmento: `/api` e `/api/...` são da API, mas `/apis` não.
+  return ['/api', '/ws'].some((p) => caminho === p || caminho.startsWith(`${p}/`));
+}
+
+/**
+ * Um caminho cujo último segmento tem extensão (`/assets/app-velho.js`, `/favicon.ico`) é um
+ * arquivo. Se ele não existe, a resposta é 404, e não o `index.html`: depois de um novo build,
+ * uma aba aberta que peça o asset com o hash antigo receberia HTML no lugar de JavaScript, e o
+ * navegador mostraria um erro de tipo MIME difícil de entender.
+ */
+function pareceArquivo(caminho: string): boolean {
+  return /\.[^./]+$/.test(caminho.split('/').pop() ?? '');
+}
 
 /**
  * Serve o painel compilado (`vite build`) na mesma origem da API, como a arquitetura do
@@ -26,10 +40,8 @@ export async function servirPainel(app: FastifyInstance, painelDir: string): Pro
 
   app.setNotFoundHandler((req, reply) => {
     const caminho = req.url.split('?')[0] ?? '';
-    const doBackend = PREFIXOS_BACKEND.some(
-      (p) => caminho === p.replace(/\/$/, '') || caminho.startsWith(p),
-    );
-    if ((req.method === 'GET' || req.method === 'HEAD') && !doBackend) {
+    const rotaDoPainel = !doBackend(caminho) && !pareceArquivo(caminho);
+    if ((req.method === 'GET' || req.method === 'HEAD') && rotaDoPainel) {
       return reply.type('text/html').sendFile('index.html');
     }
     return reply.code(404).send({

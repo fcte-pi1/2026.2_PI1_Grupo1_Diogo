@@ -69,6 +69,34 @@ describe('painel compilado servido pelo backend (produção, RNF-58)', () => {
     expect(post.statusCode).toBe(404);
   });
 
+  it('arquivo que não existe (asset de um build antigo, favicon) é 404, e não o index.html', async () => {
+    await montar(pasta);
+    for (const url of ['/assets/app-velho999.js', '/favicon.ico', '/historico/relatorio.pdf']) {
+      const resposta = await app.inject({ method: 'GET', url });
+      expect(resposta.statusCode, url).toBe(404);
+      expect(resposta.headers['content-type'], url).toContain('application/json');
+    }
+  });
+
+  it('HEAD numa rota do painel responde como o GET', async () => {
+    await montar(pasta);
+    const resposta = await app.inject({ method: 'HEAD', url: '/historico/0b6f7c0e' });
+    expect(resposta.statusCode).toBe(200);
+    expect(resposta.headers['content-type']).toContain('text/html');
+  });
+
+  it('/ws/qualquer e /api são do backend; /healthcheck e /apis são rotas do painel', async () => {
+    await montar(pasta);
+    for (const url of ['/ws/qualquer', '/api']) {
+      expect((await app.inject({ method: 'GET', url })).statusCode, url).toBe(404);
+    }
+    for (const url of ['/healthcheck', '/apis']) {
+      const resposta = await app.inject({ method: 'GET', url });
+      expect(resposta.statusCode, url).toBe(200);
+      expect(resposta.body, url).toBe(INDEX);
+    }
+  });
+
   it('sem PAINEL_DIR (desenvolvimento), o backend não serve o painel', async () => {
     await montar(null);
     expect((await app.inject({ method: 'GET', url: '/' })).statusCode).toBe(404);
