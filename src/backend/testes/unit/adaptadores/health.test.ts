@@ -15,6 +15,7 @@ describe('GET /health', () => {
     consulta: new ServicoConsulta({
       detalheCorrida: async () => null,
       leaderboard: async () => [],
+      listarCorridas: async () => ({ itens: [], total: 0 }),
     }),
     distribuicao: amb.distribuicao,
     validador: criarValidadorProtocolo(),

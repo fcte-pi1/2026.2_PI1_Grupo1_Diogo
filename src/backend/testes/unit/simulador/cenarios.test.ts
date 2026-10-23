@@ -48,6 +48,7 @@ async function subirBackend(): Promise<Backend> {
     consulta: new ServicoConsulta({
       detalheCorrida: async () => null,
       leaderboard: async () => [],
+      listarCorridas: async () => ({ itens: [], total: 0 }),
     }),
     distribuicao: amb.distribuicao,
     validador: criarValidadorProtocolo(),

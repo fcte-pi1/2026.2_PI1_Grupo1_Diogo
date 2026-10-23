@@ -24,6 +24,7 @@ describe('GET /api/corridas/{id}/linha-do-tempo (RF-94)', () => {
       consulta: new ServicoConsulta({
         detalheCorrida: async () => null,
         leaderboard: async () => [],
+        listarCorridas: async () => ({ itens: [], total: 0 }),
       }),
       linhaDoTempo: new ServicoLinhaDoTempo(
         {
@@ -78,6 +79,7 @@ describe('GET /api/corridas/{id}/linha-do-tempo (RF-94)', () => {
       consulta: new ServicoConsulta({
         detalheCorrida: async () => null,
         leaderboard: async () => [],
+        listarCorridas: async () => ({ itens: [], total: 0 }),
       }),
       linhaDoTempo: new ServicoLinhaDoTempo(
         {

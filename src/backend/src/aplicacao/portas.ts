@@ -10,6 +10,7 @@ import type {
   TipoLabirinto,
 } from '../dominio/index.js';
 import type {
+  CorridaResumo,
   DetalheCorrida,
   ItemLinhaDoTempo,
   PosicaoLeaderboard,
@@ -84,9 +85,16 @@ export interface EncerramentoCorrida extends ProgressoCorrida {
 }
 
 export interface RepositorioCorridas {
-  /** Cria a corrida se ainda não existir para o par (dispositivo, id do robô) — RF-78. */
+  /**
+   * Cria a corrida se ainda não existir para o par (dispositivo, id do robô) — RF-78. A
+   * corrida nova entra na apresentação ativa e, se o labirinto já é conhecido, recebe o número
+   * da tentativa (RF-97).
+   */
   obterOuCriar(dados: DadosNovaCorrida): Promise<CorridaPersistida>;
-  /** Preenche o labirinto de uma corrida criada antes de o `inicio_corrida` chegar. */
+  /**
+   * Preenche o labirinto de uma corrida criada antes de o `inicio_corrida` chegar, e a numera
+   * na apresentação (RF-97).
+   */
   definirInicio(
     corridaId: string,
     labirinto: TipoLabirinto,
@@ -164,8 +172,22 @@ export interface RegistroLog {
   error(dados: object, mensagem: string): void;
 }
 
+/** Filtros da listagem já interpretados: os ausentes são `null`. */
+export interface FiltrosListagem {
+  tipo: TipoLabirinto | null;
+  status: StatusCorrida | null;
+  /** Corridas iniciadas a partir deste instante (inclusive). */
+  de: Date | null;
+  /** Corridas iniciadas antes deste instante (exclusive). */
+  antesDe: Date | null;
+  limite: number;
+  deslocamento: number;
+}
+
 /** Consultas de leitura para a API HTTP (ServicoConsulta, arquitetura do backend §3.1). */
 export interface RepositorioConsulta {
+  /** Uma página da listagem, da mais recente para a mais antiga, e o total dos filtros (RF-93). */
+  listarCorridas(filtros: FiltrosListagem): Promise<{ itens: CorridaResumo[]; total: number }>;
   /** `null` quando a corrida não existe. */
   detalheCorrida(corridaId: string): Promise<DetalheCorrida | null>;
   /** Corridas CONCLUIDA e não anuladas do labirinto, já com a posição (RF-95). */

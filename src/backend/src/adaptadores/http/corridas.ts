@@ -1,14 +1,21 @@
 import { Readable } from 'node:stream';
 import type { FastifyBaseLogger, FastifyInstance, FastifyReply } from 'fastify';
-import type { TipoLabirinto } from '../../../protocolo/tipos.js';
-import type { ServicoConsulta, ServicoLinhaDoTempo } from '../../aplicacao/index.js';
-import { TIPOS_LABIRINTO } from '../../dominio/index.js';
+import type { FiltrosListaCorridas, TipoLabirinto } from '../../../protocolo/tipos.js';
+import {
+  FiltroInvalido,
+  type ServicoConsulta,
+  type ServicoLinhaDoTempo,
+} from '../../aplicacao/index.js';
+import { STATUS_CORRIDA, TIPOS_LABIRINTO } from '../../dominio/index.js';
 import { CABECALHO_CSV, linhaCsv } from './exportacao-csv.js';
 
 export interface DependenciasCorridasHttp {
   consulta: ServicoConsulta;
   linhaDoTempo: ServicoLinhaDoTempo;
 }
+
+/** Maior `pagina` aceita na listagem. */
+const PAGINA_MAXIMA = 100_000;
 
 const UUID = '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$';
 
@@ -87,6 +94,42 @@ export async function rotasCorridas(
         .header('content-disposition', arquivo)
         .type('text/csv; charset=utf-8')
         .send(Readable.from(comCabecalho(CABECALHO_CSV, linhas)));
+    },
+  );
+
+  // GET /api/corridas — histórico com filtros e paginação (RF-93, HU-BE-22).
+  app.get<{ Querystring: FiltrosListaCorridas }>(
+    '/api/corridas',
+    {
+      schema: {
+        querystring: {
+          type: 'object',
+          properties: {
+            tipo: { type: 'string', enum: [...TIPOS_LABIRINTO] },
+            status: { type: 'string', enum: [...STATUS_CORRIDA] },
+            de: { type: 'string', maxLength: 40 },
+            ate: { type: 'string', maxLength: 40 },
+            // Com tamanho ≤ 100, limita o deslocamento a 10⁷: sem o máximo, uma página enorme
+            // passaria pela validação e estouraria o bigint no banco (500).
+            pagina: { type: 'integer', minimum: 1, maximum: PAGINA_MAXIMA },
+            // Acima de 100 não é erro: o serviço limita a 100 (contrato em API.md).
+            tamanho: { type: 'integer', minimum: 1 },
+          },
+        },
+      },
+    },
+    async (req, reply) => {
+      try {
+        return await consulta.listarCorridas(req.query);
+      } catch (erro) {
+        if (!(erro instanceof FiltroInvalido)) throw erro;
+        return reply.code(400).send({
+          statusCode: 400,
+          code: 'FILTRO_INVALIDO',
+          error: 'Bad Request',
+          message: erro.message,
+        });
+      }
     },
   );
 

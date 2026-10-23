@@ -172,6 +172,7 @@ describe('GET /api/corridas/{id}/exportacao (RF-98)', () => {
       consulta: new ServicoConsulta({
         detalheCorrida: async (id) => (id === ID ? DETALHE : null),
         leaderboard: async () => [],
+        listarCorridas: async () => ({ itens: [], total: 0 }),
       }),
       linhaDoTempo: new ServicoLinhaDoTempo(
         {
@@ -244,6 +245,7 @@ describe('GET /api/corridas/{id}/exportacao?formato=csv com falha no meio (RF-98
       consulta: new ServicoConsulta({
         detalheCorrida: async () => null,
         leaderboard: async () => [],
+        listarCorridas: async () => ({ itens: [], total: 0 }),
       }),
       linhaDoTempo: new ServicoLinhaDoTempo(
         {
