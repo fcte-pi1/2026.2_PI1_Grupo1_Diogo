@@ -9,6 +9,7 @@
 
 #include "adapters/BenchMotionAdapter.hpp"
 #include "adapters/BleTelemetryAdapter.hpp"
+#include "adapters/BoardPins.hpp"
 #include "adapters/DipReaderAdapter.hpp"
 #include "adapters/Drv8833MotionAdapter.hpp"
 #include "adapters/I2cBus.hpp"
@@ -21,6 +22,7 @@
 #include "domain/Maze.hpp"
 #include "domain/Odometry.hpp"
 #include "domain/Pid.hpp"
+#include "esp_log.h"
 #include "esp_random.h"
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
@@ -41,6 +43,8 @@ using namespace micromouse;
 #endif
 
 namespace {
+
+constexpr char kTag[] = "main";
 
 // Parâmetros físicos.
 // Todos estes valores devem ser AFERIDOS EM BANCADA antes da corrida final.
@@ -112,9 +116,22 @@ void navigationTask(void*) {
 
     use_cases::SessionManager session(gLocal);
 
+    ESP_LOGI(kTag, "aguardando o botao de largada");
+    // Enquanto espera, avisa quando alguma via do DIP muda (0 = fechada/GND, 1 = aberta): ajuda a
+    // conferir a fiação sem reiniciar a placa.
+    int lastDip = -1;
     while (!gLocal.buttonPressed()) {
+        const int dip = (gpio_get_level(adapters::pins::kDip1) << 2) |
+                        (gpio_get_level(adapters::pins::kDip2) << 1) |
+                        gpio_get_level(adapters::pins::kDip3);
+        if (dip != lastDip) {
+            ESP_LOGI(kTag, "DIP agora: via1=%d via2=%d via3=%d", (dip >> 2) & 1, (dip >> 1) & 1,
+                     dip & 1);
+            lastDip = dip;
+        }
         vTaskDelay(pdMS_TO_TICKS(10));
     }
+    ESP_LOGI(kTag, "botao de largada acionado");
     session.start();
 
 #if CONFIG_RATO_BANCADA
@@ -134,12 +151,17 @@ void navigationTask(void*) {
 
     // Vias 1 e 2 fechadas juntas são uma combinação reservada: o decoder lança. Sem tratar,
     // a exceção aborta a tarefa e a placa reinicia em laço; aqui sinaliza a falha e para.
+    // Níveis brutos das vias (0 = fechada para o GND, 1 = aberta), para diagnosticar a fiação.
+    ESP_LOGI(kTag, "DIP (0=fechada/GND, 1=aberta): via1=%d via2=%d via3=%d",
+             gpio_get_level(adapters::pins::kDip1), gpio_get_level(adapters::pins::kDip2),
+             gpio_get_level(adapters::pins::kDip3));
     std::optional<domain::MazeSetup> parsedSetup;
     try {
         parsedSetup = gDip.read();
     } catch (const std::invalid_argument&) {
     }
     if (!parsedSetup) {
+        ESP_LOGE(kTag, "DIP em combinacao reservada (vias 1 e 2 fechadas): robo parado em falha");
         session.fault();
         telemetry::Snapshot state{};
         state.phase = session.getCurrentPhase();
@@ -149,6 +171,9 @@ void navigationTask(void*) {
         }
     }
     const domain::MazeSetup setup = *parsedSetup;
+    ESP_LOGI(kTag, "labirinto %dx%d (colunas x linhas), partida na linha %d coluna %d, objetivo na linha %d coluna %d",
+             setup.columns, setup.rows, setup.start.row, setup.start.column, setup.goal.row,
+             setup.goal.column);
     TeleEvent startEvent{};
     startEvent.kind = TeleEvent::Start;
     startEvent.time = nowMs();
