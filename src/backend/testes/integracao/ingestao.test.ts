@@ -568,12 +568,15 @@ describe('ingestão de telemetria com PostgreSQL real', () => {
       const [{ id: dispositivoId }] = (await consulta<{ id: string }>(
         `SELECT id FROM dispositivo WHERE identificador = 'sim-01'`,
       )) as [{ id: string }];
-      for (const i of [0, 1, 2]) {
+      // Ids fixos, inseridos em ordem crescente: com UUIDs aleatórios, a ordem do banco às
+      // vezes já coincidia com a esperada, e a falta do `c.id DESC` passava (6 de 12 vezes).
+      for (const i of [1, 2, 3]) {
         await pool.query(
-          `INSERT INTO corrida (dispositivo_id, id_corrida_robo, boot, tipo_labirinto, status,
-                                versao_protocolo, iniciada_em)
-           VALUES ($1, $2, 'empate', '4x4', 'EM_ANDAMENTO', 1, '2025-03-05T12:00:00Z')`,
-          [dispositivoId, `empate-${i}`],
+          `INSERT INTO corrida (id, dispositivo_id, id_corrida_robo, boot, tipo_labirinto, status,
+                                motivo_termino, versao_protocolo, iniciada_em, encerrada_em)
+           VALUES ($1, $2, $3, 'empate', '4x4', 'FALHOU', 'FALHA_REPORTADA', 1,
+                   '2025-03-05T12:00:00Z', '2025-03-05T12:01:00Z')`,
+          [`00000000-0000-4000-8000-00000000000${i}`, dispositivoId, `empate-${i}`],
         );
       }
       const ids: string[] = [];

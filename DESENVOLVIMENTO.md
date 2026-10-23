@@ -29,7 +29,7 @@ Ao subir, o backend instala as dependências que faltarem, aplica as migrações
 
 O **seed** cria o ambiente AMB dos [casos de teste](docs/software/backend/4_casos_de_teste.md): o dispositivo `sim-01` (token `T-VALIDO`), o operador `op1` (senha em `SEED_OPERADOR_SENHA`) e a apresentação "Teste" ativa. Ele pode ser executado várias vezes sem duplicar dados.
 
-O **seed:historico** (#328) cria 200 corridas nos 3 dias anteriores ao de hoje, com tipos e status variados e uma delas anulada, para o CT-BE-26 e para desenvolver a tela de histórico sem o robô. Precisa do `seed` antes. Também pode ser executado várias vezes: as datas ficam as da primeira execução. São os mesmos dados que o teste de integração da listagem usa (`scripts/historico.ts`).
+O **seed:historico** (#328) cria 200 corridas nos 3 dias anteriores ao de hoje, com tipos e status variados (`CONCLUIDA`, `FALHOU` e `INTERROMPIDA`) e uma delas anulada, para o CT-BE-26 e para desenvolver a tela de histórico sem o robô. Precisa do `seed` antes. Também pode ser executado várias vezes: as datas ficam as da primeira execução. São os mesmos dados que o teste de integração da listagem usa (`scripts/historico.ts`). Ele não cria corridas `EM_ANDAMENTO`: uma corrida em andamento em dia passado seria recuperada no reinício do backend e viraria `INTERROMPIDA` por falta de sinal. As corridas `CONCLUIDA` dele (4x4 e 8x4) entram no ranking sem filtro de apresentação (`GET /api/leaderboard?labirinto=4x4`); para um ranking limpo, filtre por `apresentacao`.
 
 ### Parâmetros da derivação
 

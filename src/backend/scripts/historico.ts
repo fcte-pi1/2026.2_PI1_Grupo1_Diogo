@@ -23,7 +23,9 @@ export interface OpcoesHistorico {
 }
 
 const TIPOS = ['4x4', '8x4', '12x4'] as const;
-const STATUS = ['CONCLUIDA', 'FALHOU', 'INTERROMPIDA', 'EM_ANDAMENTO'] as const;
+// Sem EM_ANDAMENTO: uma corrida "em andamento" em dia passado é recuperada no reinício do
+// backend (RNF-52) e, sem sinal, vira INTERROMPIDA uns 2 minutos depois, mudando os dados.
+const STATUS = ['CONCLUIDA', 'FALHOU', 'INTERROMPIDA'] as const;
 const MOTIVO = {
   CONCLUIDA: 'SUCESSO',
   FALHOU: 'FALHA_REPORTADA',
@@ -49,8 +51,7 @@ export async function gerarHistorico(
     const status = tipo === '12x4' && sorteado === 'CONCLUIDA' ? 'FALHOU' : sorteado;
     const iniciada = `${dia}T${hora}:${minuto}:00Z`;
     // Como no fluxo real: a terminada tem motivo e fim, e a concluída tem o tempo oficial.
-    const encerrada =
-      status === 'EM_ANDAMENTO' ? null : new Date(Date.parse(iniciada) + 60_000).toISOString();
+    const encerrada = new Date(Date.parse(iniciada) + 60_000).toISOString();
     const resultado = (await banco.query(
       `INSERT INTO corrida (dispositivo_id, id_corrida_robo, boot, tipo_labirinto, status,
                             motivo_termino, tempo_conclusao_ms, versao_protocolo,
@@ -62,7 +63,7 @@ export async function gerarHistorico(
         `${prefixo}-${i}`,
         tipo,
         status,
-        status === 'EM_ANDAMENTO' ? null : MOTIVO[status],
+        MOTIVO[status],
         status === 'CONCLUIDA' ? 60_000 + i : null,
         iniciada,
         encerrada,
