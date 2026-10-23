@@ -189,6 +189,8 @@ constante** em `include/adapters/BoardPins.hpp` e nada mais muda.
 
 ### 1.5 ✅ Checklist de entrega (Eletrônica → Firmware)
 
+Cada item abaixo pode ser conferido com o **firmware de diagnóstico**, sem compilar nada: veja o [`TESTES_HARDWARE.md`](TESTES_HARDWARE.md), que segue a tabela do `7.3 - Testes de hardware`.
+
 - [ ] ESP32-S3-N16R8 gravável por USB.
 - [ ] I²C com pull-ups; 3× VL53L1X **com XSHUT individual**, MPU-6050 e INA219 respondendo.
 - [ ] DRV8833 + 2 motores N20 + encoders A/B ligados.
