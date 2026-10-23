@@ -1,0 +1,44 @@
+# syntax=docker/dockerfile:1
+# Imagem de PRODUÇÃO do sistema web (RNF-58): o backend compilado e o painel compilado,
+# servido pelo próprio backend na mesma origem (arquitetura do frontend, §6).
+# Contexto de build: src/ (precisa do backend e do frontend). Usada pelo compose.prod.yaml.
+
+FROM node:22-bookworm-slim AS base
+ENV NPM_CONFIG_UPDATE_NOTIFIER=false \
+    NPM_CONFIG_FUND=false \
+    NPM_CONFIG_AUDIT=false
+
+# ---------- painel (vite build) ----------
+FROM base AS painel
+WORKDIR /workspace/frontend
+COPY frontend/package.json frontend/package-lock.json ./
+RUN npm ci
+COPY backend/protocolo /workspace/backend/protocolo
+COPY frontend .
+RUN npm run build
+
+# ---------- backend (tsc) ----------
+FROM base AS backend
+WORKDIR /app
+COPY backend/package.json backend/package-lock.json ./
+RUN npm ci
+COPY backend .
+RUN npm run build
+
+# ---------- produção ----------
+FROM base AS prod
+WORKDIR /app
+ENV NODE_ENV=production \
+    PAINEL_DIR=/app/painel
+COPY backend/package.json backend/package-lock.json ./
+RUN npm ci --omit=dev
+COPY --from=backend /app/dist ./dist
+COPY backend/migracoes ./migracoes
+COPY --from=painel /workspace/frontend/dist ./painel
+USER node
+EXPOSE 8080
+# Migrações e seed (idempotente: dispositivos, operador e apresentação) a cada subida. O
+# `exec` troca o shell pelo node, que vira o PID 1 e recebe o SIGTERM do `docker stop`: assim
+# o main.ts fecha o servidor e grava a fila em memória antes de sair. Sem ele, o shell (PID 1)
+# ignora o sinal e o Docker mata o processo (código 137), perdendo o que estava na fila.
+CMD ["sh", "-c", "npm run migrate up && npm run seed:prod && exec node dist/src/main.js"]

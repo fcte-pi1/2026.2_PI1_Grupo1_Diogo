@@ -4,6 +4,7 @@ import { criarValidadorProtocolo } from '../../../protocolo/validador.js';
 import { ServicoConsulta } from '../../../src/aplicacao/index.js';
 import { construirApp } from '../../../src/app.js';
 import { AmbienteEmMemoria } from '../../apoio/ingestao-em-memoria.js';
+import { linhaDoTempoVazia } from '../../apoio/linha-do-tempo-vazia.js';
 
 describe('WS /ws/painel', () => {
   let app: FastifyInstance;
@@ -11,6 +12,7 @@ describe('WS /ws/painel', () => {
 
   async function montar(amb: AmbienteEmMemoria) {
     app = await construirApp({
+      linhaDoTempo: linhaDoTempoVazia(),
       verificarBanco: async () => true,
       contadores: amb.contadores,
       ingestao: amb.servico,
@@ -19,6 +21,7 @@ describe('WS /ws/painel', () => {
       consulta: new ServicoConsulta({
         detalheCorrida: async () => null,
         leaderboard: async () => [],
+        listarCorridas: async () => ({ itens: [], total: 0 }),
       }),
     });
     await app.ready();

@@ -11,10 +11,37 @@ import pg from 'pg';
 const url = process.env.DATABASE_URL;
 if (!url) throw new Error('DATABASE_URL não definida');
 
-const token = process.env.SEED_DISPOSITIVO_TOKEN ?? 'T-VALIDO';
-const senha = process.env.SEED_OPERADOR_SENHA ?? 'op1-dev';
+const PADROES_DE_DESENVOLVIMENTO = {
+  SEED_DISPOSITIVO_TOKEN: 'T-VALIDO',
+  SEED_OPERADOR_SENHA: 'op1-dev',
+  SEED_ROBO_TOKEN: 'troque-em-build',
+} as const;
+type VariavelSeed = keyof typeof PADROES_DE_DESENVOLVIMENTO;
+
+const producao = process.env.NODE_ENV === 'production';
+
+/**
+ * Em desenvolvimento, a variável ausente usa o padrão do AMB. Em produção (`seed:prod`), ela é
+ * obrigatória: sem isso, o sistema subiria com credenciais públicas, sem aviso. O padrão de
+ * desenvolvimento ainda é aceito em produção, com um aviso: o token do robô, por exemplo, é o
+ * mesmo compilado no firmware, e trocá-lo exige gravar o firmware de novo.
+ */
+function credencial(nome: VariavelSeed): string {
+  const valor = process.env[nome];
+  if (valor === undefined || valor === '') {
+    if (producao) throw new Error(`${nome} não definida: em produção, defina no .env`);
+    return PADROES_DE_DESENVOLVIMENTO[nome];
+  }
+  if (producao && valor === PADROES_DE_DESENVOLVIMENTO[nome]) {
+    console.warn(`AVISO: ${nome} usa o valor público de desenvolvimento; troque no .env`);
+  }
+  return valor;
+}
+
+const token = credencial('SEED_DISPOSITIVO_TOKEN');
+const senha = credencial('SEED_OPERADOR_SENHA');
 // O mesmo valor de TELEMETRY_TOKEN usado na compilação do firmware.
-const tokenRobo = process.env.SEED_ROBO_TOKEN ?? 'troque-em-build';
+const tokenRobo = credencial('SEED_ROBO_TOKEN');
 
 const cliente = new pg.Client({ connectionString: url });
 await cliente.connect();

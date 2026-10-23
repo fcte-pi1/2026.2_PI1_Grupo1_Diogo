@@ -16,6 +16,7 @@ A arquitetura de referência está em [docs/software/backend/3_arquitetura.md](d
 cp .env.example .env          # só na primeira vez
 docker compose up --build     # use -d para rodar em segundo plano
 docker compose exec backend npm run seed   # dados do ambiente de teste (só na primeira vez)
+docker compose exec backend npm run seed:historico   # opcional: 200 corridas para a tela de histórico
 ```
 
 | Serviço | URL | Observação |
@@ -27,6 +28,8 @@ docker compose exec backend npm run seed   # dados do ambiente de teste (só na 
 Ao subir, o backend instala as dependências que faltarem, aplica as migrações pendentes e inicia com `tsx watch`. Alterações em `src/backend` reiniciam o processo, e alterações em `src/frontend` chegam ao navegador por HMR.
 
 O **seed** cria o ambiente AMB dos [casos de teste](docs/software/backend/4_casos_de_teste.md): o dispositivo `sim-01` (token `T-VALIDO`), o operador `op1` (senha em `SEED_OPERADOR_SENHA`) e a apresentação "Teste" ativa. Ele pode ser executado várias vezes sem duplicar dados.
+
+O **seed:historico** (#328) cria 200 corridas nos 3 dias anteriores ao de hoje, com tipos e status variados (`CONCLUIDA`, `FALHOU` e `INTERROMPIDA`) e uma delas anulada, para o CT-BE-26 e para desenvolver a tela de histórico sem o robô. Precisa do `seed` antes. Também pode ser executado várias vezes: as datas ficam as da primeira execução. São os mesmos dados que o teste de integração da listagem usa (`scripts/historico.ts`). Ele não cria corridas `EM_ANDAMENTO`: uma corrida em andamento em dia passado seria recuperada no reinício do backend e viraria `INTERROMPIDA` por falta de sinal. As corridas `CONCLUIDA` dele (4x4 e 8x4) entram no ranking sem filtro de apresentação (`GET /api/leaderboard?labirinto=4x4`); para um ranking limpo, filtre por `apresentacao`.
 
 ### Parâmetros da derivação
 
@@ -76,6 +79,52 @@ cat corrida.ndjson | npm run ponte -- --porta -
 
 O formato das mensagens está em [src/backend/protocolo/v1/README.md](src/backend/protocolo/v1/README.md).
 
+## Implantação (apresentação e testes de integração)
+
+Para usar o sistema de verdade (sem hot reload), há uma imagem de produção: o backend compilado, com o painel compilado servido por ele na **mesma porta** (RNF-58, CT-BE-38).
+
+```bash
+cp .env.example .env        # troque as senhas, o JWT_SECRET e os SEED_*
+docker compose -f compose.prod.yaml up -d --build
+```
+
+- **Painel e API:** `http://<endereço-do-notebook>:8080`. O painel deriva o endereço do WebSocket da própria página, então funciona com o IP que o notebook receber na rede local. Os outros computadores e celulares da rede acessam o mesmo endereço.
+- **Ao subir**, o backend aplica as migrações e roda o seed (idempotente): dispositivos `sim-01`, `sim-02` e `rato-01`, com os tokens do `.env`, o operador `op1` e a apresentação "Teste".
+- **Banco** em volume próprio (`rato-borrachudo-prod_pgdata`), separado do de desenvolvimento, e sem porta publicada.
+- **Parar:** `docker compose -f compose.prod.yaml down`. Para apagar os dados: `down -v`.
+- Logs com `LOG_LEVEL_PROD` (padrão `info`).
+
+Use sempre o `--build`: sem ele, uma imagem `rato-borrachudo/sistema-web` já presente não é reconstruída, e quem atualizou o código sobe a versão antiga sem perceber. A exceção é o caminho offline (abaixo), que usa `--no-build` com as imagens carregadas pelo `docker load`.
+
+**Credenciais.** O compose de produção não sobe sem `SEED_DISPOSITIVO_TOKEN`, `SEED_ROBO_TOKEN` e `SEED_OPERADOR_SENHA` no `.env`. O seed também confere: em produção, falha se faltar alguma e avisa no log se uma delas ainda tiver o valor público de desenvolvimento do `.env.example`. O `SEED_ROBO_TOKEN` precisa ser o mesmo `TELEMETRY_TOKEN` compilado no firmware.
+
+**Senhas nas URLs do banco.** O `POSTGRES_PASSWORD` e o `DB_APP_PASSWORD` entram no `DATABASE_URL` sem codificação. Use só letras e números. Um `@`, `:`, `/`, `#` ou `%` gera uma URL inválida e um erro de conexão difícil de entender.
+
+**Seed em quem já subiu antes.** O banco fica no volume, e o seed não troca tudo a cada subida:
+- **Atualizado a cada subida:** o token do `rato-01` (`SEED_ROBO_TOKEN`).
+- **Gravados só na primeira subida:** a senha do `op1` (`SEED_OPERADOR_SENHA`) e os tokens do `sim-01` e do `sim-02` (`SEED_DISPOSITIVO_TOKEN`). Para trocá-los, apague o volume (`down -v`). Os dois simuladores ficam cadastrados também em produção, com o mesmo token, para os testes com o simulador na rede da apresentação.
+
+### Rede isolada, sem internet
+
+Gere as imagens numa máquina com internet e leve o arquivo no pendrive (cerca de 200 MB):
+
+```bash
+# Na máquina com internet. A plataforma é a do NOTEBOOK que vai rodar o sistema
+# (linux/amd64 para os notebooks x86 comuns), e vale para o banco e para o backend.
+export DOCKER_DEFAULT_PLATFORM=linux/amd64
+docker compose -f compose.prod.yaml pull db
+docker compose -f compose.prod.yaml build
+docker save --platform linux/amd64 rato-borrachudo/sistema-web:latest postgres:16-alpine | gzip > rato-imagens.tar.gz
+
+# No notebook da apresentação, com o repositório e o .env
+docker load -i rato-imagens.tar.gz
+docker compose -f compose.prod.yaml up -d --no-build
+```
+
+> **Atenção à arquitetura.** Uma imagem gerada num Mac com Apple Silicon é ARM e **não roda** num notebook Windows ou Linux comum (x86). O `DOCKER_DEFAULT_PLATFORM=linux/amd64` resolve, desde que esteja definido **antes** do `pull` e do `build`, e o `docker save` também leve `--platform` (o Docker Desktop guarda as duas arquiteturas do PostgreSQL com o mesmo nome e, sem ele, salva a da máquina). No PowerShell: `$env:DOCKER_DEFAULT_PLATFORM="linux/amd64"`.
+
+Medido em 20/10, num Mac com as imagens já construídas ou carregadas: do `up` ao `/health` com `200` em **3,5 s**, com o banco vazio (migrações e seed incluídos). A meta do RNF-58 é 2 min. A construção a frio da imagem (`npm ci` do backend e do painel, `vite build` e `tsc`) não entra nessa conta: ela é feita antes, na máquina com internet, como no roteiro acima.
+
 ## Estrutura
 
 ```
@@ -86,7 +135,7 @@ src/backend/
 ├── migracoes/                   # SQL versionado (node-pg-migrate) — DER da arquitetura §7
 ├── protocolo/                   # tipos.ts (compartilhado com o painel via @protocolo) e esquemas v1
 ├── ponte/                       # versão anterior da ponte (Bluetooth Clássico); será removida
-├── scripts/seed.ts
+├── scripts/seed.ts, seed-historico.ts e historico.ts
 ├── src/{config,adaptadores,aplicacao,dominio,infra}
 └── testes/{unit,integracao,e2e}
 src/frontend/

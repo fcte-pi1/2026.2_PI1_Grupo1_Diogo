@@ -16,6 +16,7 @@ import { criarSimulador, type Simulador } from '../../../simulador/simulador.js'
 import { ServicoConsulta } from '../../../src/aplicacao/index.js';
 import { construirApp } from '../../../src/app.js';
 import { AmbienteEmMemoria, DISPOSITIVO } from '../../apoio/ingestao-em-memoria.js';
+import { linhaDoTempoVazia } from '../../apoio/linha-do-tempo-vazia.js';
 
 interface Backend {
   amb: AmbienteEmMemoria;
@@ -39,6 +40,7 @@ async function subirBackend(): Promise<Backend> {
     ativo: true,
   });
   const app = await construirApp({
+    linhaDoTempo: linhaDoTempoVazia(),
     verificarBanco: async () => true,
     contadores: amb.contadores,
     ingestao: amb.servico,
@@ -46,6 +48,7 @@ async function subirBackend(): Promise<Backend> {
     consulta: new ServicoConsulta({
       detalheCorrida: async () => null,
       leaderboard: async () => [],
+      listarCorridas: async () => ({ itens: [], total: 0 }),
     }),
     distribuicao: amb.distribuicao,
     validador: criarValidadorProtocolo(),

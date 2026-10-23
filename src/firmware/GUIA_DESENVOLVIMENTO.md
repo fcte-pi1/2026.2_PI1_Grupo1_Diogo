@@ -140,6 +140,18 @@ Com `CONFIG_RATO_BANCADA` (ligado só no alvo `esp32`), o firmware:
 
 A corrida começa ao apertar o botão **BOOT** da DevKit. Sem nada ligado nos pinos do DIP (pull-up), o labirinto é o 4×4. Para testar o 8×4, ligue o GPIO 5 ao GND; para o 12×4, ligue o GPIO 15 ao GND. Para voltar à placa oficial: `idf.py -C esp32 set-target esp32s3`.
 
+### Firmware de diagnóstico (`esp32-diagnostico/`)
+
+Um segundo projeto ESP-IDF, com os mesmos adapters do robô. No lugar da corrida, ele abre um console na serial, com um comando por componente: `i2c`, `tof`, `imu`, `ina`, `motor`, `enc`, `dip`, `botao`, `led`, `buzzer`, `ble`, `taxa` e `verificar`. É o que a equipe de hardware usa para testar cada peça, pelo roteiro do [`TESTES_HARDWARE.md`](TESTES_HARDWARE.md).
+
+```bash
+idf.py -C esp32-diagnostico set-target esp32s3   # ou esp32, para a bancada
+idf.py -C esp32-diagnostico build
+idf.py -C esp32-diagnostico -p /dev/ttyACM0 flash monitor
+```
+
+O CI compila os dois projetos (robô e diagnóstico) para `esp32s3` e `esp32` e publica um binário único de cada, gravável no endereço `0x0`. Ele fica nos artefatos do workflow **Firmware CI**.
+
 ### Onde mexer quando o hardware muda
 
 - **Pinos:** `include/adapters/BoardPins.hpp` (ponto único de verdade; segue o `4.3 §9`). Trocou um pino na placa? Altere só aqui.

@@ -14,6 +14,8 @@
     "migrate": "node-pg-migrate --migrations-dir migracoes --migration-file-language sql --database-url-var DATABASE_URL",
     "migrate:create": "node-pg-migrate create --migrations-dir migracoes --migration-file-language sql --migration-filename-format utc",
     "seed": "tsx scripts/seed.ts",
+    "seed:prod": "node dist/scripts/seed.js",
+    "seed:historico": "tsx scripts/seed-historico.ts",
     "ponte": "tsx ponte/cli.ts",
     "simulador": "tsx simulador/cli.ts",
     "test": "vitest run --project unit",
@@ -28,6 +30,7 @@
     "depcruise": "depcruise src --config .dependency-cruiser.cjs"
   },
   "dependencies": {
+    "@fastify/static": "9.3.0",
     "@fastify/websocket": "11.3.3",
     "ajv": "8.20.0",
     "argon2": "0.45.1",

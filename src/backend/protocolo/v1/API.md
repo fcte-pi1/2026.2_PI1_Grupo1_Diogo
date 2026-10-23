@@ -8,8 +8,6 @@ Este documento descreve o **contrato**. A implementação de cada rota está ind
 
 Lista as corridas gravadas, **da mais recente para a mais antiga** (RF-93, HU-BE-22). É a rota usada pela tela de histórico do painel (RF-65, RF-66).
 
-*Implementação: #328. Enquanto ela não entra, a rota ainda não existe no backend.*
-
 ### Parâmetros de consulta
 
 Todos são opcionais e podem ser combinados. Tipo: `FiltrosListaCorridas`.
@@ -18,14 +16,23 @@ Todos são opcionais e podem ser combinados. Tipo: `FiltrosListaCorridas`.
 |:--|:--|:--|:--|
 | `tipo` | `4x4`, `8x4`, `12x4` | todos | Só corridas desse tipo de labirinto |
 | `status` | `EM_ANDAMENTO`, `CONCLUIDA`, `FALHOU`, `INTERROMPIDA` | todos | Só corridas nesse status |
-| `de` | data e hora em ISO 8601 | sem limite | Corridas iniciadas a partir desse instante |
-| `ate` | data e hora em ISO 8601 | sem limite | Corridas iniciadas até esse instante |
-| `pagina` | inteiro ≥ 1 | `1` | Página pedida |
+| `de` | data, ou data e hora, em ISO 8601 | sem limite | Corridas iniciadas a partir desse instante |
+| `ate` | data, ou data e hora, em ISO 8601 | sem limite | Corridas iniciadas até esse instante |
+| `pagina` | inteiro de 1 a 100000 | `1` | Página pedida. Com `tamanho` ≤ 100, isso cobre até 10 milhões de corridas |
 | `tamanho` | inteiro de 1 a 100 | `20` | Itens por página. Um valor acima de 100 é **limitado a 100**, sem erro |
 
 Para listar todos os tipos, **omita** o parâmetro `tipo`. Não existe o valor "todos".
 
-Um parâmetro com valor inválido (por exemplo, `tipo=5x5` ou `pagina=0`) devolve `400`.
+**Datas:** `de` e `ate` aceitam a data com hora e fuso (`2026-10-14T18:00:00Z` ou `2026-10-14T00:00:00-03:00`) ou só a data (`2026-10-14`). Só a data vale o **dia inteiro em UTC**: `de=2026-10-14&ate=2026-10-14` traz as corridas de todo o dia 14 (UTC). Para o dia no horário de Brasília, envie a data e a hora com o fuso `-03:00`.
+
+Um parâmetro com valor inválido devolve `400`:
+
+| Caso | `code` |
+|:--|:--|
+| `tipo` ou `status` fora da lista, `pagina` ou `tamanho` menor que 1, ou `pagina` acima de 100000 (por exemplo, `tipo=5x5`, `pagina=0` ou `pagina=100001`) | `FST_ERR_VALIDATION` |
+| Data que não é ISO 8601 ou não existe (`14/10/2026`, `2026-02-30`), ou `de` depois de `ate` | `FILTRO_INVALIDO` |
+
+Uma página depois da última devolve `itens` vazio, com o `total` dos filtros.
 
 ### Resposta `200`
 
@@ -80,6 +87,7 @@ GET /api/corridas
 GET /api/corridas?tipo=8x4
 GET /api/corridas?tipo=4x4&status=CONCLUIDA&pagina=2&tamanho=20
 GET /api/corridas?de=2026-10-13T00:00:00Z&ate=2026-10-13T23:59:59Z
+GET /api/corridas?de=2026-10-13&ate=2026-10-13
 ```
 
 ## `GET /api/corridas/{id}` — detalhe da corrida
@@ -259,6 +267,70 @@ A anulação (RF-96) também tira a corrida do ranking, porque a consulta exclui
 GET /api/leaderboard?labirinto=4x4
 GET /api/leaderboard?labirinto=8x4&apresentacao=0b6f7c0e-3a52-4c8e-9a51-1f0f5c1f2a33
 ```
+
+## `GET /api/corridas/{id}/linha-do-tempo` — replay
+
+Todas as mensagens aceitas da corrida, **em ordem estritamente crescente de `sequencia`**, para reproduzir a corrida no painel passo a passo (RF-94, HU-BE-23). Reproduzidas a partir de um estado vazio, elas dão o mesmo mapa do snapshot final (CT-BE-27).
+
+A resposta é **NDJSON** (`Content-Type: application/x-ndjson; charset=utf-8`): um objeto JSON por linha, um `ItemLinhaDoTempo` por mensagem. Ela é enviada em *stream*, à medida que as mensagens são lidas do banco, em lotes de 500, então o tamanho da corrida não pesa na memória do backend. Cada lote só é lido quando o cliente já consumiu o anterior (*backpressure*).
+
+```
+{"sequencia":1,"tempo_ms":12000,"tipo":"inicio_corrida","recebida_em":"2026-10-20T14:00:00.120Z","mensagem":{"versao":1,"tipo":"inicio_corrida","corrida":"ra1b2c3-1","sequencia":1,"tempo_ms":12000,"labirinto":"4x4"}}
+{"sequencia":2,"tempo_ms":12000,"tipo":"estado","recebida_em":"2026-10-20T14:00:00.130Z","mensagem":{"versao":1,"tipo":"estado","corrida":"ra1b2c3-1","sequencia":2,"tempo_ms":12000,"estado":"MAPEANDO"}}
+```
+
+| Campo | Observação |
+|:--|:--|
+| `sequencia`, `tempo_ms`, `tipo` | Da mensagem, repetidos para o painel não precisar abrir a `mensagem` para ordenar ou filtrar |
+| `recebida_em` | Quando o backend recebeu, ISO 8601 em UTC |
+| `mensagem` | A mensagem do robô **exatamente como foi aceita** (o formato do `README.md` deste protocolo) |
+
+### Erros
+
+Os dois são decididos antes do primeiro byte do corpo, com o mesmo formato do detalhe da corrida:
+
+```json
+{ "statusCode": 404, "code": "CORRIDA_NAO_ENCONTRADA", "error": "Not Found", "message": "corrida não encontrada" }
+{ "statusCode": 400, "code": "FST_ERR_VALIDATION", "error": "Bad Request", "message": "params/id must match pattern ..." }
+```
+
+### Limitações
+
+- **Falha no meio do *stream*.** Se o banco falhar depois do primeiro lote, o `200` já foi enviado. O backend registra o erro (com a corrida e quantas linhas saíram) e **aborta a conexão**, em vez de encerrar a resposta normalmente. O cliente vê a transferência interrompida (o `fetch` rejeita ao ler o corpo) e deve tratar a linha do tempo como incompleta. Um arquivo truncado que parecesse completo seria pior.
+- **Corrida em andamento.** A resposta é o que já estava gravado no momento de cada lote, e pode ter lacunas. A paginação avança pela `sequencia` (`seq > última lida`). Uma mensagem que preenche uma lacuna (reenvio do robô, RNF-50) e é gravada depois de o cursor passar daquela sequência não aparece nesta resposta. Para o replay completo, peça a linha do tempo de uma corrida encerrada, ou peça de novo. Numa corrida encerrada, tudo já está gravado, e a resposta é completa (CT-BE-27).
+
+Para ler no navegador: `fetch` e `response.body.getReader()`, separando o texto por `\n`; ou `await response.text()` e `split('\n')` para corridas pequenas.
+
+## `GET /api/corridas/{id}/exportacao?formato=json|csv` — exportação
+
+Download de uma corrida para o relatório e para planilhas (RF-98, HU-BE-27). O parâmetro `formato` é obrigatório. As duas respostas vêm com `Content-Disposition: attachment; filename="corrida-{id}.json"` (ou `.csv`), então um link `<a href download>` já baixa o arquivo.
+
+| `formato` | `Content-Type` | Conteúdo |
+|:--|:--|:--|
+| `json` | `application/json; charset=utf-8` | O mesmo `DetalheCorrida` de `GET /api/corridas/{id}`: resumo, métricas, trajeto e energia |
+| `csv` | `text/csv; charset=utf-8` | Uma linha por mensagem aceita, em ordem de `seq`, enviada em *stream* pelos mesmos lotes do replay |
+
+O CSV segue a RFC 4180: separador `,`, decimal com `.`, linhas terminadas em `\r\n`, aspas no texto que tem vírgula, aspas ou quebra de linha. **Começa com o BOM do UTF-8** (`EF BB BF`), para a planilha mostrar os acentos. Quem lê o arquivo por script precisa tolerá-lo: em Python, `encoding="utf-8-sig"`; no navegador, o `response.text()` já o descarta. As colunas são fixas, a união dos campos de todos os tipos de mensagem; a mensagem que não tem o campo deixa a célula vazia:
+
+```
+seq,t_robo_ms,tipo,recebida_em,labirinto,x,y,orientacao,celulas,velocidade_media_mps,parede_norte,parede_leste,parede_sul,parede_oeste,tensao_v,corrente_a,potencia_w,estado,resultado,detalhe
+1,12000,inicio_corrida,2026-10-20T14:00:00.120Z,4x4,,,,,,,,,,,,,,,
+2,12000,celula,2026-10-20T14:00:00.130Z,,0,0,,,,true,false,false,true,,,,,,
+```
+
+**Proteção contra fórmula (CSV Injection, OWASP).** O `detalhe` do `fim_corrida` é o único texto livre que vem do robô. Os outros textos (`tipo`, `labirinto`, `orientacao`, `estado`, `resultado`) são valores fixos dos esquemas, e o `recebida_em` é gerado pelo backend. Quando o `detalhe` começa com `=`, `+`, `-`, `@`, tabulação ou retorno de carro, ganha um `'` na frente, para a planilha não o executar como fórmula. Colunas numéricas, como um `-0.5` de corrente, saem sem alteração.
+
+### Erros
+
+Decididos antes do primeiro byte do corpo: `404` (`CORRIDA_NAO_ENCONTRADA`). E `400` (`FST_ERR_VALIDATION`) sem `formato`, com formato inválido ou com id que não é UUID. Os corpos têm o mesmo formato do detalhe da corrida.
+
+### Limitações
+
+As mesmas da linha do tempo, porque o CSV sai pelos mesmos lotes:
+- **Falha no meio do *stream*:** o backend registra o erro e aborta a conexão, em vez de entregar um arquivo truncado que pareceria completo.
+- **Corrida em andamento:** pode ter lacunas.
+
+O JSON não tem esse risco: ele é montado inteiro antes do envio.
 
 ## `GET /health` — saúde e medições
 

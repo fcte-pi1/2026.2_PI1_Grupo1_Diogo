@@ -13,6 +13,8 @@ export interface Config {
   nivelLog: string;
   bancoUrl: string;
   jwtSegredo: string;
+  /** Pasta do painel compilado para servir na mesma origem (produção); `null` no desenvolvimento. */
+  painelDir: string | null;
   /** Curva de carga e limiar de alerta de tensão (RF-85, RF-86). */
   derivacao: ConfiguracaoDerivacao;
 }
@@ -36,6 +38,7 @@ export function carregarConfig(env: NodeJS.ProcessEnv = process.env): Config {
     nivelLog: env.LOG_LEVEL ?? 'info',
     bancoUrl: obrigatoria(env, 'DATABASE_URL_APP'),
     jwtSegredo: obrigatoria(env, 'JWT_SECRET'),
+    painelDir: env.PAINEL_DIR?.trim() || null,
     derivacao: lerDerivacao(env),
   };
 }

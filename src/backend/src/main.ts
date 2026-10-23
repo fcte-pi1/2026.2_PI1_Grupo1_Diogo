@@ -8,12 +8,13 @@ import {
   ServicoCorrida,
   ServicoDistribuicao,
   ServicoIngestao,
+  ServicoLinhaDoTempo,
 } from './aplicacao/index.js';
 import { construirApp } from './app.js';
 import { carregarConfig } from './config/index.js';
 import { criarBanco, verificarBanco } from './infra/banco.js';
 import { BarramentoEventos } from './infra/barramento-eventos.js';
-import { RepositorioConsultaPg } from './infra/consulta-pg.js';
+import { RepositorioConsultaPg, RepositorioLinhaDoTempoPg } from './infra/consulta-pg.js';
 import { criarContadores } from './infra/contadores.js';
 import { GravadorLote } from './infra/gravador-lote.js';
 import { HistogramasLatencia } from './infra/latencia.js';
@@ -71,8 +72,10 @@ const app = await construirApp({
   latencia,
   ingestao,
   consulta: new ServicoConsulta(new RepositorioConsultaPg(banco)),
+  linhaDoTempo: new ServicoLinhaDoTempo(new RepositorioLinhaDoTempoPg(banco)),
   distribuicao,
   validador,
+  painelDir: config.painelDir,
 });
 
 // Corridas que estavam em andamento quando o backend parou (RNF-52).
