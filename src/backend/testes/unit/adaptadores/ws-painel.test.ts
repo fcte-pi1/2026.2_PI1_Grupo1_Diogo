@@ -19,6 +19,7 @@ describe('WS /ws/painel', () => {
       consulta: new ServicoConsulta({
         detalheCorrida: async () => null,
         leaderboard: async () => [],
+        listarCorridas: async () => ({ itens: [], total: 0 }),
       }),
     });
     await app.ready();

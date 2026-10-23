@@ -16,6 +16,7 @@ A arquitetura de referência está em [docs/software/backend/3_arquitetura.md](d
 cp .env.example .env          # só na primeira vez
 docker compose up --build     # use -d para rodar em segundo plano
 docker compose exec backend npm run seed   # dados do ambiente de teste (só na primeira vez)
+docker compose exec backend npm run seed:historico   # opcional: 200 corridas para a tela de histórico
 ```
 
 | Serviço | URL | Observação |
@@ -27,6 +28,8 @@ docker compose exec backend npm run seed   # dados do ambiente de teste (só na 
 Ao subir, o backend instala as dependências que faltarem, aplica as migrações pendentes e inicia com `tsx watch`. Alterações em `src/backend` reiniciam o processo, e alterações em `src/frontend` chegam ao navegador por HMR.
 
 O **seed** cria o ambiente AMB dos [casos de teste](docs/software/backend/4_casos_de_teste.md): o dispositivo `sim-01` (token `T-VALIDO`), o operador `op1` (senha em `SEED_OPERADOR_SENHA`) e a apresentação "Teste" ativa. Ele pode ser executado várias vezes sem duplicar dados.
+
+O **seed:historico** (#328) cria 200 corridas nos 3 dias anteriores ao de hoje, com tipos e status variados (`CONCLUIDA`, `FALHOU` e `INTERROMPIDA`) e uma delas anulada, para o CT-BE-26 e para desenvolver a tela de histórico sem o robô. Precisa do `seed` antes. Também pode ser executado várias vezes: as datas ficam as da primeira execução. São os mesmos dados que o teste de integração da listagem usa (`scripts/historico.ts`). Ele não cria corridas `EM_ANDAMENTO`: uma corrida em andamento em dia passado seria recuperada no reinício do backend e viraria `INTERROMPIDA` por falta de sinal. As corridas `CONCLUIDA` dele (4x4 e 8x4) entram no ranking sem filtro de apresentação (`GET /api/leaderboard?labirinto=4x4`); para um ranking limpo, filtre por `apresentacao`.
 
 ### Parâmetros da derivação
 
@@ -86,7 +89,7 @@ src/backend/
 ├── migracoes/                   # SQL versionado (node-pg-migrate) — DER da arquitetura §7
 ├── protocolo/                   # tipos.ts (compartilhado com o painel via @protocolo) e esquemas v1
 ├── ponte/                       # versão anterior da ponte (Bluetooth Clássico); será removida
-├── scripts/seed.ts
+├── scripts/seed.ts, seed-historico.ts e historico.ts
 ├── src/{config,adaptadores,aplicacao,dominio,infra}
 └── testes/{unit,integracao,e2e}
 src/frontend/
