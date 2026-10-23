@@ -78,6 +78,8 @@ interface ContinuoPendente {
   metricas: Metricas;
   /** Chegada da mensagem mais recente que o contínuo leva (RNF-48). */
   recebidaEm: number | undefined;
+  /** Quando essa mensagem ficou pronta para sair: gravada, aplicada e publicada (RNF-48). */
+  aplicadaEm: number;
 }
 
 export class ServicoDistribuicao {
@@ -300,6 +302,7 @@ export class ServicoDistribuicao {
       tempoMs,
       metricas,
       recebidaEm,
+      aplicadaEm: this.agora(),
       posicao: novo.posicao ?? anterior?.posicao ?? null,
       energia: novo.energia ?? anterior?.energia ?? null,
     });
@@ -377,11 +380,13 @@ export class ServicoDistribuicao {
         enviados++;
       }
     }
-    // A espera pela janela do RF-90 é proposital e fica de fora: a latência conta a partir
-    // de quando o contínuo podia sair (a chegada, ou a abertura da janela, o que vier depois).
-    // Um atraso do temporizador ou do event loop depois disso continua contando (RNF-48).
+    // Latência = (aplicadaEm − recebidaEm) + (envio − max(aplicadaEm, janelaAbreEm)). O
+    // processamento até a mensagem ficar pronta (fila, gravação, ordenação) conta sempre. Da
+    // espera, só fica de fora a da mensagem JÁ PRONTA aguardando a janela do RF-90, que é
+    // proposital; um atraso do temporizador depois da abertura continua contando (RNF-48).
     if (enviados > 0 && pendente.recebidaEm !== undefined) {
-      this.medirLatencia('continuo', Math.max(pendente.recebidaEm, janelaAbreEm));
+      const esperaJanela = Math.max(0, janelaAbreEm - pendente.aplicadaEm);
+      this.medirLatencia('continuo', pendente.recebidaEm + esperaJanela);
     }
     this.limparSeFinalizada(corridaId);
   }

@@ -357,7 +357,7 @@ Tempo, em ms, entre a chegada do quadro WebSocket do robô e o envio da mensagem
 | Campo | O que mede |
 |:--|:--|
 | `eventos` | Células, que vão aos painéis sem limite de taxa: da chegada ao envio |
-| `continuos` | Posição e energia, que saem no máximo 10 vezes por segundo (RF-90). A espera pela janela de 100 ms é proposital e **fica de fora**: a latência conta a partir de quando o contínuo podia sair, ou seja, a chegada ou a abertura da janela, o que vier depois. Um atraso do temporizador ou do *event loop* depois disso continua contando |
+| `continuos` | Posição e energia, que saem no máximo 10 vezes por segundo (RF-90). O processamento até a mensagem ficar pronta (fila, gravação, ordenação) **conta sempre**. Só fica de fora a espera de uma mensagem **já pronta** aguardando a janela de 100 ms, que é proposital. Um atraso do temporizador ou do *event loop* depois da abertura continua contando: `(pronta − chegada) + (envio − max(pronta, abertura da janela))` |
 
 - **Lacunas:** uma mensagem que chega depois de uma lacuna espera a mensagem que falta (no máximo alguns segundos) antes de ser aplicada e enviada. Essa espera **entra** na latência dela.
 - **Aquecimento e máximo:** logo depois de iniciar, o primeiro envio pode demorar mais (aquecimento do Node e da conexão com o banco). Isso afeta o `max`, e não o p95 de uma medição de minutos. Para o `max` da medição oficial, faça uma corrida curta de aquecimento depois de reiniciar o backend, anote os valores e desconte-os, ou registre o `max` como "inclui o aquecimento".
