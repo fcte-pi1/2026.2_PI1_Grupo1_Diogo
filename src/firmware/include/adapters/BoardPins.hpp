@@ -75,7 +75,12 @@ constexpr gpio_num_t kEncRightB = GPIO_NUM_39;  // ENC1_B (pino 36)
 constexpr gpio_num_t kLedReady = GPIO_NUM_9;   // LED_STATUS (pino 15)
 constexpr gpio_num_t kLedError = GPIO_NUM_10;  // LED_DEBUG  (pino 16)
 constexpr gpio_num_t kBuzzer = GPIO_NUM_11;    // BUZZER     (pino 17)
+#if CONFIG_RATO_BANCADA
+// Bancada na DevKit: sem o botão do robô, usa o BOOT da própria placa (GPIO0, pull-up na placa).
+constexpr gpio_num_t kButton = GPIO_NUM_0;
+#else
 constexpr gpio_num_t kButton = GPIO_NUM_4;     // START_BUTTON (pino 4, pull-up externo)
+#endif
 
 // DIP switch de 3 vias: vias 1 e 2 = tipo de labirinto; via 3 = canto de partida
 constexpr gpio_num_t kDip1 = GPIO_NUM_7;   // DIP_SW1 (pino 7)
