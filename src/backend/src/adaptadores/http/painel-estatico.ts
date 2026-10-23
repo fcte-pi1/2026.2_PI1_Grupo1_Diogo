@@ -3,9 +3,9 @@ import type { FastifyInstance } from 'fastify';
 
 /** Caminhos do backend: um 404 neles é da API, e nunca vira a página do painel. */
 function doBackend(caminho: string): boolean {
-  if (caminho === '/health') return true;
-  // Por segmento: `/api` e `/api/...` são da API, mas `/apis` não.
-  return ['/api', '/ws'].some((p) => caminho === p || caminho.startsWith(`${p}/`));
+  // Por segmento: `/api`, `/api/` e `/api/...` são da API, mas `/apis` não (o mesmo para
+  // `/ws` e `/health`, e então `/health/` também não vira a página do painel).
+  return ['/api', '/ws', '/health'].some((p) => caminho === p || caminho.startsWith(`${p}/`));
 }
 
 /**

@@ -88,21 +88,21 @@ cp .env.example .env        # troque as senhas, o JWT_SECRET e os SEED_*
 docker compose -f compose.prod.yaml up -d --build
 ```
 
-Use sempre o `--build`: sem ele, uma imagem `rato-borrachudo/sistema-web` já presente não é reconstruída, e quem atualizou o código sobe a versão antiga sem perceber.
+- **Painel e API:** `http://<endereço-do-notebook>:8080`. O painel deriva o endereço do WebSocket da própria página, então funciona com o IP que o notebook receber na rede local. Os outros computadores e celulares da rede acessam o mesmo endereço.
+- **Ao subir**, o backend aplica as migrações e roda o seed (idempotente): dispositivos `sim-01`, `sim-02` e `rato-01`, com os tokens do `.env`, o operador `op1` e a apresentação "Teste".
+- **Banco** em volume próprio (`rato-borrachudo-prod_pgdata`), separado do de desenvolvimento, e sem porta publicada.
+- **Parar:** `docker compose -f compose.prod.yaml down`. Para apagar os dados: `down -v`.
+- Logs com `LOG_LEVEL_PROD` (padrão `info`).
+
+Use sempre o `--build`: sem ele, uma imagem `rato-borrachudo/sistema-web` já presente não é reconstruída, e quem atualizou o código sobe a versão antiga sem perceber. A exceção é o caminho offline (abaixo), que usa `--no-build` com as imagens carregadas pelo `docker load`.
 
 **Credenciais.** O compose de produção não sobe sem `SEED_DISPOSITIVO_TOKEN`, `SEED_ROBO_TOKEN` e `SEED_OPERADOR_SENHA` no `.env`. O seed também confere: em produção, falha se faltar alguma e avisa no log se uma delas ainda tiver o valor público de desenvolvimento do `.env.example`. O `SEED_ROBO_TOKEN` precisa ser o mesmo `TELEMETRY_TOKEN` compilado no firmware.
 
 **Senhas nas URLs do banco.** O `POSTGRES_PASSWORD` e o `DB_APP_PASSWORD` entram no `DATABASE_URL` sem codificação. Use só letras e números. Um `@`, `:`, `/`, `#` ou `%` gera uma URL inválida e um erro de conexão difícil de entender.
 
 **Seed em quem já subiu antes.** O banco fica no volume, e o seed não troca tudo a cada subida:
-- **Atualizados a cada subida:** o token do `rato-01` (`SEED_ROBO_TOKEN`) e, com o #376, a senha do `op1` (`SEED_OPERADOR_SENHA`).
-- **Gravados só na primeira subida:** os tokens do `sim-01` e do `sim-02` (`SEED_DISPOSITIVO_TOKEN`). Para trocá-los, apague o volume (`down -v`). Os dois simuladores ficam cadastrados também em produção, com o mesmo token, para os testes com o simulador na rede da apresentação.
-
-- **Painel e API:** `http://<endereço-do-notebook>:8080`. O painel deriva o endereço do WebSocket da própria página, então funciona com o IP que o notebook receber na rede local. Os outros computadores e celulares da rede acessam o mesmo endereço.
-- **Ao subir**, o backend aplica as migrações e roda o seed (idempotente): dispositivos `sim-01`, `sim-02` e `rato-01`, com os tokens do `.env`, o operador `op1` e a apresentação "Teste".
-- **Banco** em volume próprio (`rato-borrachudo-prod_pgdata`), separado do de desenvolvimento, e sem porta publicada.
-- **Parar:** `docker compose -f compose.prod.yaml down`. Para apagar os dados: `down -v`.
-- Logs com `LOG_LEVEL_PROD` (padrão `info`).
+- **Atualizado a cada subida:** o token do `rato-01` (`SEED_ROBO_TOKEN`).
+- **Gravados só na primeira subida:** a senha do `op1` (`SEED_OPERADOR_SENHA`) e os tokens do `sim-01` e do `sim-02` (`SEED_DISPOSITIVO_TOKEN`). Para trocá-los, apague o volume (`down -v`). Os dois simuladores ficam cadastrados também em produção, com o mesmo token, para os testes com o simulador na rede da apresentação.
 
 ### Rede isolada, sem internet
 
