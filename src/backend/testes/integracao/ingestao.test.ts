@@ -9,7 +9,11 @@ import { runner } from 'node-pg-migrate';
 import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import WebSocketNode from 'ws';
-import type { DetalheCorrida, RespostaLeaderboard } from '../../protocolo/tipos.js';
+import type {
+  DetalheCorrida,
+  RespostaLeaderboard,
+  RespostaListaCorridas,
+} from '../../protocolo/tipos.js';
 import { criarValidadorProtocolo } from '../../protocolo/validador.js';
 import {
   AVISO_PAINEL_LENTO,
@@ -31,6 +35,7 @@ import {
   VerificadorTokenArgon2,
   criarInserirLote,
 } from '../../src/infra/repositorios-pg.js';
+import { gerarHistorico } from '../../scripts/historico.js';
 import { hello, mensagem } from '../apoio/ingestao-em-memoria.js';
 
 const SILENCIOSO = { info: () => {}, warn: () => {}, error: () => {} };
@@ -511,6 +516,133 @@ describe('ingestão de telemetria com PostgreSQL real', () => {
         { seq: 3, ordem: 2 },
         { seq: 4, ordem: 3 },
       ]);
+    });
+  });
+
+  describe('GET /api/corridas (CT-BE-26)', () => {
+    // 200 corridas em 3 dias de 2025, longe das corridas que os outros testes criam agora.
+    const DIAS = ['2025-03-01', '2025-03-02', '2025-03-03'];
+    const listar = async (consultaUrl: string) => {
+      const inicio = performance.now();
+      const resposta = await fetch(`${base}/api/corridas${consultaUrl}`);
+      const ms = performance.now() - inicio;
+      return {
+        status: resposta.status,
+        corpo: (await resposta.json()) as RespostaListaCorridas,
+        ms,
+      };
+    };
+
+    beforeAll(async () => {
+      const [{ id: dispositivoId }] = (await consulta<{ id: string }>(
+        `SELECT id FROM dispositivo WHERE identificador = 'sim-01'`,
+      )) as [{ id: string }];
+      // Os mesmos dados do `npm run seed:historico` (#328), em dias fixos de 2025.
+      await gerarHistorico(pool, { dispositivoId, dias: DIAS, prefixo: 'lista' });
+    });
+
+    it('passo 1: tipo e status combinados, página de 20, mais recente primeiro e total igual ao SQL', async () => {
+      const { status, corpo, ms } = await listar('?tipo=4x4&status=CONCLUIDA&pagina=1&tamanho=20');
+      expect(status).toBe(200);
+      const [{ n }] = (await consulta<{ n: number }>(
+        `SELECT count(*)::int AS n FROM corrida WHERE tipo_labirinto = '4x4' AND status = 'CONCLUIDA'`,
+      )) as [{ n: number }];
+      expect(corpo).toMatchObject({ total: n, pagina: 1, tamanho: 20 });
+      expect(corpo.itens.length).toBe(Math.min(20, n));
+      expect(corpo.itens.every((c) => c.tipo_labirinto === '4x4' && c.status === 'CONCLUIDA')).toBe(
+        true,
+      );
+      const instantes = corpo.itens.map((c) => Date.parse(c.iniciada_em));
+      expect(instantes).toEqual([...instantes].sort((a, b) => b - a));
+      expect(ms).toBeLessThan(2000);
+
+      // As 4x4 CONCLUIDA são menos de 20: com página de 5, o limite corta de verdade.
+      const pequena = await listar('?tipo=4x4&status=CONCLUIDA&pagina=1&tamanho=5');
+      expect(pequena.corpo).toMatchObject({ total: n, tamanho: 5 });
+      expect(pequena.corpo.itens.map((c) => c.id)).toEqual(
+        corpo.itens.slice(0, 5).map((c) => c.id),
+      );
+    });
+
+    it('corridas no mesmo instante: o desempate pelo id não repete nem pula entre páginas', async () => {
+      const [{ id: dispositivoId }] = (await consulta<{ id: string }>(
+        `SELECT id FROM dispositivo WHERE identificador = 'sim-01'`,
+      )) as [{ id: string }];
+      // Ids fixos, inseridos em ordem crescente: com UUIDs aleatórios, a ordem do banco às
+      // vezes já coincidia com a esperada, e a falta do `c.id DESC` passava (6 de 12 vezes).
+      for (const i of [1, 2, 3]) {
+        await pool.query(
+          `INSERT INTO corrida (id, dispositivo_id, id_corrida_robo, boot, tipo_labirinto, status,
+                                motivo_termino, versao_protocolo, iniciada_em, encerrada_em)
+           VALUES ($1, $2, $3, 'empate', '4x4', 'FALHOU', 'FALHA_REPORTADA', 1,
+                   '2025-03-05T12:00:00Z', '2025-03-05T12:01:00Z')`,
+          [`00000000-0000-4000-8000-00000000000${i}`, dispositivoId, `empate-${i}`],
+        );
+      }
+      const ids: string[] = [];
+      for (const pagina of [1, 2, 3]) {
+        const { corpo } = await listar(`?de=2025-03-05&ate=2025-03-05&tamanho=1&pagina=${pagina}`);
+        expect(corpo.total).toBe(3);
+        ids.push(...corpo.itens.map((c) => c.id));
+      }
+      const esperado = await consulta<{ id: string }>(
+        `SELECT id FROM corrida WHERE id_corrida_robo LIKE 'empate-%' ORDER BY id DESC`,
+      );
+      expect(ids).toEqual(esperado.map((e) => e.id));
+    });
+
+    it('passo 2: só as corridas do dia 2, percorrendo todas as páginas', async () => {
+      const ids: string[] = [];
+      let pagina = 1;
+      let total: number | undefined;
+      for (;;) {
+        const { corpo, ms } = await listar(
+          `?de=2025-03-02&ate=2025-03-02&tamanho=25&pagina=${pagina}`,
+        );
+        expect(ms).toBeLessThan(2000);
+        total = corpo.total;
+        ids.push(...corpo.itens.map((c) => c.id));
+        expect(corpo.itens.every((c) => c.iniciada_em.startsWith('2025-03-02'))).toBe(true);
+        if (corpo.itens.length < 25) break;
+        pagina++;
+      }
+      const esperado = await consulta<{ id: string }>(
+        `SELECT id FROM corrida WHERE iniciada_em >= '2025-03-02T00:00:00Z'
+           AND iniciada_em < '2025-03-03T00:00:00Z' ORDER BY iniciada_em DESC, id DESC`,
+      );
+      expect(total).toBe(esperado.length);
+      expect(ids).toEqual(esperado.map((e) => e.id)); // sem repetir nem pular entre páginas
+    });
+
+    it('passo 2 com data e hora: o dia 2 no horário de Brasília', async () => {
+      const { corpo } = await listar(
+        '?de=2025-03-02T00:00:00-03:00&ate=2025-03-02T23:59:59-03:00&tamanho=100',
+      );
+      const [{ n }] = (await consulta<{ n: number }>(
+        `SELECT count(*)::int AS n FROM corrida
+         WHERE iniciada_em >= '2025-03-02T03:00:00Z' AND iniciada_em <= '2025-03-03T02:59:59Z'`,
+      )) as [{ n: number }];
+      expect(corpo.total).toBe(n);
+    });
+
+    it('passo 3: tamanho 500 é limitado a 100', async () => {
+      const { status, corpo, ms } = await listar('?tamanho=500');
+      expect(status).toBe(200);
+      expect(corpo.tamanho).toBe(100);
+      expect(corpo.itens).toHaveLength(100);
+      expect(ms).toBeLessThan(2000);
+    });
+
+    it('marca a anulada, e a página depois do fim vem vazia com o total', async () => {
+      const { corpo } = await listar('?de=2025-03-01&ate=2025-03-03&tamanho=100&pagina=2');
+      const anulada = (
+        await listar('?de=2025-03-01&ate=2025-03-03&tamanho=100&pagina=1')
+      ).corpo.itens
+        .concat(corpo.itens)
+        .find((c) => c.anulada);
+      expect(anulada).toBeDefined();
+      const alem = await listar('?de=2025-03-01&ate=2025-03-03&tamanho=100&pagina=9');
+      expect(alem.corpo).toMatchObject({ itens: [], total: 200, pagina: 9 });
     });
   });
 
