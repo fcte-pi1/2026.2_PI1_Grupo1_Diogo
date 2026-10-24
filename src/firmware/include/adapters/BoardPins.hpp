@@ -36,6 +36,7 @@ constexpr gpio_num_t kEncRightB = GPIO_NUM_19;
 constexpr gpio_num_t kLedReady = GPIO_NUM_2;   // LED azul da DevKit
 constexpr gpio_num_t kLedError = GPIO_NUM_4;
 constexpr gpio_num_t kBuzzer = GPIO_NUM_12;    // strapping: não ligar carga com pull-up
+constexpr bool kBuzzerActiveHigh = true;       // BC547 NPN: nível alto liga (#392)
 constexpr gpio_num_t kButton = GPIO_NUM_0;     // botão BOOT da DevKit (pull-up na placa)
 
 // DIP switch (todas abertas = pull-up interno em nível alto)
@@ -75,6 +76,9 @@ constexpr gpio_num_t kEncRightB = GPIO_NUM_39;  // ENC1_B (pino 36)
 constexpr gpio_num_t kLedReady = GPIO_NUM_9;   // LED_STATUS (pino 15)
 constexpr gpio_num_t kLedError = GPIO_NUM_10;  // LED_DEBUG  (pino 16)
 constexpr gpio_num_t kBuzzer = GPIO_NUM_11;    // BUZZER     (pino 17)
+// BC547 NPN em corte-baixo (low-side), como no esquemático: nível alto liga o transistor. O
+// buzzer é passivo e toca por PWM (#392). Com um PNP seria o contrário: troque para false.
+constexpr bool kBuzzerActiveHigh = true;
 constexpr gpio_num_t kButton = GPIO_NUM_4;     // START_BUTTON (pino 4, pull-up externo)
 
 // DIP switch de 3 vias: vias 1 e 2 = tipo de labirinto; via 3 = canto de partida

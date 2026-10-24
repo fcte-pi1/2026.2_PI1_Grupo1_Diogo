@@ -99,6 +99,19 @@ Hoje a leitura dos VL53L1X ainda está em *stub* no firmware: o `tof` avisa isso
 - o **3.3 já pode ser feito**, porque testa a fiação e os sensores, sem depender do driver;
 - o 3.4 e o 3.5 ficam para quando o driver entrar (#295). Basta baixar o binário novo e repetir.
 
+### Sobre o buzzer (3.14)
+
+O buzzer da placa final é **passivo**, ligado por um **BC547 (NPN)**: ele precisa de um tom, e o nível alto no pino liga o transistor (decisão do hardware, #392). O firmware toca os três padrões do robô, e o comando `buzzer` os reproduz:
+
+| Comando | O que toca | Requisito |
+|:--|:--|:--|
+| `buzzer pronto` | 2 bips agudos (2,5 kHz) | RF-32 |
+| `buzzer objetivo` | 3 tons que sobem (2,0, 2,8 e 3,8 kHz) | RF-8 |
+| `buzzer alarme` | 3 bips graves (1,5 kHz), e depois silêncio | RF-9 e RF-55 |
+| `buzzer [ms]` | um tom de 2,5 kHz por `ms` (padrão 300) | |
+
+O que conferir: o buzzer fica **silencioso ao ligar a placa** e depois de cada padrão, e os três padrões se distinguem de ouvido. Os motores não são afetados: o PWM do buzzer usa um timer do LEDC só dele, e o dos motores segue a 20 kHz.
+
 ### Na bancada com a ESP32 clássica
 
 O mapa de pinos é outro (`pinos` mostra qual). Ele vale só para testar os módulos na protoboard, antes da placa oficial.
@@ -114,6 +127,8 @@ O mapa de pinos é outro (`pinos` mostra qual). Ele vale só para testar os mód
 | O console não responde | Porta errada (use a **UART** na S3); baud diferente de 115200; aperte o RST |
 | Uma roda gira ao contrário no `motor 0.5 0.5` | `inverter motor` e depois ajustar `kInvertLeftMotor`. Se for a direita, inverter os fios do motor |
 | A placa reinicia sozinha durante o `motor` | Queda de tensão: alimente os motores pela bateria, não só pelo USB |
+| O buzzer só dá um clique, sem tom | O buzzer é **ativo** (tem oscilador interno). O firmware precisa de um **passivo** (#392) |
+| O buzzer fica ligado direto, desde o boot | O transistor é um PNP no lugar do BC547 (NPN), que é o do esquemático. Se for mesmo PNP, troque `kBuzzerActiveHigh` para `false` em `BoardPins.hpp` |
 
 ## Para quem mexe no código
 

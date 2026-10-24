@@ -7,9 +7,11 @@ public:
     int ready{0};
     int running{0};
     int error{0};
+    int goal{0};
     void signalReady() override { ++ready; }
     void signalRunning() override { ++running; }
     void signalError() override { ++error; }
+    void signalGoal() override { ++goal; }
 };
 
 }  // namespace micromouse::test

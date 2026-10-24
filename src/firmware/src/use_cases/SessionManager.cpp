@@ -35,8 +35,10 @@ void SessionManager::start() {
 void SessionManager::reachedGoal() {
     if (phase_ == SessionPhase::Exploring) {
         enter(SessionPhase::Returning);
+        signal_.signalGoal();
     } else if (phase_ == SessionPhase::FastRun) {
         enter(SessionPhase::Finished);
+        signal_.signalGoal();
     }
 }
 

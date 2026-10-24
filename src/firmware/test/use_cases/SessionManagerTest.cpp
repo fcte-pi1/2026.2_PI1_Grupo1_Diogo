@@ -89,4 +89,43 @@ TEST(SessionManager, OutOfOrderEventsAreIgnored) {
 
 }  // namespace
 
+// RF-8: chegar ao objetivo tem o próprio sinal, na exploração e de novo na corrida rápida.
+TEST(SessionManager, ReachedGoalDuringExplorationSignalsGoal) {
+    SpySignal signal;
+    SessionManager stateMachine(signal);
+    stateMachine.start();
+    stateMachine.onSelfTestResult(true);
+    stateMachine.reachedGoal();
+    EXPECT_EQ(signal.goal, 1);
+    EXPECT_EQ(signal.error, 0);
+}
+
+TEST(SessionManager, ReachedGoalInFastRunSignalsGoalAgain) {
+    SpySignal signal;
+    SessionManager stateMachine(signal);
+    stateMachine.start();
+    stateMachine.onSelfTestResult(true);
+    stateMachine.reachedGoal();
+    stateMachine.backAtStart();
+    stateMachine.reachedGoal();
+    EXPECT_EQ(signal.goal, 2);
+}
+
+TEST(SessionManager, ReachedGoalOutsideARunDoesNotSignalGoal) {
+    SpySignal signal;
+    SessionManager stateMachine(signal);
+    stateMachine.reachedGoal();  // ainda em Idle
+    EXPECT_EQ(signal.goal, 0);
+}
+
+TEST(SessionManager, FaultSignalsErrorButNotGoal) {
+    SpySignal signal;
+    SessionManager stateMachine(signal);
+    stateMachine.start();
+    stateMachine.onSelfTestResult(true);
+    stateMachine.fault();
+    EXPECT_EQ(signal.error, 1);
+    EXPECT_EQ(signal.goal, 0);
+}
+
 }  // namespace micromouse::use_cases

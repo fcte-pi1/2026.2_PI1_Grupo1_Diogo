@@ -445,13 +445,28 @@ int cmdLed(int argc, char** argv) {
     return 0;
 }
 
+// buzzer [ms | pronto | objetivo | alarme]: sem nome, um tom de 2,5 kHz por ms; com o nome, o
+// padrão que o robô toca (#392). O buzzer é passivo e o pino é do LEDC.
 int cmdBuzzer(int argc, char** argv) {
+    ensureLocal();
+    constexpr domain::BuzzerPattern kPatterns[] = {domain::BuzzerPattern::Ready,
+                                                   domain::BuzzerPattern::Goal,
+                                                   domain::BuzzerPattern::Alarm};
+    if (argc >= 2) {
+        for (const domain::BuzzerPattern pattern : kPatterns) {
+            if (std::strcmp(argv[1], domain::patternName(pattern)) == 0) {
+                const uint32_t duration = domain::patternDurationMs(pattern);
+                std::printf("Padrão \"%s\" (%lu ms).\n", domain::patternName(pattern),
+                            static_cast<unsigned long>(duration));
+                gLocal.playPattern(pattern);
+                sleepMs(static_cast<int>(duration) + 50);
+                return 0;
+            }
+        }
+    }
     long ms = 0;
     if (!optionalLong(argc, argv, 1, 10, 5000, 300, ms)) return 1;
-    ensureLocal();
-    gpio_set_level(pins::kBuzzer, 1);
-    sleepMs(static_cast<int>(ms));
-    gpio_set_level(pins::kBuzzer, 0);
+    gLocal.beep(2500, static_cast<uint32_t>(ms));
     return 0;
 }
 
@@ -649,7 +664,7 @@ constexpr Command kCommands[] = {
     {"dip", "Lê o DIP switch e mostra o labirinto escolhido", cmdDip},
     {"botao", "botao [s] mostra os toques no botão por s segundos (padrão 10)", cmdBotao},
     {"led", "led pronto | erro | apagar", cmdLed},
-    {"buzzer", "buzzer [ms] toca o buzzer por ms (padrão 300)", cmdBuzzer},
+    {"buzzer", "buzzer [ms | pronto | objetivo | alarme] toca um tom por ms (padrão 300) ou um padrão do robô", cmdBuzzer},
     {"ble", "ble [s] anuncia e envia mensagens de teste por s segundos (padrão 30)", cmdBle},
     {"taxa", "taxa imu | ina | tof [ms] mede leituras por segundo", cmdTaxa},
     {"inverter", "inverter [motor|enc] inverte o sentido do motor ou do encoder esquerdo", cmdInverter},

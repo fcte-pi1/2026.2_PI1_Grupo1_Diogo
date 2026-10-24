@@ -4,6 +4,7 @@ idf_component_register(
     SRCS
         # Núcleo usado pelo diagnóstico (decodificação do DIP)
         "${CORE_ROOT}/src/domain/Maze.cpp"
+        "${CORE_ROOT}/src/domain/BuzzerPattern.cpp"
         "${CORE_ROOT}/src/domain/DipDecoder.cpp"
         "${CORE_ROOT}/src/domain/ImuIdentity.cpp"
         # Adapters - os MESMOS do firmware do robô (../esp32/)
