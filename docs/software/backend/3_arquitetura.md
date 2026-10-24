@@ -126,7 +126,7 @@ Todas as mensagens são JSON sobre WebSocket. O esquema oficial será publicado 
 | `POST /api/corridas/{id}/anulacao` | Anular com motivo | Operador (JWT) | RF-96 |
 | `POST /api/apresentacoes` / `PATCH /api/apresentacoes/{id}` | Abrir ou encerrar apresentação | Operador (JWT) | RF-97 |
 | `POST /api/auth/login` | Login do operador | — | RNF-55 |
-| `GET /health` | Saúde, contadores e atraso do *event loop* | — | RNF-56 |
+| `GET /health` | Saúde, contadores, atraso do *event loop* e latência até o painel | — | RNF-56, RNF-49, RNF-48 |
 
 ---
 

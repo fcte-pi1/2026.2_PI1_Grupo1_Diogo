@@ -166,6 +166,29 @@ export interface Contadores {
   conexoesRecusadas: number;
 }
 
+/**
+ * Latência da recepção do quadro WebSocket até o envio ao painel (RNF-48, CT-BE-32), em ms.
+ * `evento`: células (sem limite de taxa). `continuo`: posição e energia, que esperam a janela
+ * de 100 ms do RF-90.
+ */
+export interface RegistroLatencia {
+  registrar(tipo: 'evento' | 'continuo', ms: number): void;
+}
+
+/** Percentis de um histograma de latência, em ms. Sem amostras, os valores são `null`. */
+export interface ResumoLatencia {
+  amostras: number;
+  p50: number | null;
+  p95: number | null;
+  p99: number | null;
+  max: number | null;
+}
+
+/** O que o `/health` mostra da latência até o painel (`latencia_painel_ms`). */
+export interface FonteResumoLatencia {
+  resumo(): { eventos: ResumoLatencia; continuos: ResumoLatencia };
+}
+
 export interface RegistroLog {
   info(dados: object, mensagem: string): void;
   warn(dados: object, mensagem: string): void;

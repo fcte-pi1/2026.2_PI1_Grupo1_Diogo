@@ -20,7 +20,7 @@ import type {
   PosicaoRobo,
 } from '../../protocolo/tipos.js';
 import type { MapaEventos } from './eventos.js';
-import type { RegistroLog } from './portas.js';
+import type { RegistroLatencia, RegistroLog } from './portas.js';
 import type { EstadoAoVivo } from './servico-corrida.js';
 
 /** No máximo 10 atualizações contínuas por segundo por corrida (RF-90). */
@@ -50,6 +50,12 @@ export interface FonteEstadoAoVivo {
 export interface DependenciasDistribuicao {
   corridas: FonteEstadoAoVivo;
   log: RegistroLog;
+  /** Latência da recepção ao envio (RNF-48, CT-BE-32). Sem ela, nada é medido. */
+  latencia?: RegistroLatencia;
+  /**
+   * Relógio monotônico, o mesmo da `recebidaEm` dos eventos (`performance.now()`), já que a
+   * latência é a diferença entre os dois.
+   */
   agora?: () => number;
   intervaloContinuoMs?: number;
   limiteBufferBytes?: number;
@@ -70,6 +76,10 @@ interface ContinuoPendente {
   posicao: PosicaoRobo | null;
   energia: { tensao_v: number; corrente_a: number; potencia_w: number } | null;
   metricas: Metricas;
+  /** Chegada da mensagem mais recente que o contínuo leva (RNF-48). */
+  recebidaEm: number | undefined;
+  /** Quando essa mensagem ficou pronta para sair: gravada, aplicada e publicada (RNF-48). */
+  aplicadaEm: number;
 }
 
 export class ServicoDistribuicao {
@@ -178,8 +188,8 @@ export class ServicoDistribuicao {
       if (status === 'EM_ANDAMENTO') this.paraAoVivo(aoVivo(corridaId, { labirinto, status }));
     }
     switch (mensagem.tipo) {
-      case 'celula':
-        this.paraInscritos(corridaId, {
+      case 'celula': {
+        const enviados = this.paraInscritos(corridaId, {
           tipo: 'evento',
           evento: 'celula',
           corrida: corridaId,
@@ -191,14 +201,16 @@ export class ServicoDistribuicao {
           revisita: dados.revisita,
           metricas,
         });
+        if (enviados > 0) this.medirLatencia('evento', dados.recebidaEm);
         return;
+      }
       case 'posicao':
-        this.acumularContinuo(corridaId, mensagem.tempo_ms, metricas, {
+        this.acumularContinuo(corridaId, mensagem.tempo_ms, metricas, dados.recebidaEm, {
           posicao: { x: mensagem.x, y: mensagem.y, orientacao: mensagem.orientacao },
         });
         return;
       case 'energia':
-        this.acumularContinuo(corridaId, mensagem.tempo_ms, metricas, {
+        this.acumularContinuo(corridaId, mensagem.tempo_ms, metricas, dados.recebidaEm, {
           energia: {
             tensao_v: mensagem.tensao_v,
             corrente_a: mensagem.corrente_a,
@@ -282,12 +294,15 @@ export class ServicoDistribuicao {
     corridaId: string,
     tempoMs: number,
     metricas: Metricas,
+    recebidaEm: number | undefined,
     novo: Partial<Pick<ContinuoPendente, 'posicao' | 'energia'>>,
   ): void {
     const anterior = this.continuos.get(corridaId) ?? this.continuoInicial(corridaId);
     this.continuos.set(corridaId, {
       tempoMs,
       metricas,
+      recebidaEm,
+      aplicadaEm: this.agora(),
       posicao: novo.posicao ?? anterior?.posicao ?? null,
       energia: novo.energia ?? anterior?.energia ?? null,
     });
@@ -332,8 +347,9 @@ export class ServicoDistribuicao {
       this.limparSeFinalizada(corridaId);
       return;
     }
-    const espera =
-      (this.ultimoContinuoEm.get(corridaId) ?? -Infinity) + this.intervaloContinuoMs - this.agora();
+    const janelaAbreEm =
+      (this.ultimoContinuoEm.get(corridaId) ?? -Infinity) + this.intervaloContinuoMs;
+    const espera = janelaAbreEm - this.agora();
     if (espera > 0) {
       this.temporizadores.set(
         corridaId,
@@ -352,6 +368,7 @@ export class ServicoDistribuicao {
       energia: pendente.energia,
       metricas: pendente.metricas,
     } satisfies MensagemPainelSaida);
+    let enviados = 0;
     for (const painel of this.paineis) {
       // Painel lento perde os contínuos, mas continua recebendo os eventos (RF-91, CA1).
       if (painel.corridas.has(corridaId) && painel.lentoDesde === null) {
@@ -360,7 +377,16 @@ export class ServicoDistribuicao {
           continue;
         }
         painel.conexao.enviar(texto);
+        enviados++;
       }
+    }
+    // Latência = (aplicadaEm − recebidaEm) + (envio − max(aplicadaEm, janelaAbreEm)). O
+    // processamento até a mensagem ficar pronta (fila, gravação, ordenação) conta sempre. Da
+    // espera, só fica de fora a da mensagem JÁ PRONTA aguardando a janela do RF-90, que é
+    // proposital; um atraso do temporizador depois da abertura continua contando (RNF-48).
+    if (enviados > 0 && pendente.recebidaEm !== undefined) {
+      const esperaJanela = Math.max(0, janelaAbreEm - pendente.aplicadaEm);
+      this.medirLatencia('continuo', pendente.recebidaEm + esperaJanela);
     }
     this.limparSeFinalizada(corridaId);
   }
@@ -373,11 +399,26 @@ export class ServicoDistribuicao {
     this.ultimoContinuoEm.delete(corridaId);
   }
 
-  private paraInscritos(corridaId: string, mensagem: MensagemPainelSaida): void {
+  /** Envia aos painéis inscritos na corrida e devolve para quantos. */
+  private paraInscritos(corridaId: string, mensagem: MensagemPainelSaida): number {
     const texto = JSON.stringify(mensagem);
+    let enviados = 0;
     for (const painel of this.paineis) {
-      if (painel.corridas.has(corridaId)) painel.conexao.enviar(texto);
+      if (painel.corridas.has(corridaId)) {
+        painel.conexao.enviar(texto);
+        enviados++;
+      }
     }
+    return enviados;
+  }
+
+  /**
+   * Uma amostra por mensagem enviada (e não por painel): o envio aos painéis é um laço
+   * síncrono, e a diferença entre eles é desprezível.
+   */
+  private medirLatencia(tipo: 'evento' | 'continuo', recebidaEm: number | undefined): void {
+    if (recebidaEm === undefined || !this.deps.latencia) return;
+    this.deps.latencia.registrar(tipo, this.agora() - recebidaEm);
   }
 
   private paraAoVivo(mensagem: MensagemPainelSaida): void {

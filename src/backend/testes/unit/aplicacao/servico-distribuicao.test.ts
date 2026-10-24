@@ -741,3 +741,167 @@ describe('ServicoDistribuicao: ritmo dos contínuos e painéis lentos', () => {
     expect(conexao.doTipo('keepalive')).toHaveLength(2);
   });
 });
+
+describe('ServicoDistribuicao: latência recepção → envio ao painel (RNF-48, CT-BE-32)', () => {
+  const CORRIDA = 'corrida-lat';
+  let agora: number;
+  let amostras: ['evento' | 'continuo', number][];
+  let distribuicao: ServicoDistribuicao;
+  const derivacao = new DerivacaoCorrida('4x4', CONFIGURACAO_PADRAO);
+  const estado: EstadoAoVivo = {
+    corridaId: CORRIDA,
+    labirinto: '4x4',
+    sequenciaCorte: 0,
+    tempoInicioMs: 0,
+    mapa: { celulas: [], posicao: null },
+    metricas: derivacao.metricas,
+    sinalPerdido: false,
+    status: 'EM_ANDAMENTO',
+    motivo: null,
+  };
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    agora = 1000;
+    amostras = [];
+    distribuicao = new ServicoDistribuicao({
+      corridas: { estadoAoVivo: () => estado, corridasEmAndamento: () => [estado] },
+      log: { info: () => {}, warn: () => {}, error: () => {} },
+      latencia: { registrar: (tipo, ms) => amostras.push([tipo, ms]) },
+      agora: () => agora,
+    });
+  });
+  afterEach(() => {
+    distribuicao.parar();
+    vi.useRealTimers();
+  });
+
+  const aplicada = (
+    m: Record<string, unknown>,
+    recebidaEm?: number,
+  ): MapaEventos['mensagem-aplicada'] => ({
+    corridaId: CORRIDA,
+    labirinto: '4x4',
+    mensagem: { versao: 1, corrida: 'r1', ...m } as MapaEventos['mensagem-aplicada']['mensagem'],
+    revisita: false,
+    metricas: derivacao.metricas,
+    ...(recebidaEm !== undefined && { recebidaEm }),
+  });
+  const celula = (sequencia: number, recebidaEm?: number) =>
+    aplicada(
+      {
+        tipo: 'celula',
+        sequencia,
+        tempo_ms: sequencia,
+        x: 0,
+        y: 0,
+        paredes: { norte: true, leste: false, sul: false, oeste: true },
+      },
+      recebidaEm,
+    );
+  const posicao = (sequencia: number, recebidaEm?: number) =>
+    aplicada(
+      {
+        tipo: 'posicao',
+        sequencia,
+        tempo_ms: sequencia,
+        x: 0,
+        y: 0,
+        orientacao: 'LESTE',
+        celulas: 0,
+      },
+      recebidaEm,
+    );
+  function inscrever() {
+    const painel = distribuicao.conectar(new ConexaoFalsa(() => agora));
+    distribuicao.receber(painel, { tipo: 'inscrever', corrida: CORRIDA });
+  }
+
+  it('célula: uma amostra de evento com o tempo desde a chegada, mesmo com dois painéis', () => {
+    inscrever();
+    inscrever();
+    distribuicao.aoAplicar(celula(2, 988)); // chegou 12 ms antes do envio
+    expect(amostras).toEqual([['evento', 12]]);
+  });
+
+  it('sem painel inscrito, nada é enviado e nada é medido', () => {
+    distribuicao.aoAplicar(celula(2, 990));
+    expect(amostras).toEqual([]);
+  });
+
+  it('contínuo: conta a partir da abertura da janela do RF-90, e não da chegada', async () => {
+    inscrever();
+    distribuicao.aoAplicar(posicao(2, 995)); // janela aberta: sai na hora, 5 ms
+    agora = 1030;
+    distribuicao.aoAplicar(posicao(3, 1028)); // espera a janela, que abre em 1100
+    agora = 1070;
+    distribuicao.aoAplicar(posicao(4, 1068)); // substitui a 3
+    // A posição 4 chegou em 1068 e ficou pronta em 1070 (2 ms de processamento). O
+    // temporizador dispara 10 ms atrasado: os 2 ms e os 10 ms contam; a espera de 1070 até a
+    // janela abrir em 1100, não.
+    agora = 1110;
+    await vi.advanceTimersByTimeAsync(110);
+    expect(amostras).toEqual([
+      ['continuo', 5],
+      ['continuo', 12],
+    ]);
+  });
+
+  it('contínuo: gravação que termina depois da abertura da janela conta inteira', () => {
+    inscrever();
+    distribuicao.aoAplicar(posicao(2, 1000)); // sai em 1000; a janela seguinte abre em 1100
+    agora = 1105; // chegou em 1090 e ficou pronta em 1105
+    distribuicao.aoAplicar(posicao(3, 1090));
+    expect(amostras).toEqual([
+      ['continuo', 0],
+      ['continuo', 15],
+    ]);
+  });
+
+  it('contínuo: gravação antes da janela conta, e a espera pela janela não', async () => {
+    inscrever();
+    distribuicao.aoAplicar(posicao(2, 1000)); // janela seguinte em 1100
+    agora = 1050; // chegou em 1037, pronta em 1050 (13 ms de gravação)
+    distribuicao.aoAplicar(posicao(3, 1037));
+    agora = 1102; // temporizador 2 ms atrasado
+    await vi.advanceTimersByTimeAsync(102);
+    expect(amostras).toEqual([
+      ['continuo', 0],
+      ['continuo', 15], // 13 de gravação + 2 de atraso; os 50 ms de janela ficam de fora
+    ]);
+  });
+
+  it('contínuo: o primeiro (sem janela anterior) conta da chegada', () => {
+    inscrever();
+    agora = 1020;
+    distribuicao.aoAplicar(posicao(2, 1008));
+    expect(amostras).toEqual([['continuo', 12]]);
+  });
+
+  it('contínuo que chega com a janela já aberta conta desde a chegada', async () => {
+    inscrever();
+    distribuicao.aoAplicar(posicao(2, 1000));
+    agora = 1250;
+    distribuicao.aoAplicar(posicao(3, 1243)); // a janela abriu em 1100, antes da chegada
+    expect(amostras).toEqual([
+      ['continuo', 0],
+      ['continuo', 7],
+    ]);
+  });
+
+  it('com todos os painéis lentos, o contínuo não sai e não gera amostra', () => {
+    const conexao = new ConexaoFalsa(() => agora);
+    const painel = distribuicao.conectar(conexao);
+    distribuicao.receber(painel, { tipo: 'inscrever', corrida: CORRIDA });
+    conexao.bytes = LIMITE_BUFFER_BYTES + 1;
+    distribuicao.aoAplicar(posicao(2, 990));
+    expect(conexao.doTipo('continuo')).toHaveLength(0);
+    expect(amostras).toEqual([]);
+  });
+
+  it('mensagem reaplicada na reconstrução (sem recebidaEm) não entra na medição', () => {
+    inscrever();
+    distribuicao.aoAplicar(celula(2));
+    expect(amostras).toEqual([]);
+  });
+});

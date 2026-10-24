@@ -99,11 +99,12 @@ export class ServicoCorrida {
   }
 
   /** A mensagem foi gravada no banco: aplica-a, junto com as que esperavam por ela. */
-  gravada(corrida: EstadoCorrida, mensagem: MensagemCorrida): void {
+  gravada(corrida: EstadoCorrida, mensagem: MensagemCorrida, recebidaEm?: number): void {
     // Sequência anterior a uma lacuna já desistida: fica no registro bruto, mas não muda
     // mais a derivação.
     if (mensagem.sequencia < corrida.proximaAplicar) return;
     corrida.retidas.set(mensagem.sequencia, mensagem);
+    if (recebidaEm !== undefined) corrida.recebidasEm.set(mensagem.sequencia, recebidaEm);
     this.aplicarDisponiveis(corrida);
     this.agendarProgresso(corrida);
   }
@@ -320,6 +321,7 @@ export class ServicoCorrida {
       sequencias: new SequenciaCorrida(),
       derivacao: new DerivacaoCorrida(persistida.labirinto, this.configuracao),
       retidas: new Map(),
+      recebidasEm: new Map(),
       fimRecebido: false,
       reconstruidas: new Set(),
       proximaAplicar: 1,
@@ -398,6 +400,8 @@ export class ServicoCorrida {
 
   private aplicar(corrida: EstadoCorrida, mensagem: MensagemCorrida): void {
     const silencioso = corrida.reconstruidas.delete(mensagem.sequencia);
+    const recebidaEm = corrida.recebidasEm.get(mensagem.sequencia);
+    corrida.recebidasEm.delete(mensagem.sequencia);
     const efeitos = corrida.derivacao.aplicar(mensagem as MensagemDerivavel);
     if (!silencioso && !corrida.derivacao.finalizada) {
       // Uma corrida finalizada só publica o próprio encerramento, abaixo.
@@ -407,6 +411,7 @@ export class ServicoCorrida {
         mensagem,
         revisita: efeitos.some((e) => e.tipo === 'passagem' && e.revisita),
         metricas: corrida.derivacao.metricas,
+        ...(recebidaEm !== undefined && { recebidaEm }),
       });
     }
     this.executar(corrida, efeitos, silencioso);

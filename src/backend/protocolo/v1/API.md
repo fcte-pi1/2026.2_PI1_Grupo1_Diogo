@@ -331,3 +331,38 @@ As mesmas da linha do tempo, porque o CSV sai pelos mesmos lotes:
 - **Corrida em andamento:** pode ter lacunas.
 
 O JSON não tem esse risco: ele é montado inteiro antes do envio.
+
+## `GET /health` — saúde e medições
+
+Saúde do backend e do banco (`200`, ou `503` com o banco indisponível), contadores da ingestão, atraso do *event loop* (RNF-49) e a **latência da recepção ao envio ao painel** (RNF-48, CT-BE-32).
+
+```json
+{
+  "status": "ok",
+  "banco": "ok",
+  "uptime_s": 132,
+  "event_loop_atraso_ms": { "p50": 1.3, "p99": 5.2 },
+  "ingestao": { "mensagens_aceitas": 2622, "mensagens_duplicadas": 0, "mensagens_rejeitadas": 0, "conexoes_recusadas": 0 },
+  "latencia_painel_ms": {
+    "eventos":   { "amostras": 122,  "p50": 13.53, "p95": 15.61, "p99": 16.69,  "max": 80.19 },
+    "continuos": { "amostras": 1294, "p50": 43.39, "p95": 64.74, "p99": 107.71, "max": 113.09 }
+  }
+}
+```
+
+### `latencia_painel_ms` (RNF-48, CT-BE-32)
+
+Tempo, em ms, entre a chegada do quadro WebSocket do robô e o envio da mensagem aos painéis. O tempo passa pela fila da conexão, pela gravação no banco, pela ordenação por `sequencia` e pela distribuição. Há uma amostra por mensagem enviada a pelo menos um painel, e não uma por painel, porque o envio aos painéis é um laço síncrono. O critério do RNF-48 (**p95 ≤ 50 ms**) vale para os dois histogramas.
+
+| Campo | O que mede |
+|:--|:--|
+| `eventos` | Células, que vão aos painéis sem limite de taxa: da chegada ao envio |
+| `continuos` | Posição e energia, que saem no máximo 10 vezes por segundo (RF-90). O processamento até a mensagem ficar pronta (fila, gravação, ordenação) **conta sempre**. Só fica de fora a espera de uma mensagem **já pronta** aguardando a janela de 100 ms, que é proposital. Um atraso do temporizador ou do *event loop* depois da abertura continua contando: `(pronta − chegada) + (envio − max(pronta, abertura da janela))` |
+
+- **Lacunas:** uma mensagem que chega depois de uma lacuna espera a mensagem que falta (no máximo alguns segundos) antes de ser aplicada e enviada. Essa espera **entra** na latência dela.
+- **Aquecimento e máximo:** logo depois de iniciar, o primeiro envio pode demorar mais (aquecimento do Node e da conexão com o banco). Isso afeta o `max`, e não o p95 de uma medição de minutos. Para o `max` da medição oficial, faça uma corrida curta de aquecimento depois de reiniciar o backend, anote os valores e desconte-os, ou registre o `max` como "inclui o aquecimento".
+
+**Como medir:**
+- Os histogramas valem desde o início do processo. Para uma medição limpa, reinicie o backend antes (`docker compose restart backend`), rode o cenário e consulte o `/health` no fim.
+- Sem amostras, os percentis são `null`.
+- As mensagens reaplicadas na recuperação depois de um reinício (RNF-52) não entram na medição.

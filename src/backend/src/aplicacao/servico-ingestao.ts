@@ -191,8 +191,15 @@ export class ServicoIngestao {
   /**
    * Processa uma mensagem de uma conexão já autenticada. Nunca lança por causa do conteúdo.
    * Devolve um pedido de fechamento só quando um novo `hello` é recusado.
+   *
+   * `recebidaEm`: chegada do quadro WebSocket (`performance.now()`), medida no adaptador antes
+   * da fila da conexão, para a latência até o painel (RNF-48, CT-BE-32).
    */
-  async receber(sessao: SessaoRobo, texto: string): Promise<PedidoFechamento | void> {
+  async receber(
+    sessao: SessaoRobo,
+    texto: string,
+    recebidaEm?: number,
+  ): Promise<PedidoFechamento | void> {
     const { validador, contadores } = this.deps;
     this.registrarAtividade(sessao);
 
@@ -257,7 +264,7 @@ export class ServicoIngestao {
     } else sessao.corridaAtiva ??= corrida;
 
     // A gravação é em lote e não segura a fila da conexão: o ack sai quando ela confirmar.
-    void this.gravar(sessao, corrida, mensagem);
+    void this.gravar(sessao, corrida, mensagem, recebidaEm);
   }
 
   /**
@@ -363,6 +370,7 @@ export class ServicoIngestao {
     sessao: SessaoRobo,
     corrida: EstadoCorrida,
     mensagem: MensagemCorrida,
+    recebidaEm?: number,
   ): Promise<void> {
     const { gravador, contadores, log } = this.deps;
     try {
@@ -375,7 +383,7 @@ export class ServicoIngestao {
         payload: mensagem,
       });
       corrida.sequencias.confirmar(mensagem.sequencia);
-      this.deps.corridas.gravada(corrida, mensagem);
+      this.deps.corridas.gravada(corrida, mensagem, recebidaEm);
       // `false`: outra conexão do mesmo robô gravou a mesma sequência antes (HU-BE-06, CA3).
       if (inserida) contadores.mensagensAceitas++;
       else contadores.mensagensDuplicadas++;

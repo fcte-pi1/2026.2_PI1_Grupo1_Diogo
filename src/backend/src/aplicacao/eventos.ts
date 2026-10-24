@@ -13,6 +13,11 @@ export interface MapaEventos {
     mensagem: MensagemCorrida;
     revisita: boolean;
     metricas: Metricas;
+    /**
+     * Chegada do quadro WebSocket (`performance.now()`), para medir a latência até o painel
+     * (RNF-48). Ausente nas mensagens reaplicadas da reconstrução (RNF-52).
+     */
+    recebidaEm?: number;
   };
   'status-alterado': {
     corridaId: string;

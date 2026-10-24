@@ -34,6 +34,7 @@ import { BarramentoEventos } from '../../src/infra/barramento-eventos.js';
 import { RepositorioConsultaPg, RepositorioLinhaDoTempoPg } from '../../src/infra/consulta-pg.js';
 import { criarContadores } from '../../src/infra/contadores.js';
 import { GravadorLote } from '../../src/infra/gravador-lote.js';
+import { HistogramasLatencia } from '../../src/infra/latencia.js';
 import {
   RegistroAuditoriaPg,
   RepositorioCorridasPg,
@@ -97,6 +98,8 @@ describe('ingestão de telemetria com PostgreSQL real', () => {
   let corridas: ServicoCorrida;
   let distribuicao: ServicoDistribuicao;
   let verificacaoPaineis: ReturnType<typeof setInterval> | undefined;
+  // Latência recepção → envio ao painel (RNF-48), a mesma instância nos reinícios do servidor.
+  const latencia = new HistogramasLatencia();
   const avisosDistribuicao: string[] = [];
 
   const consulta = async <T extends pg.QueryResultRow>(sql: string, parametros: unknown[] = []) =>
@@ -129,6 +132,7 @@ describe('ingestão de telemetria com PostgreSQL real', () => {
       log: { ...SILENCIOSO, warn: (_dados, mensagem) => avisosDistribuicao.push(mensagem) },
       limiteBufferBytes: 64 * 1024,
       prazoPainelLentoMs: 500,
+      latencia,
     });
     verificacaoPaineis = setInterval(() => distribuicao.verificarPaineis(), 100);
     eventos.assinar('mensagem-aplicada', (d) => distribuicao.aoAplicar(d));
@@ -149,6 +153,7 @@ describe('ingestão de telemetria com PostgreSQL real', () => {
     app = await construirApp({
       verificarBanco: async () => true,
       contadores,
+      latencia,
       ingestao,
       consulta: new ServicoConsulta(new RepositorioConsultaPg(pool)),
       // Lote de 100 (em produção, 500): as corridas de teste atravessam vários lotes.
@@ -1228,6 +1233,39 @@ describe('ingestão de telemetria com PostgreSQL real', () => {
       await depois.fechar();
       await esperar(() => estados().length === 3);
       painel.fechar();
+    });
+
+    it('CT-BE-32 (instrumentação): o backend mede a latência até o painel e a mostra no /health', async () => {
+      const c = { corrida: 'latencia' };
+      const robo = await Robo.conectar(url);
+      robo.enviar(
+        hello({ boot: 'b-lat' }),
+        mensagem('inicio_corrida', 1, { ...c, labirinto: '12x4', tempo_ms: 0 }),
+      );
+      await robo.esperarAck('latencia', 1);
+      const id = await idDaCorrida('latencia');
+      const painel = await conectarPainel();
+      painel.enviar({ tipo: 'inscrever', corrida: id });
+      await esperar(() => painel.doTipo('snapshot').length > 0);
+      const antes = latencia.resumo().eventos.amostras;
+
+      robo.enviar(
+        ...Array.from({ length: 50 }, (_, i) =>
+          mensagem('celula', i + 2, { ...c, x: i % 12, y: 0, tempo_ms: (i + 1) * 100 }),
+        ),
+      );
+      await robo.esperarAck('latencia', 51);
+      await esperar(() => painel.recebidas.filter((m) => m.evento === 'celula').length === 50);
+
+      const saude = (await (await fetch(`${base}/health`)).json()) as {
+        latencia_painel_ms: { eventos: { amostras: number; p95: number | null } };
+      };
+      // Uma amostra por célula enviada. O critério do RNF-48 (p95 ≤ 50 ms) é medido no
+      // CT-BE-32 com 20 msg/s e 5 painéis por 5 min (#373); aqui só a instrumentação.
+      expect(saude.latencia_painel_ms.eventos.amostras - antes).toBe(50);
+      expect(saude.latencia_painel_ms.eventos.p95).toBeGreaterThan(0);
+      painel.fechar();
+      await robo.fechar();
     });
 
     it('CT-BE-24: o painel que não lê perde os contínuos e cai; o socket é liberado e o outro painel recebe tudo', async () => {
