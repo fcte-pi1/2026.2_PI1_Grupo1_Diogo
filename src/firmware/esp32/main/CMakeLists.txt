@@ -7,6 +7,7 @@ idf_component_register(
         "${CORE_ROOT}/src/domain/FloodFill.cpp"
         "${CORE_ROOT}/src/domain/Odometry.cpp"
         "${CORE_ROOT}/src/domain/DipDecoder.cpp"
+        "${CORE_ROOT}/src/domain/BuzzerPattern.cpp"
         "${CORE_ROOT}/src/domain/Pid.cpp"
         "${CORE_ROOT}/src/domain/Maneuver.cpp"
         "${CORE_ROOT}/src/controller/MotionController.cpp"
