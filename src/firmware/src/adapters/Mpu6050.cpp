@@ -2,6 +2,7 @@
 
 #include <cstdint>
 
+#include "domain/ImuIdentity.hpp"
 #include "esp_log.h"
 
 namespace micromouse::adapters {
@@ -10,7 +11,6 @@ namespace {
 constexpr char kTag[] = "mpu6050";
 constexpr uint8_t kAddress = 0x68;
 constexpr uint8_t kWhoAmI = 0x75;
-constexpr uint8_t kWhoAmIExpected = 0x68;
 constexpr uint8_t kPwrMgmt1 = 0x6B;
 constexpr uint8_t kGyroZoutH = 0x47;
 constexpr double kGyroScale = 131.0;  // LSB/(graus/s) na faixa ±250 dps
@@ -57,10 +57,17 @@ bool Mpu6050::present() const {
         ESP_LOGE(kTag, "MPU-6050 nao respondeu em 0x%02X (sem ACK no barramento I2C)", kAddress);
         return false;
     }
-    if (*id != kWhoAmIExpected) {
-        ESP_LOGE(kTag, "WHO_AM_I = 0x%02X (esperado 0x%02X): outro modelo ou clone", *id,
-                 kWhoAmIExpected);
+    const domain::ImuModel model = domain::classifyImu(*id);
+    if (!domain::isSupportedImu(model)) {
+        ESP_LOGE(kTag, "WHO_AM_I = 0x%02X nao e de um MPU-6050 nem de um compativel (aceitos: 0x68, "
+                       "0x70, 0x71, 0x72 e 0x73)",
+                 *id);
         return false;
+    }
+    if (model != domain::ImuModel::Mpu6050) {
+        // Aceito: o mapa de registradores e a escala padrao sao os do MPU-6050 (#391).
+        ESP_LOGW(kTag, "WHO_AM_I = 0x%02X (%s): aceito como MPU-6050", *id,
+                 domain::imuModelName(model));
     }
     return true;
 }

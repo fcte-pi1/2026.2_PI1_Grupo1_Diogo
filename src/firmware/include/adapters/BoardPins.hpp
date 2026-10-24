@@ -87,4 +87,12 @@ constexpr gpio_num_t kImuInt = GPIO_NUM_42;  // INT_MPU (pino 39)
 
 #endif
 
+// Sentido das rodas (decisão do hardware, #394). Os motores N20 são montados espelhados e o chicote
+// é igual nos dois lados, então a roda esquerda gira ao contrário para ir para a frente. O firmware
+// inverte o lado esquerdo, e cada roda passa a ver "positivo = para a frente". Se o teste no chassi
+// (itens 3.9 e 3.10 do roteiro) mostrar o contrário, troque UMA constante: o comando `inverter` do
+// firmware de diagnóstico acha a combinação certa sem recompilar.
+constexpr bool kInvertLeftMotor = true;    // acionamento do motor esquerdo (DRV8833)
+constexpr bool kInvertLeftEncoder = true;  // contagem do encoder esquerdo
+
 }  // namespace micromouse::adapters::pins

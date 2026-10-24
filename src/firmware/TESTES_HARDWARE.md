@@ -6,7 +6,7 @@ Roteiro para testar **cada componente do robô separadamente**, com o mesmo cód
 
 ## Como funciona
 
-O firmware de diagnóstico (`esp32-diagnostico/`) abre um console na serial. Nele, cada comando testa um componente: `i2c`, `tof`, `imu`, `ina`, `motor`, `enc`, `dip`, `botao`, `led`, `buzzer`, `ble` e `taxa`.
+O firmware de diagnóstico (`esp32-diagnostico/`) abre um console na serial. Nele, cada comando testa um componente: `i2c`, `tof`, `imu`, `ina`, `motor`, `enc`, `dip`, `botao`, `led`, `buzzer`, `ble`, `taxa` e `inverter`.
 
 - Cada periférico só é ligado no primeiro comando que o usa. Um componente ausente ou com defeito **não impede** o teste dos outros.
 - Os drivers são os do robô (`src/adapters/`). Se o componente passa aqui, ele também funciona no firmware da corrida.
@@ -64,11 +64,11 @@ As tolerâncias (±10 mm, ±0,05 V, ±10 mA) são **sugestões**: o `4.3` não d
 | 3.3 | ToF: fiação de cada XSHUT | `tof xshut` | Os 3 sensores respondem em `0x29`, um de cada vez; nada responde com todos desligados |
 | 3.4 | ToF: leitura e reendereçamento | `tof 20`, com um obstáculo a 50, 100 e 200 mm de cada sensor | Distâncias com erro de até ±10 mm. Parede (`S`) abaixo de 90 mm. Depois, `i2c` mostra `0x30`, `0x31` e `0x32` |
 | 3.5 | ToF: taxa de amostragem | `taxa tof` | Leituras por segundo; anote o valor |
-| 3.6 | IMU: identificação | `imu 1` | `WHO_AM_I = 0x68 (MPU-6050 OK)` |
+| 3.6 | IMU: identificação | `imu 1` | `WHO_AM_I` de um MPU-6050 (`0x68`) ou de um compatível (`0x70` a `0x73`), com o modelo ao lado. O auto-teste do robô aceita todos esses |
 | 3.7 | IMU: calibração do giro | `imu 10` parado; depois `imu 5` girando 90° à mão | Parado: a média do giro perto de 0 (anote o desvio). Girando: ângulo final perto de ±90° |
 | 3.8 | INA219: leitura e calibração | `ina 10`, com o multímetro em paralelo (tensão) e em série (corrente) | Tensão com erro de até ±0,05 V e corrente até ±10 mA em relação ao multímetro |
-| 3.9 | Motores: acionamento básico | `motor 0.5 0.5`, `motor -0.5 -0.5`, `motor 0.5 -0.5` | As duas rodas para frente, para trás, e girando em sentidos opostos. **Robô suspenso, com as rodas fora da mesa** |
-| 3.10 | Encoders: sentido | `motor 0.5 0.5` | Os dois encoders contam **positivo** para frente |
+| 3.9 | Motores: acionamento básico | `motor 0.5 0.5`, `motor -0.5 -0.5`, `motor 0.5 -0.5` | As duas rodas para frente, para trás, e girando em sentidos opostos. **Robô suspenso, com as rodas fora da mesa**. Se a roda esquerda girar ao contrário, rode `inverter motor` e repita (ver "Sentido da roda esquerda") |
+| 3.10 | Encoders: sentido | `motor 0.5 0.5` | Os dois encoders contam **positivo** para frente. Se o esquerdo vier negativo, rode `inverter enc` e repita |
 | 3.11 | Encoders: pulsos por volta | `enc zerar`, girar a roda **uma volta** à mão, `enc 1` | O valor de cada roda. O firmware usa **280**: se der outro, avise a equipe de firmware |
 | 3.12 | Motores com encoders: velocidade | `motor 0.3 0.3 2000`, `motor 0.5 0.5 2000`, `motor 0.7 0.7 2000` | Pulsos/s crescem com a potência, e as duas rodas ficam parecidas (anote a diferença). **Não passe de 0.7** (aviso abaixo) |
 | 3.13 | DIP switch | `dip`, em cada combinação | Vias 1/2: abertas = 4x4, só a 1 = 8x4, só a 2 = 12x4, as duas = "combinação reservada". Via 3: canto de partida |
@@ -79,6 +79,19 @@ As tolerâncias (±10 mm, ±0,05 V, ±10 mA) são **sugestões**: o `4.3` não d
 ### Sobre os motores (3.9 a 3.12)
 
 > ⚠️ **Robô sempre suspenso, com as rodas fora da mesa.** A potência do comando `motor` é uma fração da tensão da bateria. Com a 2S cheia (8,4 V), `1` aplica 8,4 V nos motores N20, que são de **6 V**. Até `0.7` (cerca de 5,9 V), eles ficam na tensão nominal. Comece por `0.3`, use no máximo 2 s por comando e não passe de `0.7`. O próprio comando avisa acima disso.
+
+### Sentido da roda esquerda (3.9 e 3.10)
+
+Os motores N20 são montados espelhados e o chicote é igual nos dois lados. Por isso o firmware **inverte a roda esquerda**, tanto no acionamento do motor quanto na contagem do encoder (decisão do hardware, #394). As constantes ficam em `include/adapters/BoardPins.hpp`:
+
+| Constante | Padrão | O que inverte |
+|:--|:--|:--|
+| `kInvertLeftMotor` | `true` | o acionamento do motor esquerdo |
+| `kInvertLeftEncoder` | `true` | a contagem do encoder esquerdo |
+
+Como saber se o padrão está certo no chassi: rode `motor 0.5 0.5` (robô suspenso) e `enc`. As duas rodas têm que girar **para frente** e os dois encoders têm que contar **positivo**.
+
+Se algo vier ao contrário, o comando **`inverter motor`** (ou **`inverter enc`**) inverte aquele lado **na hora, sem recompilar**, e `inverter` sozinho mostra o estado. Vale até reiniciar a placa. Quando achar a combinação certa, anote e peça à equipe de firmware para ajustar a constante correspondente.
 
 ### Sobre os ToF (3.3 a 3.5)
 
@@ -95,10 +108,11 @@ O mapa de pinos é outro (`pinos` mostra qual). Ele vale só para testar os mód
 | Sintoma | O que conferir |
 |:--|:--|
 | `i2c` não encontra nada, ou encontra só às vezes | 3V3 e GND dos módulos; SDA e SCL trocados; **pull-ups** no SDA e no SCL. O firmware usa só os internos do ESP32 (~45 kΩ), fracos para 400 kHz com 5 dispositivos. O `4.3` não prevê pull-ups externos. Muitos módulos já trazem os seus: confira os resistores de cada módulo |
-| `WHO_AM_I` diferente de `0x68` | O módulo é outro modelo ou um clone (por exemplo, `0x70` é o MPU-6500). Avise a equipe de firmware |
+| `WHO_AM_I` fora de `0x68` e `0x70` a `0x73` | O módulo é de outra família ou não respondeu direito (`0x00` e `0xFF` indicam barramento sem dispositivo). Avise a equipe de firmware |
 | Algo responde em `0x29` com todos os XSHUT em 0 | Um XSHUT está solto ou ligado direto ao 3V3 |
-| Encoder conta negativo para frente | Inverter A e B do encoder, ou os fios do motor |
+| Encoder conta negativo para frente | `inverter enc` (só vale até reiniciar) e depois ajustar `kInvertLeftEncoder`. Se for o direito, inverter A e B do encoder ou os fios do motor |
 | O console não responde | Porta errada (use a **UART** na S3); baud diferente de 115200; aperte o RST |
+| Uma roda gira ao contrário no `motor 0.5 0.5` | `inverter motor` e depois ajustar `kInvertLeftMotor`. Se for a direita, inverter os fios do motor |
 | A placa reinicia sozinha durante o `motor` | Queda de tensão: alimente os motores pela bateria, não só pelo USB |
 
 ## Para quem mexe no código

@@ -35,14 +35,28 @@ long read(pcnt_unit_handle_t unit) {
     pcnt_unit_get_count(unit, &count);
     return count;
 }
+
+// Os Hall dos N20 têm saída em coletor aberto (#394): sem pull-up o sinal fica flutuando. O
+// pull-up interno (~45 kOhm) basta na bancada; na PCB o hardware prevê pull-ups externos.
+void enablePullups() {
+    constexpr gpio_num_t kEncoderPins[] = {pins::kEncLeftA, pins::kEncLeftB, pins::kEncRightA,
+                                           pins::kEncRightB};
+    for (const gpio_num_t pin : kEncoderPins) {
+        gpio_set_pull_mode(pin, GPIO_PULLUP_ONLY);
+    }
+}
 }  // namespace
 
 void Encoders::begin() {
     leftUnit_ = makeQuadrature(pins::kEncLeftA, pins::kEncLeftB);
     rightUnit_ = makeQuadrature(pins::kEncRightA, pins::kEncRightB);
+    enablePullups();  // depois do PCNT, que configura os pinos como entrada
 }
 
-long Encoders::left() const { return read(leftUnit_); }
+long Encoders::left() const {
+    const long count = read(leftUnit_);
+    return invertLeft_ ? -count : count;
+}
 long Encoders::right() const { return read(rightUnit_); }
 
 void Encoders::reset() {

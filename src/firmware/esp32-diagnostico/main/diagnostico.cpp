@@ -24,6 +24,7 @@
 #include "adapters/MotorDriver.hpp"
 #include "adapters/Mpu6050.hpp"
 #include "adapters/Vl53l1xSensorAdapter.hpp"
+#include "domain/ImuIdentity.hpp"
 #include "driver/gpio.h"
 #include "driver/i2c_master.h"
 #include "esp_chip_info.h"
@@ -269,9 +270,11 @@ int cmdImu(int argc, char** argv) {
         std::printf("MPU-6050 não respondeu em 0x68. Rode `i2c` para ver o barramento.\n");
         return 1;
     }
-    std::printf("WHO_AM_I = 0x%02X %s\n", *id,
-                *id == 0x68 ? "(MPU-6050 OK)"
-                            : "(esperado 0x68: outro modelo ou clone; o auto-teste do robô reprova)");
+    const domain::ImuModel model = domain::classifyImu(*id);
+    std::printf("WHO_AM_I = 0x%02X (%s)%s\n", *id, domain::imuModelName(model),
+                domain::isSupportedImu(model)
+                    ? ""
+                    : ": modelo não aceito, o auto-teste do robô reprova");
 
     std::printf("Lendo o giro Z por %ld s. Parado: o ângulo deve ficar perto de 0. Gire o robô "
                 "90° à mão: deve dar perto de ±90.\n",
@@ -547,9 +550,10 @@ int cmdVerificar(int /*argc*/, char** /*argv*/) {
     const std::optional<uint8_t> id = gImu.whoAmI();
     char detail[64] = "não responde em 0x68";
     if (id) {
-        std::snprintf(detail, sizeof detail, "WHO_AM_I = 0x%02X", *id);
+        std::snprintf(detail, sizeof detail, "WHO_AM_I = 0x%02X (%s)", *id,
+                      domain::imuModelName(domain::classifyImu(*id)));
     }
-    printCheck("MPU-6050", id && *id == 0x68, detail);
+    printCheck("MPU-6050", id && domain::isSupportedImu(domain::classifyImu(*id)), detail);
 
     ensurePower();
     printCheck("INA219", gPower.present(), "calibração gravada e lida de volta em 0x40");
@@ -585,6 +589,32 @@ int cmdPinos(int /*argc*/, char** /*argv*/) {
                 pins::kLedReady, pins::kLedError, pins::kBuzzer, pins::kButton);
     std::printf("  DIP        1=GPIO%d  2=GPIO%d  3=GPIO%d   INT MPU=GPIO%d\n", pins::kDip1,
                 pins::kDip2, pins::kDip3, pins::kImuInt);
+    std::printf("  Sentido    roda esquerda invertida: motor %s, encoder %s (`inverter`)\n",
+                gMotors.leftInverted() ? "sim" : "não", gEncoders.leftInverted() ? "sim" : "não");
+    return 0;
+}
+
+// Inverte o sentido da roda esquerda sem recompilar, para achar a combinação certa no chassi
+// (#394). Vale até reiniciar: depois, ajuste kInvertLeftMotor e kInvertLeftEncoder em
+// BoardPins.hpp.
+int cmdInverter(int argc, char** argv) {
+    if (argc >= 2) {
+        if (std::strcmp(argv[1], "motor") == 0) {
+            gMotors.setLeftInverted(!gMotors.leftInverted());
+        } else if (std::strcmp(argv[1], "enc") == 0) {
+            gEncoders.setLeftInverted(!gEncoders.leftInverted());
+        } else {
+            std::printf("uso: inverter [motor|enc]\n");
+            return 1;
+        }
+    }
+    std::printf("Roda esquerda: motor %s, encoder %s (padrão do firmware: motor %s, encoder %s).\n",
+                gMotors.leftInverted() ? "invertido" : "normal",
+                gEncoders.leftInverted() ? "invertido" : "normal",
+                pins::kInvertLeftMotor ? "invertido" : "normal",
+                pins::kInvertLeftEncoder ? "invertido" : "normal");
+    std::printf("Vale só até reiniciar. Teste com `motor 0.5 0.5` (robô suspenso): as duas rodas "
+                "para frente e os dois encoders positivos.\n");
     return 0;
 }
 
@@ -622,6 +652,7 @@ constexpr Command kCommands[] = {
     {"buzzer", "buzzer [ms] toca o buzzer por ms (padrão 300)", cmdBuzzer},
     {"ble", "ble [s] anuncia e envia mensagens de teste por s segundos (padrão 30)", cmdBle},
     {"taxa", "taxa imu | ina | tof [ms] mede leituras por segundo", cmdTaxa},
+    {"inverter", "inverter [motor|enc] inverte o sentido do motor ou do encoder esquerdo", cmdInverter},
     {"pinos", "Mostra o mapa de pinos em uso", cmdPinos},
     {"info", "Chip, memória e versão do ESP-IDF", cmdInfo},
 };

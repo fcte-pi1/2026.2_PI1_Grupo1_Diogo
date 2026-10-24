@@ -62,7 +62,7 @@ void MotorDriver::drive(int in1Channel, int in2Channel, double value) {
 }
 
 void MotorDriver::setNormalized(double left, double right) {
-    drive(kLeftIn1, kLeftIn2, left);
+    drive(kLeftIn1, kLeftIn2, invertLeft_ ? -left : left);
     drive(kRightIn1, kRightIn2, right);
 }
 
