@@ -21,6 +21,7 @@
 #include "domain/Maze.hpp"
 #include "domain/Odometry.hpp"
 #include "domain/Pid.hpp"
+#include "esp_log.h"
 #include "esp_random.h"
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
@@ -42,10 +43,12 @@ using namespace micromouse;
 
 namespace {
 
+constexpr char kTag[] = "main";
+
 // Parâmetros físicos.
 // Todos estes valores devem ser AFERIDOS EM BANCADA antes da corrida final.
 constexpr domain::WheelConfig kWheels{32.0, 280, 180.0};
-constexpr domain::TurnConfig kTurn{32.0, 280, 90.0};
+constexpr domain::TurnConfig kTurn{32.0, 280, 88.0};  // bitola medida (#394)
 constexpr domain::PidGains kStraightGains{0.02, 0.0, 0.002};
 
 adapters::I2cBus gI2c;
@@ -112,9 +115,35 @@ void navigationTask(void*) {
 
     use_cases::SessionManager session(gLocal);
 
+    // RNF-35: o DIP é lido UMA vez, aqui no boot, e travado. Uma chave mexida durante a corrida
+    // não muda o labirinto nem o canto de partida. Vias 1 e 2 fechadas juntas são uma combinação
+    // proibida (#393): o decoder lança, e sem tratar a exceção a placa reiniciaria em laço. Aqui
+    // o robô sinaliza a falha e não larga.
+    vTaskDelay(pdMS_TO_TICKS(10));  // os pull-ups internos das vias assentam
+    std::optional<domain::MazeSetup> parsedSetup;
+    try {
+        parsedSetup = gDip.read();
+    } catch (const std::invalid_argument&) {
+    }
+    if (!parsedSetup) {
+        ESP_LOGE(kTag, "DIP em combinacao proibida (vias 1 e 2 fechadas): o robo nao larga");
+        session.fault();
+        telemetry::Snapshot state{};
+        state.phase = session.getCurrentPhase();
+        writeState(state);
+        while (true) {
+            vTaskDelay(pdMS_TO_TICKS(200));
+        }
+    }
+    const domain::MazeSetup setup = *parsedSetup;
+    ESP_LOGI(kTag, "DIP lido no boot: labirinto %dx%d, partida pela %s", setup.columns, setup.rows,
+             setup.start.column == 0 ? "esquerda" : "direita");
+
+    ESP_LOGI(kTag, "aguardando o botao de largada");
     while (!gLocal.buttonPressed()) {
         vTaskDelay(pdMS_TO_TICKS(10));
     }
+    ESP_LOGI(kTag, "botao de largada acionado");
     session.start();
 
 #if CONFIG_RATO_BANCADA
@@ -132,23 +161,6 @@ void navigationTask(void*) {
         }
     }
 
-    // Vias 1 e 2 fechadas juntas são uma combinação reservada: o decoder lança. Sem tratar,
-    // a exceção aborta a tarefa e a placa reinicia em laço; aqui sinaliza a falha e para.
-    std::optional<domain::MazeSetup> parsedSetup;
-    try {
-        parsedSetup = gDip.read();
-    } catch (const std::invalid_argument&) {
-    }
-    if (!parsedSetup) {
-        session.fault();
-        telemetry::Snapshot state{};
-        state.phase = session.getCurrentPhase();
-        writeState(state);
-        while (true) {
-            vTaskDelay(pdMS_TO_TICKS(200));
-        }
-    }
-    const domain::MazeSetup setup = *parsedSetup;
     TeleEvent startEvent{};
     startEvent.kind = TeleEvent::Start;
     startEvent.time = nowMs();
