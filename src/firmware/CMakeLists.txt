@@ -52,6 +52,7 @@ add_library(firmware_logic STATIC
     src/use_cases/SessionManager.cpp
     src/domain/Odometry.cpp
     src/domain/DipDecoder.cpp
+    src/domain/BuzzerPattern.cpp
     src/domain/Pid.cpp
     src/controller/MotionController.cpp
     src/protocol/ProtocolV1.cpp
