@@ -58,6 +58,7 @@ add_library(firmware_logic STATIC
     src/telemetry/TelemetryBuffer.cpp
     src/telemetry/TelemetryEmitter.cpp
     src/domain/Maneuver.cpp
+    src/domain/ImuIdentity.cpp
 )
 
 target_include_directories(firmware_logic PUBLIC

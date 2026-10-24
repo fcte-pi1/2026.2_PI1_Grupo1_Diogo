@@ -14,7 +14,8 @@ private:
 
 public:
     void begin(i2c_master_bus_handle_t bus);
-    [[nodiscard]] bool present() const;           // WHO_AM_I == 0x68 (RF-29)
+    // WHO_AM_I da família compatível: 0x68, 0x70, 0x71, 0x72 ou 0x73 (RF-29, #391)
+    [[nodiscard]] bool present() const;
     [[nodiscard]] double gyroZDegPerSec() const;  // eixo vertical (yaw)
     // Valor lido do WHO_AM_I; vazio se a transação I²C falhar. Clones costumam
     // responder outro valor (0x70 no MPU-6500, 0x71 no MPU-9250).
