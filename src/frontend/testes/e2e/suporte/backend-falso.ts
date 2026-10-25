@@ -18,6 +18,7 @@ export interface RespostaHttp {
   corpo?: unknown;
   /** Demora a responder, para ver os estados de carregamento. */
   atrasoMs?: number;
+  aguardar?: Promise<void>;
   /** A requisição falha na rede, sem resposta HTTP. */
   abortar?: boolean;
 }
@@ -94,6 +95,7 @@ export class BackendFalso {
   private async responder(route: Route, resposta: RespostaHttp): Promise<void> {
     try {
       if (resposta.atrasoMs) await esperarMs(resposta.atrasoMs);
+      if (resposta.aguardar) await resposta.aguardar;
       if (resposta.abortar) return await route.abort('failed');
       await route.fulfill({
         status: resposta.status ?? 200,

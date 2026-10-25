@@ -68,12 +68,20 @@ test.describe('histórico de execuções', () => {
   test('mostra o carregamento e não deixa dados antigos como se fossem os atuais', async ({
     page,
   }) => {
-    backend.listar = () => ({ corpo: listaDe([resumo()]), atrasoMs: 800 });
+    let liberar!: () => void;
+    const portao = new Promise<void>((resolver) => {
+      liberar = resolver;
+    });
+    page.once('close', liberar);
+    backend.listar = () => ({ corpo: listaDe([resumo()]), aguardar: portao });
 
     await page.goto('/historico');
 
     await expect(page.getByText('Carregando histórico…')).toBeVisible();
     await expect(page.locator('tbody tr')).toHaveCount(0);
+
+    liberar();
+
     await expect(page.locator('tbody tr')).toHaveCount(1);
     await expect(page.getByText('Carregando histórico…')).toBeHidden();
   });

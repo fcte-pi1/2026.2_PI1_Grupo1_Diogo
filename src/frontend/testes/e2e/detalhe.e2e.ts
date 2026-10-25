@@ -43,12 +43,20 @@ test.describe('detalhe de uma execução', () => {
   });
 
   test('mostra o carregamento enquanto a execução chega', async ({ page }) => {
-    backend.detalhe = (id) => ({ corpo: detalheHttp({ id }), atrasoMs: 700 });
+    let liberar!: () => void;
+    const portao = new Promise<void>((resolver) => {
+      liberar = resolver;
+    });
+    page.once('close', liberar);
+    backend.detalhe = (id) => ({ corpo: detalheHttp({ id }), aguardar: portao });
 
     await abrir(page);
 
     await expect(page.getByTestId('detalhe-carregando')).toContainText('Carregando execução…');
     await expect(page.getByTestId('painel-execucao')).toHaveCount(0);
+
+    liberar();
+
     await expect(page.getByTestId('painel-execucao')).toBeVisible();
     await expect(page.getByTestId('detalhe-carregando')).toBeHidden();
   });
