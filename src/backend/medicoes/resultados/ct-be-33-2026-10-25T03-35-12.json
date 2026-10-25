@@ -1,0 +1,658 @@
+{
+  "caso": "CT-BE-33",
+  "requisitos": [
+    "RNF-49",
+    "RNF-51"
+  ],
+  "data": "2026-10-25T03:35:12.088Z",
+  "backend_url": "http://localhost:8080",
+  "parametros": {
+    "taxa": 50,
+    "paineis": 10,
+    "duracaoS": 300,
+    "labirinto": "12x4",
+    "semente": 3764163371,
+    "boot": "5f1780"
+  },
+  "duracao_real_s": 318,
+  "corridas": 16,
+  "mensagens_emitidas": 15904,
+  "mensagens_gravadas": 15904,
+  "event_loop_atraso_ms": {
+    "p50": 0.17,
+    "p99": 1.09
+  },
+  "event_loop_p99_maximo_nas_consultas_depois_de_60s_ms": 1.15,
+  "health_resposta_ms": {
+    "amostras": 64,
+    "p50": 2.42,
+    "p95": 4.62,
+    "p99": 15.92,
+    "max": 15.92
+  },
+  "ingestao_delta": {
+    "aceitas": 15904,
+    "duplicadas": 0,
+    "rejeitadas": 0,
+    "conexoesRecusadas": 0
+  },
+  "backend_latencia_painel_ms": {
+    "eventos": {
+      "amostras": 751,
+      "p50": 11.9,
+      "p95": 12.68,
+      "p99": 14.46,
+      "max": 24.91
+    },
+    "continuos": {
+      "amostras": 3165,
+      "p50": 12.47,
+      "p95": 13.4,
+      "p99": 14.95,
+      "max": 50.11
+    }
+  },
+  "paineis": {
+    "quantidade": 10,
+    "mensagens_recebidas": [
+      4318,
+      4318,
+      4318,
+      4318,
+      4318,
+      4318,
+      4318,
+      4318,
+      4318,
+      4318
+    ],
+    "fechamentos_inesperados": []
+  },
+  "simulador_fechamentos": [
+    {
+      "codigo": 1000,
+      "motivo": "simulador encerrado"
+    }
+  ],
+  "consultas_health": [
+    {
+      "t_s": 0,
+      "codigo": 200,
+      "resposta_ms": 15.92,
+      "event_loop_p99_ms": 18.37
+    },
+    {
+      "t_s": 5,
+      "codigo": 200,
+      "resposta_ms": 3.1,
+      "event_loop_p99_ms": 1.51
+    },
+    {
+      "t_s": 10,
+      "codigo": 200,
+      "resposta_ms": 4.29,
+      "event_loop_p99_ms": 2.17
+    },
+    {
+      "t_s": 15,
+      "codigo": 200,
+      "resposta_ms": 4.62,
+      "event_loop_p99_ms": 2.09
+    },
+    {
+      "t_s": 20,
+      "codigo": 200,
+      "resposta_ms": 3.2,
+      "event_loop_p99_ms": 1.89
+    },
+    {
+      "t_s": 25,
+      "codigo": 200,
+      "resposta_ms": 3.34,
+      "event_loop_p99_ms": 1.48
+    },
+    {
+      "t_s": 30,
+      "codigo": 200,
+      "resposta_ms": 2.53,
+      "event_loop_p99_ms": 1.48
+    },
+    {
+      "t_s": 35,
+      "codigo": 200,
+      "resposta_ms": 3.93,
+      "event_loop_p99_ms": 1.36
+    },
+    {
+      "t_s": 40,
+      "codigo": 200,
+      "resposta_ms": 3.93,
+      "event_loop_p99_ms": 1.22
+    },
+    {
+      "t_s": 45,
+      "codigo": 200,
+      "resposta_ms": 2.42,
+      "event_loop_p99_ms": 1.2
+    },
+    {
+      "t_s": 50,
+      "codigo": 200,
+      "resposta_ms": 2.26,
+      "event_loop_p99_ms": 1.18
+    },
+    {
+      "t_s": 55.1,
+      "codigo": 200,
+      "resposta_ms": 2.69,
+      "event_loop_p99_ms": 1.15
+    },
+    {
+      "t_s": 60.1,
+      "codigo": 200,
+      "resposta_ms": 2.42,
+      "event_loop_p99_ms": 1.15
+    },
+    {
+      "t_s": 65.1,
+      "codigo": 200,
+      "resposta_ms": 3.09,
+      "event_loop_p99_ms": 1.15
+    },
+    {
+      "t_s": 70.1,
+      "codigo": 200,
+      "resposta_ms": 1.94,
+      "event_loop_p99_ms": 1.15
+    },
+    {
+      "t_s": 75.1,
+      "codigo": 200,
+      "resposta_ms": 2,
+      "event_loop_p99_ms": 1.15
+    },
+    {
+      "t_s": 80.1,
+      "codigo": 200,
+      "resposta_ms": 3.7,
+      "event_loop_p99_ms": 1.15
+    },
+    {
+      "t_s": 85.1,
+      "codigo": 200,
+      "resposta_ms": 2.18,
+      "event_loop_p99_ms": 1.15
+    },
+    {
+      "t_s": 90.1,
+      "codigo": 200,
+      "resposta_ms": 6.94,
+      "event_loop_p99_ms": 1.15
+    },
+    {
+      "t_s": 95.1,
+      "codigo": 200,
+      "resposta_ms": 2.42,
+      "event_loop_p99_ms": 1.14
+    },
+    {
+      "t_s": 100.1,
+      "codigo": 200,
+      "resposta_ms": 2.69,
+      "event_loop_p99_ms": 1.14
+    },
+    {
+      "t_s": 105.1,
+      "codigo": 200,
+      "resposta_ms": 2.43,
+      "event_loop_p99_ms": 1.14
+    },
+    {
+      "t_s": 110.1,
+      "codigo": 200,
+      "resposta_ms": 2.35,
+      "event_loop_p99_ms": 1.12
+    },
+    {
+      "t_s": 115.1,
+      "codigo": 200,
+      "resposta_ms": 2.25,
+      "event_loop_p99_ms": 1.12
+    },
+    {
+      "t_s": 120.1,
+      "codigo": 200,
+      "resposta_ms": 2.77,
+      "event_loop_p99_ms": 1.12
+    },
+    {
+      "t_s": 125.1,
+      "codigo": 200,
+      "resposta_ms": 2.39,
+      "event_loop_p99_ms": 1.12
+    },
+    {
+      "t_s": 130.1,
+      "codigo": 200,
+      "resposta_ms": 2.72,
+      "event_loop_p99_ms": 1.1
+    },
+    {
+      "t_s": 135.1,
+      "codigo": 200,
+      "resposta_ms": 3.61,
+      "event_loop_p99_ms": 1.12
+    },
+    {
+      "t_s": 140.1,
+      "codigo": 200,
+      "resposta_ms": 2.16,
+      "event_loop_p99_ms": 1.1
+    },
+    {
+      "t_s": 145.1,
+      "codigo": 200,
+      "resposta_ms": 2.76,
+      "event_loop_p99_ms": 1.12
+    },
+    {
+      "t_s": 150.1,
+      "codigo": 200,
+      "resposta_ms": 2.38,
+      "event_loop_p99_ms": 1.1
+    },
+    {
+      "t_s": 155.1,
+      "codigo": 200,
+      "resposta_ms": 2.4,
+      "event_loop_p99_ms": 1.1
+    },
+    {
+      "t_s": 160.1,
+      "codigo": 200,
+      "resposta_ms": 2.36,
+      "event_loop_p99_ms": 1.12
+    },
+    {
+      "t_s": 165.1,
+      "codigo": 200,
+      "resposta_ms": 2.22,
+      "event_loop_p99_ms": 1.1
+    },
+    {
+      "t_s": 170.1,
+      "codigo": 200,
+      "resposta_ms": 2.04,
+      "event_loop_p99_ms": 1.1
+    },
+    {
+      "t_s": 175.1,
+      "codigo": 200,
+      "resposta_ms": 2.51,
+      "event_loop_p99_ms": 1.1
+    },
+    {
+      "t_s": 180.1,
+      "codigo": 200,
+      "resposta_ms": 2.16,
+      "event_loop_p99_ms": 1.1
+    },
+    {
+      "t_s": 185.1,
+      "codigo": 200,
+      "resposta_ms": 2.57,
+      "event_loop_p99_ms": 1.1
+    },
+    {
+      "t_s": 190.1,
+      "codigo": 200,
+      "resposta_ms": 2.25,
+      "event_loop_p99_ms": 1.1
+    },
+    {
+      "t_s": 195.1,
+      "codigo": 200,
+      "resposta_ms": 3.23,
+      "event_loop_p99_ms": 1.1
+    },
+    {
+      "t_s": 200.1,
+      "codigo": 200,
+      "resposta_ms": 2.5,
+      "event_loop_p99_ms": 1.1
+    },
+    {
+      "t_s": 205.1,
+      "codigo": 200,
+      "resposta_ms": 2.35,
+      "event_loop_p99_ms": 1.1
+    },
+    {
+      "t_s": 210.1,
+      "codigo": 200,
+      "resposta_ms": 6.26,
+      "event_loop_p99_ms": 1.1
+    },
+    {
+      "t_s": 215.1,
+      "codigo": 200,
+      "resposta_ms": 2.86,
+      "event_loop_p99_ms": 1.1
+    },
+    {
+      "t_s": 220.1,
+      "codigo": 200,
+      "resposta_ms": 2.06,
+      "event_loop_p99_ms": 1.1
+    },
+    {
+      "t_s": 225.2,
+      "codigo": 200,
+      "resposta_ms": 2.24,
+      "event_loop_p99_ms": 1.09
+    },
+    {
+      "t_s": 230.2,
+      "codigo": 200,
+      "resposta_ms": 1.97,
+      "event_loop_p99_ms": 1.1
+    },
+    {
+      "t_s": 235.2,
+      "codigo": 200,
+      "resposta_ms": 3.39,
+      "event_loop_p99_ms": 1.09
+    },
+    {
+      "t_s": 240.2,
+      "codigo": 200,
+      "resposta_ms": 2.13,
+      "event_loop_p99_ms": 1.09
+    },
+    {
+      "t_s": 245.2,
+      "codigo": 200,
+      "resposta_ms": 1.95,
+      "event_loop_p99_ms": 1.09
+    },
+    {
+      "t_s": 250.2,
+      "codigo": 200,
+      "resposta_ms": 2.54,
+      "event_loop_p99_ms": 1.09
+    },
+    {
+      "t_s": 255.2,
+      "codigo": 200,
+      "resposta_ms": 2.2,
+      "event_loop_p99_ms": 1.1
+    },
+    {
+      "t_s": 260.2,
+      "codigo": 200,
+      "resposta_ms": 3.18,
+      "event_loop_p99_ms": 1.1
+    },
+    {
+      "t_s": 265.2,
+      "codigo": 200,
+      "resposta_ms": 2.72,
+      "event_loop_p99_ms": 1.1
+    },
+    {
+      "t_s": 270.2,
+      "codigo": 200,
+      "resposta_ms": 2.3,
+      "event_loop_p99_ms": 1.1
+    },
+    {
+      "t_s": 275.2,
+      "codigo": 200,
+      "resposta_ms": 2.88,
+      "event_loop_p99_ms": 1.1
+    },
+    {
+      "t_s": 280.2,
+      "codigo": 200,
+      "resposta_ms": 2.29,
+      "event_loop_p99_ms": 1.1
+    },
+    {
+      "t_s": 285.2,
+      "codigo": 200,
+      "resposta_ms": 2.08,
+      "event_loop_p99_ms": 1.1
+    },
+    {
+      "t_s": 290.2,
+      "codigo": 200,
+      "resposta_ms": 2.04,
+      "event_loop_p99_ms": 1.1
+    },
+    {
+      "t_s": 295.2,
+      "codigo": 200,
+      "resposta_ms": 2.18,
+      "event_loop_p99_ms": 1.1
+    },
+    {
+      "t_s": 300.2,
+      "codigo": 200,
+      "resposta_ms": 2.43,
+      "event_loop_p99_ms": 1.1
+    },
+    {
+      "t_s": 305.2,
+      "codigo": 200,
+      "resposta_ms": 2.41,
+      "event_loop_p99_ms": 1.1
+    },
+    {
+      "t_s": 310.2,
+      "codigo": 200,
+      "resposta_ms": 2.29,
+      "event_loop_p99_ms": 1.09
+    },
+    {
+      "t_s": 315.2,
+      "codigo": 200,
+      "resposta_ms": 2.01,
+      "event_loop_p99_ms": 1.09
+    }
+  ],
+  "exportacoes": [
+    {
+      "t_s": 75.1,
+      "corrida": "52997480-7359-4618-9a7c-1d31a308595d",
+      "codigo": 200,
+      "ms": 29.15,
+      "bytes": 72529,
+      "linhas": 994
+    },
+    {
+      "t_s": 150.2,
+      "corrida": "f3564547-2a0e-4674-aa62-d9a180ed0971",
+      "codigo": 200,
+      "ms": 16.6,
+      "bytes": 72535,
+      "linhas": 994
+    },
+    {
+      "t_s": 225.1,
+      "corrida": "c35ee0f4-7563-4fba-b8a9-235e7fb985d8",
+      "codigo": 200,
+      "ms": 19.31,
+      "bytes": 72526,
+      "linhas": 994
+    }
+  ],
+  "persistencia": [
+    {
+      "corrida_robo": "r5f1780-1",
+      "corrida": "090adf24-403e-45ed-9a6f-e5bc7891920f",
+      "enviadas": 994,
+      "gravadas": 994,
+      "distintas": 994,
+      "max_seq": 994
+    },
+    {
+      "corrida_robo": "r5f1780-2",
+      "corrida": "b9ff9af4-5188-4399-be17-5e46167a092d",
+      "enviadas": 994,
+      "gravadas": 994,
+      "distintas": 994,
+      "max_seq": 994
+    },
+    {
+      "corrida_robo": "r5f1780-3",
+      "corrida": "52997480-7359-4618-9a7c-1d31a308595d",
+      "enviadas": 994,
+      "gravadas": 994,
+      "distintas": 994,
+      "max_seq": 994
+    },
+    {
+      "corrida_robo": "r5f1780-4",
+      "corrida": "67656532-845e-4991-a285-220f054bce5c",
+      "enviadas": 994,
+      "gravadas": 994,
+      "distintas": 994,
+      "max_seq": 994
+    },
+    {
+      "corrida_robo": "r5f1780-5",
+      "corrida": "851d37b1-216e-4fb4-af25-080cd4b04517",
+      "enviadas": 994,
+      "gravadas": 994,
+      "distintas": 994,
+      "max_seq": 994
+    },
+    {
+      "corrida_robo": "r5f1780-6",
+      "corrida": "0a7bf5df-b3fb-4427-9c67-9d9d736d688b",
+      "enviadas": 994,
+      "gravadas": 994,
+      "distintas": 994,
+      "max_seq": 994
+    },
+    {
+      "corrida_robo": "r5f1780-7",
+      "corrida": "f3564547-2a0e-4674-aa62-d9a180ed0971",
+      "enviadas": 994,
+      "gravadas": 994,
+      "distintas": 994,
+      "max_seq": 994
+    },
+    {
+      "corrida_robo": "r5f1780-8",
+      "corrida": "d6c65941-7593-4720-b0b1-cd24e63d6033",
+      "enviadas": 994,
+      "gravadas": 994,
+      "distintas": 994,
+      "max_seq": 994
+    },
+    {
+      "corrida_robo": "r5f1780-9",
+      "corrida": "754aca8a-ed90-4882-be60-ce160d5cc12a",
+      "enviadas": 994,
+      "gravadas": 994,
+      "distintas": 994,
+      "max_seq": 994
+    },
+    {
+      "corrida_robo": "r5f1780-10",
+      "corrida": "d99f7923-5fb8-4a15-9459-b94097f4fe54",
+      "enviadas": 994,
+      "gravadas": 994,
+      "distintas": 994,
+      "max_seq": 994
+    },
+    {
+      "corrida_robo": "r5f1780-11",
+      "corrida": "c35ee0f4-7563-4fba-b8a9-235e7fb985d8",
+      "enviadas": 994,
+      "gravadas": 994,
+      "distintas": 994,
+      "max_seq": 994
+    },
+    {
+      "corrida_robo": "r5f1780-12",
+      "corrida": "62696d17-ec22-470e-b7cf-f27945fb89e2",
+      "enviadas": 994,
+      "gravadas": 994,
+      "distintas": 994,
+      "max_seq": 994
+    },
+    {
+      "corrida_robo": "r5f1780-13",
+      "corrida": "2d8518ed-8d78-4ae7-917c-102fa7c5d700",
+      "enviadas": 994,
+      "gravadas": 994,
+      "distintas": 994,
+      "max_seq": 994
+    },
+    {
+      "corrida_robo": "r5f1780-14",
+      "corrida": "dd565cd8-45d4-4d7f-9286-4c95fc3d4f75",
+      "enviadas": 994,
+      "gravadas": 994,
+      "distintas": 994,
+      "max_seq": 994
+    },
+    {
+      "corrida_robo": "r5f1780-15",
+      "corrida": "01d3249b-bc8d-4f82-b4c6-bc002778f2ec",
+      "enviadas": 994,
+      "gravadas": 994,
+      "distintas": 994,
+      "max_seq": 994
+    },
+    {
+      "corrida_robo": "r5f1780-16",
+      "corrida": "07219330-a0e2-49f1-9825-dc7f6a44e217",
+      "enviadas": 994,
+      "gravadas": 994,
+      "distintas": 994,
+      "max_seq": 994
+    }
+  ],
+  "criterios": [
+    {
+      "nome": "RNF-49: atraso do event loop, p99 (fim da carga)",
+      "limite": "≤ 20 ms",
+      "medido": "1.09 ms (maior p99 nas consultas depois de 60 s: 1.15 ms)",
+      "ok": true
+    },
+    {
+      "nome": "RNF-51: todas as mensagens gravadas (count = enviadas, sem duplicata)",
+      "limite": "15904 de 15904",
+      "medido": "15904 de 15904",
+      "ok": true
+    },
+    {
+      "nome": "RNF-51: nenhuma rejeição por sobrecarga",
+      "limite": "0 rejeitadas, 0 recusas, 0 quedas do simulador",
+      "medido": "0 rejeitadas, 0 recusas, 0 quedas",
+      "ok": true
+    },
+    {
+      "nome": "RNF-51: nenhum painel desconectado",
+      "limite": "0",
+      "medido": "0",
+      "ok": true
+    },
+    {
+      "nome": "/health a cada 5 s respondeu 200",
+      "limite": "todas",
+      "medido": "64 de 64",
+      "ok": true
+    },
+    {
+      "nome": "3 exportações CSV durante a carga",
+      "limite": "3 com 200",
+      "medido": "3 de 3",
+      "ok": true
+    }
+  ],
+  "aprovado": true
+}

@@ -1,0 +1,672 @@
+{
+  "caso": "CT-BE-33",
+  "requisitos": [
+    "RNF-49",
+    "RNF-51"
+  ],
+  "data": "2026-10-25T15:21:19.215Z",
+  "backend_url": "http://localhost:8080",
+  "parametros": {
+    "taxa": 50,
+    "paineis": 10,
+    "duracaoS": 300,
+    "labirinto": "12x4",
+    "semente": 1459904303,
+    "boot": "685619"
+  },
+  "duracao_real_s": 302.4,
+  "corridas": 20,
+  "mensagens_emitidas": 15120,
+  "mensagens_gravadas": 15120,
+  "event_loop_atraso_ms": {
+    "p50": 0.14,
+    "p99": 0.92
+  },
+  "event_loop_p99_maximo_nas_consultas_depois_de_60s_ms": 0.92,
+  "health_resposta_ms": {
+    "amostras": 61,
+    "p50": 1.62,
+    "p95": 2.15,
+    "p99": 5.35,
+    "max": 5.35
+  },
+  "ingestao_delta": {
+    "aceitas": 15120,
+    "duplicadas": 0,
+    "rejeitadas": 0,
+    "conexoesRecusadas": 0
+  },
+  "backend_latencia_painel_ms": {
+    "eventos": {
+      "amostras": 699,
+      "p50": 11.5,
+      "p95": 12.04,
+      "p99": 12.32,
+      "max": 21.94
+    },
+    "continuos": {
+      "amostras": 3019,
+      "p50": 12.02,
+      "p95": 12.79,
+      "p99": 13.26,
+      "max": 20.42
+    }
+  },
+  "paineis": {
+    "quantidade": 10,
+    "mensagens_recebidas": [
+      4125,
+      4125,
+      4125,
+      4125,
+      4125,
+      4125,
+      4125,
+      4125,
+      4125,
+      4125
+    ],
+    "fechamentos_inesperados": []
+  },
+  "simulador_fechamentos": [
+    {
+      "codigo": 1000,
+      "motivo": "simulador encerrado"
+    }
+  ],
+  "consultas_health": [
+    {
+      "t_s": 0,
+      "codigo": 200,
+      "resposta_ms": 5.35,
+      "event_loop_p99_ms": 0.63
+    },
+    {
+      "t_s": 5,
+      "codigo": 200,
+      "resposta_ms": 1.85,
+      "event_loop_p99_ms": 0.66
+    },
+    {
+      "t_s": 10,
+      "codigo": 200,
+      "resposta_ms": 1.9,
+      "event_loop_p99_ms": 0.68
+    },
+    {
+      "t_s": 15,
+      "codigo": 200,
+      "resposta_ms": 1.93,
+      "event_loop_p99_ms": 0.69
+    },
+    {
+      "t_s": 20,
+      "codigo": 200,
+      "resposta_ms": 1.95,
+      "event_loop_p99_ms": 0.71
+    },
+    {
+      "t_s": 25,
+      "codigo": 200,
+      "resposta_ms": 1.79,
+      "event_loop_p99_ms": 0.73
+    },
+    {
+      "t_s": 30.1,
+      "codigo": 200,
+      "resposta_ms": 2,
+      "event_loop_p99_ms": 0.73
+    },
+    {
+      "t_s": 35.1,
+      "codigo": 200,
+      "resposta_ms": 2.49,
+      "event_loop_p99_ms": 0.76
+    },
+    {
+      "t_s": 40.1,
+      "codigo": 200,
+      "resposta_ms": 1.89,
+      "event_loop_p99_ms": 0.76
+    },
+    {
+      "t_s": 45.1,
+      "codigo": 200,
+      "resposta_ms": 1.62,
+      "event_loop_p99_ms": 0.77
+    },
+    {
+      "t_s": 50.1,
+      "codigo": 200,
+      "resposta_ms": 1.41,
+      "event_loop_p99_ms": 0.79
+    },
+    {
+      "t_s": 55.1,
+      "codigo": 200,
+      "resposta_ms": 1.57,
+      "event_loop_p99_ms": 0.79
+    },
+    {
+      "t_s": 60.1,
+      "codigo": 200,
+      "resposta_ms": 1.79,
+      "event_loop_p99_ms": 0.81
+    },
+    {
+      "t_s": 65.1,
+      "codigo": 200,
+      "resposta_ms": 2.05,
+      "event_loop_p99_ms": 0.81
+    },
+    {
+      "t_s": 70.1,
+      "codigo": 200,
+      "resposta_ms": 2.15,
+      "event_loop_p99_ms": 0.82
+    },
+    {
+      "t_s": 75.1,
+      "codigo": 200,
+      "resposta_ms": 1.76,
+      "event_loop_p99_ms": 0.82
+    },
+    {
+      "t_s": 80.1,
+      "codigo": 200,
+      "resposta_ms": 1.46,
+      "event_loop_p99_ms": 0.84
+    },
+    {
+      "t_s": 85.1,
+      "codigo": 200,
+      "resposta_ms": 1.86,
+      "event_loop_p99_ms": 0.84
+    },
+    {
+      "t_s": 90.1,
+      "codigo": 200,
+      "resposta_ms": 1.52,
+      "event_loop_p99_ms": 0.84
+    },
+    {
+      "t_s": 95.1,
+      "codigo": 200,
+      "resposta_ms": 2.24,
+      "event_loop_p99_ms": 0.84
+    },
+    {
+      "t_s": 100.1,
+      "codigo": 200,
+      "resposta_ms": 1.52,
+      "event_loop_p99_ms": 0.86
+    },
+    {
+      "t_s": 105.2,
+      "codigo": 200,
+      "resposta_ms": 1.72,
+      "event_loop_p99_ms": 0.86
+    },
+    {
+      "t_s": 110.2,
+      "codigo": 200,
+      "resposta_ms": 1.6,
+      "event_loop_p99_ms": 0.86
+    },
+    {
+      "t_s": 115.2,
+      "codigo": 200,
+      "resposta_ms": 1.54,
+      "event_loop_p99_ms": 0.86
+    },
+    {
+      "t_s": 120.2,
+      "codigo": 200,
+      "resposta_ms": 1.65,
+      "event_loop_p99_ms": 0.86
+    },
+    {
+      "t_s": 125.2,
+      "codigo": 200,
+      "resposta_ms": 1.73,
+      "event_loop_p99_ms": 0.87
+    },
+    {
+      "t_s": 130.2,
+      "codigo": 200,
+      "resposta_ms": 1.49,
+      "event_loop_p99_ms": 0.87
+    },
+    {
+      "t_s": 135.2,
+      "codigo": 200,
+      "resposta_ms": 1.44,
+      "event_loop_p99_ms": 0.87
+    },
+    {
+      "t_s": 140.2,
+      "codigo": 200,
+      "resposta_ms": 1.76,
+      "event_loop_p99_ms": 0.87
+    },
+    {
+      "t_s": 145.2,
+      "codigo": 200,
+      "resposta_ms": 1.56,
+      "event_loop_p99_ms": 0.87
+    },
+    {
+      "t_s": 150.2,
+      "codigo": 200,
+      "resposta_ms": 1.7,
+      "event_loop_p99_ms": 0.87
+    },
+    {
+      "t_s": 155.2,
+      "codigo": 200,
+      "resposta_ms": 1.75,
+      "event_loop_p99_ms": 0.87
+    },
+    {
+      "t_s": 160.2,
+      "codigo": 200,
+      "resposta_ms": 1.65,
+      "event_loop_p99_ms": 0.87
+    },
+    {
+      "t_s": 165.2,
+      "codigo": 200,
+      "resposta_ms": 1.41,
+      "event_loop_p99_ms": 0.87
+    },
+    {
+      "t_s": 170.2,
+      "codigo": 200,
+      "resposta_ms": 1.61,
+      "event_loop_p99_ms": 0.89
+    },
+    {
+      "t_s": 175.2,
+      "codigo": 200,
+      "resposta_ms": 1.6,
+      "event_loop_p99_ms": 0.89
+    },
+    {
+      "t_s": 180.2,
+      "codigo": 200,
+      "resposta_ms": 1.61,
+      "event_loop_p99_ms": 0.89
+    },
+    {
+      "t_s": 185.3,
+      "codigo": 200,
+      "resposta_ms": 1.67,
+      "event_loop_p99_ms": 0.89
+    },
+    {
+      "t_s": 190.3,
+      "codigo": 200,
+      "resposta_ms": 1.46,
+      "event_loop_p99_ms": 0.89
+    },
+    {
+      "t_s": 195.3,
+      "codigo": 200,
+      "resposta_ms": 1.5,
+      "event_loop_p99_ms": 0.89
+    },
+    {
+      "t_s": 200.3,
+      "codigo": 200,
+      "resposta_ms": 1.73,
+      "event_loop_p99_ms": 0.89
+    },
+    {
+      "t_s": 205.3,
+      "codigo": 200,
+      "resposta_ms": 1.5,
+      "event_loop_p99_ms": 0.89
+    },
+    {
+      "t_s": 210.3,
+      "codigo": 200,
+      "resposta_ms": 1.46,
+      "event_loop_p99_ms": 0.89
+    },
+    {
+      "t_s": 215.3,
+      "codigo": 200,
+      "resposta_ms": 1.5,
+      "event_loop_p99_ms": 0.89
+    },
+    {
+      "t_s": 220.3,
+      "codigo": 200,
+      "resposta_ms": 1.64,
+      "event_loop_p99_ms": 0.89
+    },
+    {
+      "t_s": 225.3,
+      "codigo": 200,
+      "resposta_ms": 1.71,
+      "event_loop_p99_ms": 0.89
+    },
+    {
+      "t_s": 230.3,
+      "codigo": 200,
+      "resposta_ms": 1.59,
+      "event_loop_p99_ms": 0.91
+    },
+    {
+      "t_s": 235.3,
+      "codigo": 200,
+      "resposta_ms": 1.48,
+      "event_loop_p99_ms": 0.91
+    },
+    {
+      "t_s": 240.3,
+      "codigo": 200,
+      "resposta_ms": 1.57,
+      "event_loop_p99_ms": 0.91
+    },
+    {
+      "t_s": 245.3,
+      "codigo": 200,
+      "resposta_ms": 1.48,
+      "event_loop_p99_ms": 0.91
+    },
+    {
+      "t_s": 250.3,
+      "codigo": 200,
+      "resposta_ms": 1.53,
+      "event_loop_p99_ms": 0.91
+    },
+    {
+      "t_s": 255.3,
+      "codigo": 200,
+      "resposta_ms": 1.44,
+      "event_loop_p99_ms": 0.91
+    },
+    {
+      "t_s": 260.3,
+      "codigo": 200,
+      "resposta_ms": 1.93,
+      "event_loop_p99_ms": 0.91
+    },
+    {
+      "t_s": 265.4,
+      "codigo": 200,
+      "resposta_ms": 1.96,
+      "event_loop_p99_ms": 0.91
+    },
+    {
+      "t_s": 270.4,
+      "codigo": 200,
+      "resposta_ms": 1.76,
+      "event_loop_p99_ms": 0.92
+    },
+    {
+      "t_s": 275.4,
+      "codigo": 200,
+      "resposta_ms": 1.5,
+      "event_loop_p99_ms": 0.92
+    },
+    {
+      "t_s": 280.4,
+      "codigo": 200,
+      "resposta_ms": 1.44,
+      "event_loop_p99_ms": 0.92
+    },
+    {
+      "t_s": 285.4,
+      "codigo": 200,
+      "resposta_ms": 1.37,
+      "event_loop_p99_ms": 0.92
+    },
+    {
+      "t_s": 290.4,
+      "codigo": 200,
+      "resposta_ms": 1.59,
+      "event_loop_p99_ms": 0.92
+    },
+    {
+      "t_s": 295.4,
+      "codigo": 200,
+      "resposta_ms": 1.69,
+      "event_loop_p99_ms": 0.92
+    },
+    {
+      "t_s": 300.4,
+      "codigo": 200,
+      "resposta_ms": 1.44,
+      "event_loop_p99_ms": 0.92
+    }
+  ],
+  "exportacoes": [
+    {
+      "t_s": 75,
+      "corrida": "dfd27cba-4799-4da1-b0d5-85b61b72cf3a",
+      "codigo": 200,
+      "ms": 13.21,
+      "bytes": 55151,
+      "linhas": 756
+    },
+    {
+      "t_s": 150,
+      "corrida": "b214e586-9c51-4781-8818-b5e6c3a6606e",
+      "codigo": 200,
+      "ms": 8.58,
+      "bytes": 55138,
+      "linhas": 756
+    },
+    {
+      "t_s": 225,
+      "corrida": "0beb92a8-d08e-4efc-906a-5db0490f7190",
+      "codigo": 200,
+      "ms": 8.89,
+      "bytes": 55167,
+      "linhas": 756
+    }
+  ],
+  "persistencia": [
+    {
+      "corrida_robo": "r685619-1",
+      "corrida": "99119fd4-70c3-4836-adb8-0458e5affb5d",
+      "enviadas": 756,
+      "gravadas": 756,
+      "distintas": 756,
+      "max_seq": 756
+    },
+    {
+      "corrida_robo": "r685619-2",
+      "corrida": "168afe6a-da43-423e-85f2-2cdb0c782807",
+      "enviadas": 756,
+      "gravadas": 756,
+      "distintas": 756,
+      "max_seq": 756
+    },
+    {
+      "corrida_robo": "r685619-3",
+      "corrida": "ef94ef8f-9dcb-4261-bcb1-0993f411a4da",
+      "enviadas": 756,
+      "gravadas": 756,
+      "distintas": 756,
+      "max_seq": 756
+    },
+    {
+      "corrida_robo": "r685619-4",
+      "corrida": "dfd27cba-4799-4da1-b0d5-85b61b72cf3a",
+      "enviadas": 756,
+      "gravadas": 756,
+      "distintas": 756,
+      "max_seq": 756
+    },
+    {
+      "corrida_robo": "r685619-5",
+      "corrida": "bb7ca31e-e024-4edd-a1d2-7226c5b0c090",
+      "enviadas": 756,
+      "gravadas": 756,
+      "distintas": 756,
+      "max_seq": 756
+    },
+    {
+      "corrida_robo": "r685619-6",
+      "corrida": "8aac1651-4408-4ddd-b5b1-9b461fbcbf8f",
+      "enviadas": 756,
+      "gravadas": 756,
+      "distintas": 756,
+      "max_seq": 756
+    },
+    {
+      "corrida_robo": "r685619-7",
+      "corrida": "6112f1c8-bbc7-4625-86f7-73aadce6420d",
+      "enviadas": 756,
+      "gravadas": 756,
+      "distintas": 756,
+      "max_seq": 756
+    },
+    {
+      "corrida_robo": "r685619-8",
+      "corrida": "91434c38-6a40-4661-a2cd-2251d396a96e",
+      "enviadas": 756,
+      "gravadas": 756,
+      "distintas": 756,
+      "max_seq": 756
+    },
+    {
+      "corrida_robo": "r685619-9",
+      "corrida": "b214e586-9c51-4781-8818-b5e6c3a6606e",
+      "enviadas": 756,
+      "gravadas": 756,
+      "distintas": 756,
+      "max_seq": 756
+    },
+    {
+      "corrida_robo": "r685619-10",
+      "corrida": "f292c831-a937-48ec-a852-5fa1139597a3",
+      "enviadas": 756,
+      "gravadas": 756,
+      "distintas": 756,
+      "max_seq": 756
+    },
+    {
+      "corrida_robo": "r685619-11",
+      "corrida": "eea13dd7-0471-497a-9c52-d6f39232ac02",
+      "enviadas": 756,
+      "gravadas": 756,
+      "distintas": 756,
+      "max_seq": 756
+    },
+    {
+      "corrida_robo": "r685619-12",
+      "corrida": "b7fd729b-a7e4-4be9-bee5-a7ce371655e6",
+      "enviadas": 756,
+      "gravadas": 756,
+      "distintas": 756,
+      "max_seq": 756
+    },
+    {
+      "corrida_robo": "r685619-13",
+      "corrida": "bbee6857-20a5-4d0c-b599-97deaa73bd07",
+      "enviadas": 756,
+      "gravadas": 756,
+      "distintas": 756,
+      "max_seq": 756
+    },
+    {
+      "corrida_robo": "r685619-14",
+      "corrida": "0beb92a8-d08e-4efc-906a-5db0490f7190",
+      "enviadas": 756,
+      "gravadas": 756,
+      "distintas": 756,
+      "max_seq": 756
+    },
+    {
+      "corrida_robo": "r685619-15",
+      "corrida": "6b377a37-1a4a-4af5-88f0-f6c4e8d0f50d",
+      "enviadas": 756,
+      "gravadas": 756,
+      "distintas": 756,
+      "max_seq": 756
+    },
+    {
+      "corrida_robo": "r685619-16",
+      "corrida": "0bbc58e8-8fa8-4113-ae72-c61e3483ab67",
+      "enviadas": 756,
+      "gravadas": 756,
+      "distintas": 756,
+      "max_seq": 756
+    },
+    {
+      "corrida_robo": "r685619-17",
+      "corrida": "d6f89e57-5e83-48b1-b87b-41781c6e266c",
+      "enviadas": 756,
+      "gravadas": 756,
+      "distintas": 756,
+      "max_seq": 756
+    },
+    {
+      "corrida_robo": "r685619-18",
+      "corrida": "33953f08-bb6b-40ec-8eea-9321b04c9125",
+      "enviadas": 756,
+      "gravadas": 756,
+      "distintas": 756,
+      "max_seq": 756
+    },
+    {
+      "corrida_robo": "r685619-19",
+      "corrida": "6b75c2a4-e604-43cb-94e8-fae0a44a7571",
+      "enviadas": 756,
+      "gravadas": 756,
+      "distintas": 756,
+      "max_seq": 756
+    },
+    {
+      "corrida_robo": "r685619-20",
+      "corrida": "64ea8d37-f1b7-4373-8252-5d6587dffaef",
+      "enviadas": 756,
+      "gravadas": 756,
+      "distintas": 756,
+      "max_seq": 756
+    }
+  ],
+  "criterios": [
+    {
+      "nome": "RNF-49: atraso do event loop, p99 (fim da carga)",
+      "limite": "≤ 20 ms",
+      "medido": "0.92 ms (maior p99 nas consultas depois de 60 s: 0.92 ms)",
+      "ok": true
+    },
+    {
+      "nome": "RNF-51: todas as mensagens gravadas (count = enviadas, sem duplicata)",
+      "limite": "15120 de 15120",
+      "medido": "15120 de 15120",
+      "ok": true
+    },
+    {
+      "nome": "RNF-51: nenhuma rejeição por sobrecarga",
+      "limite": "0 rejeitadas, 0 recusas, 0 quedas do simulador",
+      "medido": "0 rejeitadas, 0 recusas, 0 quedas",
+      "ok": true
+    },
+    {
+      "nome": "RNF-51: nenhum painel desconectado",
+      "limite": "0",
+      "medido": "0",
+      "ok": true
+    },
+    {
+      "nome": "/health a cada 5 s respondeu 200",
+      "limite": "todas",
+      "medido": "61 de 61",
+      "ok": true
+    },
+    {
+      "nome": "3 exportações CSV durante a carga",
+      "limite": "3 com 200",
+      "medido": "3 de 3",
+      "ok": true
+    }
+  ],
+  "aprovado": true
+}
