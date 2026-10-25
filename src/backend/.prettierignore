@@ -3,3 +3,5 @@ coverage
 node_modules
 migracoes
 *.md
+# Resultados gerados pelos scripts de medição (CT-BE-32 a 34)
+medicoes/resultados

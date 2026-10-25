@@ -1,0 +1,319 @@
+{
+  "caso": "CT-BE-34",
+  "requisito": "RNF-52",
+  "data": "2026-10-25T15:22:44.397Z",
+  "backend_url": "http://localhost:8080",
+  "parametros": {
+    "apos": 250,
+    "taxa": 20,
+    "labirinto": "8x4",
+    "semente": 42,
+    "cmd_derrubar": "docker compose -f compose.yaml kill backend",
+    "cmd_subir": "docker compose -f compose.yaml start backend"
+  },
+  "corrida": {
+    "robo": "rce0958-1",
+    "id": "6e5a9011-9e0b-440e-b06e-798db18433a7",
+    "total": 514
+  },
+  "tempos_s": {
+    "derrubar": 0.59,
+    "comando_subir_retornou": 1.86,
+    "health_pronto": 3.86,
+    "uptime_processo_no_pronto": 1,
+    "simulador_reconectado": 3.88,
+    "retomada": 3.94,
+    "retomada_descontado_conteiner": 1.08
+  },
+  "gravadas_antes_da_queda": {
+    "linhas": 250,
+    "distintas": 250,
+    "maxima": 250
+  },
+  "contagem_final": {
+    "linhas": 514,
+    "distintas": 514,
+    "maxima": 514
+  },
+  "detalhe_final": {
+    "status": "CONCLUIDA",
+    "sequencias_faltantes": 0,
+    "ultima_sequencia_contigua": 514
+  },
+  "reenvio": {
+    "mensagens_reenviadas_pelo_simulador": 250,
+    "duplicadas_descartadas_pelo_backend": 250
+  },
+  "snapshot_antes": {
+    "tipo": "snapshot",
+    "corrida": "6e5a9011-9e0b-440e-b06e-798db18433a7",
+    "labirinto": "8x4",
+    "sequencia_corte": 250,
+    "mapa": [
+      {
+        "x": 0,
+        "y": 3,
+        "paredes": {
+          "norte": false,
+          "leste": true,
+          "sul": true,
+          "oeste": true
+        }
+      },
+      {
+        "x": 0,
+        "y": 2,
+        "paredes": {
+          "norte": false,
+          "leste": true,
+          "sul": false,
+          "oeste": true
+        }
+      },
+      {
+        "x": 0,
+        "y": 1,
+        "paredes": {
+          "norte": false,
+          "leste": false,
+          "sul": false,
+          "oeste": true
+        }
+      },
+      {
+        "x": 0,
+        "y": 0,
+        "paredes": {
+          "norte": true,
+          "leste": true,
+          "sul": false,
+          "oeste": true
+        }
+      },
+      {
+        "x": 1,
+        "y": 1,
+        "paredes": {
+          "norte": false,
+          "leste": true,
+          "sul": false,
+          "oeste": false
+        }
+      },
+      {
+        "x": 1,
+        "y": 0,
+        "paredes": {
+          "norte": true,
+          "leste": false,
+          "sul": false,
+          "oeste": true
+        }
+      },
+      {
+        "x": 2,
+        "y": 0,
+        "paredes": {
+          "norte": true,
+          "leste": false,
+          "sul": false,
+          "oeste": false
+        }
+      },
+      {
+        "x": 3,
+        "y": 0,
+        "paredes": {
+          "norte": true,
+          "leste": false,
+          "sul": true,
+          "oeste": false
+        }
+      },
+      {
+        "x": 4,
+        "y": 0,
+        "paredes": {
+          "norte": true,
+          "leste": true,
+          "sul": true,
+          "oeste": false
+        }
+      }
+    ],
+    "posicao": {
+      "x": 2,
+      "y": 0,
+      "orientacao": "SUL"
+    },
+    "metricas": {
+      "tempo_decorrido_ms": 11700,
+      "tempo_conclusao_ms": null,
+      "celulas_percorridas": 11,
+      "distancia_m": 1.98,
+      "velocidade_media_mps": 0.186,
+      "tensao_v": 7.756,
+      "corrente_a": 0.374,
+      "potencia_w": 2.897,
+      "carga_estimada_pct": 59.75,
+      "delta_v": 0.391
+    },
+    "status": "EM_ANDAMENTO",
+    "motivo_termino": null,
+    "tempo_inicio_ms": 3761,
+    "sinal": "NORMAL"
+  },
+  "snapshot_depois": {
+    "tipo": "snapshot",
+    "corrida": "6e5a9011-9e0b-440e-b06e-798db18433a7",
+    "labirinto": "8x4",
+    "sequencia_corte": 250,
+    "mapa": [
+      {
+        "x": 0,
+        "y": 3,
+        "paredes": {
+          "sul": true,
+          "leste": true,
+          "norte": false,
+          "oeste": true
+        }
+      },
+      {
+        "x": 0,
+        "y": 2,
+        "paredes": {
+          "sul": false,
+          "leste": true,
+          "norte": false,
+          "oeste": true
+        }
+      },
+      {
+        "x": 0,
+        "y": 1,
+        "paredes": {
+          "sul": false,
+          "leste": false,
+          "norte": false,
+          "oeste": true
+        }
+      },
+      {
+        "x": 0,
+        "y": 0,
+        "paredes": {
+          "sul": false,
+          "leste": true,
+          "norte": true,
+          "oeste": true
+        }
+      },
+      {
+        "x": 1,
+        "y": 1,
+        "paredes": {
+          "sul": false,
+          "leste": true,
+          "norte": false,
+          "oeste": false
+        }
+      },
+      {
+        "x": 1,
+        "y": 0,
+        "paredes": {
+          "sul": false,
+          "leste": false,
+          "norte": true,
+          "oeste": true
+        }
+      },
+      {
+        "x": 2,
+        "y": 0,
+        "paredes": {
+          "sul": false,
+          "leste": false,
+          "norte": true,
+          "oeste": false
+        }
+      },
+      {
+        "x": 3,
+        "y": 0,
+        "paredes": {
+          "sul": true,
+          "leste": false,
+          "norte": true,
+          "oeste": false
+        }
+      },
+      {
+        "x": 4,
+        "y": 0,
+        "paredes": {
+          "sul": true,
+          "leste": true,
+          "norte": true,
+          "oeste": false
+        }
+      }
+    ],
+    "posicao": {
+      "x": 2,
+      "y": 0,
+      "orientacao": "SUL"
+    },
+    "metricas": {
+      "tempo_decorrido_ms": 11700,
+      "tempo_conclusao_ms": null,
+      "celulas_percorridas": 11,
+      "distancia_m": 1.98,
+      "velocidade_media_mps": 0.186,
+      "tensao_v": 7.756,
+      "corrente_a": 0.374,
+      "potencia_w": 2.897,
+      "carga_estimada_pct": 59.75,
+      "delta_v": 0.391
+    },
+    "status": "EM_ANDAMENTO",
+    "motivo_termino": null,
+    "tempo_inicio_ms": 3761,
+    "sinal": "PERDIDO"
+  },
+  "diferencas_snapshot": [],
+  "criterios": [
+    {
+      "nome": "/health pronto, descontado o contêiner (uptime do processo)",
+      "limite": "≤ 5 s",
+      "medido": "1 s (T0 → 200: 3.86 s)",
+      "ok": true
+    },
+    {
+      "nome": "Corrida retomada, descontado o contêiner",
+      "limite": "≤ 5 s",
+      "medido": "1.08 s (T0 → retomada: 3.94 s)",
+      "ok": true
+    },
+    {
+      "nome": "count(*) = count(DISTINCT seq) = max(seq) = total",
+      "limite": "514",
+      "medido": "514 = 514 = 514",
+      "ok": true
+    },
+    {
+      "nome": "Sem lacunas e corrida concluída",
+      "limite": "0 faltantes, CONCLUIDA",
+      "medido": "0 faltantes, CONCLUIDA",
+      "ok": true
+    },
+    {
+      "nome": "Estado reconstruído igual ao de antes da queda (snapshot)",
+      "limite": "sem diferenças",
+      "medido": "sem diferenças",
+      "ok": true
+    }
+  ],
+  "aprovado": true
+}
