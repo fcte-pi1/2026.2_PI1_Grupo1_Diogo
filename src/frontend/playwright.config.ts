@@ -24,7 +24,10 @@ export default defineConfig({
     timezoneId: 'America/Sao_Paulo',
     trace: 'on-first-retry',
   },
-  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
+  projects: [
+      { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
+      { name: 'firefox', use: { ...devices['Desktop Firefox'] } },
+    ],
   ...(URL_EXTERNA === undefined && {
     webServer: {
       command: `npm run dev -- --port ${PORTA} --strictPort`,
