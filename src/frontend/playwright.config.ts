@@ -25,9 +25,9 @@ export default defineConfig({
     trace: 'on-first-retry',
   },
   projects: [
-      { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
-      { name: 'firefox', use: { ...devices['Desktop Firefox'] } },
-    ],
+    { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
+    { name: 'firefox', use: { ...devices['Desktop Firefox'] } },
+  ],
   ...(URL_EXTERNA === undefined && {
     webServer: {
       command: `npm run dev -- --port ${PORTA} --strictPort`,
