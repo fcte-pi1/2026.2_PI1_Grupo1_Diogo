@@ -1,5 +1,5 @@
 import fastifyStatic from '@fastify/static';
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyReply } from 'fastify';
 
 /** Caminhos do backend: um 404 neles é da API, e nunca vira a página do painel. */
 function doBackend(caminho: string): boolean {
@@ -34,7 +34,10 @@ export async function servirPainel(app: FastifyInstance, painelDir: string): Pro
     // Os arquivos de `assets/` têm o hash do conteúdo no nome: podem ficar em cache para sempre.
     setHeaders: (res, caminho) => {
       const imutavel = caminho.split(/[\\/]/).includes('assets');
-      res.setHeader('Cache-Control', imutavel ? 'public, max-age=31536000, immutable' : 'no-cache');
+      (res as unknown as FastifyReply).header(
+        'Cache-Control',
+        imutavel ? 'public, max-age=31536000, immutable' : 'no-cache',
+      );
     },
   });
 
