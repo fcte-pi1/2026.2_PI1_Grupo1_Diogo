@@ -125,7 +125,7 @@ A pesquisa de preços para os componentes online (como rodas e roda boba) foi re
 
 O total previsto com os itens recomendados para a eletrônica embarcada do projeto é de aproximadamente R$ 690,04, já incluído o imposto incidente sobre os componentes importados. O levantamento adotou uma estratégia de compra mista: apenas os sensores de distância e os motores são importados, por apresentarem diferença de preço superior a três vezes em relação às lojas nacionais, enquanto todos os demais componentes são adquiridos no Brasil, com pronta entrega. Os componentes levantados são:
 
-* **Microcontrolador ESP32 (2 un., R$ 85,22):** responsável pelo processamento do algoritmo Flood Fill e pela transmissão da telemetria por Wi-Fi ao sistema web. Adotada a versão de 30 pinos, cujos pinos ausentes em relação à de 38 correspondem à interface da memória flash interna e não são utilizáveis como GPIO.
+* **Microcontrolador ESP32 (2 un., R$ 85,22):** responsável pelo processamento do algoritmo Flood Fill e pela transmissão da telemetria por **BLE** (repassada ao sistema web pela ponte). Adotada a versão de 30 pinos, cujos pinos ausentes em relação à de 38 correspondem à interface da memória flash interna e não são utilizáveis como GPIO.
 
 * **Sensores de distância VL53L1X (7 un., R$ 154,00):** sensores de tempo de voo (ToF) a laser, dispostos nas posições frontal, diagonais e laterais, usados para detecção das paredes do labirinto. A tecnologia ToF foi escolhida no lugar de sensores infravermelhos de reflexão porque a medida independe da cor da superfície, condição relevante em um labirinto de paredes brancas e chão preto, e porque dispensa a calibração individual que a alternativa exigiria — etapa que representaria risco direto ao objetivo de concluir cada labirinto na primeira tentativa. É o item de maior peso no orçamento (22% do total).
 
@@ -139,7 +139,7 @@ O total previsto com os itens recomendados para a eletrônica embarcada do proje
 
 * **Conversor DC-DC MP1584 (2 un., R$ 12,00):** rebaixa os 7,4 V da bateria LiPo para o barramento de 5 V da eletrônica. 
 
-* **Prototipagem e interface (R$ 84,85):** perfboards, protoboard, kit de jumpers, DIP switch para seleção do tipo de labirinto e chaves liga-desliga. 
+* **Prototipagem e interface (R$ 84,85):** perfboards, protoboard, kit de jumpers, DIP switch de 3 vias para seleção do tipo de labirinto e do canto de partida, e chaves liga-desliga. 
 
 * **Montagem, consumíveis e proteção (R$ 117,00):** parafusos e espaçadores M2/M3, LEDs e resistores, pin headers, espaguete termorretrátil, capacitores de desacoplamento, fita dupla-face, abraçadeiras, cola instantânea, buzzer de depuração e o circuito de proteção contra inversão de polaridade. 
 
@@ -210,7 +210,7 @@ Os preços dos componentes nacionais foram consultados diretamente nas lojas Mak
 | Fase                                   | Período        | Atividades de Software                                                                                                                    |
 | -------------------------------------- | -------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
 | **Planejamento e Requisitos**          | Sem. 1–3       | TAP, levantamento de requisitos de software, definição de arquitetura e stack tecnológica, configuração do repositório GitHub             |
-| **Projeto Conceitual de Software**     | Sem. 4–5       | Diagramas de arquitetura, definição de protocolos de comunicação (WiFi/WebSocket), modelagem do banco de dados, prototipação do dashboard |
+| **Projeto Conceitual de Software**     | Sem. 4–5       | Diagramas de arquitetura, definição de protocolos de comunicação (BLE/NUS no robô, WebSocket a jusante via ponte), modelagem do banco de dados, prototipação do dashboard |
 | **Desenvolvimento**                    | Sem. 5–11      |                                                                                                                                           |
 | **Testes de Software**                 | Sem. 11–12     | Testes unitários (Google Test), testes de integração parcial, validação da telemetria, correção de bugs                                   |
 | **Testes de Integração e Finalização** | Sem. 12–13     | Demonstração do sistema completo, ajustes finais, relatório de encerramento, preparação da apresentação final                             |

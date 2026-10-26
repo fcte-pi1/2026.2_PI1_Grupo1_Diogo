@@ -13,11 +13,11 @@ sequenceDiagram
     WS->>WS: JSON.parse e discriminação por tipo
     WS->>ST: aplicarMensagem(msg)
     ST->>DO: reduzir(estado, msg)
-    Note over DO: seq ≤ ultimoSeq → descarta (idempotência)<br/>celula → ModeloLabirinto.aplicarCelula + Trajeto.inserir<br/>continuo → posição, Metricas, SerieEnergia.adicionar
+    Note over DO: seq ≤ ultimoSeq -> descarta (idempotência)<br/>celula -> ModeloLabirinto.aplicarCelula + Trajeto.inserir<br/>continuo -> posição, Metricas, SerieEnergia.adicionar
     DO-->>ST: novo estado (versão + 1)
     ST->>QD: marcar alteração
     Note over ST,QD: mensagens seguintes no mesmo quadro<br/>só atualizam o estado (sem desenhar)
     QD->>UI: próximo quadro (≤ 16,7 ms)
     UI->>ST: seletores leem só as fatias alteradas
     UI->>UI: cartões · canvas · gráfico
-    Note over BE,UI: dado aceito pelo backend → visível em ≈ 1 quadro, bem abaixo dos 500 ms do RNF-37
+    Note over BE,UI: dado aceito pelo backend -> visível em ≈ 1 quadro, bem abaixo dos 500 ms do RNF-37

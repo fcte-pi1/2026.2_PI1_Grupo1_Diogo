@@ -1,6 +1,6 @@
  # Histórias de Usuário — Frontend
 
- **Versão:** 1.0  
+ **Versão:** 1.0
  **Escopo:** backlog da frente de frontend. Cada Requisito Funcional RF-57 a RF-71 é detalhado em uma História de Usuário (HU), com critérios de aceitação verificáveis e rastreabilidade para os requisitos não funcionais e casos de teste.
 
  Os dados exibidos pelo painel são recebidos do backend por WebSocket, conforme o protocolo de telemetria e as regras de domínio definidas para o projeto. O frontend não recalcula dados que já são derivados pelo backend, como trajeto, tempo de passagem, carga estimada e status da corrida.
@@ -8,61 +8,61 @@
  ## Convenções
 
  - **ID:** `HU-FE-NN`, em correspondência 1:1 com os RF do frontend: **HU-FE-01 ↔ RF-57** até **HU-FE-15 ↔ RF-71**.
- - **Prioridade:** herdada do RF: Must have → P0, Should have → P1, Could have → P2.
+ - **Prioridade:** herdada do RF: Must have $\rightarrow$ P0, Should have $\rightarrow$ P1, Could have $\rightarrow$ P2.
  - **Critérios de aceitação:** escritos em Dado / Quando / Então. Critérios com † refinam o requisito e devem ser validados com as equipes de backend e firmware.
  - **Execução em tempo real:** a tela deve atualizar sem recarregar a página e preservar os dados recebidos durante a tentativa.
  - **Casos de teste:** identificados como `CT-FE-NN`; os números são referências sugeridas para a suíte de testes do frontend.
 
  ## Personas
 
- | Persona | Quem é | O que espera do painel |
- |:--|:--|:--|
- | **Operador** | Integrante da equipe que acompanha e conduz a apresentação. | Ver o estado do robô, o progresso da tentativa e os alertas em uma única tela. |
- | **Avaliador** | Professor, banca ou espectador da demonstração. | Acompanhar o labirinto, o trajeto, as métricas e o resultado com leitura rápida. |
- | **Equipe de desenvolvimento** | Pessoas que testam firmware, backend e integração. | Consultar histórico, detalhes, dados de depuração e exportar resultados. |
+ | Persona                       | Quem é                                                      | O que espera do painel                                                           |
+ | :---------------------------- | :---------------------------------------------------------- | :------------------------------------------------------------------------------- |
+ | **Operador**                  | Integrante da equipe que acompanha e conduz a apresentação. | Ver o estado do robô, o progresso da tentativa e os alertas em uma única tela.   |
+ | **Avaliador**                 | Professor, banca ou espectador da demonstração.             | Acompanhar o labirinto, o trajeto, as métricas e o resultado com leitura rápida. |
+ | **Equipe de desenvolvimento** | Pessoas que testam firmware, backend e integração.          | Consultar histórico, detalhes, dados de depuração e exportar resultados.         |
 
  ## Backlog do Produto — Frontend
 
  <u>Épico — Painel de acompanhamento ao vivo (RF-57 a RF-64)</u>
 
- | ID | Título | RF | Prioridade | Caso de teste |
- |:--|:--|:--|:--:|:--|
- | HU-FE-01 | Exibir os dados obrigatórios da execução | [RF-57](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/137) | P0 | CT-FE-01 |
- | HU-FE-02 | Receber continuamente os dados da tentativa | [RF-58](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/138) | P0 | CT-FE-02 |
- | HU-FE-03 | Indicar o estado da conexão | [RF-59](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/139) | P0 | CT-FE-03 |
- | HU-FE-04 | Renderizar o labirinto atualizado | [RF-60](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/140) | P0 | CT-FE-04 |
- | HU-FE-05 | Visualizar o trajeto percorrido | [RF-61](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/141) | P0 | CT-FE-05 |
- | HU-FE-06 | Adaptar a tela ao tipo de labirinto | [RF-62](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/142) | P0 | CT-FE-06 |
- | HU-FE-07 | Indicar o desafio cumprido | [RF-63](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/143) | P0 | CT-FE-07 |
- | HU-FE-08 | Cronometrar a tentativa | [RF-64](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/144) | P0 | CT-FE-08 |
+ | ID       | Título                                      | RF                                                                      | Prioridade | Caso de teste |
+ | :------- | :------------------------------------------ | :---------------------------------------------------------------------- | :--------: | :------------ |
+ | HU-FE-01 | Exibir os dados obrigatórios da execução    | [RF-57](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/137) |     P0     | CT-FE-01      |
+ | HU-FE-02 | Receber continuamente os dados da tentativa | [RF-58](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/138) |     P0     | CT-FE-02      |
+ | HU-FE-03 | Indicar o estado da conexão                 | [RF-59](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/139) |     P0     | CT-FE-03      |
+ | HU-FE-04 | Renderizar o labirinto atualizado           | [RF-60](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/140) |     P0     | CT-FE-04      |
+ | HU-FE-05 | Visualizar o trajeto percorrido             | [RF-61](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/141) |     P0     | CT-FE-05      |
+ | HU-FE-06 | Adaptar a tela ao tipo de labirinto         | [RF-62](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/142) |     P0     | CT-FE-06      |
+ | HU-FE-07 | Indicar o desafio cumprido                  | [RF-63](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/143) |     P0     | CT-FE-07      |
+ | HU-FE-08 | Cronometrar a tentativa                     | [RF-64](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/144) |     P0     | CT-FE-08      |
 
  <u>Épico — Histórico e análise de execuções (RF-65 a RF-71)</u>
 
- | ID | Título | RF | Prioridade | Caso de teste |
- |:--|:--|:--|:--:|:--|
- | HU-FE-09 | Listar o histórico de execuções | [RF-65](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/145) | P0 | CT-FE-09 |
- | HU-FE-10 | Filtrar execuções por tipo de labirinto | [RF-66](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/146) | P0 | CT-FE-10 |
- | HU-FE-11 | Detalhar uma execução passada | [RF-67](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/147) | P1 | CT-FE-11 |
- | HU-FE-12 | Analisar o consumo durante a tentativa | [RF-68](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/148) | P1 | CT-FE-12 |
- | HU-FE-13 | Sinalizar falha de execução | [RF-69](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/149) | P1 | CT-FE-13 |
- | HU-FE-14 | Consultar dados em modo de depuração | [RF-70](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/150) | P2 | CT-FE-14 |
- | HU-FE-15 | Exportar resultados da execução | [RF-71](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/151) | P2 | CT-FE-15 |
+ | ID       | Título                                  | RF                                                                      | Prioridade | Caso de teste |
+ | :------- | :-------------------------------------- | :---------------------------------------------------------------------- | :--------: | :------------ |
+ | HU-FE-09 | Listar o histórico de execuções         | [RF-65](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/145) |     P0     | CT-FE-09      |
+ | HU-FE-10 | Filtrar execuções por tipo de labirinto | [RF-66](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/146) |     P0     | CT-FE-10      |
+ | HU-FE-11 | Detalhar uma execução passada           | [RF-67](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/147) |     P1     | CT-FE-11      |
+ | HU-FE-12 | Analisar o consumo durante a tentativa  | [RF-68](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/148) |     P1     | CT-FE-12      |
+ | HU-FE-13 | Sinalizar falha de execução             | [RF-69](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/149) |     P1     | CT-FE-13      |
+ | HU-FE-14 | Consultar dados em modo de depuração    | [RF-70](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/150) |     P2     | CT-FE-14      |
+ | HU-FE-15 | Exportar resultados da execução         | [RF-71](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/151) |     P2     | CT-FE-15      |
 
  ## Requisitos Não-Funcionais do frontend — rastreabilidade
 
- | RNF | Título | Rastreabilidade |
- |:--|:--|:--|
- | [RNF-37](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/215) | Latência de atualização | RF-57, RF-58, RF-60, RF-61, RF-63, RF-69 |
- | [RNF-38](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/216) | Taxa de atualização sustentada | RF-58, RF-60, RF-61, RF-70 |
- | [RNF-39](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/217) | Reconexão automática | RF-58, RF-59, RF-69 |
- | [RNF-40](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/218) | Retenção da tentativa completa | RF-57, RF-61, RF-64, RF-68, RF-70 |
- | [RNF-41](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/219) | Operação em rede local isolada | RF-57 a RF-71 |
- | [RNF-42](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/220) | Tempo de carregamento inicial | RF-57, RF-60, RF-65 |
- | [RNF-43](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/221) | Tempo de resposta das consultas | RF-65, RF-66, RF-67 |
- | [RNF-44](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/222) | Adaptação a diferentes telas | RF-57, RF-60, RF-65, RF-67 |
- | [RNF-45](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/223) | Compatibilidade de navegadores | RF-57 a RF-71 |
- | [RNF-46](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/224) | Legibilidade em apresentação | RF-57, RF-60, RF-61, RF-63, RF-64 |
- | [RNF-47](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/225) | Cobertura de testes | RF-57, RF-58, RF-60, RF-61, RF-64, RF-68 |
+ | RNF                                                                      | Título                          | Rastreabilidade                          |
+ | :----------------------------------------------------------------------- | :------------------------------ | :--------------------------------------- |
+ | [RNF-37](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/215) | Latência de atualização         | RF-57, RF-58, RF-60, RF-61, RF-63, RF-69 |
+ | [RNF-38](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/216) | Taxa de atualização sustentada  | RF-58, RF-60, RF-61, RF-70               |
+ | [RNF-39](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/217) | Reconexão automática            | RF-58, RF-59, RF-69                      |
+ | [RNF-40](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/218) | Retenção da tentativa completa  | RF-57, RF-61, RF-64, RF-68, RF-70        |
+ | [RNF-41](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/219) | Operação em rede local isolada  | RF-57 a RF-71                            |
+ | [RNF-42](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/220) | Tempo de carregamento inicial   | RF-57, RF-60, RF-65                      |
+ | [RNF-43](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/221) | Tempo de resposta das consultas | RF-65, RF-66, RF-67                      |
+ | [RNF-44](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/222) | Adaptação a diferentes telas    | RF-57, RF-60, RF-65, RF-67               |
+ | [RNF-45](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/223) | Compatibilidade de navegadores  | RF-57 a RF-71                            |
+ | [RNF-46](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/224) | Legibilidade em apresentação    | RF-57, RF-60, RF-61, RF-63, RF-64        |
+ | [RNF-47](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/225) | Cobertura de testes             | RF-57, RF-58, RF-60, RF-61, RF-64, RF-68 |
 
  ## Detalhamento das Histórias de Usuário
 

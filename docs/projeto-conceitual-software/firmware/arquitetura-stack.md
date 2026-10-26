@@ -19,25 +19,33 @@ Cada decisão está fundamentada em requisitos de `2 - Requisitos.md`. As escolh
 
 O sistema é **cliente-servidor distribuído**, em **rede local isolada** (RNF-41), com três subsistemas de software e um protocolo de comunicação comum:
 
-- **Firmware (ESP32):** navegação autônoma e emissão de telemetria. Opera como **cliente Wi-Fi (STA)** e emissor unidirecional (RF-51, RF-53).
+- **Firmware (ESP32):** navegação autônoma e emissão de telemetria. Opera como **periférico BLE (GATT server)** e emissor unidirecional (RF-51, RF-53); a telemetria sai por **BLE** (Nordic UART Service, _notify_).
+- **Ponte (PC):** processo em Python que assina as notificações BLE do robô e **repassa o mesmo JSON ao backend por WebSocket**. Isola o transporte sem fio do robô (BLE) do protocolo de aplicação a jusante (WebSocket), que **não muda**.
 - **Backend:** servidor que recebe, valida, persiste, deriva métricas e distribui a telemetria aos painéis.
 - **Frontend:** painel web (_dashboard_) que exibe a tentativa em tempo real e o histórico.
-- **Protocolo:** mensagens **JSON sobre WebSocket**, com esquema versionado.
+- **Protocolo:** mensagens **JSON**, com esquema versionado; transportadas por **BLE** no primeiro salto (robô $\rightarrow$ ponte) e por **WebSocket** do PC em diante (ponte $\rightarrow$ backend $\rightarrow$ painéis).
 
-```
-[ESP32/Firmware] --WebSocket/JSON--> [Backend] --WebSocket/JSON--> [Frontend(s)]
-   (cliente STA)                      (servidor)                     (painéis)
+```mermaid
+flowchart LR
+    A["ESP32/Firmware<br><i>periférico BLE</i>"]
+    B["Ponte (PC)<br><i>bleak → ws</i>"]
+    C["Backend<br><i>servidor</i>"]
+    D["Frontend(s)<br><i>painéis</i>"]
+
+    A -- "BLE / JSON<br>(notify)" --> B
+    B -- "WebSocket / JSON" --> C
+    C -- "WebSocket / JSON" --> D
 ```
 
 ## 3. Padrão arquitetural (por subfrente)
 
 O padrão MVC/MVP se aplica a sistemas com interface e interação de usuário; por isso ele é adotado no frontend, mas **não** no firmware nem no backend, que têm naturezas diferentes. As escolhas por subfrente:
 
-| Subfrente    | Padrão adotado                                                                                     | Justificativa                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
-| :----------- | :------------------------------------------------------------------------------------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Firmware** | **Monólito modular em camadas** (FSM + tarefas FreeRTOS)                                           | O firmware é um binário embarcado único (monólito) organizado em módulos e camadas - HAL -> _drivers_ de sensores/atuadores -> domínio (sensoriamento, mapeamento, Flood Fill, controle de movimento, telemetria) -> controle. Como o comportamento já é definido por seis estados de navegação (RF-54), a **máquina de estados (FSM)** é o núcleo de controle, e duas **tarefas FreeRTOS** separam **navegação** e **telemetria**, atendendo ao isolamento exigido pelo RNF-33 (falha de Wi-Fi não pode afetar a navegação). MVC não se aplica: não há interface gráfica embarcada. |
-| **Backend**  | **Monólito modular em camadas** (ingestão -> validação -> domínio -> persistência -> distribuição) | O escopo (1 robô, ~10 painéis, RNF-51) não justifica microsserviços, cujo overhead operacional contraria a implantação simples exigida (RNF-58: subir com um único comando em ≤ 2 min). Um monólito modular em camadas mantém baixo acoplamento entre ingestão WebSocket, validação de esquema/domínio (RF-75, RF-76), derivação de métricas (RF-82…85) e persistência (RF-79, RF-80), e é mais simples de testar (RNF-53).                                                                                                                                                          |
-| **Frontend** | **Componentizado (padrão MVVM/Flux)**                                                              | O React organiza a interface em componentes reutilizáveis, com um _view-model_ (hooks/store) que separa o tratamento do fluxo WebSocket da apresentação. Essa separação sustenta a atualização reativa em tempo real (RF-58) e o desempenho exigido (RNF-38: ≥ 30 fps a 10 msg/s).                                                                                                                                                                                                                                                                                                   |
+| Subfrente    | Padrão adotado                                                                                     | Justificativa                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| :----------- | :------------------------------------------------------------------------------------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Firmware** | **Monólito modular em camadas** (FSM + tarefas FreeRTOS)                                           | O firmware é um binário embarcado único (monólito) organizado em módulos e camadas - HAL $\rightarrow$ _drivers_ de sensores/atuadores $\rightarrow$ domínio (sensoriamento, mapeamento, Flood Fill, controle de movimento, telemetria) $\rightarrow$ controle. Como o comportamento já é definido por seis estados de navegação (RF-54), a **máquina de estados (FSM)** é o núcleo de controle, e duas **tarefas FreeRTOS** separam **navegação** e **telemetria**, atendendo ao isolamento exigido pelo RNF-33 (falha de BLE/telemetria não pode afetar a navegação). MVC não se aplica: não há interface gráfica embarcada. |
+| **Backend**  | **Monólito modular em camadas** (ingestão $\rightarrow$ validação $\rightarrow$ domínio $\rightarrow$ persistência $\rightarrow$ distribuição) | O escopo (1 robô, ~10 painéis, RNF-51) não justifica microsserviços, cujo overhead operacional contraria a implantação simples exigida (RNF-58: subir com um único comando em ≤ 2 min). Um monólito modular em camadas mantém baixo acoplamento entre ingestão WebSocket, validação de esquema/domínio (RF-75, RF-76), derivação de métricas (RF-82…85) e persistência (RF-79, RF-80), e é mais simples de testar (RNF-53).                                                                                                                                                                   |
+| **Frontend** | **Componentizado (padrão MVVM/Flux)**                                                              | O React organiza a interface em componentes reutilizáveis, com um _view-model_ (hooks/store) que separa o tratamento do fluxo WebSocket da apresentação. Essa separação sustenta a atualização reativa em tempo real (RF-58) e o desempenho exigido (RNF-38: ≥ 30 fps a 10 msg/s).                                                                                                                                                                                                                                                                                                            |
 
 ## 4. Linguagens de programação
 
@@ -53,9 +61,9 @@ O padrão MVC/MVP se aplica a sistemas com interface e interação de usuário; 
 
 **Firmware (ESP32)**
 
-- **PlatformIO + framework Arduino-ESP32** (sobre FreeRTOS): ambiente de build reprodutível, com gerenciamento de bibliotecas e testes integrados. Alternativa: ESP-IDF puro (mais controle, curva de aprendizado maior).
-- **Bibliotecas**: **VL53L1X** (Pololu) para os ToF; **MPU6050** (Adafruit) para o IMU; **INA219** (Adafruit) para energia; **ESP32Encoder** para odometria; **arduinoWebSockets** (Links2004) para a emissão de telemetria; **PID** (Arduino-PID) para a malha de equalização (RF-43).
-- **Testes**: **Unity** (ou Google Test) via PlatformIO em ambiente _native_, para a lógica de Flood Fill e derivações desacopladas do hardware.
+- **ESP-IDF v5.x** (sobre FreeRTOS): framework oficial da Espressif, adotado pela placa ESP32-S3-N16R8. Dá controle direto dos periféricos (I²C, LEDC/PWM, PCNT) e da pilha **BLE NimBLE**, com build por CMake. (O framework Arduino-ESP32 foi descartado por não expor a pilha BLE e os periféricos no nível exigido.)
+- **Bibliotecas/componentes**: drivers nativos do ESP-IDF para **I²C** (`i2c_master`), **LEDC** (PWM dos motores) e **PCNT** (contagem de encoders); **VL53L1X** (componente ESP-IDF) para os ToF; **MPU-6050** e **INA219** via I²C; **esp-nimble-cpp** (NimBLE) para a emissão de telemetria por **BLE** (Nordic UART Service); **PID próprio** para a malha de equalização (RF-43).
+- **Testes**: **GoogleTest** em **build de host (CMake)** — o núcleo (domínio/casos de uso/portas) é C++17 puro e roda no PC sem o microcontrolador, para a lógica de Flood Fill, odometria, protocolo e demais derivações desacopladas do hardware.
 
 **Backend (Node.js)**
 
@@ -74,21 +82,21 @@ O padrão MVC/MVP se aplica a sistemas com interface e interação de usuário; 
 
 ## 6. Protocolo de comunicação
 
-- **Transporte:** WebSocket (protocolo leve de aplicação previsto no RNF-6), sobre a rede local Wi-Fi.
+- **Transporte:** do robô ao PC, **BLE** (_notify_ sobre o Nordic UART Service, RNF-6); do PC em diante, **WebSocket** sobre a rede local, provido pela **ponte** BLE $\rightarrow$ WebSocket. O protocolo de aplicação (JSON) é o mesmo nos dois saltos.
 - **Formato:** mensagens **JSON**, cada uma carregando a **versão do protocolo** (RF-57); o backend aceita a versão atual e a anterior, com o **esquema publicado no repositório** (RNF-57).
 - **Sentido:** o robô é **emissor unidirecional** (RF-53); os painéis são somente leitura (RNF-55).
 - **Confiabilidade:** numeração de sequência, confirmação cumulativa (_ack_) e idempotência garantem 0 duplicatas e 0 lacunas após quedas (RF-74, RF-77, RNF-50).
 
 ## 7. Resumo da stack
 
-| Camada           | Padrão                                       | Linguagem          | Principais frameworks/bibliotecas                                                        | Persistência            |
-| :--------------- | :------------------------------------------- | :----------------- | :--------------------------------------------------------------------------------------- | :---------------------- |
-| Firmware (ESP32) | Monólito modular em camadas (FSM + FreeRTOS) | C++                | PlatformIO/Arduino-ESP32, VL53L1X, MPU6050, INA219, ESP32Encoder, arduinoWebSockets, PID | - (estado em memória)   |
-| Backend          | Monólito modular em camadas                  | TypeScript/Node.js | ws, Fastify, Ajv, PostgreSQL, Vitest                                                 | **PostgreSQL (relacional)** |
-| Frontend         | Componentizado (MVVM/Flux)                   | TypeScript         | React, Vite, Canvas 2D, uPlot, Zustand                                                   | Buffer em memória       |
-| Comunicação      | Cliente-servidor                             | JSON               | WebSocket, JSON Schema (Ajv)                                                             | -                       |
+| Camada           | Padrão                                                          | Linguagem          | Principais frameworks/bibliotecas                                                                        | Persistência                |
+| :--------------- | :-------------------------------------------------------------- | :----------------- | :------------------------------------------------------------------------------------------------------- | :-------------------------- |
+| Firmware (ESP32) | Monólito modular em camadas, arquitetura limpa (FSM + FreeRTOS) | C++17              | ESP-IDF v5.x, drivers I²C/LEDC/PCNT, VL53L1X, MPU-6050, INA219, esp-nimble-cpp (NimBLE/BLE), PID próprio | - (estado em memória)       |
+| Backend          | Monólito modular em camadas                                     | TypeScript/Node.js | ws, Fastify, Ajv, PostgreSQL, Vitest                                                                     | **PostgreSQL (relacional)** |
+| Frontend         | Componentizado (MVVM/Flux)                                      | TypeScript         | React, Vite, Canvas 2D, uPlot, Zustand                                                                   | Buffer em memória           |
+| Comunicação      | Cliente-servidor (com ponte BLE $\rightarrow$ WS)                            | JSON               | BLE/NUS (robô $\rightarrow$ ponte) + WebSocket (ponte $\rightarrow$ backend/painéis), JSON Schema (Ajv)                            | -                           |
 
-## 8. Rastreabilidade das decisões (decisão -> requisitos)
+## 8. Rastreabilidade das decisões (decisão $\rightarrow$ requisitos)
 
 | Decisão                               | Requisitos que a fundamentam                      |
 | :------------------------------------ | :------------------------------------------------ |
@@ -103,4 +111,4 @@ O padrão MVC/MVP se aplica a sistemas com interface e interação de usuário; 
 ## 9. Riscos e mitigações
 
 - **Desempenho de renderização** com 6.000 amostras (RNF-40). Mitigação: Canvas + _downsampling_ nos gráficos (uPlot) e limite de 10 atualizações contínuas/s já imposto pelo backend (RF-90).
-- **Curva de TypeScript/PlatformIO** para parte da equipe. Mitigação: começar pelos módulos desacoplados de hardware (Flood Fill, derivações) e usar o simulador em Node.
+- **Curva de TypeScript/ESP-IDF** para parte da equipe. Mitigação: começar pelos módulos desacoplados de hardware (Flood Fill, derivações) testados no PC com GoogleTest, e usar o simulador em Node.

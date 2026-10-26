@@ -1,12 +1,14 @@
 flowchart LR
-    subgraph LAN["Rede Wi-Fi local isolada (RNF-41)"]
-        ESP["ESP32 (robô)<br/>modo estação"]
-        subgraph NB["Notebook do operador — docker compose"]
+    ESP["ESP32 (robô)<br/>periférico BLE (NUS)"]
+    subgraph LAN["Rede local isolada (RNF-41)"]
+        subgraph NB["Notebook do operador — docker compose + ponte"]
+            PONTE["ponte BLE->WebSocket<br/>(Python: bleak->ws)"]
             BE["backend (Node.js)<br/>:8080 HTTP + WS"]
             PG[("postgres:16<br/>volume persistente")]
         end
         BR["Navegadores dos painéis"]
     end
-    ESP -- "WS /ws/telemetria" --> BE
+    ESP -- "BLE (notify, NUS)" --> PONTE
+    PONTE -- "WS /ws/telemetria" --> BE
     BR -- "WS /ws/painel + HTTP /api" --> BE
     BE -- "TCP 5432" --> PG

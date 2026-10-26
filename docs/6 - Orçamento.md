@@ -11,7 +11,7 @@
 | Marcenaria                                                           | 0         | 0,00              |                    |
 | **Equipamentos e Materiais** |           | **1.028,46**      |                    |
 | *Frente Hardware: processamento e sensoriamento*                     |           | *320,53*          |                    |
-| ESP32-S3, módulo WiFi/Bluetooth, 44 pinos                            | 1         | 64,31             |                    |
+| ESP32-S3, módulo Bluetooth/BLE, 44 pinos                             | 1         | 64,31             |                    |
 | Sensor de distância ToF VL53L1X                                      | 3         | 199,20            |                    |
 | MPU-6050 (giroscópio + acelerômetro)                                 | 1         | 21,75             |                    |
 | Sensor de tensão/corrente INA219                                     | 1         | 35,27             |                    |

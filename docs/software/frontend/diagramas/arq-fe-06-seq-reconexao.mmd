@@ -11,7 +11,7 @@ sequenceDiagram
     Note over WS,BE: queda da conexão durante uma corrida
     WS->>ST: conexao.status = RECONECTANDO
     ST-->>UI: indicador "Reconectando" (RF-59)
-    loop backoff 0,25 → 0,5 → 1 → 2 s (teto 2 s, RNF-39)
+    loop backoff 0,25 -> 0,5 -> 1 -> 2 s (teto 2 s, RNF-39)
         WS->>BE: new WebSocket(/ws/painel)
     end
     BE-->>WS: onopen
@@ -21,7 +21,7 @@ sequenceDiagram
     BE-->>API: corrida em andamento (id, labirinto)
     WS->>BE: inscrever {corrida}
     BE-->>WS: snapshot {mapa, posicao, metricas, status, seq_corte = N}
-    WS->>ST: aplicarSnapshot → substitui mapa, posição, métricas e status
+    WS->>ST: aplicarSnapshot -> substitui mapa, posição, métricas e status
     API->>BE: GET /api/corridas/{id}
     BE-->>API: trajeto e leituras de energia até agora
     API->>ST: mesclar trajeto por seq e energia por tempo do robô
