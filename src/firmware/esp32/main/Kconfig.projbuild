@@ -2,6 +2,7 @@ menu "Rato Borrachudo"
 
     config RATO_BANCADA
         bool "Modo bancada (placa sem sensores nem motores)"
+        depends on IDF_TARGET_ESP32
         default n
         help
             Para testar a telemetria BLE numa placa solta, sem o robô montado.

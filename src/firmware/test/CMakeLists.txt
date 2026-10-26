@@ -29,6 +29,7 @@ add_executable(firmware_tests
     protocol/ProtocolV1Test.cpp
     telemetry/TelemetryBufferTest.cpp
     telemetry/TelemetryEmitterTest.cpp
+    telemetry/TelemetryRepeaterTest.cpp
     domain/ManeuverTest.cpp
     domain/ImuIdentityTest.cpp
 )
