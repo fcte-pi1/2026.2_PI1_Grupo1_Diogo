@@ -107,12 +107,18 @@ test.describe('acompanhamento ao vivo', () => {
       }),
     );
 
+    // Critério dos 500 ms entre a mensagem e a tela (HU-FE-01 CA3, CT-FE-01 passo 5).
+    await expect(page.getByTestId('celulas-percorridas')).toHaveText('1', { timeout: 500 });
     await expect(page.getByText('Atualização recebida')).toBeVisible();
-    await expect(page.getByTestId('celulas-percorridas')).toHaveText('1');
     await expect(page.getByTestId('distancia-total')).toHaveText('0,18 m');
     await expect(page.getByTestId('velocidade-media')).toHaveText('0,11 m/s');
     await expect(page.getByTestId('carga-estimada')).toHaveText('87.5%');
     await expect(page.getByTestId('variacao-tensao')).toHaveText('0,2 V');
+    // Tensão, corrente e potência na mesma tela (HU-FE-01 CA1).
+    const painel = page.getByTestId('painel-execucao');
+    for (const leitura of ['8,1 V', '0,4 A', '3,2 W']) {
+      await expect(painel.getByText(leitura, { exact: true }).first()).toBeVisible();
+    }
     await expect(page.getByTestId('grafico-consumo')).toHaveAttribute('data-amostras', '1');
     await expect(page.getByTestId('trajetoria')).toBeAttached();
     await expect(page.getByTestId('robo')).toBeVisible();
@@ -129,9 +135,10 @@ test.describe('acompanhamento ao vivo', () => {
       }),
     );
 
-    await expect(page.getByTestId('status-desafio')).toHaveText('Concluída');
+    // O desafio cumprido aparece em até 500 ms (CT-FE-07).
+    await expect(page.getByTestId('desafio-cumprido')).toBeVisible({ timeout: 500 });
+    await expect(page.getByTestId('status-desafio')).toHaveText('Concluída', { timeout: 500 });
     await expect(page.getByTestId('desafio')).toHaveText('Concluído');
-    await expect(page.getByTestId('desafio-cumprido')).toBeVisible();
     // O tempo oficial vem do backend, e o cronômetro para nele.
     await expect(page.getByTestId('tempo')).toHaveText('00:09.4');
     await expect(page.getByTestId('alerta-falha')).toHaveCount(0);
@@ -200,7 +207,9 @@ test.describe('acompanhamento ao vivo', () => {
       }),
     );
 
-    await expect(page.getByTestId('alerta-falha')).toContainText('Execução interrompida');
+    await expect(page.getByTestId('alerta-falha')).toContainText('Execução interrompida', {
+      timeout: 500,
+    });
     await expect(page.getByTestId('alerta-falha-motivo')).toHaveText(
       'Motivo: Perda de comunicação (SEM_SINAL)',
     );
@@ -215,14 +224,19 @@ test.describe('acompanhamento ao vivo', () => {
 
     backend.enviar(sinal('PERDIDO'));
 
-    await expect(page.getByTestId('alerta-sem-sinal')).toContainText('Sem sinal do robô');
+    // Cada alerta aparece em até 500 ms (CT-FE-13).
+    await expect(page.getByTestId('alerta-sem-sinal')).toContainText('Sem sinal do robô', {
+      timeout: 500,
+    });
     await expect(indicador(page)).toHaveText('Sem sinal do robô');
     await expect(indicador(page)).toHaveAttribute('data-estado', 'desconectado');
 
     backend.enviar(sinal('RETOMADO'));
 
     await expect(page.getByTestId('alerta-sem-sinal')).toHaveCount(0);
-    await expect(page.getByTestId('sinal-retomado')).toContainText('Comunicação retomada');
+    await expect(page.getByTestId('sinal-retomado')).toContainText('Comunicação retomada', {
+      timeout: 500,
+    });
     // Retomar a comunicação não é terminar a execução.
     await expect(page.getByTestId('sinal-retomado')).toContainText(
       'Isto não indica que a execução terminou.',
