@@ -17,13 +17,13 @@
   2. O firmware executa o auto-teste do ESP32 e verifica a configuração dos pinos GPIO.
   3. O firmware executa o Reendereçamento de Sensores, desativando todos os sensores ToF VL53L1X via pinos XSHUT, ativando-os individualmente e gravando um endereço I²C único em cada um dos sete sensores, confirmando comunicação no Barramento I²C após cada atribuição.
   4. O firmware verifica a comunicação com o IMU MPU-6050 e com o INA219 no Barramento I²C.
-  5. O firmware lê o estado do DIP Switch e determina o Tipo de Labirinto, as dimensões da grade e a posição da Célula Objetivo.
+  5. O firmware lê o estado do DIP Switch de 3 vias e determina o Tipo de Labirinto (vias 1-2: dimensões da grade e posição da Célula Objetivo) e o canto de partida (via 3).
   6. O firmware aloca o Mapa do Labirinto na memória, inicializando todas as Paredes internas como `desconhecida` e o perímetro externo como `presente`, e propaga os Valores de Inundação iniciais a partir da Célula Objetivo (Valor 0).
   7. O firmware sinaliza prontidão ao operador via Buzzer de Depuração e LEDs e transita para o Estado de Navegação `Aguardando`.
 - **Fluxo(s) alternativo(s):**
-  - 2a. Auto-teste do ESP32 detecta falha em GPIO ou no microcontrolador → Firmware transita imediatamente para o Estado `Erro` e sinaliza via Buzzer de Depuração e LEDs; a Inicialização não prossegue.
-  - 3a. Reendereçamento falha em qualquer sensor — sensor não responde no endereço gravado ou não é detectado no Barramento I²C → Firmware transita para o Estado `Erro` com sinalização sonora e luminosa.
-  - 4a. IMU MPU-6050 ou INA219 não responde ao Barramento I²C → Firmware transita para o Estado `Erro` com sinalização sonora e luminosa.
+  - 2a. Auto-teste do ESP32 detecta falha em GPIO ou no microcontrolador $\rightarrow$ Firmware transita imediatamente para o Estado `Erro` e sinaliza via Buzzer de Depuração e LEDs; a Inicialização não prossegue.
+  - 3a. Reendereçamento falha em qualquer sensor — sensor não responde no endereço gravado ou não é detectado no Barramento I²C $\rightarrow$ Firmware transita para o Estado `Erro` com sinalização sonora e luminosa.
+  - 4a. IMU MPU-6050 ou INA219 não responde ao Barramento I²C $\rightarrow$ Firmware transita para o Estado `Erro` com sinalização sonora e luminosa.
 - **Critério de aceitação:**
   - Ao término bem-sucedido, o firmware deve estar no Estado de Navegação `Aguardando`, com os sete sensores ToF endereçados individualmente e o Mapa do Labirinto inteiramente inicializado em memória.
   - Qualquer falha em etapa anterior à sinalização de prontidão deve impedir a transição para `Aguardando` e resultar obrigatoriamente em transição para o Estado `Erro`.
@@ -32,17 +32,17 @@
 
 ## UC-F002
 
-- **Título:** Selecionar Tipo de Labirinto via DIP Switch
+- **Título:** Selecionar Tipo de Labirinto e Canto de Partida via DIP Switch (3 vias)
 - **`<` Backward:** RF-004, RNF-005
 - **`>` Forward:** N/A.
 - **Ator(es):** Operador (primário)
 - **Relacionamentos:** Precede UC-F001 (a seleção deve ocorrer antes da energização do robô)
 - **Fluxo principal:**
-  1. Com o robô desligado, o operador configura as chaves do DIP Switch para o Tipo de Labirinto desejado.
+  1. Com o robô desligado, o operador configura as três chaves do DIP Switch para o Tipo de Labirinto (vias 1-2) e o canto de partida (via 3) desejados.
   2. O operador energiza o robô.
-  3. O firmware lê o estado do DIP Switch durante a Inicialização (UC-F001) e determina as dimensões da grade e a posição da Célula Objetivo para a Sessão de Resolução subsequente.
+  3. O firmware lê o estado do DIP Switch durante a Inicialização (UC-F001) e determina as dimensões da grade, a posição da Célula Objetivo e o canto de partida para a Sessão de Resolução subsequente.
 - **Fluxo(s) alternativo(s):**
-  - 1a. O operador altera o DIP Switch com o robô já ligado → A alteração é completamente ignorada pelo firmware; o Tipo de Labirinto permanece o definido na Inicialização, independentemente do Estado de Navegação corrente.
+  - 1a. O operador altera o DIP Switch com o robô já ligado $\rightarrow$ A alteração é completamente ignorada pelo firmware; o Tipo de Labirinto permanece o definido na Inicialização, independentemente do Estado de Navegação corrente.
 - **Critério de aceitação:**
   - O DIP Switch deve ser lido exclusivamente durante a Inicialização; alterações posteriores ao boot são ignoradas pelo firmware durante toda a Sessão de Resolução em curso.
   - A mudança de Tipo de Labirinto só pode ser efetivada após desligar o robô e realizar nova Inicialização completa.
@@ -63,7 +63,7 @@
   4. Leituras abaixo do Limiar são classificadas como `presente`; leituras acima do Limiar, como `ausente`.
   5. As novas classificações são disponibilizadas ao módulo de Mapeamento para atualização do Mapa do Labirinto via UC-F006.
 - **Fluxo(s) alternativo(s):**
-  - 1a. Sensor ToF não responde no Barramento I²C durante a Sessão de Resolução → Firmware reporta a falha ao módulo de Estados de Navegação, que transita para o Estado `Erro` via UC-F014.
+  - 1a. Sensor ToF não responde no Barramento I²C durante a Sessão de Resolução $\rightarrow$ Firmware reporta a falha ao módulo de Estados de Navegação, que transita para o Estado `Erro` via UC-F014.
 - **Critério de aceitação:**
   - As leituras devem cobrir obrigatoriamente as sete posições de sensor a cada ciclo de sensoriamento.
   - O Limiar de Detecção de Parede deve ser configurável individualmente por posição de sensor, sem necessidade de recompilação do firmware.
@@ -83,7 +83,7 @@
   2. O firmware disponibiliza os dados do giroscópio ao módulo de Controle de Motores para medição do Ângulo de Curva acumulado durante manobras (UC-F010).
   3. O firmware disponibiliza os dados do acelerômetro ao módulo de Controle de Motores como sinal auxiliar na Correção de Trajetória durante deslocamentos em linha reta (UC-F009).
 - **Fluxo(s) alternativo(s):**
-  - 1a. IMU MPU-6050 não responde ao Barramento I²C durante a Sessão de Resolução → Firmware reporta a falha ao módulo de Estados de Navegação, que transita para o Estado `Erro` via UC-F014.
+  - 1a. IMU MPU-6050 não responde ao Barramento I²C durante a Sessão de Resolução $\rightarrow$ Firmware reporta a falha ao módulo de Estados de Navegação, que transita para o Estado `Erro` via UC-F014.
 - **Critério de aceitação:**
   - Os dados do giroscópio e do acelerômetro devem ser coletados a cada ciclo de sensoriamento durante qualquer Estado de Navegação diferente de `Inicializando` e `Aguardando`.
   - A referência angular acumulada do giroscópio deve ser resetada após cada manobra de curva concluída, limitando a propagação de erro de deriva entre curvas consecutivas (RNF-004).
@@ -102,7 +102,7 @@
   2. O firmware recebe os valores de tensão no barramento da bateria LiPo (V), corrente drenada pelo sistema (A) e potência instantânea calculada internamente pelo INA219 (W).
   3. Os três valores são incluídos diretamente, sem transformação, na carga útil de Telemetria a ser transmitida por UC-F012.
 - **Fluxo(s) alternativo(s):**
-  - 1a. INA219 não responde ao Barramento I²C durante a Sessão de Resolução → Firmware reporta a falha ao módulo de Estados de Navegação, que transita para o Estado `Erro` via UC-F014.
+  - 1a. INA219 não responde ao Barramento I²C durante a Sessão de Resolução $\rightarrow$ Firmware reporta a falha ao módulo de Estados de Navegação, que transita para o Estado `Erro` via UC-F014.
 - **Critério de aceitação:**
   - Os três campos — tensão (V), corrente (A) e potência (W) — devem ser incluídos sem transformação na carga útil de Telemetria, para exibição direta pelo sistema web.
   - A leitura deve ocorrer a cada ciclo de Telemetria e não a cada ciclo de sensoriamento, para não sobrecarregar desnecessariamente o Barramento I²C.
@@ -122,7 +122,7 @@
   3. Se a atualização alterou algum estado de Parede que afete os Valores de Inundação de Células adjacentes, o firmware recalcula e propaga os novos valores a partir da Célula Objetivo (Valor 0), incrementando em 1 a cada Célula adjacente acessível sem Parede `presente` interposta.
   4. Os novos Valores de Inundação ficam disponíveis para a seleção de próxima Célula em UC-F007.
 - **Fluxo(s) alternativo(s):**
-  - 2a. A Parede já estava registrada com o mesmo estado → Nenhuma atualização é necessária e o recálculo de Valores de Inundação não é disparado.
+  - 2a. A Parede já estava registrada com o mesmo estado $\rightarrow$ Nenhuma atualização é necessária e o recálculo de Valores de Inundação não é disparado.
 - **Critério de aceitação:**
   - A consistência bidirecional deve ser garantida: toda Parede registrada em uma face deve ser simultaneamente registrada na face oposta da Célula vizinha.
   - O recálculo completo dos Valores de Inundação deve ser concluído antes da próxima seleção de Célula por UC-F007.
@@ -145,9 +145,9 @@
   5. Se a Célula Objetivo não foi alcançada, o firmware retorna ao passo 1.
   6. Se a Célula Objetivo foi alcançada, o firmware encerra a navegação via UC-F015.
 - **Fluxo(s) alternativo(s):**
-  - 2a. Dois ou mais vizinhos apresentam o mesmo Valor de Inundação → O firmware aplica o critério de desempate determinístico (frente > direita > esquerda > ré em relação à orientação corrente do robô), garantindo comportamento reproduzível entre Sessões sob as mesmas condições de labirinto (RNF-002).
-  - 3a. Durante o movimento, UC-F003 classifica nova Parede `presente` que bloqueia ou invalida o caminho corrente → O firmware interrompe o movimento e executa UC-F008 antes de retomar o deslocamento.
-  - 6a. Todas as Paredes do caminho ótimo já são conhecidas antes da chegada à Célula Objetivo → O firmware transita de `Mapeando` para `Resolvendo` e prossegue o percurso ótimo sem disparar novos Recálculos de Rota.
+  - 2a. Dois ou mais vizinhos apresentam o mesmo Valor de Inundação $\rightarrow$ O firmware aplica o critério de desempate determinístico (frente > direita > esquerda > ré em relação à orientação corrente do robô), garantindo comportamento reproduzível entre Sessões sob as mesmas condições de labirinto (RNF-002).
+  - 3a. Durante o movimento, UC-F003 classifica nova Parede `presente` que bloqueia ou invalida o caminho corrente $\rightarrow$ O firmware interrompe o movimento e executa UC-F008 antes de retomar o deslocamento.
+  - 6a. Todas as Paredes do caminho ótimo já são conhecidas antes da chegada à Célula Objetivo $\rightarrow$ O firmware transita de `Mapeando` para `Resolvendo` e prossegue o percurso ótimo sem disparar novos Recálculos de Rota.
 - **Critério de aceitação:**
   - O robô deve sempre se mover para a Célula vizinha acessível de menor Valor de Inundação; movimentos que aumentem o Valor de Inundação só são permitidos quando não há alternativa acessível.
   - Em caso de empate de Valores de Inundação, o critério de desempate deve ser determinístico, fixo e documentado (RNF-002).
@@ -169,7 +169,7 @@
   4. O firmware seleciona a nova direção de menor Valor de Inundação disponível na posição atual.
   5. O firmware retoma o deslocamento em direção à nova Célula selecionada, executando UC-F009 ou UC-F010 conforme a manobra necessária.
 - **Fluxo(s) alternativo(s):**
-  - 4a. Após o recálculo, nenhuma Célula vizinha possui Valor de Inundação menor que o da Célula atual — configuração de labirinto que pode isolar o robô temporariamente → O firmware aguarda confirmação de leitura adicional dos sensores antes de tentar rota alternativa de exploração.
+  - 4a. Após o recálculo, nenhuma Célula vizinha possui Valor de Inundação menor que o da Célula atual — configuração de labirinto que pode isolar o robô temporariamente $\rightarrow$ O firmware aguarda confirmação de leitura adicional dos sensores antes de tentar rota alternativa de exploração.
 - **Critério de aceitação:**
   - O movimento deve ser interrompido antes de qualquer atualização do Mapa do Labirinto ou recálculo de Valores de Inundação.
   - O Recálculo de Rota deve ser executado integralmente antes de o robô retomar qualquer deslocamento.
@@ -191,7 +191,7 @@
   4. Simultaneamente, o firmware aplica a Correção de Trajetória, comparando as leituras dos sensores ToF laterais (UC-F003) para medir o desvio lateral em relação ao eixo da Célula e, opcionalmente, usando o acelerômetro do IMU (UC-F004) como sinal auxiliar, ajustando o diferencial de velocidade entre os motores para manter o alinhamento direcional.
   5. O firmware monitora o Contador de Células de UC-F011; ao detectar a conclusão da travessia da Célula atual, encerra o ciclo e retorna o controle a UC-F007.
 - **Fluxo(s) alternativo(s):**
-  - 3a. Assimetria mecânica ou de atrito excessiva faz com que a malha PID não equalize as velocidades dentro do ciclo de controle → A Correção de Trajetória por sensores ToF atua como compensação adicional de alinhamento direcional, complementando a malha PID.
+  - 3a. Assimetria mecânica ou de atrito excessiva faz com que a malha PID não equalize as velocidades dentro do ciclo de controle $\rightarrow$ A Correção de Trajetória por sensores ToF atua como compensação adicional de alinhamento direcional, complementando a malha PID.
 - **Critério de aceitação:**
   - A malha Controle PID deve atuar exclusivamente durante deslocamentos em linha reta, sendo desativada durante manobras de curva executadas por UC-F010.
   - A Correção de Trajetória deve complementar a malha PID de velocidade, nunca substituí-la.
@@ -214,8 +214,8 @@
   5. Quando o Ângulo de Curva acumulado atinge o valor-alvo (90° ou 180°) dentro da tolerância calibrada, o firmware interrompe a rotação.
   6. O firmware reseta a referência angular acumulada do giroscópio (RNF-004) e autoriza o avanço para a próxima Célula, retornando o controle a UC-F007.
 - **Fluxo(s) alternativo(s):**
-  - 4a. O giroscópio acumula deriva progressiva por manobras repetidas → O firmware limita o erro resetando a referência angular após cada manobra; não há fusão sensorial com outros sinais de posição nesta versão (RNF-004).
-  - 5a. O valor-alvo não é atingido dentro de um tempo limite configurado em parâmetro de compilação → O firmware transita para o Estado `Erro` via UC-F014.
+  - 4a. O giroscópio acumula deriva progressiva por manobras repetidas $\rightarrow$ O firmware limita o erro resetando a referência angular após cada manobra; não há fusão sensorial com outros sinais de posição nesta versão (RNF-004).
+  - 5a. O valor-alvo não é atingido dentro de um tempo limite configurado em parâmetro de compilação $\rightarrow$ O firmware transita para o Estado `Erro` via UC-F014.
 - **Critério de aceitação:**
   - O avanço para a próxima Célula deve ser bloqueado enquanto o Ângulo de Curva acumulado não atingir o valor-alvo dentro da tolerância calibrada.
   - A referência angular deve ser resetada ao final de cada manobra concluída, limitando a propagação de erro de deriva entre curvas consecutivas (RNF-004).
@@ -237,7 +237,7 @@
   4. O firmware atualiza continuamente a Velocidade Média da Sessão de Resolução como a razão entre a distância total percorrida e o tempo decorrido desde o início da Sessão corrente.
   5. O Contador de Células e a Velocidade Média são incluídos na carga útil de Telemetria a cada ciclo de transmissão de UC-F012.
 - **Fluxo(s) alternativo(s):**
-  - 2a. Escorregamento de rodas ou variação de atrito causa desvio entre pulsos contados e distância real percorrida → A estimativa de posição acumula erro relativo; a Correção de Trajetória por sensores ToF laterais de UC-F009 compensa parcialmente o desvio direcional, mas não a posição absoluta (RNF-006).
+  - 2a. Escorregamento de rodas ou variação de atrito causa desvio entre pulsos contados e distância real percorrida $\rightarrow$ A estimativa de posição acumula erro relativo; a Correção de Trajetória por sensores ToF laterais de UC-F009 compensa parcialmente o desvio direcional, mas não a posição absoluta (RNF-006).
 - **Critério de aceitação:**
   - A captura de pulsos deve ser implementada exclusivamente via interrupção de hardware (ISR), nunca por polling, garantindo que nenhum pulso seja perdido em condições de alta velocidade.
   - O Contador de Células deve ser uma variável inteira discreta, incrementada apenas ao término completo de cada Célula, nunca de forma fracionada.
@@ -254,18 +254,18 @@
 - **Ator(es):** Firmware (primário), Sistema Web (secundário — receptor da Telemetria)
 - **Relacionamentos:** Inclui UC-F005 (dados do INA219 alimentam a carga útil); inclui UC-F011 (Contador de Células e Velocidade Média alimentam a carga útil)
 - **Fluxo principal:**
-  1. Durante a Inicialização (UC-F001), o firmware configura o módulo Wi-Fi integrado ao ESP32 no modo estação (STA), conectando-o à rede definida por parâmetros de compilação, antes da transição para o Estado de Navegação `Aguardando`.
+  1. Durante a Inicialização (UC-F001), o firmware inicializa a pilha **BLE (NimBLE)** e passa a anunciar o **Nordic UART Service (NUS)** como periférico, antes da transição para o Estado de Navegação `Aguardando`.
   2. A cada ciclo de Telemetria durante os Estados de Navegação `Mapeando`, `Resolvendo` e `Concluído`, o firmware monta a carga útil contendo obrigatoriamente: Estado de Navegação atual, Contador de Células percorridas, Velocidade Média, posição corrente no Mapa do Labirinto, tensão da bateria (V), corrente drenada (A) e potência instantânea (W).
-  3. O firmware transmite a carga útil ao Sistema Web via Wi-Fi de forma unidirecional, sem aguardar confirmação de recebimento.
-  4. O módulo de Navegação continua sua execução de forma completamente independente do estado da conexão Wi-Fi (RNF-003).
+  3. O firmware transmite a carga útil via **BLE** (_notify_) de forma unidirecional, sem aguardar confirmação de recebimento; a **ponte** no PC a repassa ao Sistema Web.
+  4. O módulo de Navegação continua sua execução de forma completamente independente do estado do enlace BLE (RNF-003).
 - **Fluxo(s) alternativo(s):**
-  - 1a. A conexão Wi-Fi não é estabelecida durante a Inicialização → O firmware informa o operador via LED ou Buzzer de Depuração como aviso não bloqueante; a Sessão de Resolução pode ser iniciada normalmente.
-  - 3a. Perda de pacotes individuais durante a transmissão → A perda é tolerada; o firmware não retransmite pacotes perdidos e prossegue com a navegação sem interrupção (RNF-003).
-  - 3b. Conexão Wi-Fi é interrompida prolongadamente → O módulo de Telemetria aguarda a reconexão e retoma a transmissão automaticamente quando a conexão é restabelecida; o módulo de Navegação não é interrompido nem transita para o Estado `Erro` (RNF-003).
+  - 1a. A pilha BLE falha ao iniciar durante a Inicialização $\rightarrow$ O firmware informa o operador via LED ou Buzzer de Depuração como aviso não bloqueante; a Sessão de Resolução pode ser iniciada normalmente.
+  - 3a. Perda de pacotes individuais durante a transmissão $\rightarrow$ A perda é tolerada; o firmware não retransmite pacotes perdidos e prossegue com a navegação sem interrupção (RNF-003).
+  - 3b. O enlace BLE é interrompido prolongadamente $\rightarrow$ O módulo de Telemetria aguarda a reconexão da central (ponte) e retoma a transmissão automaticamente quando o enlace é restabelecido, reenviando o buffer retido; o módulo de Navegação não é interrompido nem transita para o Estado `Erro` (RNF-003).
 - **Critério de aceitação:**
-  - A transmissão deve ser estritamente unidirecional: o firmware não processa, interpreta nem responde a mensagens recebidas pelo módulo Wi-Fi durante a Sessão de Resolução.
+  - A transmissão deve ser estritamente unidirecional: o firmware não processa, interpreta nem responde a mensagens recebidas pela interface BLE durante a Sessão de Resolução.
   - A carga útil deve conter obrigatoriamente os sete campos: Estado de Navegação, Contador de Células, Velocidade Média, posição no Mapa do Labirinto, tensão (V), corrente (A) e potência (W).
-  - Falhas de conectividade Wi-Fi, de qualquer duração, não devem transitar o firmware para o Estado `Erro` nem interromper a execução autônoma da navegação (RNF-003).
+  - Falhas de conectividade BLE, de qualquer duração, não devem transitar o firmware para o Estado `Erro` nem interromper a execução autônoma da navegação (RNF-003).
 
 ---
 
@@ -282,7 +282,7 @@
   3. O firmware zera o Contador de Células e o temporizador de Sessão.
   4. O firmware transita para o Estado de Navegação `Mapeando` e inicia a execução de UC-F007.
 - **Fluxo(s) alternativo(s):**
-  - 1a. O sinal de início é fornecido com o robô em Estado de Navegação diferente de `Aguardando` → O firmware ignora o sinal completamente; nenhuma nova Sessão de Resolução é iniciada e o Estado corrente é mantido.
+  - 1a. O sinal de início é fornecido com o robô em Estado de Navegação diferente de `Aguardando` $\rightarrow$ O firmware ignora o sinal completamente; nenhuma nova Sessão de Resolução é iniciada e o Estado corrente é mantido.
 - **Critério de aceitação:**
   - Nenhuma nova Sessão de Resolução deve ser iniciada enquanto o firmware estiver em qualquer Estado de Navegação diferente de `Aguardando`.
   - O Mapa do Labirinto, o Contador de Células e o temporizador de Sessão devem ser reinicializados antes da transição para `Mapeando`, sem exceção.
@@ -328,7 +328,7 @@
   5. O Estado `Concluído` é incluído na carga útil de Telemetria de UC-F012.
   6. O firmware permanece no Estado `Concluído` aguardando o operador; uma nova Sessão de Resolução só pode ser iniciada após retorno ao Estado `Aguardando` via UC-F013.
 - **Fluxo(s) alternativo(s):**
-  - 1a. Todas as Paredes do caminho ótimo já são conhecidas antes da chegada à Célula Objetivo → O firmware transita de `Mapeando` para `Resolvendo` e executa o percurso ótimo sem disparar Recálculos de Rota (UC-F008), até confirmar a chegada e transitar para `Concluído`.
+  - 1a. Todas as Paredes do caminho ótimo já são conhecidas antes da chegada à Célula Objetivo $\rightarrow$ O firmware transita de `Mapeando` para `Resolvendo` e executa o percurso ótimo sem disparar Recálculos de Rota (UC-F008), até confirmar a chegada e transitar para `Concluído`.
 - **Critério de aceitação:**
   - A confirmação de chegada deve ser baseada em ambos os critérios: Contador de Células (UC-F011) e leitura confirmatória dos sensores ToF (UC-F003).
   - A sinalização de conclusão deve ser visualmente e sonoramente distinguível da sinalização de prontidão de UC-F001 e de `Erro` de UC-F014.

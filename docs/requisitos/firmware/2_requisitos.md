@@ -50,9 +50,9 @@
 
 ---
 
-### RF-004 — Leitura do DIP Switch e Determinação do Tipo de Labirinto
+### RF-004 — Leitura do DIP Switch (3 vias): Tipo de Labirinto e Canto de Partida
 
-- **Descrição:** O firmware deve ler o estado das chaves do DIP Switch via GPIO do ESP32 durante a Inicialização para determinar o Tipo de Labirinto selecionado pelo operador, definindo as dimensões da grade do Mapa do Labirinto e a posição da Célula Objetivo para a Sessão de Resolução subsequente.
+- **Descrição:** O firmware deve ler o estado das **três chaves** do DIP Switch via GPIO do ESP32 durante a Inicialização: as **vias 1 e 2** determinam o Tipo de Labirinto selecionado pelo operador (dimensões da grade do Mapa do Labirinto e posição da Célula Objetivo) e a **via 3** determina o **canto de partida**, para a Sessão de Resolução subsequente.
 - **`<` Backward:** G-F001.4.
 - **`>` Forward:** Módulo de Firmware: Inicialização; Módulo de Firmware: Interface Local; UC-F001, UC-F002.
 - **Tipo:** Funcional.
@@ -375,24 +375,24 @@
 
 ## Telemetria
 
-### RF-025 — Configuração do Módulo Wi-Fi em Modo Estação
+### RF-025 — Inicialização da Pilha BLE e Anúncio do Serviço de Telemetria
 
-- **Descrição:** O firmware deve configurar o módulo Wi-Fi integrado ao ESP32 no modo estação (STA) durante a Inicialização, conectando-o à rede definida por parâmetros de compilação antes da transição para o Estado de Navegação `Aguardando`.
+- **Descrição:** O firmware deve inicializar a pilha **BLE (NimBLE)** integrada ao ESP32-S3 durante a Inicialização e passar a operar como **periférico (GATT server)**, anunciando o **Nordic UART Service (NUS)** antes da transição para o Estado de Navegação `Aguardando`.
 - **`<` Backward:** G-F006.1.
 - **`>` Forward:** Módulo de Firmware: Telemetria; Módulo de Firmware: Inicialização; UC-F012.
 - **Tipo:** Funcional.
 - **Subtipo:** Telemetria.
 - **Prioridade:** Must.
 - **Critérios de aceitação:**
-  - A conexão Wi-Fi deve ser estabelecida durante a Inicialização, antes da transição para o Estado `Aguardando`.
-  - Falha na conexão Wi-Fi durante a Inicialização não deve transitar o firmware para o Estado `Erro` nem impedir o início da Sessão de Resolução; a condição deve ser informada ao operador via LED ou Buzzer de Depuração como aviso não bloqueante.
-  - As credenciais de rede (SSID e senha) devem ser configuráveis exclusivamente por parâmetro de compilação, sem interface de configuração em tempo de execução nesta versão.
+  - O anúncio BLE (_advertising_) do NUS deve estar ativo durante a Inicialização, antes da transição para o Estado `Aguardando`.
+  - A ausência de central (ponte) conectada não deve transitar o firmware para o Estado `Erro` nem impedir o início da Sessão de Resolução; uma falha ao iniciar a pilha BLE deve ser informada ao operador via LED ou Buzzer de Depuração como aviso não bloqueante.
+  - O nome de anúncio do dispositivo (ex.: `RatoBorrachudo`) e o token de telemetria devem ser configuráveis por parâmetro de compilação, sem interface de configuração em tempo de execução nesta versão.
 
 ---
 
 ### RF-026 — Transmissão Contínua da Carga Útil de Telemetria
 
-- **Descrição:** O firmware deve transmitir periodicamente ao sistema web, via Wi-Fi, durante toda a Sessão de Resolução, a carga útil de Telemetria contendo: Estado de Navegação atual, Contador de Células percorridas (RF-023), Velocidade Média (RF-024), posição corrente no Mapa do Labirinto e dados de energia do INA219 — tensão da bateria, corrente drenada e potência instantânea (RF-010).
+- **Descrição:** O firmware deve transmitir periodicamente, via **BLE** (_notify_ sobre o NUS) — repassada ao sistema web pela ponte no PC —, durante toda a Sessão de Resolução, a carga útil de Telemetria contendo: Estado de Navegação atual, Contador de Células percorridas (RF-023), Velocidade Média (RF-024), posição corrente no Mapa do Labirinto e dados de energia do INA219 — tensão da bateria, corrente drenada e potência instantânea (RF-010).
 - **`<` Backward:** G-F006.2.
 - **`>` Forward:** Módulo de Firmware: Telemetria; UC-F012.
 - **Tipo:** Funcional.
@@ -408,7 +408,7 @@
 
 ### RF-027 — Garantia de Transmissão Unidirecional de Telemetria
 
-- **Descrição:** O firmware deve operar o módulo Wi-Fi exclusivamente como emissor de Telemetria, sem processar, interpretar ou responder a mensagens de entrada enviadas pelo sistema web durante a Sessão de Resolução.
+- **Descrição:** O firmware deve operar a interface **BLE** exclusivamente como emissor de Telemetria (_notify_), sem processar, interpretar ou responder a mensagens de entrada enviadas pelo sistema web durante a Sessão de Resolução.
 - **`<` Backward:** G-F006.3.
 - **`>` Forward:** Módulo de Firmware: Telemetria; UC-F012.
 - **Tipo:** Funcional.
@@ -417,7 +417,7 @@
 - **Critérios de aceitação:**
   - Nenhuma interface de controle remoto deve ser implementada no firmware nesta versão.
   - Nenhum mecanismo de atualização de firmware em campo (OTA) deve ser ativado durante a operação normal.
-  - Pacotes recebidos pela interface Wi-Fi durante a Sessão de Resolução devem ser ignorados sem nenhum impacto sobre os módulos de Navegação, Mapeamento ou Controle de Motores.
+  - Quaisquer dados recebidos pela interface BLE durante a Sessão de Resolução devem ser ignorados sem nenhum impacto sobre os módulos de Navegação, Mapeamento ou Controle de Motores.
 
 ---
 
@@ -432,7 +432,7 @@
 - **Subtipo:** Estados de Navegação.
 - **Prioridade:** Must.
 - **Critérios de aceitação:**
-  - As únicas transições autorizadas são: `Inicializando` → `Aguardando` (ao concluir RF-006); `Aguardando` → `Mapeando` (ao receber sinal de início); `Mapeando` → `Resolvendo` (ao completar o mapa); `Mapeando` ou `Resolvendo` → `Concluído` (ao atingir a Célula Objetivo, RF-015); qualquer estado → `Erro` (RF-029); `Concluído` ou `Erro` → `Aguardando` (RF-030).
+  - As únicas transições autorizadas são: `Inicializando` $\rightarrow$ `Aguardando` (ao concluir RF-006); `Aguardando` $\rightarrow$ `Mapeando` (ao receber sinal de início); `Mapeando` $\rightarrow$ `Resolvendo` (ao completar o mapa); `Mapeando` ou `Resolvendo` $\rightarrow$ `Concluído` (ao atingir a Célula Objetivo, RF-015); qualquer estado $\rightarrow$ `Erro` (RF-029); `Concluído` ou `Erro` $\rightarrow$ `Aguardando` (RF-030).
   - Transições não listadas acima não devem ser executadas pelo firmware.
   - O Estado de Navegação corrente deve compor obrigatoriamente a carga útil de Telemetria (RF-026) a cada ciclo de transmissão.
 
@@ -495,7 +495,7 @@
 
 ### RNF-003 — Isolamento entre Módulo de Telemetria e Módulo de Navegação
 
-- **Descrição:** Falhas, perdas de pacote ou interrupções prolongadas na transmissão Wi-Fi não devem transitar o firmware para o Estado de Navegação `Erro` nem interromper a execução autônoma da navegação. A navegação deve prosseguir independentemente do estado da conexão Wi-Fi; a Telemetria deve retomar automaticamente quando a conexão for restabelecida.
+- **Descrição:** Falhas, perdas de pacote ou interrupções prolongadas na transmissão BLE não devem transitar o firmware para o Estado de Navegação `Erro` nem interromper a execução autônoma da navegação. A navegação deve prosseguir independentemente do estado do enlace BLE; a Telemetria deve retomar automaticamente quando o enlace for restabelecido, reenviando o buffer retido.
 - **`<` Backward:** G-F006.2 (OBS-F005).
 - **`>` Forward:** Módulo de Firmware: Telemetria; Módulo de Firmware: Navegação; UC-F012; UC-F012.
 - **Tipo:** Não Funcional.
@@ -539,41 +539,41 @@
 
 ## Síntese de Requisitos
 
-| ID          | Título                                                      | Tipo          | Subtipo                    | Prioridade | Meta KAOS           |
-| ----------- | ----------------------------------------------------------- | ------------- | -------------------------- | ---------- | ------------------- |
-| **RF-001**  | Auto-teste do ESP32 ao Boot                                 | Funcional     | Inicialização              | Must       | G-F001.1            |
-| **RF-002**  | Reendereçamento de Sensores ToF no Barramento I²C           | Funcional     | Inicialização              | Must       | G-F001.2            |
-| **RF-003**  | Verificação de Comunicação com IMU e INA219                 | Funcional     | Inicialização              | Must       | G-F001.3            |
-| **RF-004**  | Leitura do DIP Switch e Determinação do Tipo de Labirinto   | Funcional     | Inicialização              | Must       | G-F001.4            |
-| **RF-005**  | Inicialização do Mapa do Labirinto                          | Funcional     | Inicialização              | Must       | G-F001.5            |
-| **RF-006**  | Sinalização de Prontidão e Transição para Estado Aguardando | Funcional     | Inicialização              | Must       | G-F001.6            |
-| **RF-007**  | Leitura Periódica dos Sensores ToF VL53L1X                  | Funcional     | Sensoriamento              | Must       | G-F002.1            |
-| **RF-008**  | Classificação de Paredes por Limiar de Detecção             | Funcional     | Sensoriamento              | Must       | G-F002.2            |
-| **RF-009**  | Leitura de Dados do IMU MPU-6050                            | Funcional     | Sensoriamento              | Must       | G-F002.3            |
-| **RF-010**  | Leitura de Dados de Energia do INA219                       | Funcional     | Sensoriamento              | Must       | G-F002.4            |
-| **RF-011**  | Atualização do Mapa do Labirinto                            | Funcional     | Mapeamento                 | Must       | G-F003.1            |
-| **RF-012**  | Cálculo e Propagação de Valores de Inundação                | Funcional     | Algoritmo Flood Fill       | Must       | G-F003.2            |
-| **RF-013**  | Seleção da Próxima Célula de Menor Valor de Inundação       | Funcional     | Algoritmo Flood Fill       | Must       | G-F003.3            |
-| **RF-014**  | Recálculo de Rota por Nova Parede Detectada                 | Funcional     | Algoritmo Flood Fill       | Must       | G-F003.4            |
-| **RF-015**  | Encerramento da Fase de Mapeamento e Transição de Estado    | Funcional     | Navegação                  | Must       | G-F003.5            |
-| **RF-016**  | Geração de Sinais PWM via Canais LEDC do ESP32              | Funcional     | Controle de Motores        | Must       | G-F004.1            |
-| **RF-017**  | Malha de Controle PID para Equalização de Velocidades       | Funcional     | Controle de Motores        | Must       | G-F004.2            |
-| **RF-018**  | Correção de Trajetória por Sensores ToF Laterais e IMU      | Funcional     | Controle de Motores        | Must       | G-F004.3            |
-| **RF-019**  | Monitoramento e Controle do Ângulo de Curva                 | Funcional     | Controle de Motores        | Must       | G-F004.4            |
-| **RF-020**  | Autorização de Avanço após Conclusão de Curva               | Funcional     | Controle de Motores        | Must       | G-F004.5            |
-| **RF-021**  | Captura de Pulsos dos Encoders por Interrupção de Hardware  | Funcional     | Odometria                  | Must       | G-F005.1            |
-| **RF-022**  | Conversão de Pulsos em Distância Percorrida                 | Funcional     | Odometria                  | Must       | G-F005.2            |
-| **RF-023**  | Contagem de Células Percorridas                             | Funcional     | Odometria                  | Must       | G-F005.3            |
-| **RF-024**  | Cálculo da Velocidade Média da Sessão de Resolução          | Funcional     | Odometria                  | Must       | G-F005.4            |
-| **RF-025**  | Configuração do Módulo Wi-Fi em Modo Estação                | Funcional     | Telemetria                 | Must       | G-F006.1            |
-| **RF-026**  | Transmissão Contínua da Carga Útil de Telemetria            | Funcional     | Telemetria                 | Must       | G-F006.2            |
-| **RF-027**  | Garantia de Transmissão Unidirecional de Telemetria         | Funcional     | Telemetria                 | Must       | G-F006.3            |
-| **RF-028**  | Implementação da Máquina de Estados de Navegação            | Funcional     | Estados de Navegação       | Must       | G-F007.1            |
-| **RF-029**  | Detecção de Falhas e Transição para Estado Erro             | Funcional     | Estados de Navegação       | Must       | G-F007.2            |
-| **RF-030**  | Isolamento entre Sessões de Resolução Consecutivas          | Funcional     | Estados de Navegação       | Must       | G-F007.3            |
-| **RNF-001** | Calibração Obrigatória dos Limiares de Detecção de Parede   | Não Funcional | Calibração                 | Must       | G-F002.2 (OBS-F002) |
-| **RNF-002** | Critério de Desempate Determinístico no Flood Fill          | Não Funcional | Determinismo Algorítmico   | Must       | G-F003.3 (OBS-F006) |
-| **RNF-003** | Isolamento entre Módulo de Telemetria e Módulo de Navegação | Não Funcional | Resiliência                | Must       | G-F006.2 (OBS-F005) |
-| **RNF-004** | Compensação de Deriva do Giroscópio entre Manobras          | Não Funcional | Precisão de Controle       | Must       | G-F004.4 (OBS-F003) |
-| **RNF-005** | Restrição de Leitura do DIP Switch Exclusivamente ao Boot   | Não Funcional | Restrição de Comportamento | Must       | G-F001.4 (OBS-F007) |
-| **RNF-006** | Odometria Fornece Apenas Posição Relativa                   | Não Funcional | Restrição de Precisão      | Must       | G-F005.2 (OBS-F004) |
+| ID          | Título                                                               | Tipo          | Subtipo                    | Prioridade | Meta KAOS           |
+| ----------- | -------------------------------------------------------------------- | ------------- | -------------------------- | ---------- | ------------------- |
+| **RF-001**  | Auto-teste do ESP32 ao Boot                                          | Funcional     | Inicialização              | Must       | G-F001.1            |
+| **RF-002**  | Reendereçamento de Sensores ToF no Barramento I²C                    | Funcional     | Inicialização              | Must       | G-F001.2            |
+| **RF-003**  | Verificação de Comunicação com IMU e INA219                          | Funcional     | Inicialização              | Must       | G-F001.3            |
+| **RF-004**  | Leitura do DIP Switch (3 vias): Tipo de Labirinto e Canto de Partida | Funcional     | Inicialização              | Must       | G-F001.4            |
+| **RF-005**  | Inicialização do Mapa do Labirinto                                   | Funcional     | Inicialização              | Must       | G-F001.5            |
+| **RF-006**  | Sinalização de Prontidão e Transição para Estado Aguardando          | Funcional     | Inicialização              | Must       | G-F001.6            |
+| **RF-007**  | Leitura Periódica dos Sensores ToF VL53L1X                           | Funcional     | Sensoriamento              | Must       | G-F002.1            |
+| **RF-008**  | Classificação de Paredes por Limiar de Detecção                      | Funcional     | Sensoriamento              | Must       | G-F002.2            |
+| **RF-009**  | Leitura de Dados do IMU MPU-6050                                     | Funcional     | Sensoriamento              | Must       | G-F002.3            |
+| **RF-010**  | Leitura de Dados de Energia do INA219                                | Funcional     | Sensoriamento              | Must       | G-F002.4            |
+| **RF-011**  | Atualização do Mapa do Labirinto                                     | Funcional     | Mapeamento                 | Must       | G-F003.1            |
+| **RF-012**  | Cálculo e Propagação de Valores de Inundação                         | Funcional     | Algoritmo Flood Fill       | Must       | G-F003.2            |
+| **RF-013**  | Seleção da Próxima Célula de Menor Valor de Inundação                | Funcional     | Algoritmo Flood Fill       | Must       | G-F003.3            |
+| **RF-014**  | Recálculo de Rota por Nova Parede Detectada                          | Funcional     | Algoritmo Flood Fill       | Must       | G-F003.4            |
+| **RF-015**  | Encerramento da Fase de Mapeamento e Transição de Estado             | Funcional     | Navegação                  | Must       | G-F003.5            |
+| **RF-016**  | Geração de Sinais PWM via Canais LEDC do ESP32                       | Funcional     | Controle de Motores        | Must       | G-F004.1            |
+| **RF-017**  | Malha de Controle PID para Equalização de Velocidades                | Funcional     | Controle de Motores        | Must       | G-F004.2            |
+| **RF-018**  | Correção de Trajetória por Sensores ToF Laterais e IMU               | Funcional     | Controle de Motores        | Must       | G-F004.3            |
+| **RF-019**  | Monitoramento e Controle do Ângulo de Curva                          | Funcional     | Controle de Motores        | Must       | G-F004.4            |
+| **RF-020**  | Autorização de Avanço após Conclusão de Curva                        | Funcional     | Controle de Motores        | Must       | G-F004.5            |
+| **RF-021**  | Captura de Pulsos dos Encoders por Interrupção de Hardware           | Funcional     | Odometria                  | Must       | G-F005.1            |
+| **RF-022**  | Conversão de Pulsos em Distância Percorrida                          | Funcional     | Odometria                  | Must       | G-F005.2            |
+| **RF-023**  | Contagem de Células Percorridas                                      | Funcional     | Odometria                  | Must       | G-F005.3            |
+| **RF-024**  | Cálculo da Velocidade Média da Sessão de Resolução                   | Funcional     | Odometria                  | Must       | G-F005.4            |
+| **RF-025**  | Inicialização da Pilha BLE e Anúncio do Serviço de Telemetria        | Funcional     | Telemetria                 | Must       | G-F006.1            |
+| **RF-026**  | Transmissão Contínua da Carga Útil de Telemetria                     | Funcional     | Telemetria                 | Must       | G-F006.2            |
+| **RF-027**  | Garantia de Transmissão Unidirecional de Telemetria                  | Funcional     | Telemetria                 | Must       | G-F006.3            |
+| **RF-028**  | Implementação da Máquina de Estados de Navegação                     | Funcional     | Estados de Navegação       | Must       | G-F007.1            |
+| **RF-029**  | Detecção de Falhas e Transição para Estado Erro                      | Funcional     | Estados de Navegação       | Must       | G-F007.2            |
+| **RF-030**  | Isolamento entre Sessões de Resolução Consecutivas                   | Funcional     | Estados de Navegação       | Must       | G-F007.3            |
+| **RNF-001** | Calibração Obrigatória dos Limiares de Detecção de Parede            | Não Funcional | Calibração                 | Must       | G-F002.2 (OBS-F002) |
+| **RNF-002** | Critério de Desempate Determinístico no Flood Fill                   | Não Funcional | Determinismo Algorítmico   | Must       | G-F003.3 (OBS-F006) |
+| **RNF-003** | Isolamento entre Módulo de Telemetria e Módulo de Navegação          | Não Funcional | Resiliência                | Must       | G-F006.2 (OBS-F005) |
+| **RNF-004** | Compensação de Deriva do Giroscópio entre Manobras                   | Não Funcional | Precisão de Controle       | Must       | G-F004.4 (OBS-F003) |
+| **RNF-005** | Restrição de Leitura do DIP Switch Exclusivamente ao Boot            | Não Funcional | Restrição de Comportamento | Must       | G-F001.4 (OBS-F007) |
+| **RNF-006** | Odometria Fornece Apenas Posição Relativa                            | Não Funcional | Restrição de Precisão      | Must       | G-F005.2 (OBS-F004) |

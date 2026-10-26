@@ -76,12 +76,12 @@ Todos os RF de firmware desta faixa são de prioridade **Must have**.
 
 - **Rastreabilidade:** RF-30 - [#110](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/110)
 - **Prioridade:** Must have
-- **Descrição:** Eu, como **operador**, quero **selecionar o tipo de labirinto (4x4, 8x4 ou 12x4) no DIP switch e que o firmware o leia no boot**, para que **o robô monte o mapa nas dimensões corretas**.
+- **Descrição:** Eu, como **operador**, quero **selecionar o tipo de labirinto (4x4, 8x4 ou 12x4) e o canto de partida no DIP switch de três vias e que o firmware os leia no boot**, para que **o robô monte o mapa nas dimensões corretas e parta do canto certo**.
 - **Critérios de aceitação:**
-  1. Na inicialização, o firmware lê o estado das chaves do DIP switch via GPIO.
-  2. O tipo lido define as dimensões da grade e a posição da célula objetivo.
+  1. Na inicialização, o firmware lê as três chaves do DIP switch via GPIO.
+  2. As vias 1 e 2 definem o tipo de labirinto (dimensões da grade e posição da célula objetivo); a via 3 define o canto de partida.
   3. A seleção é fixada para a sessão em curso.
-- **Interface:** física (DIP switch).
+- **Interface:** física (DIP switch de 3 vias).
 
 ---
 
@@ -133,7 +133,7 @@ Todos os RF de firmware desta faixa são de prioridade **Must have**.
 - **Descrição:** Eu, como **operador**, quero que o firmware **classifique cada face da célula como parede presente ou ausente comparando a leitura ao limiar**, para **identificar a configuração da célula atual**.
 - **Critérios de aceitação:**
   1. Cada leitura é comparada ao limiar de detecção configurado para aquela posição de sensor.
-  2. Leitura abaixo do limiar → parede presente; acima do limiar → parede ausente.
+  2. Leitura abaixo do limiar $\rightarrow$ parede presente; acima do limiar $\rightarrow$ parede ausente.
   3. A classificação cobre todas as faces relevantes da célula atual.
 - **Interface:** não se aplica.
 
@@ -344,14 +344,14 @@ Todos os RF de firmware desta faixa são de prioridade **Must have**.
 
 ---
 
-**HU-25 - Configuração do Wi-Fi em modo estação (STA)**
+**HU-25 - Anúncio BLE e disponibilização do serviço de telemetria (NUS)**
 
 - **Rastreabilidade:** RF-51 - [#131](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/131)
 - **Prioridade:** Must have
-- **Descrição:** Eu, como **operador**, quero que o firmware **conecte o ESP32 à rede local em modo estação na inicialização**, para que **o robô possa transmitir a telemetria**.
+- **Descrição:** Eu, como **operador**, quero que o firmware **inicialize a pilha BLE (NimBLE) e passe a anunciar o serviço de telemetria (Nordic UART Service) na inicialização**, para que **a ponte no PC possa se conectar e receber a telemetria**.
 - **Critérios de aceitação:**
-  1. Na inicialização, configura o Wi-Fi em modo STA e conecta à rede definida por parâmetros de compilação.
-  2. A conexão ocorre antes da transição para o estado Aguardando.
+  1. Na inicialização, o firmware inicia a pilha BLE e começa a anunciar (_advertising_) o Nordic UART Service como periférico (GATT server).
+  2. O anúncio ocorre antes da transição para o estado Aguardando; a ausência de central conectada não bloqueia a navegação.
 - **Interface:** não se aplica.
 
 ---
@@ -362,7 +362,7 @@ Todos os RF de firmware desta faixa são de prioridade **Must have**.
 - **Prioridade:** Must have
 - **Descrição:** Eu, como **operador**, quero que o firmware **transmita a carga útil de telemetria durante toda a sessão**, para **acompanhar a tentativa no painel web**.
 - **Critérios de aceitação:**
-  1. Transmite periodicamente via Wi-Fi durante toda a sessão de resolução.
+  1. Notifica periodicamente via BLE (NUS) durante toda a sessão de resolução.
   2. A carga útil inclui: estado de navegação atual, contador de células, velocidade média, posição corrente no mapa e dados de energia do INA219.
 - **Interface:** não se aplica.
 
@@ -372,7 +372,7 @@ Todos os RF de firmware desta faixa são de prioridade **Must have**.
 
 - **Rastreabilidade:** RF-53 - [#133](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/133)
 - **Prioridade:** Must have
-- **Descrição:** Eu, como **operador**, quero que o firmware **opere o Wi-Fi exclusivamente como emissor**, para que **a navegação não dependa de mensagens externas**.
+- **Descrição:** Eu, como **operador**, quero que o firmware **opere o BLE exclusivamente como emissor (notify)**, para que **a navegação não dependa de mensagens externas**.
 - **Critérios de aceitação:**
   1. O firmware não processa, interpreta ou responde a mensagens de entrada enviadas pelo sistema web durante a sessão.
   2. Comporta-se em conformidade com o isolamento telemetria × navegação (RNF-33).
@@ -425,14 +425,14 @@ Preencha a coluna "ID (Link Github Projects)" com o número da issue criada para
 
 **Épico FW-1 - Inicialização e Auto-teste** (RF-27 a RF-32)
 
-| ID (Link Github Projects) | Título                                               | Prioridade |
-| :------------------------ | :--------------------------------------------------- | :--------- |
-| HU-01                     | Auto-teste do ESP32 ao boot                          | Must have  |
-| HU-02                     | Reendereçamento dos sensores ToF no I2C              | Must have  |
-| HU-03                     | Verificação de comunicação com IMU e INA219          | Must have  |
-| HU-04                     | Leitura do DIP switch e tipo de labirinto            | Must have  |
-| HU-05                     | Inicialização do mapa do labirinto                   | Must have  |
-| HU-06                     | Sinalização de prontidão e transição para Aguardando | Must have  |
+| ID (Link Github Projects) | Título                                                               | Prioridade |
+| :------------------------ | :------------------------------------------------------------------- | :--------- |
+| HU-01                     | Auto-teste do ESP32 ao boot                                          | Must have  |
+| HU-02                     | Reendereçamento dos sensores ToF no I2C                              | Must have  |
+| HU-03                     | Verificação de comunicação com IMU e INA219                          | Must have  |
+| HU-04                     | Leitura do DIP switch (3 vias): tipo de labirinto e canto de partida | Must have  |
+| HU-05                     | Inicialização do mapa do labirinto                                   | Must have  |
+| HU-06                     | Sinalização de prontidão e transição para Aguardando                 | Must have  |
 
 **Épico FW-2 - Sensoriamento e Percepção** (RF-33 a RF-37)
 
@@ -474,11 +474,11 @@ Preencha a coluna "ID (Link Github Projects)" com o número da issue criada para
 
 **Épico FW-6 - Telemetria e Comunicação** (RF-51 a RF-53)
 
-| ID (Link Github Projects) | Título                                              | Prioridade |
-| :------------------------ | :-------------------------------------------------- | :--------- |
-| HU-25                     | Configuração do Wi-Fi em modo estação (STA)         | Must have  |
-| HU-26                     | Transmissão contínua da carga útil de telemetria    | Must have  |
-| HU-27                     | Garantia de transmissão unidirecional de telemetria | Must have  |
+| ID (Link Github Projects) | Título                                                        | Prioridade |
+| :------------------------ | :------------------------------------------------------------ | :--------- |
+| HU-25                     | Anúncio BLE e disponibilização do serviço de telemetria (NUS) | Must have  |
+| HU-26                     | Transmissão contínua da carga útil de telemetria              | Must have  |
+| HU-27                     | Garantia de transmissão unidirecional de telemetria           | Must have  |
 
 **Épico FW-7 - Máquina de Estados e Robustez** (RF-54 a RF-56)
 

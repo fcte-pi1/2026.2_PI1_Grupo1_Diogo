@@ -1,9 +1,9 @@
 # Cronograma
 
-O cronograma é mantido na view **Cronograma de Atividades** do [GitHub Projects](https://github.com/orgs/fcte-pi1/projects/49) e exportado para [`cronograma/cronograma.csv`](cronograma/cronograma.csv). A tabela abaixo segue a hierarquia da EAP (Fase → Entrega → Pacote de trabalho → Atividade). Os requisitos e as histórias de usuário estão em [2 - Requisitos](2%20-%20Requisitos.md).
+O cronograma é mantido na view **Cronograma de Atividades** do [GitHub Projects](https://github.com/orgs/fcte-pi1/projects/49) e exportado para [`cronograma/cronograma.csv`](cronograma/cronograma.csv). A tabela abaixo segue a hierarquia da EAP (Fase $\rightarrow$ Entrega $\rightarrow$ Pacote de trabalho $\rightarrow$ Atividade). Os requisitos e as histórias de usuário estão em [2 - Requisitos](2%20-%20Requisitos.md).
 
-- **Fases:** F1. Iniciação · F2. Planejamento · F3. Execução · F4. Encerramento
-- **Entregas:** E1. Abertura do Projeto · E2. Planejamento do Produto · E3. Construção e Testes das Frentes · E4. Integração · E5. Apresentação e Encerramento
+- **Fases:** F1. Iniciação - F2. Planejamento - F3. Execução - F4. Encerramento
+- **Entregas:** E1. Abertura do Projeto - E2. Planejamento do Produto - E3. Construção e Testes das Frentes - E4. Integração - E5. Apresentação e Encerramento
 - **% de Execução:** 100% para itens fechados; nos demais, percentual das atividades abaixo do item (neste cronograma) que já foram fechadas.
 
 *Exportado do GitHub Projects em 30/09/2026.*
@@ -98,10 +98,10 @@ O cronograma é mantido na view **Cronograma de Atividades** do [GitHub Projects
 | [#295](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/295) | F3 | E3 | 3.5.2 Implementação de reendereçamento dos VL53L1X | 01/10/2026 | 26/10/2026 | Kelyton Santos, Ricardo Leal | 3.5.1 | 0% | A Fazer | AP12 |
 | [#296](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/296) | F3 | E3 | 3.5.3 Montagem na perfboard | 01/10/2026 | 26/10/2026 | Matias Marin, Gabriel Cotrim | 3.5.1, 3.5.2 | 0% | A Fazer | AP12 |
 | [#25](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/25) | F3 | E3 | 3.6. Firmware de Sensoriamento e Atuação | 01/10/2026 | 26/10/2026 | Gustavo Oki, Samuel Caetano | 2.6 | 0% | A Fazer | AP12 |
-| [#311](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/311) | F3 | E3 | 3.6.1. Configurar o projeto PlatformIO e a arquitetura em camadas do firmware | 01/10/2026 | 04/10/2026 | Gustavo Oki, Samuel Caetano | 2.6 | 0% | A Fazer | AP12 |
+| [#311](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/311) | F3 | E3 | 3.6.1. Configurar o projeto ESP-IDF e a arquitetura em camadas do firmware | 01/10/2026 | 04/10/2026 | Gustavo Oki, Samuel Caetano | 2.6 | 0% | A Fazer | AP12 |
 | [#312](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/312) | F3 | E3 | 3.6.2. Implementar os drivers dos sensores ToF, IMU e INA219 e o auto-teste de boot (RF-27 a RF-36) | 05/10/2026 | 18/10/2026 | Gustavo Oki, Samuel Caetano | 3.6.1, 3.1 | 0% | A Fazer | AP12 |
 | [#313](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/313) | F3 | E3 | 3.6.3. Implementar PWM dos motores, leitura dos encoders e odometria (RF-42, RF-47 a RF-50) | 12/10/2026 | 18/10/2026 | Gustavo Oki, Samuel Caetano | 3.6.1, 3.1 | 0% | A Fazer | AP12 |
-| [#314](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/314) | F3 | E3 | 3.6.4. Implementar a conexão Wi-Fi e o envio da telemetria ao backend (RF-51 a RF-53) | 12/10/2026 | 18/10/2026 | Gustavo Oki, Lucas Alves | 3.8.1 | 0% | A Fazer | AP12 |
+| [#314](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/314) | F3 | E3 | 3.6.4. Implementar o anúncio BLE (NUS) e o envio da telemetria (via ponte) ao backend (RF-51 a RF-53) | 12/10/2026 | 18/10/2026 | Gustavo Oki, Lucas Alves | 3.8.1 | 0% | A Fazer | AP12 |
 | [#315](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/315) | F3 | E3 | 3.6.5. Implementar o controle PID, a correção de trajetória e as curvas (RF-43 a RF-46) | 19/10/2026 | 25/10/2026 | Gustavo Oki, Samuel Caetano | 3.6.3 | 0% | A Fazer | AP12 |
 | [#26](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/26) | F3 | E3 | 3.7. Algoritmo de Navegação (Flood Fill) | 01/10/2026 | 26/10/2026 | Gustavo Oki, Samuel Caetano | 2.6 | 0% | A Fazer | AP12 |
 | [#316](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/316) | F3 | E3 | 3.7.1. Implementar o mapa do labirinto e o Flood Fill em simulação no PC (RF-37 a RF-41) | 01/10/2026 | 11/10/2026 | Gustavo Oki, Samuel Caetano | 2.6 | 0% | A Fazer | AP12 |

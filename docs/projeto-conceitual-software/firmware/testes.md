@@ -13,13 +13,13 @@
 
 Este documento define os **casos de teste funcionais** do firmware embarcado no ESP32, cobrindo todos os requisitos **Must have** da faixa RF-27 a RF-56. Cada caso segue o formato exigido pelo `4.4 - Projeto conceitual de software.md`: **código, nome, rastreabilidade (RF/HU), objetivo, pré-condições, procedimento e resultado esperado**. Há um caso de teste por requisito, rastreado à HU correspondente do documento `4.4.3 - Backlog Firmware`.
 
-Cada caso já está pronto para virar item de teste no GitHub. Os casos que dependem apenas de lógica (Flood Fill, derivações) podem ser executados como **testes automatizados** (Unity/native no PlatformIO); os demais são **testes de bancada** ou **na pista de testes 4×4**.
+Cada caso já está pronto para virar item de teste no GitHub. Os casos que dependem apenas de lógica (Flood Fill, derivações) podem ser executados como **testes automatizados** (GoogleTest no build de host, via CMake/ctest); os demais são **testes de bancada** ou **na pista de testes 4×4**.
 
 ## 2. Ambientes e instrumentos de teste
 
 - **Bancada (protoboard):** validação de módulos individuais com o monitor serial.
 - **Pista de testes 4×4** (RF-4): validação de navegação, movimento e sensoriamento em condição real.
-- **Ambiente _native_ (PlatformIO + Unity):** lógica desacoplada do hardware (Flood Fill, conversões, máquina de estados).
+- **Build de host (CMake + GoogleTest):** lógica desacoplada do hardware (Flood Fill, conversões, máquina de estados), rodando no PC sem o microcontrolador.
 - **Instrumentos:** multímetro, osciloscópio (verificação de PWM), fonte de bancada, monitor serial e o **painel web/simulador** para conferência da telemetria.
 - **Condição padrão:** salvo indicação, os limiares de detecção dos ToF já estão calibrados (RNF-31) e a bateria LiPo 2S está carregada.
 
@@ -66,16 +66,16 @@ Cada caso contém: **Código** (CT-FW-XX) - **Nome** - **Rastreabilidade** (RF +
   3. Repetir desconectando o IMU.
 - **Resultado esperado:** com ambos presentes, o log confirma resposta dos dois antes de qualquer leitura sensorial; com um ausente, a inicialização falha e é sinalizada.
 
-**CT-FW-04 - Leitura do DIP switch e tipo de labirinto**
+**CT-FW-04 - Leitura do DIP switch (3 vias): tipo de labirinto e canto de partida**
 
 - **Rastreabilidade:** RF-30 - [#110](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/110) - HU-04
-- **Objetivo:** validar que o tipo de labirinto lido define as dimensões da grade e a célula objetivo.
-- **Pré-condições:** DIP switch acessível; monitor serial.
-- **Procedimento:** para cada configuração {4×4, 8×4, 12×4}:
-  1. posicionar o DIP switch;
+- **Objetivo:** validar que as vias 1 e 2 definem o tipo de labirinto (dimensões da grade e célula objetivo) e que a via 3 define o canto de partida.
+- **Pré-condições:** DIP switch de 3 vias acessível; monitor serial.
+- **Procedimento:** para cada configuração {4×4, 8×4, 12×4} e cada posição da via 3 (canto de partida):
+  1. posicionar as três vias do DIP switch;
   2. energizar;
-  3. ler no log as dimensões da grade e a célula objetivo.
-- **Resultado esperado:** para cada configuração, o log reporta as dimensões e a célula objetivo corretas para aquele tipo.
+  3. ler no log as dimensões da grade, a célula objetivo e o canto de partida.
+- **Resultado esperado:** para cada configuração, o log reporta as dimensões, a célula objetivo e o canto de partida corretos.
 
 **CT-FW-05 - Inicialização do mapa do labirinto**
 
@@ -118,7 +118,7 @@ Cada caso contém: **Código** (CT-FW-XX) - **Nome** - **Rastreabilidade** (RF +
   1. Colocar parede a uma distância abaixo do limiar;
   2. retirar a parede (acima do limiar);
   3. registrar a classificação para cada face.
-- **Resultado esperado:** leitura abaixo do limiar → "presente"; acima → "ausente", para cada face avaliada.
+- **Resultado esperado:** leitura abaixo do limiar $\rightarrow$ "presente"; acima $\rightarrow$ "ausente", para cada face avaliada.
 
 **CT-FW-09 - Leitura de dados do IMU**
 
@@ -156,7 +156,7 @@ Cada caso contém: **Código** (CT-FW-XX) - **Nome** - **Rastreabilidade** (RF +
 **CT-FW-12 - Propagação dos valores de inundação**
 
 - **Rastreabilidade:** RF-38 - [#118](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/118) - HU-12
-- **Objetivo:** validar o cálculo do Flood Fill. _(Teste automatizado - ambiente native.)_
+- **Objetivo:** validar o cálculo do Flood Fill. _(Teste automatizado - build de host, GoogleTest.)_
 - **Pré-condições:** mapa de teste conhecido carregado no teste unitário.
 - **Procedimento:**
   1. Carregar um labirinto de referência.
@@ -170,8 +170,8 @@ Cada caso contém: **Código** (CT-FW-XX) - **Nome** - **Rastreabilidade** (RF +
 - **Objetivo:** validar a escolha do próximo passo e o desempate. _(Automatizado.)_
 - **Pré-condições:** mapa com valores de inundação e um caso de empate montado.
 - **Procedimento:**
-  1. Posicionar em célula com vizinhos de valores distintos → verificar escolha.
-  2. Montar empate entre dois vizinhos → verificar desempate.
+  1. Posicionar em célula com vizinhos de valores distintos $\rightarrow$ verificar escolha.
+  2. Montar empate entre dois vizinhos $\rightarrow$ verificar desempate.
 - **Resultado esperado:** escolhe a vizinha acessível de menor valor; no empate, aplica o critério determinístico documentado (RNF-32), com resultado reproduzível.
 
 **CT-FW-14 - Recálculo de rota por nova parede**
@@ -187,7 +187,7 @@ Cada caso contém: **Código** (CT-FW-XX) - **Nome** - **Rastreabilidade** (RF +
 **CT-FW-15 - Encerramento do mapeamento e transição**
 
 - **Rastreabilidade:** RF-41 - [#121](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/121) - HU-15
-- **Objetivo:** validar a chegada ao objetivo e a transição Mapeando→Resolvendo.
+- **Objetivo:** validar a chegada ao objetivo e a transição Mapeando$\rightarrow$Resolvendo.
 - **Pré-condições:** pista 4×4; sessão iniciada.
 - **Procedimento:**
   1. Executar uma tentativa completa até o objetivo.
@@ -292,15 +292,15 @@ Cada caso contém: **Código** (CT-FW-XX) - **Nome** - **Rastreabilidade** (RF +
 
 ### Épico FW-6 - Telemetria e Comunicação
 
-**CT-FW-25 - Conexão Wi-Fi em modo estação (STA)**
+**CT-FW-25 - Anúncio BLE e disponibilização do serviço de telemetria (NUS)**
 
 - **Rastreabilidade:** RF-51 - [#131](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/131) - HU-25
-- **Objetivo:** validar a conexão à rede local antes de Aguardando.
-- **Pré-condições:** rede local configurada nos parâmetros de compilação.
+- **Objetivo:** validar que o firmware anuncia o Nordic UART Service e aceita a conexão da ponte antes de Aguardando.
+- **Pré-condições:** ponte BLE$\rightarrow$WebSocket (ou um scanner BLE, ex.: nRF Connect) disponível no PC.
 - **Procedimento:**
   1. Energizar.
-  2. Acompanhar no serial a conexão Wi-Fi.
-- **Resultado esperado:** o ESP32 conecta em modo STA à rede definida **antes** de transitar para Aguardando.
+  2. Acompanhar no serial o início da pilha BLE e, no scanner/ponte, o anúncio do dispositivo "RatoBorrachudo".
+- **Resultado esperado:** o ESP32 inicia a pilha BLE e passa a anunciar o NUS como periférico **antes** de transitar para Aguardando; a central (ponte) consegue conectar e assinar as notificações.
 
 **CT-FW-26 - Transmissão contínua da telemetria**
 
@@ -330,7 +330,7 @@ Cada caso contém: **Código** (CT-FW-XX) - **Nome** - **Rastreabilidade** (RF +
 - **Objetivo:** validar os seis estados e apenas as transições autorizadas.
 - **Pré-condições:** telemetria acessível para leitura do estado corrente.
 - **Procedimento:**
-  1. Percorrer o ciclo completo (Inicializando→Aguardando→Mapeando→[Resolvendo]→Concluído).
+  1. Percorrer o ciclo completo (Inicializando$\rightarrow$Aguardando$\rightarrow$Mapeando$\rightarrow$[Resolvendo]$\rightarrow$Concluído).
   2. Tentar disparar transições não autorizadas.
 - **Resultado esperado:** os seis estados ocorrem; apenas as transições previstas acontecem; o estado corrente aparece na telemetria a cada ciclo.
 
@@ -364,9 +364,9 @@ Requisitos não-funcionais de firmware fortemente ligados aos casos acima; inclu
 **CT-FW-31 - Isolamento telemetria × navegação**
 
 - **Rastreabilidade:** RNF-33 - [#211](https://github.com/fcte-pi1/2026.2_PI1_Grupo1_Diogo/issues/211)
-- **Objetivo:** garantir que falhas de Wi-Fi não afetam a navegação.
-- **Procedimento:** durante uma tentativa, derrubar a rede Wi-Fi por período prolongado e observar a navegação; restabelecer a rede.
-- **Resultado esperado:** a navegação prossegue normalmente (não vai a Erro); a telemetria retoma automaticamente ao voltar a conexão.
+- **Objetivo:** garantir que falhas do enlace BLE não afetam a navegação.
+- **Procedimento:** durante uma tentativa, desconectar a central/ponte (ou afastar o PC até perder o enlace BLE) por período prolongado e observar a navegação; reconectar em seguida.
+- **Resultado esperado:** a navegação prossegue normalmente (não vai a Erro); a telemetria retoma automaticamente ao reconectar e o buffer retido é reenviado.
 
 **CT-FW-32 - Desempate determinístico do Flood Fill**
 

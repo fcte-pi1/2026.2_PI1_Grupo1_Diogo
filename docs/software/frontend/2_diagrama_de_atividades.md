@@ -18,42 +18,42 @@ Sob cada ação, em cinza, estão os requisitos que ela atende, com a numeraçã
 
 ### 2.1 Atores e raias
 
-| Raia | Papel no fluxo |
-|:--|:--|
-| **Operador** | Integrante da equipe que prepara o robô na pista, dispara a tentativa, acompanha a execução no painel e intervém fisicamente quando necessário. É o único ator humano modelado. |
-| **Frontend (painel web)** | Interface que se conecta ao backend, acompanha a corrida ao vivo e exibe, em tempo real, os seis dados obrigatórios, o labirinto, o trajeto e o estado da conexão. |
-| Firmware e Backend | Raias modeladas por outros integrantes. Aparecem neste documento apenas por meio dos marcadores **F** (Firmware) e **B** (Backend). |
+| Raia                      | Papel no fluxo                                                                                                                                                                  |
+| :------------------------ | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Operador**              | Integrante da equipe que prepara o robô na pista, dispara a tentativa, acompanha a execução no painel e intervém fisicamente quando necessário. É o único ator humano modelado. |
+| **Frontend (painel web)** | Interface que se conecta ao backend, acompanha a corrida ao vivo e exibe, em tempo real, os seis dados obrigatórios, o labirinto, o trajeto e o estado da conexão.              |
+| Firmware e Backend        | Raias modeladas por outros integrantes. Aparecem neste documento apenas por meio dos marcadores **F** (Firmware) e **B** (Backend).                                             |
 
 ### 2.2 Notação UML utilizada
 
-| Elemento | Uso no diagrama |
-|:--|:--|
-| Nó inicial | Início do processo, na raia do Operador. |
-| Nó final de atividade | Encerramento do processo quando não há nova tentativa. Encerra todos os fluxos em andamento, inclusive o do painel. |
-| Ações | 26 ações (10 na raia do Operador e 16 na raia do Frontend). |
-| Nós de decisão | 7 decisões, todas com condições de guarda nas saídas. |
-| Nós de junção (*merge*) | 10 junções, usadas nos retornos de laço e na convergência de caminhos alternativos. |
-| Barras de bifurcação (*fork*) | 3 bifurcações: início em paralelo do painel e da preparação do robô; atualização paralela da tela; devolução do resultado ao operador em paralelo ao retorno do painel à espera. |
-| Barras de sincronização (*join*) | 2 sincronizações: fim das atualizações paralelas da tela; conferência do resultado pelo operador. |
-| Nós de objeto | 9 objetos que representam os insumos e as saídas trocados entre raias (seção 2.3). |
-| Raias (*swimlanes*) | 2 raias (Operador e Frontend), com espaço reservado para Firmware e Backend. |
-| Fluxos de controle e de objeto | Setas contínuas entre ações, nós e objetos. |
-| Conectores (marcadores) | 8 marcadores, F1 a F3 e B1 a B5, que indicam os pontos de contato com as raias de Firmware e Backend. |
-| Nota | Requisitos não funcionais que se aplicam ao laço de atualização (RNF-37, RNF-38 e RNF-40). |
+| Elemento                         | Uso no diagrama                                                                                                                                                                  |
+| :------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Nó inicial                       | Início do processo, na raia do Operador.                                                                                                                                         |
+| Nó final de atividade            | Encerramento do processo quando não há nova tentativa. Encerra todos os fluxos em andamento, inclusive o do painel.                                                              |
+| Ações                            | 26 ações (10 na raia do Operador e 16 na raia do Frontend).                                                                                                                      |
+| Nós de decisão                   | 7 decisões, todas com condições de guarda nas saídas.                                                                                                                            |
+| Nós de junção (*merge*)          | 10 junções, usadas nos retornos de laço e na convergência de caminhos alternativos.                                                                                              |
+| Barras de bifurcação (*fork*)    | 3 bifurcações: início em paralelo do painel e da preparação do robô; atualização paralela da tela; devolução do resultado ao operador em paralelo ao retorno do painel à espera. |
+| Barras de sincronização (*join*) | 2 sincronizações: fim das atualizações paralelas da tela; conferência do resultado pelo operador.                                                                                |
+| Nós de objeto                    | 9 objetos que representam os insumos e as saídas trocados entre raias (seção 2.3).                                                                                               |
+| Raias (*swimlanes*)              | 2 raias (Operador e Frontend), com espaço reservado para Firmware e Backend.                                                                                                     |
+| Fluxos de controle e de objeto   | Setas contínuas entre ações, nós e objetos.                                                                                                                                      |
+| Conectores (marcadores)          | 8 marcadores, F1 a F3 e B1 a B5, que indicam os pontos de contato com as raias de Firmware e Backend.                                                                            |
+| Nota                             | Requisitos não funcionais que se aplicam ao laço de atualização (RNF-37, RNF-38 e RNF-40).                                                                                       |
 
 ### 2.3 Insumos e saídas
 
-| Objeto | Produzido por | Consumido por | Tipo |
-|:--|:--|:--|:--|
-| Robô energizado com o DIP configurado | Operador: *Ligar o robô pela chave geral* | Firmware (F1) | Saída |
-| Sinalização de prontidão ou de erro | Firmware (F2) | Operador: *Observar a sinalização do robô* | Insumo |
-| Sinal de início da tentativa | Operador: *Pressionar o botão de disparo* | Firmware (F3) | Saída |
-| Pedido de inscrição no canal de corridas ao vivo | Frontend: *Conectar-se ao backend e inscrever-se no canal de corridas ao vivo* | Backend (B1) | Saída |
-| Aviso de corrida ao vivo (identificador e tipo de labirinto) | Backend (B2) | Frontend: *Aguardar o aviso de corrida ao vivo* | Insumo |
-| Pedido de inscrição na corrida | Frontend: *Inscrever-se automaticamente na corrida* | Backend (B3) | Saída |
-| Snapshot da corrida (tipo, mapa, posição, métricas e número de sequência de corte) | Backend (B4) | Frontend: *Montar a grade do labirinto a partir do snapshot* | Insumo |
-| Atualização da corrida | Backend (B5) | Frontend: *Receber a atualização da corrida* | Insumo |
-| Resultado final da tentativa | Frontend: *Congelar o cronômetro e exibir o resultado final* | Operador: sincronização antes de *Conferir o resultado final no painel* | Saída do Frontend, insumo do Operador |
+| Objeto                                                                             | Produzido por                                                                  | Consumido por                                                           | Tipo                                  |
+| :--------------------------------------------------------------------------------- | :----------------------------------------------------------------------------- | :---------------------------------------------------------------------- | :------------------------------------ |
+| Robô energizado com o DIP configurado                                              | Operador: *Ligar o robô pela chave geral*                                      | Firmware (F1)                                                           | Saída                                 |
+| Sinalização de prontidão ou de erro                                                | Firmware (F2)                                                                  | Operador: *Observar a sinalização do robô*                              | Insumo                                |
+| Sinal de início da tentativa                                                       | Operador: *Pressionar o botão de disparo*                                      | Firmware (F3)                                                           | Saída                                 |
+| Pedido de inscrição no canal de corridas ao vivo                                   | Frontend: *Conectar-se ao backend e inscrever-se no canal de corridas ao vivo* | Backend (B1)                                                            | Saída                                 |
+| Aviso de corrida ao vivo (identificador e tipo de labirinto)                       | Backend (B2)                                                                   | Frontend: *Aguardar o aviso de corrida ao vivo*                         | Insumo                                |
+| Pedido de inscrição na corrida                                                     | Frontend: *Inscrever-se automaticamente na corrida*                            | Backend (B3)                                                            | Saída                                 |
+| Snapshot da corrida (tipo, mapa, posição, métricas e número de sequência de corte) | Backend (B4)                                                                   | Frontend: *Montar a grade do labirinto a partir do snapshot*            | Insumo                                |
+| Atualização da corrida                                                             | Backend (B5)                                                                   | Frontend: *Receber a atualização da corrida*                            | Insumo                                |
+| Resultado final da tentativa                                                       | Frontend: *Congelar o cronômetro e exibir o resultado final*                   | Operador: sincronização antes de *Conferir o resultado final no painel* | Saída do Frontend, insumo do Operador |
 
 Quando uma ação recebe um objeto, ela só é executada depois que o objeto chega. Por exemplo, *Aguardar o aviso de corrida ao vivo* permanece em espera até o backend enviar o aviso (B2).
 
@@ -89,30 +89,30 @@ Quando uma ação recebe um objeto, ela só é executada depois que o objeto che
 
 ### 3.2 Fluxos alternativos
 
-| Situação | Tratamento no diagrama | Requisitos |
-|:--|:--|:--|
-| Falha no auto-teste ou na inicialização | O robô sinaliza erro. O operador desliga o robô, corrige a falha e reinicia a preparação a partir do posicionamento. | RF-27 a RF-29; sinalização via F2 (ver seção 7) |
-| Falha ao conectar o painel ao backend | O painel exibe "reconectando" e tenta novamente, sem intervenção do operador. | RF-59, RNF-39 |
-| Queda da conexão entre painel e backend durante a corrida | O painel volta ao ciclo de reconexão. Ao se inscrever de novo, recebe um novo *snapshot*, o que ressincroniza a tela. | RF-89, RNF-39 |
-| Perda do sinal do robô (entre robô e backend) | O painel exibe "sem sinal" e a navegação prossegue normalmente. Se a perda durar mais de 120 s, o backend marca a corrida como INTERROMPIDA e o painel sinaliza a falha. | RF-59, RF-73, RF-81, RF-92, RNF-33 |
-| Colisão ou mau funcionamento do robô | O operador aciona a chave de corte geral (parada de emergência) e aguarda o resultado no painel. | RF-11 |
-| Estouro do tempo limite de 10 minutos | O backend informa o estouro no status da corrida, com o motivo de término. O painel sinaliza a falha e o motivo recebido, e o operador interrompe o robô pela chave de corte geral. | RF-69, RF-87, RF-11 |
-| Nova tentativa | O operador desliga o robô (se ainda estiver ligado), reposiciona e reconfigura o DIP switch se for mudar de labirinto, e liga novamente. A reinicialização garante mapa, contador e temporizador zerados. | RF-19, RF-56, RF-81 |
+| Situação                                                  | Tratamento no diagrama                                                                                                                                                                                    | Requisitos                                      |
+| :-------------------------------------------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------------------------------------------- |
+| Falha no auto-teste ou na inicialização                   | O robô sinaliza erro. O operador desliga o robô, corrige a falha e reinicia a preparação a partir do posicionamento.                                                                                      | RF-27 a RF-29; sinalização via F2 (ver seção 7) |
+| Falha ao conectar o painel ao backend                     | O painel exibe "reconectando" e tenta novamente, sem intervenção do operador.                                                                                                                             | RF-59, RNF-39                                   |
+| Queda da conexão entre painel e backend durante a corrida | O painel volta ao ciclo de reconexão. Ao se inscrever de novo, recebe um novo *snapshot*, o que ressincroniza a tela.                                                                                     | RF-89, RNF-39                                   |
+| Perda do sinal do robô (entre robô e backend)             | O painel exibe "sem sinal" e a navegação prossegue normalmente. Se a perda durar mais de 120 s, o backend marca a corrida como INTERROMPIDA e o painel sinaliza a falha.                                  | RF-59, RF-73, RF-81, RF-92, RNF-33              |
+| Colisão ou mau funcionamento do robô                      | O operador aciona a chave de corte geral (parada de emergência) e aguarda o resultado no painel.                                                                                                          | RF-11                                           |
+| Estouro do tempo limite de 10 minutos                     | O backend informa o estouro no status da corrida, com o motivo de término. O painel sinaliza a falha e o motivo recebido, e o operador interrompe o robô pela chave de corte geral.                       | RF-69, RF-87, RF-11                             |
+| Nova tentativa                                            | O operador desliga o robô (se ainda estiver ligado), reposiciona e reconfigura o DIP switch se for mudar de labirinto, e liga novamente. A reinicialização garante mapa, contador e temporizador zerados. | RF-19, RF-56, RF-81                             |
 
 ## 4. Pontos de integração com as demais raias
 
 **Convenção adotada.** O fluxo de controle de cada raia permanece nela. A comunicação com as raias de Firmware e Backend é representada por fluxos de objeto (insumos e saídas) que começam ou terminam em um marcador. Na consolidação do diagrama, cada marcador deve ser substituído por um fluxo ligado à atividade correspondente da outra raia.
 
-| Marcador | Direção | Raia | Atividade esperada na outra raia | Objeto trocado | Requisitos |
-|:--:|:--|:--|:--|:--|:--|
-| F1 | saída | Firmware | Inicialização: auto-teste, reendereçamento dos sensores ToF, leitura do DIP switch, montagem do mapa e conexão Wi-Fi em modo estação | Robô energizado com o DIP configurado | RF-27 a RF-31, RF-51, RNF-35 |
-| F2 | entrada | Firmware | Sinalizar prontidão (estado Aguardando) ou erro | Sinalização de prontidão ou de erro | RF-32, RF-55 |
-| F3 | saída | Firmware | Iniciar a Sessão de Resolução (Aguardando → Mapeando) | Sinal de início da tentativa | RF-5, RF-54 |
-| B1 | saída | Backend | Registrar o painel (somente leitura) no canal de corridas ao vivo | Pedido de inscrição no canal de corridas ao vivo | RF-88, RNF-55 |
-| B2 | entrada | Backend | Criar a corrida e avisar o canal de corridas ao vivo, inclusive o painel que se reconecta durante uma corrida | Aviso de corrida ao vivo | RF-78, RF-88 |
-| B3 | saída | Backend | Registrar a inscrição do painel na corrida | Pedido de inscrição na corrida | RF-88 |
-| B4 | entrada | Backend | Enviar o *snapshot* consistente da corrida | Snapshot da corrida | RF-89 |
-| B5 | entrada | Backend | Distribuir atualizações aos painéis inscritos: métricas derivadas, status com motivo de término (inclusive estouro do tempo limite) e avisos de sinal do robô | Atualização da corrida | RF-82 a RF-85, RF-87, RF-88, RF-90, RF-92 |
+| Marcador | Direção | Raia     | Atividade esperada na outra raia                                                                                                                              | Objeto trocado                                   | Requisitos                                |
+| :------: | :------ | :------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------ | :----------------------------------------------- | :---------------------------------------- |
+|    F1    | saída   | Firmware | Inicialização: auto-teste, reendereçamento dos sensores ToF, leitura do DIP switch (3 vias), montagem do mapa e anúncio BLE (NUS)                             | Robô energizado com o DIP configurado            | RF-27 a RF-31, RF-51, RNF-35              |
+|    F2    | entrada | Firmware | Sinalizar prontidão (estado Aguardando) ou erro                                                                                                               | Sinalização de prontidão ou de erro              | RF-32, RF-55                              |
+|    F3    | saída   | Firmware | Iniciar a Sessão de Resolução (Aguardando $\rightarrow$ Mapeando)                                                                                                        | Sinal de início da tentativa                     | RF-5, RF-54                               |
+|    B1    | saída   | Backend  | Registrar o painel (somente leitura) no canal de corridas ao vivo                                                                                             | Pedido de inscrição no canal de corridas ao vivo | RF-88, RNF-55                             |
+|    B2    | entrada | Backend  | Criar a corrida e avisar o canal de corridas ao vivo, inclusive o painel que se reconecta durante uma corrida                                                 | Aviso de corrida ao vivo                         | RF-78, RF-88                              |
+|    B3    | saída   | Backend  | Registrar a inscrição do painel na corrida                                                                                                                    | Pedido de inscrição na corrida                   | RF-88                                     |
+|    B4    | entrada | Backend  | Enviar o *snapshot* consistente da corrida                                                                                                                    | Snapshot da corrida                              | RF-89                                     |
+|    B5    | entrada | Backend  | Distribuir atualizações aos painéis inscritos: métricas derivadas, status com motivo de término (inclusive estouro do tempo limite) e avisos de sinal do robô | Atualização da corrida                           | RF-82 a RF-85, RF-87, RF-88, RF-90, RF-92 |
 
 ## 5. Decisões de modelagem
 
@@ -131,29 +131,29 @@ Quando uma ação recebe um objeto, ela só é executada depois que o objeto che
 
 A coluna HU remete às [histórias de usuário do frontend](UC-frontend.md), que correspondem 1:1 aos RF-57 a RF-71.
 
-| Requisito | HU | Elemento do diagrama |
-|:--|:--|:--|
-| RF-5 | — | *Pressionar o botão de disparo*; F3 |
-| RF-11 | — | *Acionar a chave de corte geral (parada de emergência)* |
-| RF-19 | — | Laço de nova tentativa (decisão "Nova tentativa?") |
-| RF-30, RF-99, RNF-35 | — | *Posicionar o robô na célula de partida*; *Configurar o DIP switch*; F1 |
-| RF-32, RF-55 | — | *Observar a sinalização do robô*; decisão "Robô sinalizou prontidão?"; F2 |
-| RF-57 | HU-FE-01 | *Atualizar velocidade média, tempo e energia*; *Congelar o cronômetro e exibir o resultado final* |
-| RF-58 | HU-FE-02 | *Conectar-se ao backend (WebSocket) e inscrever-se no canal de corridas ao vivo*; *Receber a atualização da corrida* |
-| RF-59 | HU-FE-03 | *Exibir "reconectando" e tentar de novo*; *Exibir o estado "conectado"*; *Atualizar o indicador de sinal do robô* |
-| RF-60 | HU-FE-04 | *Montar a grade do labirinto*; *Atualizar as paredes do labirinto* |
-| RF-61 | HU-FE-05 | *Atualizar o trajeto e a posição do robô* |
-| RF-62 | HU-FE-06 | *Inscrever-se automaticamente na corrida*; *Montar a grade do labirinto* |
-| RF-63 | HU-FE-07 | *Sinalizar "desafio cumprido"* |
-| RF-64 | HU-FE-08 | *Atualizar velocidade média, tempo e energia*; *Congelar o cronômetro e exibir o resultado final* |
-| RF-68 | HU-FE-12 | *Atualizar o gráfico de consumo* |
-| RF-69 | HU-FE-13 | *Sinalizar a falha e o motivo informado*, inclusive o estouro do tempo limite informado pelo backend |
-| RF-73, RF-92 | — | *Atualizar o indicador de sinal do robô*; B5 |
-| RF-87 | — | Decisão "Status da corrida?"; B5 |
-| RF-88, RF-89 | — | *Aguardar o aviso de corrida ao vivo*; *Inscrever-se automaticamente na corrida*; *Montar a grade do labirinto*; B1 a B4 |
-| RNF-37, RNF-38, RNF-40 | — | Nota do laço de atualização |
-| RNF-39 | — | Ciclo de reconexão (decisões "Conexão estabelecida?" e "Conexão com o backend ativa?") |
-| RNF-41, RNF-42 | — | *Carregar a página do painel* |
+| Requisito              | HU       | Elemento do diagrama                                                                                                     |
+| :--------------------- | :------- | :----------------------------------------------------------------------------------------------------------------------- |
+| RF-5                   | —        | *Pressionar o botão de disparo*; F3                                                                                      |
+| RF-11                  | —        | *Acionar a chave de corte geral (parada de emergência)*                                                                  |
+| RF-19                  | —        | Laço de nova tentativa (decisão "Nova tentativa?")                                                                       |
+| RF-30, RF-99, RNF-35   | —        | *Posicionar o robô na célula de partida*; *Configurar o DIP switch*; F1                                                  |
+| RF-32, RF-55           | —        | *Observar a sinalização do robô*; decisão "Robô sinalizou prontidão?"; F2                                                |
+| RF-57                  | HU-FE-01 | *Atualizar velocidade média, tempo e energia*; *Congelar o cronômetro e exibir o resultado final*                        |
+| RF-58                  | HU-FE-02 | *Conectar-se ao backend (WebSocket) e inscrever-se no canal de corridas ao vivo*; *Receber a atualização da corrida*     |
+| RF-59                  | HU-FE-03 | *Exibir "reconectando" e tentar de novo*; *Exibir o estado "conectado"*; *Atualizar o indicador de sinal do robô*        |
+| RF-60                  | HU-FE-04 | *Montar a grade do labirinto*; *Atualizar as paredes do labirinto*                                                       |
+| RF-61                  | HU-FE-05 | *Atualizar o trajeto e a posição do robô*                                                                                |
+| RF-62                  | HU-FE-06 | *Inscrever-se automaticamente na corrida*; *Montar a grade do labirinto*                                                 |
+| RF-63                  | HU-FE-07 | *Sinalizar "desafio cumprido"*                                                                                           |
+| RF-64                  | HU-FE-08 | *Atualizar velocidade média, tempo e energia*; *Congelar o cronômetro e exibir o resultado final*                        |
+| RF-68                  | HU-FE-12 | *Atualizar o gráfico de consumo*                                                                                         |
+| RF-69                  | HU-FE-13 | *Sinalizar a falha e o motivo informado*, inclusive o estouro do tempo limite informado pelo backend                     |
+| RF-73, RF-92           | —        | *Atualizar o indicador de sinal do robô*; B5                                                                             |
+| RF-87                  | —        | Decisão "Status da corrida?"; B5                                                                                         |
+| RF-88, RF-89           | —        | *Aguardar o aviso de corrida ao vivo*; *Inscrever-se automaticamente na corrida*; *Montar a grade do labirinto*; B1 a B4 |
+| RNF-37, RNF-38, RNF-40 | —        | Nota do laço de atualização                                                                                              |
+| RNF-39                 | —        | Ciclo de reconexão (decisões "Conexão estabelecida?" e "Conexão com o backend ativa?")                                   |
+| RNF-41, RNF-42         | —        | *Carregar a página do painel*                                                                                            |
 
 Requisitos de frontend sem elemento neste diagrama:
 
@@ -162,14 +162,14 @@ Requisitos de frontend sem elemento neste diagrama:
 
 ## 7. Pontos em aberto
 
-| Ponto | Com quem alinhar |
-|:--|:--|
-| Os requisitos tratam da sinalização de erro durante a operação (RF-55), mas não definem como o robô sinaliza falha no auto-teste de inicialização (RF-27 a RF-29), utilizada em F2. | Firmware |
-| Confirmar que uma nova tentativa é realizada desligando e religando o robô. | Firmware |
-| Ao reconectar durante uma corrida, o painel precisa receber o aviso da corrida já em andamento (B2); caso contrário, permanece aguardando uma corrida nova. | Backend |
-| A detecção do estouro do tempo limite de 10 minutos cabe ao backend (HU-FE-13, CA2), mas nenhum requisito de backend a prevê hoje: o RF-81 trata apenas da falta de sinal, e o RF-87 lista os status sem esse motivo. É preciso incluir a regra no backend, com o motivo correspondente no status enviado ao painel e gravado no histórico. | Backend e Gerência de Software |
-| O RF-86 prevê alerta de tensão baixa enviado aos painéis, mas nenhum requisito de frontend define sua exibição. | Gerência de Software |
-| O RF-70 (modo de depuração) exige dados brutos dos sensores que não constam da carga útil de telemetria definida no RF-52. | Firmware e Gerência de Software |
+| Ponto                                                                                                                                                                                                                                                                                                                                       | Com quem alinhar                |
+| :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | :------------------------------ |
+| Os requisitos tratam da sinalização de erro durante a operação (RF-55), mas não definem como o robô sinaliza falha no auto-teste de inicialização (RF-27 a RF-29), utilizada em F2.                                                                                                                                                         | Firmware                        |
+| Confirmar que uma nova tentativa é realizada desligando e religando o robô.                                                                                                                                                                                                                                                                 | Firmware                        |
+| Ao reconectar durante uma corrida, o painel precisa receber o aviso da corrida já em andamento (B2); caso contrário, permanece aguardando uma corrida nova.                                                                                                                                                                                 | Backend                         |
+| A detecção do estouro do tempo limite de 10 minutos cabe ao backend (HU-FE-13, CA2), mas nenhum requisito de backend a prevê hoje: o RF-81 trata apenas da falta de sinal, e o RF-87 lista os status sem esse motivo. É preciso incluir a regra no backend, com o motivo correspondente no status enviado ao painel e gravado no histórico. | Backend e Gerência de Software  |
+| O RF-86 prevê alerta de tensão baixa enviado aos painéis, mas nenhum requisito de frontend define sua exibição.                                                                                                                                                                                                                             | Gerência de Software            |
+| O RF-70 (modo de depuração) exige dados brutos dos sensores que não constam da carga útil de telemetria definida no RF-52.                                                                                                                                                                                                                  | Firmware e Gerência de Software |
 
 ## Referências
 
@@ -181,7 +181,7 @@ Requisitos de frontend sem elemento neste diagrama:
 
 ## Histórico de versões
 
-| Versão | Data | Descrição |
-|:--|:--|:--|
-| 1.0 | 24/09/2026 | Raias do Operador e do Frontend aprovadas pela equipe. |
-| 1.1 | 25/09/2026 | Alinhamento com a HU-FE-13 (CA2): a detecção do estouro do tempo limite passa ao backend; removidas da raia do Frontend a decisão "Tempo decorrido ≥ 10 min?" e a ação *Sinalizar estouro do tempo limite*. |
+| Versão | Data       | Descrição                                                                                                                                                                                                   |
+| :----- | :--------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1.0    | 24/09/2026 | Raias do Operador e do Frontend aprovadas pela equipe.                                                                                                                                                      |
+| 1.1    | 25/09/2026 | Alinhamento com a HU-FE-13 (CA2): a detecção do estouro do tempo limite passa ao backend; removidas da raia do Frontend a decisão "Tempo decorrido ≥ 10 min?" e a ação *Sinalizar estouro do tempo limite*. |
