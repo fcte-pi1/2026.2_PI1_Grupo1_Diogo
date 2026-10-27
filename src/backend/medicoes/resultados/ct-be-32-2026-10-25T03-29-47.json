@@ -1,0 +1,98 @@
+{
+  "caso": "CT-BE-32",
+  "requisito": "RNF-48",
+  "data": "2026-10-25T03:29:47.821Z",
+  "backend_url": "http://localhost:8080",
+  "parametros": {
+    "taxa": 20,
+    "paineis": 5,
+    "duracaoS": 300,
+    "labirinto": "12x4",
+    "semente": 2928434260,
+    "boot": "b4d4b8"
+  },
+  "duracao_real_s": 322.4,
+  "corridas": 12,
+  "mensagens_emitidas": 6456,
+  "backend_latencia_painel_ms": {
+    "eventos": {
+      "amostras": 323,
+      "p50": 12.11,
+      "p95": 12.9,
+      "p99": 13.82,
+      "max": 14.57
+    },
+    "continuos": {
+      "amostras": 3191,
+      "p50": 12.71,
+      "p95": 13.83,
+      "p99": 16.34,
+      "max": 56.77
+    }
+  },
+  "ponta_a_ponta_ms": {
+    "eventos": {
+      "amostras": 1615,
+      "p50": 12.51,
+      "p95": 13.79,
+      "p99": 14.82,
+      "max": 15.91
+    },
+    "continuos": {
+      "amostras": 15955,
+      "p50": 67.74,
+      "p95": 116.82,
+      "p99": 151.52,
+      "max": 162.61
+    },
+    "todos": {
+      "amostras": 17570,
+      "p50": 61.1,
+      "p95": 113.54,
+      "p99": 150.75,
+      "max": 162.61
+    },
+    "sem_par": 0
+  },
+  "event_loop_atraso_ms": {
+    "p50": 0.17,
+    "p99": 1.07
+  },
+  "ingestao": {
+    "mensagens_aceitas": 6456,
+    "mensagens_duplicadas": 0,
+    "mensagens_rejeitadas": 0,
+    "conexoes_recusadas": 0
+  },
+  "paineis": {
+    "quantidade": 5,
+    "fechamentos_inesperados": []
+  },
+  "criterios": [
+    {
+      "nome": "Backend, eventos: p95 recepção → envio ao painel",
+      "limite": "≤ 50 ms",
+      "medido": "12.90 ms",
+      "ok": true
+    },
+    {
+      "nome": "Backend, contínuos: p95 recepção → envio ao painel",
+      "limite": "≤ 50 ms",
+      "medido": "13.83 ms",
+      "ok": true
+    },
+    {
+      "nome": "Ponta a ponta, eventos: p95 simulador → painel",
+      "limite": "≤ 300 ms",
+      "medido": "13.79 ms",
+      "ok": true
+    },
+    {
+      "nome": "Ponta a ponta, contínuos: p95 simulador → painel",
+      "limite": "≤ 300 ms",
+      "medido": "116.82 ms",
+      "ok": true
+    }
+  ],
+  "aprovado": true
+}

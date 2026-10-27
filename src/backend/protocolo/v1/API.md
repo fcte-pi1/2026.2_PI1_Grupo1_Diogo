@@ -1,0 +1,368 @@
+# API HTTP v1
+
+Rotas HTTP do backend consumidas pelo painel. Os tipos TypeScript estão em [`../tipos.ts`](../tipos.ts) e chegam ao frontend pelo alias `@protocolo`.
+
+Este documento descreve o **contrato**. A implementação de cada rota está indicada na própria seção.
+
+## `GET /api/corridas` — listagem do histórico
+
+Lista as corridas gravadas, **da mais recente para a mais antiga** (RF-93, HU-BE-22). É a rota usada pela tela de histórico do painel (RF-65, RF-66).
+
+### Parâmetros de consulta
+
+Todos são opcionais e podem ser combinados. Tipo: `FiltrosListaCorridas`.
+
+| Parâmetro | Valores | Padrão | Significado |
+|:--|:--|:--|:--|
+| `tipo` | `4x4`, `8x4`, `12x4` | todos | Só corridas desse tipo de labirinto |
+| `status` | `EM_ANDAMENTO`, `CONCLUIDA`, `FALHOU`, `INTERROMPIDA` | todos | Só corridas nesse status |
+| `de` | data, ou data e hora, em ISO 8601 | sem limite | Corridas iniciadas a partir desse instante |
+| `ate` | data, ou data e hora, em ISO 8601 | sem limite | Corridas iniciadas até esse instante |
+| `pagina` | inteiro de 1 a 100000 | `1` | Página pedida. Com `tamanho` ≤ 100, isso cobre até 10 milhões de corridas |
+| `tamanho` | inteiro de 1 a 100 | `20` | Itens por página. Um valor acima de 100 é **limitado a 100**, sem erro |
+
+Para listar todos os tipos, **omita** o parâmetro `tipo`. Não existe o valor "todos".
+
+**Datas:** `de` e `ate` aceitam a data com hora e fuso (`2026-10-14T18:00:00Z` ou `2026-10-14T00:00:00-03:00`) ou só a data (`2026-10-14`). Só a data vale o **dia inteiro em UTC**: `de=2026-10-14&ate=2026-10-14` traz as corridas de todo o dia 14 (UTC). Para o dia no horário de Brasília, envie a data e a hora com o fuso `-03:00`.
+
+Um parâmetro com valor inválido devolve `400`:
+
+| Caso | `code` |
+|:--|:--|
+| `tipo` ou `status` fora da lista, `pagina` ou `tamanho` menor que 1, ou `pagina` acima de 100000 (por exemplo, `tipo=5x5`, `pagina=0` ou `pagina=100001`) | `FST_ERR_VALIDATION` |
+| Data que não é ISO 8601 ou não existe (`14/10/2026`, `2026-02-30`), ou `de` depois de `ate` | `FILTRO_INVALIDO` |
+
+Uma página depois da última devolve `itens` vazio, com o `total` dos filtros.
+
+### Resposta `200`
+
+Tipo: `RespostaListaCorridas`.
+
+```json
+{
+  "itens": [
+    {
+      "id": "0b6f7c0e-3a52-4c8e-9a51-1f0f5c1f2a33",
+      "iniciada_em": "2026-10-13T18:00:00.000Z",
+      "tipo_labirinto": "8x4",
+      "numero_tentativa": 3,
+      "status": "CONCLUIDA",
+      "motivo_termino": "SUCESSO",
+      "tempo_conclusao_ms": 83500,
+      "anulada": false
+    }
+  ],
+  "total": 45,
+  "pagina": 1,
+  "tamanho": 20
+}
+```
+
+| Campo | Tipo | Observação |
+|:--|:--|:--|
+| `itens` | lista de `CorridaResumo` | Vazia quando nada atende aos filtros ou a página passa do fim |
+| `total` | inteiro | Corridas que atendem aos filtros, somando todas as páginas |
+| `pagina` | inteiro | Página devolvida |
+| `tamanho` | inteiro | Tamanho aplicado, já limitado a 100 |
+
+Campos de cada item (`CorridaResumo`):
+
+| Campo | Tipo | Observação |
+|:--|:--|:--|
+| `id` | texto (UUID) | Id da corrida no backend. É o usado em `/historico/:id` e em `/api/corridas/{id}` |
+| `iniciada_em` | texto, ISO 8601 em UTC | Instante em que o backend recebeu a corrida. A tela converte para o horário local |
+| `tipo_labirinto` | `4x4`, `8x4`, `12x4` ou `null` | `null` só quando o `inicio_corrida` ainda não chegou |
+| `numero_tentativa` | inteiro ou `null` | `null` para corridas fora de uma apresentação |
+| `status` | `EM_ANDAMENTO`, `CONCLUIDA`, `FALHOU`, `INTERROMPIDA` | Em ASCII; a acentuação fica na tela |
+| `motivo_termino` | `SUCESSO`, `FALHA_REPORTADA`, `SEM_SINAL`, `REINICIO_ROBO` ou `null` | `null` enquanto a corrida está em andamento |
+| `tempo_conclusao_ms` | inteiro ou `null` | Tempo oficial, pelo relógio do robô. Só existe para corridas concluídas com sucesso |
+| `anulada` | booleano | Corrida anulada por um operador (RF-96) |
+
+As chaves seguem o padrão do protocolo: minúsculas, sem acento, com `_` entre as palavras e a unidade no sufixo (`_ms`).
+
+### Exemplos
+
+```
+GET /api/corridas
+GET /api/corridas?tipo=8x4
+GET /api/corridas?tipo=4x4&status=CONCLUIDA&pagina=2&tamanho=20
+GET /api/corridas?de=2026-10-13T00:00:00Z&ate=2026-10-13T23:59:59Z
+GET /api/corridas?de=2026-10-13&ate=2026-10-13
+```
+
+## `GET /api/corridas/{id}` — detalhe da corrida
+
+Tudo o que o painel precisa para reexibir uma corrida: métricas, trajeto, série de energia, status e anulação (RF-84, RF-85). É usada pela página de detalhe do histórico (RF-67) e também durante uma corrida em andamento, para o painel completar o *snapshot* ao entrar ou reconectar (arquitetura do frontend, §4.3).
+
+Tipo da resposta: `DetalheCorrida`.
+
+### Respostas
+
+| Código | Quando |
+|:--|:--|
+| `200` | A corrida existe |
+| `400` | O `id` não é um UUID. O banco não chega a ser consultado |
+| `404` | Não existe corrida com esse `id` |
+
+Os erros usam o corpo padrão do Fastify, com um `code` para o painel tratar sem depender do texto:
+
+```json
+{ "statusCode": 404, "code": "CORRIDA_NAO_ENCONTRADA", "error": "Not Found", "message": "corrida não encontrada" }
+{ "statusCode": 400, "code": "FST_ERR_VALIDATION", "error": "Bad Request", "message": "params/id must match pattern ..." }
+```
+
+### Exemplo
+
+```json
+{
+  "id": "0b6f7c0e-3a52-4c8e-9a51-1f0f5c1f2a33",
+  "corrida_robo": "r9f3a1c-1",
+  "iniciada_em": "2026-10-14T18:00:00.000Z",
+  "encerrada_em": "2026-10-14T18:00:09.120Z",
+  "tipo_labirinto": "8x4",
+  "numero_tentativa": null,
+  "status": "CONCLUIDA",
+  "motivo_termino": "SUCESSO",
+  "detalhe_termino": null,
+  "tempo_conclusao_ms": 9000,
+  "anulada": false,
+  "ultima_sequencia_contigua": 7,
+  "sequencias_faltantes": 0,
+  "metricas": {
+    "tempo_decorrido_ms": 9000,
+    "tempo_conclusao_ms": 9000,
+    "celulas_percorridas": 2,
+    "distancia_m": 0.36,
+    "revisitas": 1,
+    "velocidade_media_mps": 0.04,
+    "tensao_inicial_v": 8.2,
+    "tensao_final_v": 7.6,
+    "delta_v": 0.6,
+    "carga_inicial_pct": 87.5,
+    "carga_final_pct": 50
+  },
+  "trajeto": [
+    { "sequencia": 2, "ordem": 1, "x": 0, "y": 3, "paredes": { "norte": false, "leste": true, "sul": true, "oeste": true }, "tempo_ms": 1000, "revisita": false },
+    { "sequencia": 4, "ordem": 2, "x": 0, "y": 2, "paredes": { "norte": true, "leste": false, "sul": false, "oeste": true }, "tempo_ms": 2800, "revisita": false },
+    { "sequencia": 5, "ordem": 3, "x": 0, "y": 3, "paredes": { "norte": false, "leste": true, "sul": true, "oeste": true }, "tempo_ms": 4600, "revisita": true }
+  ],
+  "energia": [
+    { "sequencia": 3, "tempo_ms": 1000, "tensao_v": 8.2, "corrente_a": 0.4, "potencia_w": 3.2 },
+    { "sequencia": 6, "tempo_ms": 4600, "tensao_v": 7.6, "corrente_a": 0.4, "potencia_w": 3.2 }
+  ],
+  "anulacao": null
+}
+```
+
+### Campos
+
+Além dos campos de `CorridaResumo` (listagem):
+
+| Campo | Tipo | Observação |
+|:--|:--|:--|
+| `corrida_robo` | texto | Id da corrida gerado pelo robô |
+| `encerrada_em` | texto, ISO 8601, ou `null` | `null` enquanto a corrida está em andamento |
+| `detalhe_termino` | texto ou `null` | Texto que o robô enviou no `fim_corrida`, quando houver |
+| `ultima_sequencia_contigua` | inteiro | Maior sequência recebida sem lacunas antes dela |
+| `sequencias_faltantes` | inteiro | Sequências que faltam abaixo da maior recebida (RNF-50) |
+| `metricas` | `MetricasCorrida` | Abaixo |
+| `trajeto` | lista de `PassagemCorrida` | Em ordem de `sequencia`, mesmo que as mensagens tenham chegado fora de ordem |
+| `energia` | lista de `LeituraEnergiaCorrida` | Em ordem de `sequencia` |
+| `anulacao` | `{ motivo, anulada_em, operador }` ou `null` | `operador` é o login de quem anulou |
+
+`metricas` (`MetricasCorrida`):
+
+| Campo | Observação |
+|:--|:--|
+| `tempo_decorrido_ms` | Do `inicio_corrida` ao `fim_corrida`; numa corrida em andamento, até a última mensagem gravada |
+| `tempo_conclusao_ms` | Tempo oficial (RF-82). Só existe para corridas concluídas com sucesso |
+| `celulas_percorridas` | Movimentos entre células: as passagens menos a de partida |
+| `distancia_m` | `celulas_percorridas` × 0,18 m |
+| `revisitas` | Passagens por células já visitadas |
+| `velocidade_media_mps` | Distância ÷ tempo, no relógio do robô (RF-83) |
+| `tensao_inicial_v`, `tensao_final_v`, `delta_v` | Primeira e última leitura de tensão, e a diferença entre elas |
+| `carga_inicial_pct`, `carga_final_pct` | Carga estimada pela curva tensão → carga (RF-85) |
+
+Cada passagem do `trajeto` (`PassagemCorrida`) traz `sequencia`, `ordem` (posição no trajeto em ordem de `sequencia`, a partir de 1, sem repetições), `x`, `y`, `paredes` (`{ norte, leste, sul, oeste }`, com `true` para parede presente), `tempo_ms` (relógio do robô) e `revisita`. Para redesenhar o mapa, vale a última passagem de cada célula.
+
+### Corrida em andamento
+
+Os dados vêm do banco e acompanham a corrida com até cerca de 1 s de atraso: o trajeto e a energia são gravados assim que cada mensagem é aplicada, e as métricas no máximo uma vez por segundo. Para o tempo real, o painel usa o WebSocket (#327); este detalhe completa o que o painel não recebeu.
+
+Por isso, numa corrida em andamento, **as `metricas` podem estar até 1 s atrás do `trajeto` e da `energia` da mesma resposta**: `celulas_percorridas` pode ser menor que `trajeto.length - 1`, por exemplo. O painel não deve cruzar esses valores; as métricas atuais chegam pelo WebSocket. Numa corrida encerrada, tudo está gravado e os valores batem.
+
+## `GET /api/leaderboard` — ranking por tipo de labirinto
+
+Corridas válidas de um tipo de labirinto, da melhor para a pior (RF-95, HU-BE-24). Só entram corridas `CONCLUIDA` e **não anuladas**: `FALHOU`, `INTERROMPIDA`, `EM_ANDAMENTO` e anuladas nunca aparecem.
+
+Tipo da resposta: `RespostaLeaderboard`.
+
+### Parâmetros de consulta
+
+Tipo: `FiltrosLeaderboard`.
+
+| Parâmetro | Valores | Obrigatório | Significado |
+|:--|:--|:--|:--|
+| `labirinto` | `4x4`, `8x4`, `12x4` | Sim | O ranking é sempre de um tipo de labirinto |
+| `apresentacao` | UUID | Não | Só as corridas dessa apresentação. Sem ele, todas |
+
+Sem `labirinto`, ou com um valor inválido (`labirinto=5x5`, `apresentacao=1`), a resposta é `400`. Parâmetros desconhecidos são ignorados.
+
+### Ordenação
+
+1. **Tempo de conclusão** (`tempo_conclusao_ms`, pelo relógio do robô), do menor para o maior.
+2. **Desempate pela menor distância** (`distancia_m`, transições × 0,18 m).
+
+Corridas com o mesmo tempo e a mesma distância dividem a posição (`1, 1, 3`), como no `RANK()` do SQL. Entre elas, a que terminou primeiro vem antes na lista.
+
+### Resposta `200`
+
+```json
+{
+  "labirinto": "4x4",
+  "apresentacao": null,
+  "itens": [
+    {
+      "posicao": 1,
+      "id": "5fe08e59-3fc7-437b-8e74-1e801d94d4c4",
+      "corrida_robo": "r92f031-1",
+      "numero_tentativa": 2,
+      "tempo_conclusao_ms": 22300,
+      "distancia_m": 3.6,
+      "velocidade_media_mps": 0.161,
+      "encerrada_em": "2026-10-15T22:52:21.050Z"
+    }
+  ]
+}
+```
+
+| Campo | Tipo | Observação |
+|:--|:--|:--|
+| `labirinto` | `4x4`, `8x4`, `12x4` | O pedido |
+| `apresentacao` | UUID ou `null` | A apresentação filtrada; `null` quando o ranking é de todas as corridas |
+| `itens` | lista de `PosicaoLeaderboard` | Em ordem de posição. Vazia quando nenhuma corrida válida foi concluída |
+
+Campos de cada item (`PosicaoLeaderboard`):
+
+| Campo | Tipo | Observação |
+|:--|:--|:--|
+| `posicao` | inteiro ≥ 1 | Repete nos empates |
+| `id` | texto (UUID) | O mesmo de `/api/corridas/{id}` |
+| `corrida_robo` | texto | Id da corrida gerado pelo robô |
+| `numero_tentativa` | inteiro ou `null` | `null` para corridas fora de uma apresentação |
+| `tempo_conclusao_ms` | inteiro | Tempo oficial (RF-82) |
+| `distancia_m` | número | Critério de desempate |
+| `velocidade_media_mps` | número ou `null` | Distância ÷ tempo (RF-83) |
+| `encerrada_em` | texto, ISO 8601 em UTC | Quando o backend gravou o fim |
+
+### Atualização
+
+Quando uma corrida termina `CONCLUIDA`, os painéis inscritos no canal `ao_vivo` recebem a mensagem `leaderboard` com o labirinto (ver [`PAINEL.md`](PAINEL.md)). Ela sai **depois** de a corrida estar gravada: a consulta feita ao receber o aviso já inclui a corrida, em até 1 s após o `fim_corrida` (critério do RF-95).
+
+A anulação (RF-96) também tira a corrida do ranking, porque a consulta exclui as anuladas. O aviso aos painéis quando uma corrida é anulada entra junto com a rota de anulação.
+
+### Exemplos
+
+```
+GET /api/leaderboard?labirinto=4x4
+GET /api/leaderboard?labirinto=8x4&apresentacao=0b6f7c0e-3a52-4c8e-9a51-1f0f5c1f2a33
+```
+
+## `GET /api/corridas/{id}/linha-do-tempo` — replay
+
+Todas as mensagens aceitas da corrida, **em ordem estritamente crescente de `sequencia`**, para reproduzir a corrida no painel passo a passo (RF-94, HU-BE-23). Reproduzidas a partir de um estado vazio, elas dão o mesmo mapa do snapshot final (CT-BE-27).
+
+A resposta é **NDJSON** (`Content-Type: application/x-ndjson; charset=utf-8`): um objeto JSON por linha, um `ItemLinhaDoTempo` por mensagem. Ela é enviada em *stream*, à medida que as mensagens são lidas do banco, em lotes de 500, então o tamanho da corrida não pesa na memória do backend. Cada lote só é lido quando o cliente já consumiu o anterior (*backpressure*).
+
+```
+{"sequencia":1,"tempo_ms":12000,"tipo":"inicio_corrida","recebida_em":"2026-10-20T14:00:00.120Z","mensagem":{"versao":1,"tipo":"inicio_corrida","corrida":"ra1b2c3-1","sequencia":1,"tempo_ms":12000,"labirinto":"4x4"}}
+{"sequencia":2,"tempo_ms":12000,"tipo":"estado","recebida_em":"2026-10-20T14:00:00.130Z","mensagem":{"versao":1,"tipo":"estado","corrida":"ra1b2c3-1","sequencia":2,"tempo_ms":12000,"estado":"MAPEANDO"}}
+```
+
+| Campo | Observação |
+|:--|:--|
+| `sequencia`, `tempo_ms`, `tipo` | Da mensagem, repetidos para o painel não precisar abrir a `mensagem` para ordenar ou filtrar |
+| `recebida_em` | Quando o backend recebeu, ISO 8601 em UTC |
+| `mensagem` | A mensagem do robô **exatamente como foi aceita** (o formato do `README.md` deste protocolo) |
+
+### Erros
+
+Os dois são decididos antes do primeiro byte do corpo, com o mesmo formato do detalhe da corrida:
+
+```json
+{ "statusCode": 404, "code": "CORRIDA_NAO_ENCONTRADA", "error": "Not Found", "message": "corrida não encontrada" }
+{ "statusCode": 400, "code": "FST_ERR_VALIDATION", "error": "Bad Request", "message": "params/id must match pattern ..." }
+```
+
+### Limitações
+
+- **Falha no meio do *stream*.** Se o banco falhar depois do primeiro lote, o `200` já foi enviado. O backend registra o erro (com a corrida e quantas linhas saíram) e **aborta a conexão**, em vez de encerrar a resposta normalmente. O cliente vê a transferência interrompida (o `fetch` rejeita ao ler o corpo) e deve tratar a linha do tempo como incompleta. Um arquivo truncado que parecesse completo seria pior.
+- **Corrida em andamento.** A resposta é o que já estava gravado no momento de cada lote, e pode ter lacunas. A paginação avança pela `sequencia` (`seq > última lida`). Uma mensagem que preenche uma lacuna (reenvio do robô, RNF-50) e é gravada depois de o cursor passar daquela sequência não aparece nesta resposta. Para o replay completo, peça a linha do tempo de uma corrida encerrada, ou peça de novo. Numa corrida encerrada, tudo já está gravado, e a resposta é completa (CT-BE-27).
+
+Para ler no navegador: `fetch` e `response.body.getReader()`, separando o texto por `\n`; ou `await response.text()` e `split('\n')` para corridas pequenas.
+
+## `GET /api/corridas/{id}/exportacao?formato=json|csv` — exportação
+
+Download de uma corrida para o relatório e para planilhas (RF-98, HU-BE-27). O parâmetro `formato` é obrigatório. As duas respostas vêm com `Content-Disposition: attachment; filename="corrida-{id}.json"` (ou `.csv`), então um link `<a href download>` já baixa o arquivo.
+
+| `formato` | `Content-Type` | Conteúdo |
+|:--|:--|:--|
+| `json` | `application/json; charset=utf-8` | O mesmo `DetalheCorrida` de `GET /api/corridas/{id}`: resumo, métricas, trajeto e energia |
+| `csv` | `text/csv; charset=utf-8` | Uma linha por mensagem aceita, em ordem de `seq`, enviada em *stream* pelos mesmos lotes do replay |
+
+O CSV segue a RFC 4180: separador `,`, decimal com `.`, linhas terminadas em `\r\n`, aspas no texto que tem vírgula, aspas ou quebra de linha. **Começa com o BOM do UTF-8** (`EF BB BF`), para a planilha mostrar os acentos. Quem lê o arquivo por script precisa tolerá-lo: em Python, `encoding="utf-8-sig"`; no navegador, o `response.text()` já o descarta. As colunas são fixas, a união dos campos de todos os tipos de mensagem; a mensagem que não tem o campo deixa a célula vazia:
+
+```
+seq,t_robo_ms,tipo,recebida_em,labirinto,x,y,orientacao,celulas,velocidade_media_mps,parede_norte,parede_leste,parede_sul,parede_oeste,tensao_v,corrente_a,potencia_w,estado,resultado,detalhe
+1,12000,inicio_corrida,2026-10-20T14:00:00.120Z,4x4,,,,,,,,,,,,,,,
+2,12000,celula,2026-10-20T14:00:00.130Z,,0,0,,,,true,false,false,true,,,,,,
+```
+
+**Proteção contra fórmula (CSV Injection, OWASP).** O `detalhe` do `fim_corrida` é o único texto livre que vem do robô. Os outros textos (`tipo`, `labirinto`, `orientacao`, `estado`, `resultado`) são valores fixos dos esquemas, e o `recebida_em` é gerado pelo backend. Quando o `detalhe` começa com `=`, `+`, `-`, `@`, tabulação ou retorno de carro, ganha um `'` na frente, para a planilha não o executar como fórmula. Colunas numéricas, como um `-0.5` de corrente, saem sem alteração.
+
+### Erros
+
+Decididos antes do primeiro byte do corpo: `404` (`CORRIDA_NAO_ENCONTRADA`). E `400` (`FST_ERR_VALIDATION`) sem `formato`, com formato inválido ou com id que não é UUID. Os corpos têm o mesmo formato do detalhe da corrida.
+
+### Limitações
+
+As mesmas da linha do tempo, porque o CSV sai pelos mesmos lotes:
+- **Falha no meio do *stream*:** o backend registra o erro e aborta a conexão, em vez de entregar um arquivo truncado que pareceria completo.
+- **Corrida em andamento:** pode ter lacunas.
+
+O JSON não tem esse risco: ele é montado inteiro antes do envio.
+
+## `GET /health` — saúde e medições
+
+Saúde do backend e do banco (`200`, ou `503` com o banco indisponível), contadores da ingestão, atraso do *event loop* (RNF-49) e a **latência da recepção ao envio ao painel** (RNF-48, CT-BE-32).
+
+```json
+{
+  "status": "ok",
+  "banco": "ok",
+  "uptime_s": 132,
+  "event_loop_atraso_ms": { "p50": 1.3, "p99": 5.2 },
+  "ingestao": { "mensagens_aceitas": 2622, "mensagens_duplicadas": 0, "mensagens_rejeitadas": 0, "conexoes_recusadas": 0 },
+  "latencia_painel_ms": {
+    "eventos":   { "amostras": 122,  "p50": 13.53, "p95": 15.61, "p99": 16.69,  "max": 80.19 },
+    "continuos": { "amostras": 1294, "p50": 43.39, "p95": 64.74, "p99": 107.71, "max": 113.09 }
+  }
+}
+```
+
+### `latencia_painel_ms` (RNF-48, CT-BE-32)
+
+Tempo, em ms, entre a chegada do quadro WebSocket do robô e o envio da mensagem aos painéis. O tempo passa pela fila da conexão, pela gravação no banco, pela ordenação por `sequencia` e pela distribuição. Há uma amostra por mensagem enviada a pelo menos um painel, e não uma por painel, porque o envio aos painéis é um laço síncrono. O critério do RNF-48 (**p95 ≤ 50 ms**) vale para os dois histogramas.
+
+| Campo | O que mede |
+|:--|:--|
+| `eventos` | Células, que vão aos painéis sem limite de taxa: da chegada ao envio |
+| `continuos` | Posição e energia, que saem no máximo 10 vezes por segundo (RF-90). O processamento até a mensagem ficar pronta (fila, gravação, ordenação) **conta sempre**. Só fica de fora a espera de uma mensagem **já pronta** aguardando a janela de 100 ms, que é proposital. Um atraso do temporizador ou do *event loop* depois da abertura continua contando: `(pronta − chegada) + (envio − max(pronta, abertura da janela))` |
+
+- **Lacunas:** uma mensagem que chega depois de uma lacuna espera a mensagem que falta (no máximo alguns segundos) antes de ser aplicada e enviada. Essa espera **entra** na latência dela.
+- **Aquecimento e máximo:** logo depois de iniciar, o primeiro envio pode demorar mais (aquecimento do Node e da conexão com o banco). Isso afeta o `max`, e não o p95 de uma medição de minutos. Para o `max` da medição oficial, faça uma corrida curta de aquecimento depois de reiniciar o backend, anote os valores e desconte-os, ou registre o `max` como "inclui o aquecimento".
+
+**Como medir:**
+- Os histogramas valem desde o início do processo. Para uma medição limpa, reinicie o backend antes (`docker compose restart backend`), rode o cenário e consulte o `/health` no fim.
+- Sem amostras, os percentis são `null`.
+- As mensagens reaplicadas na recuperação depois de um reinício (RNF-52) não entram na medição.

@@ -1,0 +1,4 @@
+# Bancada: ESP32 clássico (DevKit ESP-WROOM-32), só enquanto a placa oficial
+# não chega. 4 MB de flash, sem PSRAM. O mapa de pinos de bancada está em BoardPins.hpp.
+CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y
+CONFIG_ESPTOOLPY_FLASHSIZE="4MB"

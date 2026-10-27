@@ -1,0 +1,13 @@
+menu "Rato Borrachudo"
+
+    config RATO_BANCADA
+        bool "Modo bancada (placa sem sensores nem motores)"
+        default n
+        help
+            Para testar a telemetria BLE numa placa solta, sem o robô montado.
+            Pula o auto-teste do IMU e do INA219, simula o movimento com atrasos
+            fixos (sem motores nem encoders) e envia valores fixos de energia.
+            Os ToF já estão como stub (sem paredes), então a corrida percorre o
+            labirinto aberto até o objetivo. NUNCA ligar na placa do robô.
+
+endmenu

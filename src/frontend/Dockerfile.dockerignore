@@ -1,0 +1,11 @@
+# O contexto de build é src/ (para incluir src/backend/protocolo). Só entram o
+# frontend e os tipos do protocolo.
+*
+!frontend
+!backend/protocolo
+**/node_modules
+**/dist
+**/coverage
+**/.env
+**/playwright-report
+**/test-results

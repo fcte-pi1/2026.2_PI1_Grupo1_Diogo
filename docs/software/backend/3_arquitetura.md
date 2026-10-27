@@ -116,17 +116,17 @@ Todas as mensagens são JSON sobre WebSocket. O esquema oficial será publicado 
 
 **API HTTP**
 
-| Método e rota                                               | Uso                                            | Autenticação   | RF           |
-| :---------------------------------------------------------- | :--------------------------------------------- | :------------- | :----------- |
-| `GET /api/corridas?tipo&status&de&ate&pagina&tamanho`       | Listagem                                       | —              | RF-93        |
-| `GET /api/corridas/{id}`                                    | Detalhe (métricas, trajeto, energia, anulação) | —              | RF-84, RF-85 |
-| `GET /api/corridas/{id}/linha-do-tempo`                     | Replay em *stream* NDJSON                      | —              | RF-94        |
-| `GET /api/leaderboard?labirinto&apresentacao`               | Ranking                                        | —              | RF-95        |
-| `GET /api/corridas/{id}/exportacao?formato=json\|csv`       | Exportação                                     | —              | RF-98        |
-| `POST /api/corridas/{id}/anulacao`                          | Anular com motivo                              | Operador (JWT) | RF-96        |
-| `POST /api/apresentacoes` / `PATCH /api/apresentacoes/{id}` | Abrir ou encerrar apresentação                 | Operador (JWT) | RF-97        |
-| `POST /api/auth/login`                                      | Login do operador                              | —              | RNF-55       |
-| `GET /health`                                               | Saúde, contadores e atraso do *event loop*     | —              | RNF-56       |
+| Método e rota | Uso | Autenticação | RF |
+|:--|:--|:--|:--|
+| `GET /api/corridas?tipo&status&de&ate&pagina&tamanho` | Listagem | — | RF-93 |
+| `GET /api/corridas/{id}` | Detalhe (métricas, trajeto, energia, anulação) | — | RF-84, RF-85 |
+| `GET /api/corridas/{id}/linha-do-tempo` | Replay em *stream* NDJSON | — | RF-94 |
+| `GET /api/leaderboard?labirinto&apresentacao` | Ranking | — | RF-95 |
+| `GET /api/corridas/{id}/exportacao?formato=json\|csv` | Exportação | — | RF-98 |
+| `POST /api/corridas/{id}/anulacao` | Anular com motivo | Operador (JWT) | RF-96 |
+| `POST /api/apresentacoes` / `PATCH /api/apresentacoes/{id}` | Abrir ou encerrar apresentação | Operador (JWT) | RF-97 |
+| `POST /api/auth/login` | Login do operador | — | RNF-55 |
+| `GET /health` | Saúde, contadores, atraso do *event loop* e latência até o painel | — | RNF-56, RNF-49, RNF-48 |
 
 ---
 
@@ -174,15 +174,16 @@ Todas as mensagens são JSON sobre WebSocket. O esquema oficial será publicado 
 - **Nada bloqueia o loop (RNF-49):** os esquemas Ajv são compilados na inicialização; a gravação é feita em lotes assíncronos; replay e exportação usam *streams* com cursor do banco; nenhum trabalho de CPU passa de alguns milissegundos. O atraso do loop é medido com `perf_hooks.monitorEventLoopDelay` e exposto em `/health`.
 - **Temporizadores:**
 
-| Timer                         | Período                 | Função                                         | RF    |
-| :---------------------------- | :---------------------- | :--------------------------------------------- | :---- |
-| Heartbeat                     | 1 s por conexão de robô | Ping e verificação de silêncio de 3 s          | RF-73 |
-| Flush do lote                 | ≤ 10 ms ou 50 mensagens | Transação de `INSERT` em lote                  | RF-79 |
-| Flush de contínuos            | 100 ms por corrida      | Envia a última posição e energia (≤ 10/s)      | RF-90 |
-| Interrupção por silêncio      | 120 s após a perda      | Marca `INTERROMPIDA (SEM_SINAL)`               | RF-81 |
-| Verificação de *backpressure* | 1 s por painel          | `bufferedAmount` > 1 MB por 10 s $\rightarrow$ desconecta | RF-91 |
+| Timer | Período | Função | RF |
+|:--|:--|:--|:--|
+| Heartbeat | 1 s por conexão de robô | Ping e verificação de silêncio de 3 s | RF-73 |
+| Flush do lote | ≤ 10 ms ou 50 mensagens | Transação de `INSERT` em lote | RF-79 |
+| Flush de contínuos | 100 ms por corrida | Envia a última posição e energia (≤ 10/s) | RF-90 |
+| Interrupção por silêncio | 120 s após a perda (na desconexão, a perda é imediata; com a conexão aberta, ela é declarada após 3 s sem mensagens) | Marca `INTERROMPIDA (SEM_SINAL)` | RF-81 |
+| Espera por lacuna | 5 s | Aplica as mensagens retidas sem a lacuna | RF-84, RNF-50 |
+| Verificação de *backpressure* | 1 s por painel | `bufferedAmount` > 1 MB por 10 s → desconecta | RF-91 |
 
-- **Ordem garantida:** eventos discretos são aplicados e distribuídos em ordem de `seq` contíguo. Mensagens que chegam depois de uma lacuna ficam persistidas, mas só são aplicadas ao estado quando a lacuna é preenchida. Se a corrida termina com lacuna, ela é registrada em `corrida.seqs_faltantes` ("lacuna sinalizada", RNF-50).
+- **Ordem garantida:** eventos discretos são aplicados e distribuídos em ordem de `seq` contíguo. Mensagens que chegam depois de uma lacuna ficam persistidas e esperam a lacuna ser preenchida. Se ela não for preenchida em **5 s**, as mensagens retidas são aplicadas sem ela, em ordem, para a corrida não ficar parada no painel (o robô só reenvia o buffer ao reconectar). Uma mensagem da lacuna que chegue depois disso fica no registro bruto, mas não muda mais o estado em memória. Se o backend reiniciar, a reconstrução reaplica todas as mensagens gravadas em ordem, inclusive ela; por isso a ordem do trajeto é dada pelo `seq`, e a coluna `passagem_celula.ordem` é informativa. A lacuna continua contada em `corrida.seqs_faltantes` ("lacuna sinalizada", RNF-50), e o `ultimo_seq_contiguo` não passa dela.
 
 ### 4.2 Ingestão, persistência, confirmação e distribuição
 

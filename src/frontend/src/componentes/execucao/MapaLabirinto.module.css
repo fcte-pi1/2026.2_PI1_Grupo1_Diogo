@@ -1,0 +1,182 @@
+.labirintoArea {
+  display: grid;
+  justify-items: center;
+  gap: 0.75rem;
+  overflow-x: auto;
+}
+
+.labirintoPendente {
+  display: grid;
+  min-height: 20rem;
+  place-items: center;
+  color: #9ca3af;
+  font-family: var(--fonte-mono);
+  font-size: 0.75rem;
+}
+
+.labirinto {
+  display: block;
+  width: min(100%, 32rem);
+  height: auto;
+  max-height: 32rem;
+}
+
+.celula {
+  fill: #ffffff;
+}
+
+.celulaInicio {
+  fill: #f0fdf4;
+}
+
+.celulaVisitada {
+  fill: #f0f7ff;
+}
+
+.numeroVisita {
+  fill: #2563a0;
+  font-family: var(--fonte-mono);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  opacity: 0.75;
+}
+
+.linhaLabirinto {
+  stroke: #1a4f6e;
+  stroke-width: 1.75;
+}
+
+.paredePresente {
+  stroke: #1a4f6e;
+  stroke-linecap: square;
+  stroke-width: 2.5;
+}
+
+.paredeDesconhecida {
+  stroke: #d1d5db;
+  stroke-dasharray: 4 3;
+  stroke-linecap: square;
+  stroke-width: 1.5;
+}
+
+.objetivo {
+  fill: #dbeafe;
+  stroke: #2563a0;
+  stroke-width: 1.5;
+}
+
+.inicio {
+  fill: none;
+  stroke: #16a34a;
+  stroke-dasharray: 4 3;
+  stroke-width: 1.5;
+}
+
+.rotuloMapa,
+.rotuloMapaInicio {
+  font-family: var(--fonte-base);
+  font-size: 0.4rem;
+  font-weight: 600;
+}
+
+.rotuloMapa {
+  fill: #2563a0;
+}
+
+.rotuloMapaInicio {
+  fill: #16a34a;
+}
+
+.trajetoria {
+  fill: none;
+  stroke: #2563a0;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2.5;
+  opacity: 0.7;
+}
+
+.robo {
+  fill: #1a4f6e;
+  stroke: #dbeafe;
+  stroke-width: 5;
+}
+
+.legenda {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.75rem 1rem;
+  color: #6b7280;
+  font-size: 0.625rem;
+}
+
+.legenda i {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  vertical-align: middle;
+  font-style: normal;
+}
+
+.legendaLinha,
+.legendaParede,
+.legendaDesconhecida {
+  width: 1rem;
+  height: 0;
+  margin-right: 0.125rem;
+}
+
+.legendaLinha {
+  border-top: 2px solid #1a4f6e;
+}
+
+.legendaParede {
+  border-top: 1px solid #1a4f6e;
+}
+
+.legendaDesconhecida {
+  border-top: 1px dashed #d1d5db;
+}
+
+.legendaVisitada,
+.legendaInicio,
+.legendaObjetivo,
+.legendaRobo {
+  width: 0.75rem;
+  height: 0.75rem;
+  margin-right: 0.125rem;
+}
+
+.legendaVisitada {
+  border: 1px solid #93c5fd;
+  border-radius: 0.125rem;
+  color: #2563a0;
+  font-family: var(--fonte-mono);
+  font-size: 0.5rem;
+}
+
+.legendaInicio {
+  border: 1px dashed #16a34a;
+  border-radius: 0.125rem;
+  background: #dcfce7;
+}
+
+.legendaObjetivo {
+  border: 1px solid #2563a0;
+  border-radius: 0.125rem;
+  background: #dbeafe;
+}
+
+.legendaRobo {
+  border-radius: 0.125rem;
+  background: #1a4f6e;
+  color: #ffffff;
+  font-size: 0.5rem;
+}
+
+.paredeAusente {
+  stroke: #e5e7eb;
+  stroke-linecap: square;
+  stroke-width: 1;
+}

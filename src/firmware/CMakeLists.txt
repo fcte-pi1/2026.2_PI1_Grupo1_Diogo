@@ -48,6 +48,18 @@ endif()
 add_library(firmware_logic STATIC
     src/domain/Maze.cpp
     src/domain/FloodFill.cpp
+    src/use_cases/Navigator.cpp
+    src/use_cases/SessionManager.cpp
+    src/domain/Odometry.cpp
+    src/domain/DipDecoder.cpp
+    src/domain/BuzzerPattern.cpp
+    src/domain/Pid.cpp
+    src/controller/MotionController.cpp
+    src/protocol/ProtocolV1.cpp
+    src/telemetry/TelemetryBuffer.cpp
+    src/telemetry/TelemetryEmitter.cpp
+    src/domain/Maneuver.cpp
+    src/domain/ImuIdentity.cpp
 )
 
 target_include_directories(firmware_logic PUBLIC
@@ -58,17 +70,28 @@ target_link_libraries(firmware_logic PRIVATE
     firmware_warnings
 )
 
-# Main executable
-add_executable(firmware
-    src/main.cpp
-)
+# Main executable (ESP32 only — requires ESP-IDF headers)
+if(ESP_PLATFORM)
+    add_executable(firmware
+        src/main.cpp
+    )
 
-target_link_libraries(firmware PRIVATE
-    firmware_logic
-    firmware_warnings
-)
+    target_link_libraries(firmware PRIVATE
+        firmware_logic
+        firmware_warnings
+    )
+endif()
 
 if(FIRMWARE_BUILD_TESTS)
     enable_testing()
     add_subdirectory(test)
+
+    add_executable(contract_dump
+        tools/contract_dump.cpp
+    )
+
+    target_link_libraries(contract_dump PRIVATE
+        firmware_logic
+        firmware_warnings
+    )
 endif()

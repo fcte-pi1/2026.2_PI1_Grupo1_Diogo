@@ -4,10 +4,14 @@ on:
   push:
     paths:
       - 'src/firmware/**'
+      - 'src/backend/protocolo/**'
+      - 'src/backend/testes/contrato/**'
       - '.github/workflows/firmware.yml'
   pull_request:
     paths:
       - 'src/firmware/**'
+      - 'src/backend/protocolo/**'
+      - 'src/backend/testes/contrato/**'
       - '.github/workflows/firmware.yml'
 
 defaults:
@@ -44,3 +48,60 @@ jobs:
           name: coverage-report
           path: src/firmware/build/coverage/coverage/
           if-no-files-found: ignore
+
+  placa:
+    # Compila para a placa (ESP-IDF) o firmware do robô e o de diagnóstico, e publica um
+    # binário único de cada (gravado no endereço 0x0, por exemplo pelo navegador). Ver
+    # TESTES_HARDWARE.md. O build de host acima não compila os adapters; este compila.
+    name: Placa (${{ matrix.projeto }}, ${{ matrix.alvo }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        projeto: [esp32, esp32-diagnostico]
+        alvo: [esp32s3, esp32]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build ESP-IDF e binário único
+        uses: espressif/esp-idf-ci-action@v1
+        with:
+          esp_idf_version: v5.3.3
+          target: ${{ matrix.alvo }}
+          path: src/firmware/${{ matrix.projeto }}
+          command: >-
+            idf.py set-target ${{ matrix.alvo }} && idf.py build &&
+            cd build && esptool.py --chip ${{ matrix.alvo }} merge_bin
+            -o ${{ matrix.projeto }}-${{ matrix.alvo }}.bin @flash_args
+
+      - name: Publicar o binário
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.projeto }}-${{ matrix.alvo }}
+          path: src/firmware/${{ matrix.projeto }}/build/${{ matrix.projeto }}-${{ matrix.alvo }}.bin
+          if-no-files-found: error
+
+  contrato:
+    name: Contrato firmware ↔ backend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build contract_dump (debug, warnings as errors)
+        run: |
+          cmake --preset debug -DFIRMWARE_WARNINGS_AS_ERRORS=ON
+          cmake --build --preset debug --target contract_dump
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: src/backend/package-lock.json
+
+      - name: Install backend dependencies
+        working-directory: src/backend
+        run: npm ci
+
+      - name: Run contract test
+        working-directory: src/backend
+        run: CONTRACT_DUMP=${{ github.workspace }}/src/firmware/build/debug/contract_dump npx vitest run testes/contrato/firmware.test.ts

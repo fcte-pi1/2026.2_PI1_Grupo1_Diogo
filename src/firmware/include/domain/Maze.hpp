@@ -27,7 +27,10 @@ bool operator==(const Position& left, const Position& right) noexcept;
 
 int rowDelta(Direction direction) noexcept;
 int colDelta(Direction direction) noexcept;
-Direction opposite(Direction direction) noexcept;
+
+Direction opposite(Direction dir) noexcept;   // direção oposta (180 graus)
+Direction turnLeft(Direction dir) noexcept;   // giro anti-horário (90 graus)
+Direction turnRight(Direction dir) noexcept;  // giro horário (90 graus)
 
 class MazeMap {
 private:
