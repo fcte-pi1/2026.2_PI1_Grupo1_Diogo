@@ -5,11 +5,11 @@ namespace micromouse::domain {
 std::vector<Tone> patternTones(BuzzerPattern pattern) {
     switch (pattern) {
         case BuzzerPattern::Ready:
-            return {{2500, 80}, {0, 80}, {2500, 80}};
+            return {{1300, 160}, {0, 80}, {1300, 160}};
         case BuzzerPattern::Goal:
-            return {{2000, 100}, {2800, 100}, {3800, 250}};
+            return {{1200, 100}, {1350, 100}, {1500, 250}};
         case BuzzerPattern::Alarm:
-            return {{1500, 150}, {0, 150}, {1500, 150}, {0, 150}, {1500, 150}};
+            return {{1800, 150}, {0, 150}, {1800, 150}, {0, 150}, {1800, 150}};
     }
     return {};
 }
