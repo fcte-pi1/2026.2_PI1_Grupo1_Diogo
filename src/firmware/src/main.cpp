@@ -21,6 +21,7 @@
 #include "domain/Maze.hpp"
 #include "domain/Odometry.hpp"
 #include "domain/Pid.hpp"
+#include "domain/RobotParameters.hpp"
 #include "esp_log.h"
 #include "esp_random.h"
 #include "esp_timer.h"
@@ -45,10 +46,10 @@ namespace {
 
 constexpr char kTag[] = "main";
 
-// Parâmetros físicos.
-// Todos estes valores devem ser AFERIDOS EM BANCADA antes da corrida final.
-constexpr domain::WheelConfig kWheels{32.0, 280, 180.0};
-constexpr domain::TurnConfig kTurn{32.0, 280, 88.0};  // bitola medida (#394)
+// Parâmetros físicos: roda, pulsos por volta e bitola ficam em domain/RobotParameters.hpp, com os
+// valores medidos pelo hardware (docs/7.3).
+using domain::robot::kTurn;
+using domain::robot::kWheels;
 constexpr domain::PidGains kStraightGains{0.02, 0.0, 0.002};
 
 adapters::I2cBus gI2c;
