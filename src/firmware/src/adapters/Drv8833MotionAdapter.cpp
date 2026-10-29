@@ -54,6 +54,8 @@ void Drv8833MotionAdapter::advanceCell() {
 
 void Drv8833MotionAdapter::pivot(double degrees) {
     encoders_.reset();
+    // Um controlador novo por curva: a referência angular parte de zero a cada manobra, e o erro
+    // da deriva do giroscópio não se propaga entre curvas consecutivas (RNF-34).
     domain::GyroTurnController gyro(degrees, kTurnToleranceDeg);
     const double targetPulses = domain::pulsesForTurn(turnConfig_, degrees);
 
