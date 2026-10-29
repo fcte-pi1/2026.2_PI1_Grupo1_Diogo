@@ -10,6 +10,47 @@ namespace {
 
 using test::SpySignal;
 
+TEST(SessionManager, RearmAfterFinishedGoesBackToIdleAndAllowsNewSession) {
+    SpySignal signal;
+    SessionManager stateMachine(signal);
+    stateMachine.start();
+    stateMachine.onSelfTestResult(true);
+    stateMachine.reachedGoal();
+    stateMachine.backAtStart();
+    stateMachine.reachedGoal();
+    ASSERT_EQ(stateMachine.getCurrentPhase(), SessionPhase::Finished);
+    stateMachine.rearm();
+    EXPECT_EQ(stateMachine.getCurrentPhase(), SessionPhase::Idle);
+    stateMachine.start();
+    EXPECT_EQ(stateMachine.getCurrentPhase(), SessionPhase::SelfTest);
+}
+
+TEST(SessionManager, RearmAfterGoalWithoutFastRunGoesBackToIdle) {
+    SpySignal signal;
+    SessionManager stateMachine(signal);
+    stateMachine.start();
+    stateMachine.onSelfTestResult(true);
+    stateMachine.reachedGoal();
+    ASSERT_EQ(stateMachine.getCurrentPhase(), SessionPhase::Returning);
+    stateMachine.rearm();
+    EXPECT_EQ(stateMachine.getCurrentPhase(), SessionPhase::Idle);
+}
+
+TEST(SessionManager, RearmIsIgnoredWhileExploringAndAfterFault) {
+    SpySignal signal;
+    SessionManager exploring(signal);
+    exploring.start();
+    exploring.onSelfTestResult(true);
+    exploring.rearm();
+    EXPECT_EQ(exploring.getCurrentPhase(), SessionPhase::Exploring);
+
+    SessionManager faulted(signal);
+    faulted.start();
+    faulted.onSelfTestResult(false);
+    faulted.rearm();
+    EXPECT_EQ(faulted.getCurrentPhase(), SessionPhase::Fault);
+}
+
 TEST(SessionManager, StartsInIdle) {
     SpySignal signal;
     SessionManager stateMachine(signal);

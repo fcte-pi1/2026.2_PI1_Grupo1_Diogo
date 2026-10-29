@@ -11,6 +11,7 @@ idf_component_register(
         "${CORE_ROOT}/src/domain/Pid.cpp"
         "${CORE_ROOT}/src/domain/Maneuver.cpp"
         "${CORE_ROOT}/src/domain/ImuIdentity.cpp"
+        "${CORE_ROOT}/src/domain/BatteryMonitor.cpp"
         "${CORE_ROOT}/src/controller/MotionController.cpp"
         "${CORE_ROOT}/src/use_cases/Navigator.cpp"
         "${CORE_ROOT}/src/use_cases/SessionManager.cpp"

@@ -30,6 +30,9 @@ public:
     void reachedGoal();
     void backAtStart();
     void fault();
+    // RF-56: encerrada a sessão, volta ao Aguardando para uma nova largada. Uma falha (Fault) não
+    // se desfaz sozinha: exige reiniciar o robô.
+    void rearm();
 };
 
 }  // namespace micromouse::use_cases
