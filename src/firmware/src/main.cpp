@@ -16,6 +16,7 @@
 #include "adapters/LocalInterfaceAdapter.hpp"
 #include "adapters/Mpu6050.hpp"
 #include "adapters/Vl53l1xSensorAdapter.hpp"
+#include "domain/BatteryMonitor.hpp"
 #include "domain/DipDecoder.hpp"
 #include "domain/Maneuver.hpp"
 #include "domain/Maze.hpp"
@@ -139,89 +140,116 @@ void navigationTask(void*) {
     ESP_LOGI(kTag, "DIP lido no boot: labirinto %dx%d, partida pela %s", setup.columns, setup.rows,
              setup.start.column == 0 ? "esquerda" : "direita");
 
-    ESP_LOGI(kTag, "aguardando o botao de largada");
-    while (!gLocal.buttonPressed()) {
-        vTaskDelay(pdMS_TO_TICKS(10));
-    }
-    ESP_LOGI(kTag, "botao de largada acionado");
-    session.start();
+    int runIndex = 0;
+    while (true) {
+        ++runIndex;
+        ESP_LOGI(kTag, "aguardando o botao de largada");
+        while (gLocal.buttonPressed()) {  // espera soltar o botão da sessão anterior
+            vTaskDelay(pdMS_TO_TICKS(10));
+        }
+        while (!gLocal.buttonPressed()) {
+            vTaskDelay(pdMS_TO_TICKS(10));
+        }
+        ESP_LOGI(kTag, "botao de largada acionado");
+        session.start();
 
 #if CONFIG_RATO_BANCADA
-    const bool selfTestOk = true;  // bancada: sem IMU nem INA219
+        const bool selfTestOk = true;  // bancada: sem IMU nem INA219
 #else
-    const bool selfTestOk = gImu.present() && gPower.present();
+        const bool selfTestOk = gImu.present() && gPower.present();
 #endif
-    session.onSelfTestResult(selfTestOk);
-    if (!selfTestOk) {
-        telemetry::Snapshot state{};
-        state.phase = session.getCurrentPhase();
-        writeState(state);
-        while (true) {
-            vTaskDelay(pdMS_TO_TICKS(200));
-        }
-    }
-
-    TeleEvent startEvent{};
-    startEvent.kind = TeleEvent::Start;
-    startEvent.time = nowMs();
-    startEvent.runIndex = 1;
-    startEvent.mazeType = static_cast<int>(setup.type);
-    postEvent(startEvent);
-
-    domain::MazeMap maze(setup.rows, setup.columns);
-    maze.initKnownPerimeter();
-    use_cases::Navigator navigator(maze, gSensor, gMotion, setup.start, domain::Direction::North,
-                                   {setup.goal});
-
-    int cells = 0;
-    domain::Position last = setup.start;
-    int guard = setup.rows * setup.columns * 4;
-    while (!navigator.reachedGoal() && guard-- > 0) {
-        navigator.step();
-        const domain::Position position = navigator.getPosition();
-        if (!(position == last)) {
-            ++cells;
-            last = position;
+        session.onSelfTestResult(selfTestOk);
+        if (!selfTestOk) {
+            telemetry::Snapshot state{};
+            state.phase = session.getCurrentPhase();
+            writeState(state);
+            while (true) {
+                vTaskDelay(pdMS_TO_TICKS(200));
+            }
         }
 
-        TeleEvent cellEvent{};
-        cellEvent.kind = TeleEvent::Cell;
-        cellEvent.time = nowMs();
-        cellEvent.position = position;
-        cellEvent.north = maze.isBlocked(position, domain::Direction::North);
-        cellEvent.east = maze.isBlocked(position, domain::Direction::East);
-        cellEvent.south = maze.isBlocked(position, domain::Direction::South);
-        cellEvent.west = maze.isBlocked(position, domain::Direction::West);
-        postEvent(cellEvent);
+        TeleEvent startEvent{};
+        startEvent.kind = TeleEvent::Start;
+        startEvent.time = nowMs();
+        startEvent.runIndex = runIndex;
+        startEvent.mazeType = static_cast<int>(setup.type);
+        postEvent(startEvent);
 
-        telemetry::Snapshot state{};
+        domain::MazeMap maze(setup.rows, setup.columns);
+        maze.initKnownPerimeter();
+        use_cases::Navigator navigator(maze, gSensor, gMotion, setup.start,
+                                       domain::Direction::North, {setup.goal});
+
+        domain::BatteryMonitor battery;
+        int cells = 0;
+        domain::Position last = setup.start;
+        int guard = setup.rows * setup.columns * 4;
+        while (!navigator.reachedGoal() && guard-- > 0) {
+#if !CONFIG_RATO_BANCADA
+            // RF-55: a cada passo confere os sensores e a bateria; uma falha leva ao estado Erro.
+            if (!gImu.present() || !gPower.present()) {
+                ESP_LOGE(kTag, "falha de sensor durante a corrida (IMU ou INA219 nao responde)");
+                break;
+            }
+            if (battery.update(gPower.busVoltageV())) {
+                ESP_LOGE(kTag, "bateria fraca durante a corrida");
+                break;
+            }
+#endif
+            navigator.step();
+            const domain::Position position = navigator.getPosition();
+            if (!(position == last)) {
+                ++cells;
+                last = position;
+            }
+
+            TeleEvent cellEvent{};
+            cellEvent.kind = TeleEvent::Cell;
+            cellEvent.time = nowMs();
+            cellEvent.position = position;
+            cellEvent.north = maze.isBlocked(position, domain::Direction::North);
+            cellEvent.east = maze.isBlocked(position, domain::Direction::East);
+            cellEvent.south = maze.isBlocked(position, domain::Direction::South);
+            cellEvent.west = maze.isBlocked(position, domain::Direction::West);
+            postEvent(cellEvent);
+
+            telemetry::Snapshot state{};
+            state.phase = session.getCurrentPhase();
+            state.position = position;
+            state.heading = navigator.getHeading();
+            state.cells = cells;
+            writeState(state);
+        }
+
+        const bool reached = navigator.reachedGoal();
+        if (reached) {
+            session.reachedGoal();
+        } else {
+            session.fault();
+        }
+
+        telemetry::Snapshot state = readState();
         state.phase = session.getCurrentPhase();
-        state.position = position;
-        state.heading = navigator.getHeading();
-        state.cells = cells;
         writeState(state);
-    }
 
-    const bool reached = navigator.reachedGoal();
-    if (reached) {
-        session.reachedGoal();
-    } else {
-        session.fault();
-    }
+        TeleEvent endEvent{};
+        endEvent.kind = TeleEvent::End;
+        endEvent.time = nowMs();
+        endEvent.success = reached;
+        postEvent(endEvent);
 
-    telemetry::Snapshot state = readState();
-    state.phase = session.getCurrentPhase();
-    writeState(state);
-
-    TeleEvent endEvent{};
-    endEvent.kind = TeleEvent::End;
-    endEvent.time = nowMs();
-    endEvent.success = reached;
-    postEvent(endEvent);
-
-    // TODO (Fase 4): retorno ao início + corrida rápida (FastRun).
-    while (true) {
-        vTaskDelay(pdMS_TO_TICKS(200));
+        // RF-56: encerrada a sessão, volta ao Aguardando. O mapa, o contador de células e o
+        // cronômetro nascem de novo na próxima largada. Uma falha não se desfaz: é preciso
+        // reiniciar o robô.
+        if (session.getCurrentPhase() == use_cases::SessionPhase::Fault) {
+            while (true) {
+                vTaskDelay(pdMS_TO_TICKS(200));
+            }
+        }
+        session.rearm();
+        telemetry::Snapshot idleState{};
+        idleState.phase = session.getCurrentPhase();
+        writeState(idleState);
     }
 }
 
