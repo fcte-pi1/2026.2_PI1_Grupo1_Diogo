@@ -13,9 +13,9 @@ struct Tone {
 
 // Os três padrões do buzzer passivo, validados na bancada pelo hardware (TESTE-HW-08, #392).
 enum class BuzzerPattern {
-    Ready,  // RF-32: prontidão, 2 bips agudos de 2,5 kHz
-    Goal,   // RF-8: objetivo cumprido, tom ascendente de 2,0 a 3,8 kHz
-    Alarm   // RF-9 e RF-55: falha ou bateria fraca, 3 bips graves de 1,5 kHz
+    Ready,  // RF-32: prontidão, 2 bips de 1,3 kHz
+    Goal,   // RF-8: objetivo cumprido, tom ascendente de 1,2 a 1,5 kHz
+    Alarm   // RF-9 e RF-55: falha ou bateria fraca, 3 bips de 1,8 kHz
 };
 
 [[nodiscard]] std::vector<Tone> patternTones(BuzzerPattern pattern);
