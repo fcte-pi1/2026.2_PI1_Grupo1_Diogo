@@ -46,8 +46,8 @@ namespace {
 
 constexpr char kTag[] = "main";
 
-// Parâmetros físicos: roda, pulsos por volta e bitola ficam em domain/RobotParameters.hpp, com os
-// valores medidos pelo hardware (docs/7.3).
+// Parâmetros físicos: roda, pulsos por volta e bitola ficam em domain/RobotParameters.hpp (os
+// pulsos por volta foram medidos no docs/7.3; roda e bitola ainda são valores de projeto).
 using domain::robot::kTurn;
 using domain::robot::kWheels;
 constexpr domain::PidGains kStraightGains{0.02, 0.0, 0.002};
