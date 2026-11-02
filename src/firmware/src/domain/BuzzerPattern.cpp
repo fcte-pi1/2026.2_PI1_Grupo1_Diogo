@@ -7,9 +7,9 @@ std::vector<Tone> patternTones(BuzzerPattern pattern) {
         case BuzzerPattern::Ready:
             return {{1300, 160}, {0, 80}, {1300, 160}};
         case BuzzerPattern::Goal:
-            return {{1200, 100}, {1350, 100}, {1500, 250}};
+            return {{1200, 100}, {0, 40}, {1350, 100}, {0, 40}, {1500, 200}};
         case BuzzerPattern::Alarm:
-            return {{1800, 150}, {0, 150}, {1800, 150}, {0, 150}, {1800, 150}};
+            return {{1800, 150}, {0, 80}, {1800, 150}, {0, 80}, {1800, 150}};
     }
     return {};
 }

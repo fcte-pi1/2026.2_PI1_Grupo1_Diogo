@@ -33,16 +33,18 @@ TEST(BuzzerPattern, ReadyIsTwoBeepsAt1300Hz) {
     EXPECT_EQ(patternDurationMs(BuzzerPattern::Ready), 400u);
 }
 
-// RF-8: três tons que sobem, 1,2 a 1,35 a 1,5 kHz.
+// RF-8: três tons que sobem, 1,2 a 1,35 a 1,5 kHz, com 40 ms entre eles e o último mais longo.
 TEST(BuzzerPattern, GoalAscends) {
     const std::vector<Tone> tones = patternTones(BuzzerPattern::Goal);
-    ASSERT_EQ(tones.size(), 3u);
+    ASSERT_EQ(tones.size(), 5u);
     EXPECT_EQ(tones[0].frequencyHz, 1200);
-    EXPECT_EQ(tones[1].frequencyHz, 1350);
-    EXPECT_EQ(tones[2].frequencyHz, 1500);
-    EXPECT_LT(tones[0].frequencyHz, tones[1].frequencyHz);
-    EXPECT_LT(tones[1].frequencyHz, tones[2].frequencyHz);
-    EXPECT_EQ(patternDurationMs(BuzzerPattern::Goal), 450u);
+    EXPECT_EQ(tones[2].frequencyHz, 1350);
+    EXPECT_EQ(tones[4].frequencyHz, 1500);
+    EXPECT_EQ(tones[1].frequencyHz, 0);  // pausas entre os tons
+    EXPECT_EQ(tones[3].frequencyHz, 0);
+    EXPECT_EQ(tones[1].durationMs, 40);
+    EXPECT_EQ(tones[4].durationMs, 200);
+    EXPECT_EQ(patternDurationMs(BuzzerPattern::Goal), 480u);
 }
 
 // RF-9 e RF-55: três bips de 1,8 kHz, e o último não deixa pausa pendurada no fim.
@@ -50,7 +52,8 @@ TEST(BuzzerPattern, AlarmIsThreeBeepsAt1800Hz) {
     const std::vector<Tone> tones = patternTones(BuzzerPattern::Alarm);
     EXPECT_EQ(countBeeps(tones, 1800), 3);
     EXPECT_NE(tones.back().frequencyHz, 0);
-    EXPECT_EQ(patternDurationMs(BuzzerPattern::Alarm), 750u);
+    EXPECT_EQ(tones[1].durationMs, 80);  // pausa entre os bips
+    EXPECT_EQ(patternDurationMs(BuzzerPattern::Alarm), 610u);
 }
 
 // Os três padrões se distinguem de ouvido: o alarme é o mais agudo, o objetivo é o único que muda
@@ -60,7 +63,7 @@ TEST(BuzzerPattern, PatternsAreAudiblyDistinct) {
     const std::vector<Tone> goal = patternTones(BuzzerPattern::Goal);
     const std::vector<Tone> alarm = patternTones(BuzzerPattern::Alarm);
     EXPECT_GT(alarm.front().frequencyHz, ready.front().frequencyHz);
-    EXPECT_NE(goal[0].frequencyHz, goal[1].frequencyHz);
+    EXPECT_NE(goal.front().frequencyHz, goal.back().frequencyHz);
     EXPECT_NE(countBeeps(ready, 1300), countBeeps(alarm, 1800));
     EXPECT_NE(ready.front().durationMs, alarm.front().durationMs);
 }
