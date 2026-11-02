@@ -32,6 +32,8 @@ add_executable(firmware_tests
     domain/ManeuverTest.cpp
     domain/ImuIdentityTest.cpp
     domain/RobotParametersTest.cpp
+    domain/BatteryMonitorTest.cpp
+    domain/SensorHealthMonitorTest.cpp
 )
 
 target_include_directories(firmware_tests PRIVATE
