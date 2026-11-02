@@ -67,9 +67,10 @@ TEST(Maneuver, GyroAlcancaNoSentidoNegativo) {
     EXPECT_DOUBLE_EQ(gyro.angle(), -90.0);
 }
 
-// RNF-34: a referência angular é zerada a cada curva concluída, então o erro da deriva do
-// giroscópio não se acumula entre curvas consecutivas.
-TEST(Maneuver, DerivaNaoSeAcumulaEntreCurvasConsecutivas) {
+// RNF-34: a referência angular é zerada a cada curva concluída. Cada curva começa do zero e
+// integra só a deriva do próprio intervalo, e o erro de uma curva não entra na conta da seguinte.
+// O teste não mede o rumo absoluto do robô: somadas, as derivas das curvas dão o mesmo total.
+TEST(Maneuver, ReferenciaAngularZeraACadaCurva) {
     constexpr double kDriftDegPerS = 0.196;  // desvio parado medido no imu 3 da ESP32-S3
     constexpr double kDt = 0.01;
     constexpr int kTurns = 10;
@@ -80,6 +81,7 @@ TEST(Maneuver, DerivaNaoSeAcumulaEntreCurvasConsecutivas) {
     double driftOfLastTurn = 0.0;
     for (int turn = 0; turn < kTurns; ++turn) {
         gyro.reset();
+        EXPECT_DOUBLE_EQ(gyro.angle(), 0.0);
         double drift = 0.0;
         while (!gyro.reached()) {
             gyro.integrate(90.0 + kDriftDegPerS, kDt);
@@ -90,15 +92,6 @@ TEST(Maneuver, DerivaNaoSeAcumulaEntreCurvasConsecutivas) {
     }
     EXPECT_NEAR(driftOfLastTurn, driftOfFirstTurn, 1e-9);
     EXPECT_LT(driftOfLastTurn, 0.5);
-
-    // Sem zerar a referência, o mesmo erro cresceria a cada curva.
-    GyroTurnController continuous(90.0 * kTurns, 2.0);
-    double continuousDrift = 0.0;
-    while (!continuous.reached()) {
-        continuous.integrate(90.0 + kDriftDegPerS, kDt);
-        continuousDrift += kDriftDegPerS * kDt;
-    }
-    EXPECT_GT(continuousDrift, 5.0 * driftOfFirstTurn);
 }
 
 TEST(Maneuver, GyroIgnoraDtInvalido) {
