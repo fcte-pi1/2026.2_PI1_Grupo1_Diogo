@@ -82,12 +82,12 @@ As tolerâncias (±10 mm, ±0,05 V, ±10 mA) são **sugestões**: o `4.3` não d
 
 ### Sentido da roda esquerda (3.9 e 3.10)
 
-Os motores N20 são montados espelhados e o chicote é igual nos dois lados. Por isso o firmware **inverte a roda esquerda**, tanto no acionamento do motor quanto na contagem do encoder (decisão do hardware, #394). As constantes ficam em `include/adapters/BoardPins.hpp`:
+No robô montado na bancada, os fios dos motores foram soldados trocados em relação ao esquemático 4.3, e a equipe decidiu não ressoldar: a roda **esquerda** está nos pinos do motor 1 (16/15) e do encoder 1 (38/39), e a **direita** nos do motor 2 (6/5) e do encoder 2 (41/40). A opção de build **`RATO_FIOS_MOTORES_TROCADOS`** (menu "Rato Borrachudo" do `idf.py menuconfig`, ligada por padrão na S3) faz o firmware seguir essa montagem. **Desligue-a quando o robô passar para a PCB** feita pelo esquemático. O sentido de cada roda fica nestas constantes do `include/adapters/BoardPins.hpp`:
 
-| Constante | Padrão | O que inverte |
-|:--|:--|:--|
-| `kInvertLeftMotor` | `true` | o acionamento do motor esquerdo |
-| `kInvertLeftEncoder` | `true` | a contagem do encoder esquerdo |
+| Constante | Fios trocados (padrão) | Esquemático | O que inverte |
+|:--|:--|:--|:--|
+| `kInvertLeftMotor` | `false` | `true` | o acionamento do motor esquerdo (o direito já sai certo pela ordem dos pinos) |
+| `kInvertLeftEncoder` | `true` | `true` | a contagem do encoder esquerdo |
 
 Como saber se o padrão está certo no chassi: rode `motor 0.5 0.5` (robô suspenso) e `enc`. As duas rodas têm que girar **para frente** e os dois encoders têm que contar **positivo**.
 
