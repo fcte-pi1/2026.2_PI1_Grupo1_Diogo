@@ -82,12 +82,12 @@ As tolerâncias (±10 mm, ±0,05 V, ±10 mA) são **sugestões**: o `4.3` não d
 
 ### Sentido da roda esquerda (3.9 e 3.10)
 
-No robô montado, os fios dos motores foram soldados trocados em relação ao esquemático 4.3, e a equipe decidiu não ressoldar. Por isso a roda **esquerda** está nos pinos do motor 1 (16/15) e do encoder 1 (38/39), e a **direita** nos do motor 2 (6/5) e do encoder 2 (41/40). O `BoardPins.hpp` segue o robô montado, conferido no firmware de teste do hardware. O sentido de cada roda fica nestas constantes:
+No robô montado na bancada, os fios dos motores foram soldados trocados em relação ao esquemático 4.3, e a equipe decidiu não ressoldar: a roda **esquerda** está nos pinos do motor 1 (16/15) e do encoder 1 (38/39), e a **direita** nos do motor 2 (6/5) e do encoder 2 (41/40). A opção de build **`RATO_FIOS_MOTORES_TROCADOS`** (menu "Rato Borrachudo" do `idf.py menuconfig`, ligada por padrão na S3) faz o firmware seguir essa montagem. **Desligue-a quando o robô passar para a PCB** feita pelo esquemático. O sentido de cada roda fica nestas constantes do `include/adapters/BoardPins.hpp`:
 
-| Constante | Padrão | O que inverte |
-|:--|:--|:--|
-| `kInvertLeftMotor` | `false` | o acionamento do motor esquerdo (o direito já sai certo pela ordem dos pinos) |
-| `kInvertLeftEncoder` | `true` | a contagem do encoder esquerdo |
+| Constante | Fios trocados (padrão) | Esquemático | O que inverte |
+|:--|:--|:--|:--|
+| `kInvertLeftMotor` | `false` | `true` | o acionamento do motor esquerdo (o direito já sai certo pela ordem dos pinos) |
+| `kInvertLeftEncoder` | `true` | `true` | a contagem do encoder esquerdo |
 
 Como saber se o padrão está certo no chassi: rode `motor 0.5 0.5` (robô suspenso) e `enc`. As duas rodas têm que girar **para frente** e os dois encoders têm que contar **positivo**.
 

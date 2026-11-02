@@ -1,0 +1,16 @@
+menu "Rato Borrachudo (diagnóstico)"
+
+    # Mesma opção do firmware do robô (esp32/main/Kconfig.projbuild): o diagnóstico usa o mesmo
+    # BoardPins.hpp e precisa enxergar a mesma ligação dos motores.
+    config RATO_FIOS_MOTORES_TROCADOS
+        bool "Fios dos motores trocados (robô montado na bancada)"
+        depends on IDF_TARGET_ESP32S3
+        default y
+        help
+            No robô montado na bancada, os fios dos motores foram soldados trocados em
+            relação ao esquemático 4.3: a roda esquerda está nos pinos do motor 1
+            (16/15) e do encoder 1 (38/39), e a direita nos do motor 2 (6/5) e do
+            encoder 2 (41/40). Ligada, o firmware segue essa montagem. Desligue
+            quando o robô passar para a PCB feita pelo esquemático.
+
+endmenu
