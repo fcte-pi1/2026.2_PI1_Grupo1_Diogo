@@ -82,11 +82,11 @@ As tolerâncias (±10 mm, ±0,05 V, ±10 mA) são **sugestões**: o `4.3` não d
 
 ### Sentido da roda esquerda (3.9 e 3.10)
 
-Os motores N20 são montados espelhados e o chicote é igual nos dois lados. Por isso o firmware **inverte a roda esquerda**, tanto no acionamento do motor quanto na contagem do encoder (decisão do hardware, #394). As constantes ficam em `include/adapters/BoardPins.hpp`:
+No robô montado, os fios dos motores foram soldados trocados em relação ao esquemático 4.3, e a equipe decidiu não ressoldar. Por isso a roda **esquerda** está nos pinos do motor 1 (16/15) e do encoder 1 (38/39), e a **direita** nos do motor 2 (6/5) e do encoder 2 (41/40). O `BoardPins.hpp` segue o robô montado, conferido no firmware de teste do hardware. O sentido de cada roda fica nestas constantes:
 
 | Constante | Padrão | O que inverte |
 |:--|:--|:--|
-| `kInvertLeftMotor` | `true` | o acionamento do motor esquerdo |
+| `kInvertLeftMotor` | `false` | o acionamento do motor esquerdo (o direito já sai certo pela ordem dos pinos) |
 | `kInvertLeftEncoder` | `true` | a contagem do encoder esquerdo |
 
 Como saber se o padrão está certo no chassi: rode `motor 0.5 0.5` (robô suspenso) e `enc`. As duas rodas têm que girar **para frente** e os dois encoders têm que contar **positivo**.
