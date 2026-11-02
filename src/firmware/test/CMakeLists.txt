@@ -34,6 +34,7 @@ add_executable(firmware_tests
     domain/RobotParametersTest.cpp
     domain/BatteryMonitorTest.cpp
     domain/SensorHealthMonitorTest.cpp
+    domain/SoftStartTest.cpp
 )
 
 target_include_directories(firmware_tests PRIVATE

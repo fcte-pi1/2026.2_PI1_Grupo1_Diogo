@@ -24,7 +24,7 @@ private:
     domain::TurnConfig turnConfig_;
     controller::MotionController straight_;
 
-    void pivot(double degrees);
+    void pivot(double degrees, double leftSpeed, double rightSpeed);
 
 public:
     Drv8833MotionAdapter(const domain::WheelConfig& wheels,
