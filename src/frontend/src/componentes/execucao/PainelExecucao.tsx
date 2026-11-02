@@ -63,7 +63,7 @@ export function ItemAlerta({
  * Visualização da execução — mapa, trajeto, métricas, consumo e resultado. É a mesma para o
  * acompanhamento ao vivo e para o detalhe de uma execução do histórico; só o `modo` muda.
  */
-export function PainelExecucao({ modo, execucao, tempoMs, children, alertas }: Props) {
+export function PainelExecucao({ modo, execucao, tempoMs, alertas }: Props) {
   const historico = modo === 'historico';
   const tensao = formatarNumero(execucao.tensaoV, 'V');
   const corrente = formatarNumero(execucao.correnteA, 'A');
