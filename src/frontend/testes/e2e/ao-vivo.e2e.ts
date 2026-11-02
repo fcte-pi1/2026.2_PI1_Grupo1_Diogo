@@ -319,6 +319,32 @@ test.describe('acompanhamento ao vivo', () => {
     await expect(page.getByTestId('status-desafio')).toHaveText('Em andamento');
   });
 
+  test('sem rede do navegador mostra Desconectado e, ao voltar, reconecta na hora (CT-FE-03)', async ({
+    page,
+  }) => {
+    await comCorridaEmAndamento(page);
+    await expect(indicador(page)).toHaveText('Conectado');
+    expect(backend.conexoes).toBe(1);
+
+    // Eventos disparados na página: o mesmo caminho nos dois navegadores, sem depender de como
+    // cada um simula a falta de rede com um WebSocket interceptado.
+    await page.evaluate(() => window.dispatchEvent(new Event('offline')));
+
+    await expect(indicador(page)).toHaveText('Desconectado');
+    await expect(indicador(page)).toHaveAttribute('data-estado', 'desconectado');
+    // Sem rede não há tentativa: passa mais que o primeiro recuo (250 ms) e nada reconecta.
+    await page.waitForTimeout(600);
+    expect(backend.conexoes).toBe(1);
+
+    await page.evaluate(() => window.dispatchEvent(new Event('online')));
+
+    // Reconecta sem esperar o recuo e pede de novo o snapshot da corrida em andamento.
+    await expect(indicador(page)).toHaveText('Conectado', { timeout: 1000 });
+    expect(backend.conexoes).toBe(2);
+    await expect.poll(() => backend.mensagensDeCorrida('inscrever')).toEqual([CORRIDA, CORRIDA]);
+    await expect(page.getByTestId('status-desafio')).toHaveText('Em andamento');
+  });
+
   test('sem nenhum WebSocket do backend, o painel segue tentando reconectar', async ({ page }) => {
     await page.goto('/');
     await backend.aguardarConexao();

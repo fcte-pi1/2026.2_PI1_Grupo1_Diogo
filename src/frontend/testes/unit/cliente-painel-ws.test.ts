@@ -291,6 +291,78 @@ describe('keepalive e mensagens inválidas', () => {
   });
 });
 
+describe('eventos online/offline do navegador (RNF-39, CT-FE-03 passo 3)', () => {
+  const ficarOffline = () => window.dispatchEvent(new Event('offline'));
+  const voltarOnline = () => window.dispatchEvent(new Event('online'));
+
+  it('offline: mostra "Desconectado", fecha o socket e não tenta reconectar', () => {
+    vi.useFakeTimers();
+    ficarOffline();
+
+    expect(estado().conexao.estado).toBe('DESCONECTADO');
+    expect(rotuloConexao(estado().conexao.estado, estado().conexao.sinal)).toBe('Desconectado');
+    expect(ws.readyState).toBe(WebSocketFalso.CLOSED);
+
+    vi.advanceTimersByTime(10_000);
+    expect(WebSocketFalso.instancias).toHaveLength(1);
+    expect(estado().conexao.estado).toBe('DESCONECTADO');
+  });
+
+  it('online depois de offline: reconecta na hora, sem esperar o recuo', () => {
+    vi.useFakeTimers();
+    ficarOffline();
+
+    voltarOnline();
+
+    expect(WebSocketFalso.instancias).toHaveLength(2);
+    expect(estado().conexao.estado).toBe('RECONECTANDO');
+    WebSocketFalso.instancias[1]!.abrir();
+    expect(estado().conexao.estado).toBe('CONECTADO');
+  });
+
+  it('online com uma tentativa agendada: antecipa a tentativa', () => {
+    vi.useFakeTimers();
+    ws.close();
+    expect(estado().conexao.estado).toBe('RECONECTANDO');
+    expect(WebSocketFalso.instancias).toHaveLength(1);
+
+    voltarOnline();
+
+    expect(WebSocketFalso.instancias).toHaveLength(2);
+    // A tentativa que estava agendada não abre uma terceira conexão.
+    vi.advanceTimersByTime(5000);
+    expect(WebSocketFalso.instancias).toHaveLength(2);
+  });
+
+  it('online com a conexão já aberta não abre outra', () => {
+    voltarOnline();
+    expect(WebSocketFalso.instancias).toHaveLength(1);
+    expect(estado().conexao.estado).toBe('CONECTADO');
+  });
+
+  it('ao voltar a rede no meio da corrida, inscreve-se de novo no canal e na corrida', () => {
+    ws.receber(aoVivo());
+    ficarOffline();
+    voltarOnline();
+
+    const novo = WebSocketFalso.instancias[1]!;
+    novo.abrir();
+    expect(novo.enviadas).toEqual([
+      { tipo: 'inscrever', canal: 'ao_vivo' },
+      { tipo: 'inscrever', corrida: CORRIDA },
+    ]);
+  });
+
+  it('depois de parar(), os eventos de rede não fazem nada', () => {
+    cliente.parar();
+
+    voltarOnline();
+    ficarOffline();
+
+    expect(WebSocketFalso.instancias).toHaveLength(1);
+  });
+});
+
 describe('reconexão', () => {
   it('após a queda no meio da corrida, volta a se inscrever no canal e na corrida (RF-89)', () => {
     vi.useFakeTimers();

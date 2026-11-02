@@ -27,7 +27,9 @@ const STATUS_FINAIS: ReadonlySet<string> = new Set(['CONCLUIDA', 'FALHOU', 'INTE
 
 /**
  * ClientePainelWS — conexão com /ws/painel fora da árvore de componentes (RF-58),
- * com reconexão por backoff de teto 2 s (RNF-39).
+ * com reconexão por backoff de teto 2 s (RNF-39). Também reage aos eventos `offline` e `online`
+ * do navegador (RNF-39, CT-FE-03): sem rede, mostra "Desconectado" e para de tentar; ao voltar,
+ * reconecta na hora, sem esperar o recuo.
  *
  * Fluxo do contrato (protocolo v1, "Backend → Painel"):
  *  1. ao abrir, inscreve-se no canal `ao_vivo` (resumo de início e fim de qualquer corrida);
@@ -40,6 +42,9 @@ export class ClientePainelWS {
   private tentativa = 0;
   private temporizador: ReturnType<typeof setTimeout> | null = null;
   private encerrado = false;
+  /** O navegador avisou que está sem rede: não há o que reconectar até o evento `online`. */
+  private semRede = false;
+  private escutandoRede = false;
   /** Corrida em que o painel está inscrito (id do backend). */
   private corridaInscrita: string | null = null;
 
@@ -52,27 +57,80 @@ export class ClientePainelWS {
   }
 
   iniciar(): void {
+    this.escutarRede();
     if (
       this.socket &&
       (this.socket.readyState === WebSocket.OPEN || this.socket.readyState === WebSocket.CONNECTING)
     )
       return;
     this.encerrado = false;
+    // Aba aberta já sem rede: não adianta tentar; o evento `online` retoma.
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+      this.semRede = true;
+      usePainel.getState().acoes.definirEstadoConexao('DESCONECTADO');
+      return;
+    }
+    this.semRede = false;
     this.conectar();
   }
 
   parar(): void {
     this.encerrado = true;
+    this.semRede = false;
+    this.ignorarRede();
     if (this.temporizador) clearTimeout(this.temporizador);
+    this.temporizador = null;
     this.socket?.close();
     this.socket = null;
     this.corridaInscrita = null;
     usePainel.getState().acoes.definirEstadoConexao('DESCONECTADO');
   }
 
-  private conectar(): void {
+  private escutarRede(): void {
+    if (this.escutandoRede) return;
+    this.escutandoRede = true;
+    window.addEventListener('offline', this.aoFicarOffline);
+    window.addEventListener('online', this.aoVoltarOnline);
+  }
+
+  private ignorarRede(): void {
+    this.escutandoRede = false;
+    window.removeEventListener('offline', this.aoFicarOffline);
+    window.removeEventListener('online', this.aoVoltarOnline);
+  }
+
+  /** Sem rede: fecha o socket, cancela a tentativa agendada e mostra "Desconectado". */
+  private readonly aoFicarOffline = (): void => {
+    if (this.encerrado) return;
+    this.semRede = true;
+    if (this.temporizador) clearTimeout(this.temporizador);
+    this.temporizador = null;
+    const socket = this.socket;
+    // Solta a referência antes de fechar: o `close` desse socket não agenda reconexão.
+    this.socket = null;
+    socket?.close();
+    usePainel.getState().acoes.definirEstadoConexao('DESCONECTADO');
+  };
+
+  /** Rede de volta: tenta reconectar agora, com o recuo zerado (RNF-39). */
+  private readonly aoVoltarOnline = (): void => {
+    if (this.encerrado) return;
+    this.semRede = false;
+    if (this.temporizador) clearTimeout(this.temporizador);
+    this.temporizador = null;
+    if (
+      this.socket &&
+      (this.socket.readyState === WebSocket.OPEN || this.socket.readyState === WebSocket.CONNECTING)
+    )
+      return;
+    this.tentativa = 0;
+    this.conectar(true);
+  };
+
+  private conectar(reconectando = this.tentativa > 0): void {
+    if (this.semRede) return;
     const { acoes } = usePainel.getState();
-    acoes.definirEstadoConexao(this.tentativa === 0 ? 'CONECTANDO' : 'RECONECTANDO');
+    acoes.definirEstadoConexao(reconectando ? 'RECONECTANDO' : 'CONECTANDO');
 
     const socket = new WebSocket(this.url);
     this.socket = socket;
@@ -95,7 +153,8 @@ export class ClientePainelWS {
     socket.addEventListener('error', () => socket.close());
 
     socket.addEventListener('close', () => {
-      if (this.encerrado) return;
+      // Socket já substituído ou solto (offline/online): o `close` dele não decide mais nada.
+      if (this.encerrado || this.socket !== socket) return;
       acoes.definirEstadoConexao('RECONECTANDO');
       this.temporizador = setTimeout(() => this.conectar(), atrasoBackoffMs(this.tentativa++));
     });
