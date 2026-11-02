@@ -1,6 +1,12 @@
 import type { ReactNode } from 'react';
 import type { DadosExecucao } from '../../dominio';
-import { formatarNumero, formatarTempo, rotuloDesafio, rotuloStatus } from '../../formatacao';
+import {
+  formatarNumero,
+  formatarPercentual,
+  formatarTempo,
+  rotuloDesafio,
+  rotuloStatus,
+} from '../../formatacao';
 import { GraficoConsumo } from '../consumo/GraficoConsumo';
 import { MapaLabirinto } from './MapaLabirinto';
 import estilos from './PainelExecucao.module.css';
@@ -160,7 +166,7 @@ export function PainelExecucao({ modo, execucao, tempoMs, children, alertas }: P
               <div className={estilos.bateriaRotulo}>
                 <span>Carga estimada</span>
                 <strong data-testid="carga-estimada">
-                  {execucao.cargaPct === null ? '—' : `${execucao.cargaPct}%`}
+                  {formatarPercentual(execucao.cargaPct)}
                 </strong>
               </div>
               <div className={estilos.bateriaTrilho}>

@@ -112,7 +112,7 @@ test.describe('acompanhamento ao vivo', () => {
     await expect(page.getByText('Atualização recebida')).toBeVisible();
     await expect(page.getByTestId('distancia-total')).toHaveText('0,18 m');
     await expect(page.getByTestId('velocidade-media')).toHaveText('0,11 m/s');
-    await expect(page.getByTestId('carga-estimada')).toHaveText('87.5%');
+    await expect(page.getByTestId('carga-estimada')).toHaveText('87,5%');
     await expect(page.getByTestId('variacao-tensao')).toHaveText('0,2 V');
     // Tensão, corrente e potência na mesma tela (HU-FE-01 CA1).
     const painel = page.getByTestId('painel-execucao');

@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { formatarNumero, formatarTempo, rotuloDesafio, rotuloStatus } from '../../src/formatacao';
+import {
+  formatarNumero,
+  formatarPercentual,
+  formatarTempo,
+  rotuloDesafio,
+  rotuloStatus,
+} from '../../src/formatacao';
 
 describe('rotuloDesafio (HU-FE-07)', () => {
   it('só CONCLUIDA é "Cumprido" (CA1 e CA3)', () => {
@@ -20,6 +26,20 @@ describe('rotuloStatus', () => {
     [null, '—'],
   ] as const)('%s → %s', (status, esperado) => {
     expect(rotuloStatus(status)).toBe(esperado);
+  });
+});
+
+describe('formatarPercentual (carga estimada, pt-BR)', () => {
+  it('usa vírgula e sempre uma casa decimal', () => {
+    expect(formatarPercentual(87.5)).toBe('87,5%');
+    expect(formatarPercentual(35.27)).toBe('35,3%');
+    expect(formatarPercentual(72)).toBe('72,0%');
+    expect(formatarPercentual(100)).toBe('100,0%');
+    expect(formatarPercentual(0)).toBe('0,0%');
+  });
+
+  it('traço quando não há valor', () => {
+    expect(formatarPercentual(null)).toBe('—');
   });
 });
 

@@ -25,6 +25,33 @@ function parede(container: HTMLElement, id: string) {
 beforeEach(reiniciarStore);
 afterEach(cleanup);
 
+describe('tela ao vivo — sem cartão de histórico estático', () => {
+  it('não mostra o cartão "Histórico de Tentativas", seus filtros nem a mensagem fixa de vazio', () => {
+    renderizar();
+
+    expect(screen.queryByText('Histórico de Tentativas')).toBeNull();
+    expect(screen.queryByText('Nenhuma execução armazenada disponível.')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Todos' })).toBeNull();
+    expect(screen.queryByRole('button', { name: '12×4' })).toBeNull();
+    // O acesso ao histórico continua pelo botão do seletor de modo.
+    expect(screen.getByRole('button', { name: 'Histórico' })).toBeInTheDocument();
+  });
+});
+
+describe('carga estimada em pt-BR', () => {
+  it('mostra vírgula e uma casa decimal', () => {
+    renderizar();
+    act(() => acoes().atualizarExecucao({ cargaPct: 87.5 }));
+    expect(screen.getByTestId('carga-estimada')).toHaveTextContent('87,5%');
+
+    act(() => acoes().atualizarExecucao({ cargaPct: 35.27 }));
+    expect(screen.getByTestId('carga-estimada')).toHaveTextContent('35,3%');
+
+    act(() => acoes().atualizarExecucao({ cargaPct: null }));
+    expect(screen.getByTestId('carga-estimada')).toHaveTextContent('—');
+  });
+});
+
 describe('HU-FE-04 / CT-FE-04 — labirinto atualizado', () => {
   it.each([
     ['4x4', 4, 4],
