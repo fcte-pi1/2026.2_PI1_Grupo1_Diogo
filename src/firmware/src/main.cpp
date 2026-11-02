@@ -22,6 +22,7 @@
 #include "domain/Maze.hpp"
 #include "domain/Odometry.hpp"
 #include "domain/Pid.hpp"
+#include "domain/SensorHealthMonitor.hpp"
 #include "esp_log.h"
 #include "esp_random.h"
 #include "esp_timer.h"
@@ -181,13 +182,15 @@ void navigationTask(void*) {
                                        domain::Direction::North, {setup.goal});
 
         domain::BatteryMonitor battery;
+        domain::SensorHealthMonitor sensorHealth;
         int cells = 0;
         domain::Position last = setup.start;
         int guard = setup.rows * setup.columns * 4;
         while (!navigator.reachedGoal() && guard-- > 0) {
 #if !CONFIG_RATO_BANCADA
-            // RF-55: a cada passo confere os sensores e a bateria; uma falha leva ao estado Erro.
-            if (!gImu.present() || !gPower.present()) {
+            // RF-55: a cada passo confere os sensores e a bateria. Uma falha confirmada (várias
+            // verificações seguidas) leva ao estado Erro; um NACK isolado no I²C é tolerado.
+            if (sensorHealth.update(gImu.present() && gPower.present())) {
                 ESP_LOGE(kTag, "falha de sensor durante a corrida (IMU ou INA219 nao responde)");
                 break;
             }

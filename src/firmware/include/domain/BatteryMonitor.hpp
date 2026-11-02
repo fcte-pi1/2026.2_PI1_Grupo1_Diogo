@@ -3,7 +3,9 @@
 namespace micromouse::domain {
 
 // Detecta bateria fraca (RF-55, RF-9). Só confirma depois de várias leituras seguidas abaixo do
-// limiar, para uma queda de tensão passageira (partida dos motores) não derrubar a corrida.
+// limiar, para uma leitura isolada não derrubar a corrida. O firmware lê uma vez por passo da
+// navegação (uma célula ou uma curva), depois da frenagem: as 5 leituras equivalem a cerca de 5
+// células, com a bateria quase em repouso, e não a um intervalo de tempo fixo.
 // Leituras inválidas (zero, negativas ou NaN) não contam: elas indicam falha do sensor, não
 // bateria fraca, e o auto-teste já trata a falta do INA219.
 class BatteryMonitor {
