@@ -31,6 +31,7 @@ add_executable(firmware_tests
     telemetry/TelemetryEmitterTest.cpp
     domain/ManeuverTest.cpp
     domain/ImuIdentityTest.cpp
+    domain/RobotParametersTest.cpp
 )
 
 target_include_directories(firmware_tests PRIVATE
