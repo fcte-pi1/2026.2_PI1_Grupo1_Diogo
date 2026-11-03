@@ -9,6 +9,7 @@
 
 #include "adapters/BenchMotionAdapter.hpp"
 #include "adapters/BleTelemetryAdapter.hpp"
+#include "adapters/BoardPins.hpp"
 #include "adapters/DipReaderAdapter.hpp"
 #include "adapters/Drv8833MotionAdapter.hpp"
 #include "adapters/I2cBus.hpp"
@@ -115,6 +116,7 @@ void navigationTask(void*) {
     gLocal.begin();
     gDip.begin();
     gMotion.begin();
+    ESP_LOGI(kTag, "mapa de pinos dos motores: %s", adapters::pins::kMotorWiringName);
 
     use_cases::SessionManager session(gLocal);
 
