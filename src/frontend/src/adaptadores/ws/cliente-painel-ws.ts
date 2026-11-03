@@ -28,8 +28,13 @@ const STATUS_FINAIS: ReadonlySet<string> = new Set(['CONCLUIDA', 'FALHOU', 'INTE
 /**
  * ClientePainelWS — conexão com /ws/painel fora da árvore de componentes (RF-58),
  * com reconexão por backoff de teto 2 s (RNF-39). Também reage aos eventos `offline` e `online`
- * do navegador (RNF-39, CT-FE-03): sem rede, mostra "Desconectado" e para de tentar; ao voltar,
- * reconecta na hora, sem esperar o recuo.
+ * do navegador (RNF-39, CT-FE-03), mas só como dica: `navigator.onLine` diz se o computador está
+ * em alguma rede, não se o backend responde (na apresentação ele roda em localhost, que segue
+ * no ar sem nenhuma rede). Por isso:
+ *  - `offline`: mostra "Desconectado", mas continua tentando no recuo de teto 2 s, sem trocar o
+ *    rótulo para "Reconectando"; se o socket abrir mesmo assim, o painel volta a "Conectado";
+ *  - `online`: zera o recuo e tenta na hora;
+ *  - a primeira conexão é sempre tentada, mesmo com `navigator.onLine === false`.
  *
  * Fluxo do contrato (protocolo v1, "Backend → Painel"):
  *  1. ao abrir, inscreve-se no canal `ao_vivo` (resumo de início e fim de qualquer corrida);
@@ -42,7 +47,7 @@ export class ClientePainelWS {
   private tentativa = 0;
   private temporizador: ReturnType<typeof setTimeout> | null = null;
   private encerrado = false;
-  /** O navegador avisou que está sem rede: não há o que reconectar até o evento `online`. */
+  /** O navegador avisou que está sem rede (dica): muda só o rótulo, nunca impede de tentar. */
   private semRede = false;
   private escutandoRede = false;
   /** Corrida em que o painel está inscrito (id do backend). */
@@ -64,13 +69,8 @@ export class ClientePainelWS {
     )
       return;
     this.encerrado = false;
-    // Aba aberta já sem rede: não adianta tentar; o evento `online` retoma.
-    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
-      this.semRede = true;
-      usePainel.getState().acoes.definirEstadoConexao('DESCONECTADO');
-      return;
-    }
-    this.semRede = false;
+    // Sem rede no navegador não quer dizer backend fora do ar (localhost): tenta mesmo assim.
+    this.semRede = typeof navigator !== 'undefined' && navigator.onLine === false;
     this.conectar();
   }
 
@@ -99,17 +99,22 @@ export class ClientePainelWS {
     window.removeEventListener('online', this.aoVoltarOnline);
   }
 
-  /** Sem rede: fecha o socket, cancela a tentativa agendada e mostra "Desconectado". */
+  /**
+   * Sem rede: mostra "Desconectado" e fecha o socket, mas segue tentando no recuo de teto 2 s.
+   * Se o backend ainda responde (localhost), a próxima tentativa abre e o painel volta a
+   * "Conectado" sozinho.
+   */
   private readonly aoFicarOffline = (): void => {
     if (this.encerrado) return;
     this.semRede = true;
     if (this.temporizador) clearTimeout(this.temporizador);
-    this.temporizador = null;
     const socket = this.socket;
-    // Solta a referência antes de fechar: o `close` desse socket não agenda reconexão.
+    // Solta a referência antes de fechar: o `close` desse socket não agenda nada por conta própria.
     this.socket = null;
     socket?.close();
     usePainel.getState().acoes.definirEstadoConexao('DESCONECTADO');
+    this.tentativa = 0;
+    this.agendarReconexao();
   };
 
   /** Rede de volta: tenta reconectar agora, com o recuo zerado (RNF-39). */
@@ -118,25 +123,35 @@ export class ClientePainelWS {
     this.semRede = false;
     if (this.temporizador) clearTimeout(this.temporizador);
     this.temporizador = null;
-    if (
-      this.socket &&
-      (this.socket.readyState === WebSocket.OPEN || this.socket.readyState === WebSocket.CONNECTING)
-    )
+    if (this.socket?.readyState === WebSocket.OPEN) return;
+    if (this.socket?.readyState === WebSocket.CONNECTING) {
+      // Já há uma tentativa em curso (feita enquanto estava offline): só troca o rótulo.
+      usePainel.getState().acoes.definirEstadoConexao('RECONECTANDO');
       return;
+    }
     this.tentativa = 0;
     this.conectar(true);
   };
 
+  /** Próxima tentativa no recuo 0,25 → 0,5 → 1 → 2 s (teto de 2 s, RNF-39). */
+  private agendarReconexao(): void {
+    this.temporizador = setTimeout(() => this.conectar(), atrasoBackoffMs(this.tentativa++));
+  }
+
+  /** Com o navegador sem rede o rótulo fica "Desconectado"; "Reconectando" só havendo rede. */
   private conectar(reconectando = this.tentativa > 0): void {
-    if (this.semRede) return;
     const { acoes } = usePainel.getState();
-    acoes.definirEstadoConexao(reconectando ? 'RECONECTANDO' : 'CONECTANDO');
+    acoes.definirEstadoConexao(
+      this.semRede ? 'DESCONECTADO' : reconectando ? 'RECONECTANDO' : 'CONECTANDO',
+    );
 
     const socket = new WebSocket(this.url);
     this.socket = socket;
 
     socket.addEventListener('open', () => {
       this.tentativa = 0;
+      // O backend respondeu: o `offline` do navegador era só uma dica.
+      this.semRede = false;
       acoes.definirEstadoConexao('CONECTADO');
       this.enviar({ tipo: 'inscrever', canal: 'ao_vivo' });
       // Reconexão no meio de uma corrida: pede o snapshot de novo (RF-89).
@@ -155,8 +170,8 @@ export class ClientePainelWS {
     socket.addEventListener('close', () => {
       // Socket já substituído ou solto (offline/online): o `close` dele não decide mais nada.
       if (this.encerrado || this.socket !== socket) return;
-      acoes.definirEstadoConexao('RECONECTANDO');
-      this.temporizador = setTimeout(() => this.conectar(), atrasoBackoffMs(this.tentativa++));
+      acoes.definirEstadoConexao(this.semRede ? 'DESCONECTADO' : 'RECONECTANDO');
+      this.agendarReconexao();
     });
   }
 

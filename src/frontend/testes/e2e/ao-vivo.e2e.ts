@@ -319,30 +319,45 @@ test.describe('acompanhamento ao vivo', () => {
     await expect(page.getByTestId('status-desafio')).toHaveText('Em andamento');
   });
 
-  test('sem rede do navegador mostra Desconectado e, ao voltar, reconecta na hora (CT-FE-03)', async ({
+  test('offline do navegador com o backend no ar (localhost): mostra Desconectado e volta a Conectado sozinho (CT-FE-03)', async ({
     page,
   }) => {
     await comCorridaEmAndamento(page);
     await expect(indicador(page)).toHaveText('Conectado');
     expect(backend.conexoes).toBe(1);
 
-    // Eventos disparados na página: o mesmo caminho nos dois navegadores, sem depender de como
-    // cada um simula a falta de rede com um WebSocket interceptado.
+    // Registra todos os rótulos do indicador: o "Desconectado" dura só o recuo de 250 ms e
+    // conferi-lo por consulta periódica seria intermitente.
+    await page.evaluate(() => {
+      const el = document.querySelector('[role="status"][data-estado]')!;
+      const rotulos: string[] = [el.textContent ?? ''];
+      (window as unknown as { __rotulos: string[] }).__rotulos = rotulos;
+      new MutationObserver(() => rotulos.push(el.textContent ?? '')).observe(el, {
+        attributes: true,
+        characterData: true,
+        childList: true,
+        subtree: true,
+      });
+    });
+
+    // Evento disparado na página: o mesmo caminho nos dois navegadores. O `setOffline` do
+    // Playwright bloquearia também o backend simulado, e o que se quer é o caso real da
+    // apresentação: o notebook sem nenhuma rede e o backend ainda respondendo em localhost.
     await page.evaluate(() => window.dispatchEvent(new Event('offline')));
 
-    await expect(indicador(page)).toHaveText('Desconectado');
-    await expect(indicador(page)).toHaveAttribute('data-estado', 'desconectado');
-    // Sem rede não há tentativa: passa mais que o primeiro recuo (250 ms) e nada reconecta.
-    await page.waitForTimeout(600);
-    expect(backend.conexoes).toBe(1);
-
-    await page.evaluate(() => window.dispatchEvent(new Event('online')));
-
-    // Reconecta sem esperar o recuo e pede de novo o snapshot da corrida em andamento.
-    await expect(indicador(page)).toHaveText('Conectado', { timeout: 1000 });
-    expect(backend.conexoes).toBe(2);
+    // O offline é só uma dica: o painel tenta de novo no recuo e, como o backend responde, volta.
+    await expect.poll(() => backend.conexoes).toBe(2);
+    await expect(indicador(page)).toHaveText('Conectado');
     await expect.poll(() => backend.mensagensDeCorrida('inscrever')).toEqual([CORRIDA, CORRIDA]);
     await expect(page.getByTestId('status-desafio')).toHaveText('Em andamento');
+
+    const rotulos = await page.evaluate(
+      () => (window as unknown as { __rotulos: string[] }).__rotulos,
+    );
+    expect(rotulos).toContain('Desconectado');
+    // Sem rede no navegador, o rótulo não passa por "Reconectando".
+    expect(rotulos).not.toContain('Reconectando');
+    expect(rotulos[rotulos.length - 1]).toBe('Conectado');
   });
 
   test('sem nenhum WebSocket do backend, o painel segue tentando reconectar', async ({ page }) => {
