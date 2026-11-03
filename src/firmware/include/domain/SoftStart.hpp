@@ -4,9 +4,10 @@
 
 namespace micromouse::domain {
 
-// Partida suave dos motores: a potência sobe em rampa desde zero ao começar cada movimento. Sem
-// ela, a corrente de partida dos N20 derruba a tensão do conversor e o ESP32 reinicia por
-// brownout (firmware de teste do hardware, rampa de 80 ms).
+// Partida suave dos motores: a potência sobe em rampa desde zero ao começar cada movimento. É
+// preventiva: a corrente de partida dos N20 (cerca de 2 A com os dois travados, docs/7.3) pode
+// derrubar a tensão do conversor, embora nos testes do hardware a placa não tenha reiniciado.
+// Rampa de 80 ms, a mesma do firmware de teste do hardware.
 inline constexpr uint32_t kSoftStartMs = 80;
 
 // Fração da potência alvo a aplicar depois de `elapsedMs` desde o início do movimento: sobe em
