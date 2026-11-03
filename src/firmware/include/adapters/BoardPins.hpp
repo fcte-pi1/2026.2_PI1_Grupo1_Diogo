@@ -126,4 +126,13 @@ constexpr bool kInvertLeftMotor = true;    // acionamento do motor esquerdo (DRV
 constexpr bool kInvertLeftEncoder = true;  // contagem do encoder esquerdo
 #endif
 
+// Mapa de pinos dos motores ativo, para o log do boot mostrar qual build está gravado na placa.
+#if CONFIG_IDF_TARGET_ESP32
+constexpr const char* kMotorWiringName = "bancada (ESP32 classico)";
+#elif CONFIG_RATO_FIOS_MOTORES_TROCADOS
+constexpr const char* kMotorWiringName = "fios trocados (robo montado na bancada)";
+#else
+constexpr const char* kMotorWiringName = "esquematico 4.3";
+#endif
+
 }  // namespace micromouse::adapters::pins
