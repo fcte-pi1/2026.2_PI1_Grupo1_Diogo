@@ -105,10 +105,10 @@ O buzzer da placa final é **passivo**, ligado por um **BC547 (NPN)**: ele preci
 
 | Comando | O que toca | Requisito |
 |:--|:--|:--|
-| `buzzer pronto` | 2 bips agudos (2,5 kHz) | RF-32 |
-| `buzzer objetivo` | 3 tons que sobem (2,0, 2,8 e 3,8 kHz) | RF-8 |
-| `buzzer alarme` | 3 bips graves (1,5 kHz), e depois silêncio | RF-9 e RF-55 |
-| `buzzer [ms]` | um tom de 2,5 kHz por `ms` (padrão 300) | |
+| `buzzer pronto` | 2 bips de 1,3 kHz | RF-32 |
+| `buzzer objetivo` | 3 tons que sobem (1,2, 1,35 e 1,5 kHz) | RF-8 |
+| `buzzer alarme` | 3 bips de 1,8 kHz, e depois silêncio | RF-9 e RF-55 |
+| `buzzer [ms]` | um tom de 1,2 kHz (a ressonância do transdutor) por `ms` (padrão 300) | |
 
 O que conferir: o buzzer fica **silencioso ao ligar a placa** e depois de cada padrão, e os três padrões se distinguem de ouvido. Os motores não são afetados: o PWM do buzzer usa um timer do LEDC só dele, e o dos motores segue a 20 kHz.
 
