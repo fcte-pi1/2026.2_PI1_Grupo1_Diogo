@@ -160,7 +160,8 @@ void navigationTask(void*) {
 #if CONFIG_RATO_BANCADA
         const bool selfTestOk = true;  // bancada: sem IMU nem INA219
 #else
-        const bool selfTestOk = gImu.present() && gPower.present();
+        // RF-27: IMU, INA219 e os 3 ToF precisam responder; sem os ToF o robô não vê as paredes.
+        const bool selfTestOk = gImu.present() && gPower.present() && gSensor.allReady();
 #endif
         session.onSelfTestResult(selfTestOk);
         if (!selfTestOk) {

@@ -8,8 +8,10 @@ idf_component_register(
         "${CORE_ROOT}/src/domain/DipDecoder.cpp"
         "${CORE_ROOT}/src/domain/ImuIdentity.cpp"
         "${CORE_ROOT}/src/domain/SoftStart.cpp"
+        "${CORE_ROOT}/src/drivers/Vl53l1x.cpp"
         # Adapters - os MESMOS do firmware do robô (../esp32/)
         "${CORE_ROOT}/src/adapters/I2cBus.cpp"
+        "${CORE_ROOT}/src/adapters/IdfRegisterBus.cpp"
         "${CORE_ROOT}/src/adapters/MotorDriver.cpp"
         "${CORE_ROOT}/src/adapters/Encoders.cpp"
         "${CORE_ROOT}/src/adapters/Vl53l1xSensorAdapter.cpp"
