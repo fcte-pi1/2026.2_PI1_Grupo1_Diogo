@@ -62,6 +62,7 @@ add_library(firmware_logic STATIC
     src/domain/ImuIdentity.cpp
     src/domain/BatteryMonitor.cpp
     src/domain/SensorHealthMonitor.cpp
+    src/domain/SoftStart.cpp
 )
 
 target_include_directories(firmware_logic PUBLIC
