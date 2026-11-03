@@ -48,6 +48,13 @@ void SessionManager::backAtStart() {
     }
 }
 
+void SessionManager::rearm() {
+    if (phase_ == SessionPhase::Returning || phase_ == SessionPhase::FastRun ||
+        phase_ == SessionPhase::Finished) {
+        enter(SessionPhase::Idle);
+    }
+}
+
 void SessionManager::fault() {
     if (phase_ != SessionPhase::Finished && phase_ != SessionPhase::Fault) {
         enter(SessionPhase::Fault);

@@ -25,6 +25,7 @@
 #include "adapters/Mpu6050.hpp"
 #include "adapters/Vl53l1xSensorAdapter.hpp"
 #include "domain/ImuIdentity.hpp"
+#include "domain/SoftStart.hpp"
 #include "driver/gpio.h"
 #include "driver/i2c_master.h"
 #include "esp_chip_info.h"
@@ -348,8 +349,18 @@ int cmdMotor(int argc, char** argv) {
     ensureEncoders();
     gEncoders.reset();
     std::printf("Motores: esq %.2f, dir %.2f por %ld ms (depois freia)...\n", left, right, ms);
+    // Partida suave, como no robô: sem ela a corrente de partida pode reiniciar a placa.
+    constexpr int kRampStepMs = 8;
+    for (uint32_t t = 0; t < domain::kSoftStartMs && t < static_cast<uint32_t>(ms);
+         t += kRampStepMs) {
+        const double ramp = domain::softStartFactor(t);
+        gMotors.setNormalized(ramp * left, ramp * right);
+        sleepMs(kRampStepMs);
+    }
     gMotors.setNormalized(left, right);
-    sleepMs(static_cast<int>(ms));
+    if (ms > static_cast<long>(domain::kSoftStartMs)) {
+        sleepMs(static_cast<int>(ms - static_cast<long>(domain::kSoftStartMs)));
+    }
     gMotors.brake();
     const long countLeft = gEncoders.left();
     const long countRight = gEncoders.right();
@@ -445,7 +456,7 @@ int cmdLed(int argc, char** argv) {
     return 0;
 }
 
-// buzzer [ms | pronto | objetivo | alarme]: sem nome, um tom de 2,5 kHz por ms; com o nome, o
+// buzzer [ms | pronto | objetivo | alarme]: sem nome, um tom de 1,2 kHz por ms; com o nome, o
 // padrão que o robô toca (#392). O buzzer é passivo e o pino é do LEDC.
 int cmdBuzzer(int argc, char** argv) {
     ensureLocal();
@@ -466,7 +477,7 @@ int cmdBuzzer(int argc, char** argv) {
     }
     long ms = 0;
     if (!optionalLong(argc, argv, 1, 10, 5000, 300, ms)) return 1;
-    gLocal.beep(2500, static_cast<uint32_t>(ms));
+    gLocal.beep(1200, static_cast<uint32_t>(ms));
     return 0;
 }
 
