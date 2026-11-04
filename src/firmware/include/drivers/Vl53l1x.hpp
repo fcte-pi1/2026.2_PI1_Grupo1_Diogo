@@ -154,7 +154,7 @@ public:
 
 // O que uma leitura significa para quem procura paredes.
 enum class ReadingKind {
-    Distance,  // medida válida: a distância vale
+    Distance,  // medida válida (ou alvo colado no sensor, abaixo do alcance mínimo): a distância vale
     NoTarget,  // o sensor mediu e não achou alvo ao alcance: corredor aberto, sem parede
     Fault,     // o sensor não respondeu, não mediu a tempo ou reportou falha: não se sabe nada
 };

@@ -16,6 +16,8 @@ class FakeVl53l1xBus final : public IRegisterBus {
 public:
     uint8_t deviceAddress{Vl53l1x::kDefaultAddress};
     bool present{true};
+    int nackResetRelease{0};  // recusa as N primeiras escritas de SOFT_RESET = 1 (visto na placa)
+    bool resetGoesToDefault{false};  // o reset de software leva o sensor de volta ao 0x29
     std::map<uint16_t, uint8_t> regs;
     uint32_t nowMs{0};
 
@@ -39,6 +41,13 @@ public:
         ++nowMs;
         if (!present || address != deviceAddress || length < 2) return false;
         const auto reg = static_cast<uint16_t>((data[0] << 8) | data[1]);
+        if (reg == 0x0000 && length >= 3 && data[2] == 0x01 && nackResetRelease > 0) {
+            --nackResetRelease;
+            return false;
+        }
+        if (reg == 0x0000 && length >= 3 && data[2] == 0x00 && resetGoesToDefault) {
+            deviceAddress = Vl53l1x::kDefaultAddress;  // o reset de software volta ao 0x29
+        }
         for (size_t i = 2; i < length; ++i) {
             regs[static_cast<uint16_t>(reg + i - 2)] = data[i];
         }
@@ -95,6 +104,35 @@ TEST(Vl53l1x, InitConfiguresLowPowerAutoModeAndLongRange) {
     EXPECT_EQ(bus.get(0x0060), 0x0F);  // VCSEL_PERIOD_A do modo longo
     EXPECT_EQ(sensor.distanceMode(), Vl53l1x::DistanceMode::Long);
     EXPECT_EQ(bus.get(0x002E) & 0x01, 0x01);  // I/O em 2V8
+}
+
+// Na placa, a escrita que tira o sensor do reset às vezes era recusada e o sensor ficava preso.
+TEST(Vl53l1x, InitInsistsUntilTheSensorLeavesReset) {
+    FakeVl53l1xBus bus;
+    bus.nackResetRelease = 3;
+    Vl53l1x sensor(bus);
+    EXPECT_TRUE(sensor.init());
+    EXPECT_EQ(bus.get(0x0000), 0x01);  // saiu do reset
+}
+
+// Na placa: o sensor estava num endereço antigo (o XSHUT não o reiniciou) e o reset de software o
+// levou ao 0x29; o driver precisa achá-lo lá, e não ficar falando com o endereço antigo.
+TEST(Vl53l1x, InitFollowsTheSensorBackToDefaultAddressAfterSoftReset) {
+    FakeVl53l1xBus bus;
+    bus.deviceAddress = 0x30;
+    bus.resetGoesToDefault = true;
+    Vl53l1x sensor(bus, 0x30);
+    ASSERT_TRUE(sensor.init());
+    EXPECT_EQ(sensor.address(), Vl53l1x::kDefaultAddress);
+    sensor.setAddress(0x30);
+    EXPECT_EQ(bus.deviceAddress, 0x30);
+}
+
+TEST(Vl53l1x, InitGivesUpIfTheSensorNeverLeavesReset) {
+    FakeVl53l1xBus bus;
+    bus.nackResetRelease = 1000;
+    Vl53l1x sensor(bus);
+    EXPECT_FALSE(sensor.init());
 }
 
 TEST(Vl53l1x, InitTimesOutIfBootNeverCompletes) {
@@ -236,7 +274,9 @@ TEST(Vl53l1x, ClassifiesDistanceNoTargetAndFault) {
     // falha: não se sabe nada
     EXPECT_EQ(classifyReading(true, true, S::HardwareFail), ReadingKind::Fault);
     EXPECT_EQ(classifyReading(true, true, S::None), ReadingKind::Fault);
-    EXPECT_EQ(classifyReading(true, true, S::MinRangeFail), ReadingKind::Fault);
+    EXPECT_EQ(classifyReading(true, true, S::XtalkSignalFail), ReadingKind::Fault);
+    // alvo colado no sensor: é parede (visto na pista com o robô encostado na parede lateral)
+    EXPECT_EQ(classifyReading(true, true, S::MinRangeFail), ReadingKind::Distance);
 }
 
 TEST(Vl53l1x, MissingTransferOrStaleDataIsFaultEvenWithValidStatus) {

@@ -93,12 +93,14 @@ ReadingKind classifyReading(bool transferOk, bool fresh, Vl53l1x::RangeStatus st
         return ReadingKind::Distance;
     }
     switch (status) {
+        case Vl53l1x::RangeStatus::MinRangeFail:  // alvo colado no sensor: é parede, não defeito
+            return ReadingKind::Distance;
         case Vl53l1x::RangeStatus::SignalFail:       // nenhum alvo devolveu sinal
         case Vl53l1x::RangeStatus::OutOfBoundsFail:  // nada no alcance do modo
         case Vl53l1x::RangeStatus::SigmaFail:        // medida imprecisa demais (alvo longe)
         case Vl53l1x::RangeStatus::WrapTargetFail:   // alvo além do alcance, "dobrado"
             return ReadingKind::NoTarget;
-        default:  // HardwareFail, None, MinRangeFail, XtalkSignalFail, SynchronizationInt
+        default:  // HardwareFail, None, XtalkSignalFail, SynchronizationInt
             return ReadingKind::Fault;
     }
 }
@@ -117,10 +119,31 @@ bool Vl53l1x::init(bool io2v8) {
         return false;
     }
 
-    // VL53L1_software_reset()
+    // VL53L1_software_reset(). O reset de software devolve o sensor ao endereço de fábrica (0x29):
+    // se ele estava num endereço antigo (o XSHUT não o reiniciou, visto na placa em 04/11), a
+    // escrita que o tira do reset precisa ir para o 0x29. Insiste nos dois endereços até ser aceita.
     writeReg(SOFT_RESET, 0x00);
     bus_.delayMs(1);
-    writeReg(SOFT_RESET, 0x01);
+    const uint8_t previousAddress = address_;
+    constexpr int kResetReleaseAttempts = 20;
+    for (int attempt = 0; attempt < kResetReleaseAttempts; ++attempt) {
+        writeReg(SOFT_RESET, 0x01);
+        if (lastOk_) {
+            break;
+        }
+        if (address_ != kDefaultAddress) {
+            address_ = kDefaultAddress;  // tenta no endereço para onde o reset leva
+            writeReg(SOFT_RESET, 0x01);
+            if (lastOk_) {
+                break;
+            }
+            address_ = previousAddress;
+        }
+        bus_.delayMs(1);
+    }
+    if (!lastOk_) {
+        return false;
+    }
     // dá tempo de boot; senão o sensor dá NACK na leitura abaixo
     bus_.delayMs(1);
 

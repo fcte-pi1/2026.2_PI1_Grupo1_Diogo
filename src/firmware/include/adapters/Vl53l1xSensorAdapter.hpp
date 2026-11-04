@@ -42,6 +42,7 @@ private:
     mutable IdfRegisterBus regBus_;
     mutable std::array<Slot, 3> slots_;
     mutable bool healthy_{true};
+    mutable char faultSummary_[48]{};
 
     bool bringUp(Slot& slot);
     Reading poll(Slot& slot, bool waitFresh) const;
@@ -57,6 +58,8 @@ public:
     // True se, no último sense(), os 3 sensores deram medida ou "sem alvo" (nenhuma falha). O laço
     // da navegação usa isto no SensorHealthMonitor (RF-55): falhas seguidas levam ao estado Erro.
     [[nodiscard]] bool healthy() const noexcept { return healthy_; }
+    // Quais sensores falharam no último sense() (vazio se nenhum), para o motivo do fim da corrida.
+    [[nodiscard]] const char* faultSummary() const noexcept { return faultSummary_; }
     [[nodiscard]] bool ready(Side side) const;
     [[nodiscard]] Reading reading(Side side) const;  // última medida, sem esperar uma nova
 

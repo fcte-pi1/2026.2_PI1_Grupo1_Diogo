@@ -1,6 +1,8 @@
 #include "adapters/Vl53l1xSensorAdapter.hpp"
 
 #include "adapters/BoardPins.hpp"
+#include <cstdio>
+
 #include "esp_log.h"
 
 namespace micromouse::adapters {
@@ -78,9 +80,18 @@ void Vl53l1xSensorAdapter::begin(i2c_master_bus_handle_t bus) {
     }
     regBus_.delayMs(kShutdownMs);
 
-    // 2) Liga e reendereça um a um: esquerdo 0x30, frontal 0x31, direito 0x32 (RF-28).
+    // 2) Liga e reendereça um a um: esquerdo 0x30, frontal 0x31, direito 0x32 (RF-28). Na placa
+    //    (04/11), a primeira inicialização depois de gravar falhou nos três e a seguinte deu certo:
+    //    um sensor que falha é desligado e tentado de novo, até 3 vezes, antes de desistir.
+    constexpr int kAttempts = 3;
     for (Slot& slot : slots_) {
-        bringUp(slot);
+        for (int attempt = 1; attempt <= kAttempts && !bringUp(slot); ++attempt) {
+            if (attempt < kAttempts) {
+                ESP_LOGW(kTag, "%s: tentativa %d de %d falhou, tentando de novo", slot.name,
+                         attempt, kAttempts);
+                regBus_.delayMs(kShutdownMs);  // XSHUT já está em 0: deixa o sensor reiniciar
+            }
+        }
     }
 }
 
@@ -107,7 +118,12 @@ Vl53l1xSensorAdapter::Reading Vl53l1xSensorAdapter::poll(Slot& slot, bool waitFr
             drivers::classifyReading(sensor.lastTransferOk(), true, status);
         switch (kind) {
             case drivers::ReadingKind::Distance:
-                slot.last = {static_cast<int>(mm), status, kind};
+                // Alvo colado no sensor (abaixo do alcance mínimo): a distância lida não vale, mas
+                // há parede ali. Visto na pista em 04/11 com o robô encostado na parede lateral.
+                slot.last = {status == drivers::Vl53l1x::RangeStatus::MinRangeFail
+                                 ? 0
+                                 : static_cast<int>(mm),
+                             status, kind};
                 break;
             case drivers::ReadingKind::NoTarget:
                 slot.last = {kNoReadingMm, status, kind};
@@ -173,11 +189,13 @@ ports::WallsAhead Vl53l1xSensorAdapter::sense() const {
     healthy_ = left.kind != drivers::ReadingKind::Fault &&
                front.kind != drivers::ReadingKind::Fault &&
                right.kind != drivers::ReadingKind::Fault;
+    faultSummary_[0] = '\0';
     if (!healthy_) {
-        ESP_LOGW(kTag, "falha de leitura: esq %s, frente %s, dir %s",
-                 left.kind == drivers::ReadingKind::Fault ? "FALHA" : "ok",
-                 front.kind == drivers::ReadingKind::Fault ? "FALHA" : "ok",
-                 right.kind == drivers::ReadingKind::Fault ? "FALHA" : "ok");
+        std::snprintf(faultSummary_, sizeof faultSummary_, "ToF em falha:%s%s%s",
+                      left.kind == drivers::ReadingKind::Fault ? " esquerdo" : "",
+                      front.kind == drivers::ReadingKind::Fault ? " frontal" : "",
+                      right.kind == drivers::ReadingKind::Fault ? " direito" : "");
+        ESP_LOGW(kTag, "%s", faultSummary_);
     }
     return {wall(front), wall(left), wall(right)};
 }
