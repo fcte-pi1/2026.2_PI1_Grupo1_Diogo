@@ -13,6 +13,10 @@ uint32_t elapsedMsSince(TickType_t start) {
     return static_cast<uint32_t>((xTaskGetTickCount() - start) * portTICK_PERIOD_MS);
 }
 
+// Tempo máximo de um movimento (uma célula ou uma curva). No teste de 04/11, uma célula levou
+// ~0,5 s; sem limite, uma curva que não terminava (robô no ar, rodas paradas) esperou 92 s.
+constexpr uint32_t kMoveTimeoutMs = 3000;
+
 constexpr double kBaseSpeed = 0.45;
 constexpr double kMaxSpeed = 1.0;
 constexpr double kTurnSpeed = 0.40;
@@ -42,7 +46,12 @@ void Drv8833MotionAdapter::advanceCell() {
 
     long previousAverage = 0;
     const TickType_t start = xTaskGetTickCount();
+    lastMoveOk_ = true;
     while (odometry.distanceMm() < wheels_.cellSizeMm) {
+        if (elapsedMsSince(start) > kMoveTimeoutMs) {
+            lastMoveOk_ = false;  // as rodas não levaram o robô a uma célula no tempo
+            break;
+        }
         const long left = encoders_.left();
         const long right = encoders_.right();
         const long average = (left + right) / 2;
@@ -67,8 +76,13 @@ void Drv8833MotionAdapter::pivot(double degrees, double leftSpeed, double rightS
     domain::GyroTurnController gyro(degrees, kTurnToleranceDeg);
     const double targetPulses = domain::pulsesForTurn(turnConfig_, degrees);
     const TickType_t start = xTaskGetTickCount();
+    lastMoveOk_ = true;
 
     while (!gyro.reached()) {
+        if (elapsedMsSince(start) > kMoveTimeoutMs) {
+            lastMoveOk_ = false;  // nem o giro nem os encoders confirmaram a curva no tempo
+            break;
+        }
         // Partida suave dentro do laço: o giro já é integrado durante a rampa.
         const double ramp = domain::softStartFactor(elapsedMsSince(start));
         motors_.setNormalized(ramp * leftSpeed, ramp * rightSpeed);
