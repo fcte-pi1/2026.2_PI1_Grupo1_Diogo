@@ -52,7 +52,6 @@ constexpr uint16_t kAddrTofRight = 0x32;
 constexpr uint16_t kAddrIna219 = 0x40;
 constexpr uint16_t kAddrMpu6050 = 0x68;
 constexpr int kProbeTimeoutMs = 50;
-constexpr int kStubMm = 9999;  // valor do stub do Vl53l1xSensorAdapter
 // Potência até a qual os N20 (6 V) ficam na tensão nominal com a bateria 2S cheia (8,4 V).
 constexpr double kPotenciaNominal = 0.7;
 
@@ -241,20 +240,40 @@ int cmdTof(int argc, char** argv) {
     long samples = 0;
     if (!optionalLong(argc, argv, 1, 1, 1000, 20, samples)) return 1;
     ensureSensor();
-    std::printf("esquerdo  frontal  direito (mm)  paredes E/F/D\n");
-    for (long i = 0; i < samples; ++i) {
-        const int left = gSensor.rangeLeftMm();
-        const int front = gSensor.rangeFrontMm();
-        const int right = gSensor.rangeRightMm();
-        if (i == 0 && left == kStubMm && front == kStubMm && right == kStubMm) {
-            std::printf("Atenção: as leituras estão em STUB (9999). O driver do VL53L1X ainda "
-                        "não foi implementado em Vl53l1xSensorAdapter.cpp. Use `tof xshut` "
-                        "para testar a fiação.\n");
+    using Side = adapters::Vl53l1xSensorAdapter::Side;
+    if (!gSensor.allReady()) {
+        std::printf("Atenção: sensor(es) que não iniciaram:%s%s%s. Rode `tof xshut` para testar a "
+                    "fiação de cada um.\n",
+                    gSensor.ready(Side::Left) ? "" : " esquerdo",
+                    gSensor.ready(Side::Front) ? "" : " frontal",
+                    gSensor.ready(Side::Right) ? "" : " direito");
+        if (!gSensor.ready(Side::Left) && !gSensor.ready(Side::Front) &&
+            !gSensor.ready(Side::Right)) {
             return 1;
         }
+    }
+    std::printf("esquerdo  frontal  direito (mm)  paredes E/F/D   (%d = nada ao alcance; "
+                "FALHA = sensor não respondeu, conta como parede)\n",
+                adapters::Vl53l1xSensorAdapter::kNoReadingMm);
+    auto column = [](int mm, char* out, size_t size) {
+        if (mm == adapters::Vl53l1xSensorAdapter::kFaultMm) {
+            std::snprintf(out, size, "%8s", "FALHA");
+        } else {
+            std::snprintf(out, size, "%8d", mm);
+        }
+    };
+    for (long i = 0; i < samples; ++i) {
+        // sense() espera uma medida nova dos três; depois, a distância de cada um.
         const ports::WallsAhead walls = gSensor.sense();
-        std::printf("%8d %8d %8d       %c/%c/%c\n", left, front, right, walls.left ? 'S' : '-',
-                    walls.front ? 'S' : '-', walls.right ? 'S' : '-');
+        char left[12];
+        char front[12];
+        char right[12];
+        column(gSensor.reading(Side::Left).mm, left, sizeof left);
+        column(gSensor.reading(Side::Front).mm, front, sizeof front);
+        column(gSensor.reading(Side::Right).mm, right, sizeof right);
+        std::printf("%s %s %s       %c/%c/%c%s\n", left, front, right, walls.left ? 'S' : '-',
+                    walls.front ? 'S' : '-', walls.right ? 'S' : '-',
+                    gSensor.healthy() ? "" : "   <- falha de leitura");
         sleepMs(100);
     }
     return 0;
@@ -584,10 +603,12 @@ int cmdVerificar(int /*argc*/, char** /*argv*/) {
     ensurePower();
     printCheck("INA219", gPower.present(), "calibração gravada e lida de volta em 0x40");
 
+    ensureSensor();  // liga e reendereça os ToF, como o robô faz no boot
     const bool tofAddressed = probe(kAddrTofLeft) && probe(kAddrTofFront) && probe(kAddrTofRight);
-    printCheck("ToF (endereços)", tofAddressed,
-               tofAddressed ? "0x30, 0x31 e 0x32 respondem"
-                            : "rode `tof xshut` para testar cada sensor");
+    printCheck("ToF (endereços)", tofAddressed && gSensor.allReady(),
+               tofAddressed && gSensor.allReady()
+                   ? "0x30, 0x31 e 0x32 respondem e foram configurados"
+                   : "rode `tof xshut` para testar cada sensor");
     esp_log_level_set("i2c.master", ESP_LOG_WARN);
 
     ensureLocal();
