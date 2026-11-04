@@ -60,7 +60,23 @@ constexpr gpio_num_t kTofFrontXshut = GPIO_NUM_18;  // X_FRENTE (pino 11)
 constexpr gpio_num_t kTofLeftXshut = GPIO_NUM_17;   // X_ESQ    (pino 10)
 constexpr gpio_num_t kTofRightXshut = GPIO_NUM_3;   // X_DIR    (pino 13, strapping JTAG)
 
-// DRV8833 - convenção do hardware: motor 1 = roda direita, motor 2 = roda esquerda
+#if CONFIG_RATO_FIOS_MOTORES_TROCADOS
+// DRV8833 e encoders no ROBÔ MONTADO NA BANCADA: os fios dos motores foram soldados trocados em
+// relação ao esquemático 4.3, e a equipe decidiu não ressoldar. A roda ESQUERDA está nos pinos do
+// motor 1 (16/15) e do encoder 1 (38/39), e a DIREITA nos do motor 2 (6/5) e do encoder 2
+// (41/40), conferidos no firmware de teste do hardware. O IN1/IN2 da roda direita fica trocado
+// para "positivo = para a frente" sem inverter no código. Desligue a opção na PCB.
+constexpr gpio_num_t kMotorLeftIn1 = GPIO_NUM_16;  // M1_IN1 (pino 9)
+constexpr gpio_num_t kMotorLeftIn2 = GPIO_NUM_15;  // M1_IN2 (pino 8)
+constexpr gpio_num_t kMotorRightIn1 = GPIO_NUM_5;  // M2_IN2 (pino 5)
+constexpr gpio_num_t kMotorRightIn2 = GPIO_NUM_6;  // M2_IN1 (pino 6)
+
+constexpr gpio_num_t kEncLeftA = GPIO_NUM_38;   // ENC1_A (pino 35)
+constexpr gpio_num_t kEncLeftB = GPIO_NUM_39;   // ENC1_B (pino 36)
+constexpr gpio_num_t kEncRightA = GPIO_NUM_41;  // ENC2_A (pino 38)
+constexpr gpio_num_t kEncRightB = GPIO_NUM_40;  // ENC2_B (pino 37)
+#else
+// DRV8833 - convenção do esquemático 4.3: motor 1 = roda direita, motor 2 = roda esquerda
 constexpr gpio_num_t kMotorLeftIn1 = GPIO_NUM_6;    // M2_IN1 (pino 6)
 constexpr gpio_num_t kMotorLeftIn2 = GPIO_NUM_5;    // M2_IN2 (pino 5)
 constexpr gpio_num_t kMotorRightIn1 = GPIO_NUM_16;  // M1_IN1 (pino 9)
@@ -71,6 +87,7 @@ constexpr gpio_num_t kEncLeftA = GPIO_NUM_41;   // ENC2_A (pino 38)
 constexpr gpio_num_t kEncLeftB = GPIO_NUM_40;   // ENC2_B (pino 37)
 constexpr gpio_num_t kEncRightA = GPIO_NUM_38;  // ENC1_A (pino 35)
 constexpr gpio_num_t kEncRightB = GPIO_NUM_39;  // ENC1_B (pino 36)
+#endif
 
 // Interface local
 constexpr gpio_num_t kLedReady = GPIO_NUM_9;   // LED_STATUS (pino 15)
@@ -91,12 +108,31 @@ constexpr gpio_num_t kImuInt = GPIO_NUM_42;  // INT_MPU (pino 39)
 
 #endif
 
-// Sentido das rodas (decisão do hardware, #394). Os motores N20 são montados espelhados e o chicote
-// é igual nos dois lados, então a roda esquerda gira ao contrário para ir para a frente. O firmware
-// inverte o lado esquerdo, e cada roda passa a ver "positivo = para a frente". Se o teste no chassi
-// (itens 3.9 e 3.10 do roteiro) mostrar o contrário, troque UMA constante: o comando `inverter` do
-// firmware de diagnóstico acha a combinação certa sem recompilar.
+// Sentido das rodas: cada roda deve ver "positivo = para a frente". Se o teste no chassi (itens 3.9
+// e 3.10 do roteiro) mostrar o contrário, troque UMA constante: o comando `inverter` do firmware
+// de diagnóstico acha a combinação certa sem recompilar.
+#if CONFIG_RATO_FIOS_MOTORES_TROCADOS
+// Robô montado na bancada, conferido no firmware de teste do hardware:
+// - motores: o esquerdo vai para a frente com IN1 (pino 16) e o direito com o pino 5, que já está
+//   como IN1 da roda direita acima. Nenhum dos dois precisa ser invertido no código;
+// - encoders: o PCNT conta positivo quando A e B ficam iguais após a borda de A. O esquerdo
+//   (38/39) anda para a frente com A diferente de B, então é invertido; o direito (41/40) não.
+constexpr bool kInvertLeftMotor = false;   // acionamento do motor esquerdo (DRV8833)
+constexpr bool kInvertLeftEncoder = true;  // contagem do encoder esquerdo
+#else
+// Esquemático (decisão do hardware, #394): os N20 são montados espelhados e o chicote é igual nos
+// dois lados, então a roda esquerda gira ao contrário para ir para a frente.
 constexpr bool kInvertLeftMotor = true;    // acionamento do motor esquerdo (DRV8833)
 constexpr bool kInvertLeftEncoder = true;  // contagem do encoder esquerdo
+#endif
+
+// Mapa de pinos dos motores ativo, para o log do boot mostrar qual build está gravado na placa.
+#if CONFIG_IDF_TARGET_ESP32
+constexpr const char* kMotorWiringName = "bancada (ESP32 classico)";
+#elif CONFIG_RATO_FIOS_MOTORES_TROCADOS
+constexpr const char* kMotorWiringName = "fios trocados (robo montado na bancada)";
+#else
+constexpr const char* kMotorWiringName = "esquematico 4.3";
+#endif
 
 }  // namespace micromouse::adapters::pins

@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstddef>
+
 #include "ports/MotionPort.hpp"
 
 namespace micromouse::adapters {
@@ -14,6 +16,12 @@ public:
     void turnLeft() override;
     void turnRight() override;
     void turnAround() override;
+    // O movimento simulado sempre termina.
+    [[nodiscard]] bool lastMoveOk() const noexcept { return true; }
+    [[nodiscard]] const char* lastMoveName() const noexcept { return "movimento simulado"; }
+    void describeLastMove(char* out, size_t size) const {
+        if (size > 0) out[0] = '\0';
+    }
 };
 
 }  // namespace micromouse::adapters

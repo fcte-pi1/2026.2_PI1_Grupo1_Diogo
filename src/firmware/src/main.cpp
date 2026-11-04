@@ -3,12 +3,14 @@
 // apenas no alvo ESP32; o build de host usa src/main.cpp (stub).
 
 #include <cstdio>
+#include <cstring>
 #include <optional>
 #include <stdexcept>
 #include <string>
 
 #include "adapters/BenchMotionAdapter.hpp"
 #include "adapters/BleTelemetryAdapter.hpp"
+#include "adapters/BoardPins.hpp"
 #include "adapters/DipReaderAdapter.hpp"
 #include "adapters/Drv8833MotionAdapter.hpp"
 #include "adapters/I2cBus.hpp"
@@ -22,6 +24,7 @@
 #include "domain/Maze.hpp"
 #include "domain/Odometry.hpp"
 #include "domain/Pid.hpp"
+#include "domain/RobotParameters.hpp"
 #include "domain/SensorHealthMonitor.hpp"
 #include "esp_log.h"
 #include "esp_random.h"
@@ -47,10 +50,10 @@ namespace {
 
 constexpr char kTag[] = "main";
 
-// Parâmetros físicos.
-// Todos estes valores devem ser AFERIDOS EM BANCADA antes da corrida final.
-constexpr domain::WheelConfig kWheels{32.0, 280, 180.0};
-constexpr domain::TurnConfig kTurn{32.0, 280, 88.0};  // bitola medida (#394)
+// Parâmetros físicos: roda, pulsos por volta e bitola ficam em domain/RobotParameters.hpp (os
+// pulsos por volta foram medidos no docs/7.3; roda e bitola ainda são valores de projeto).
+using domain::robot::kTurn;
+using domain::robot::kWheels;
 constexpr domain::PidGains kStraightGains{0.02, 0.0, 0.002};
 
 adapters::I2cBus gI2c;
@@ -78,6 +81,7 @@ struct TeleEvent {
     domain::Position position;
     bool north, east, south, west;
     bool success;
+    char detail[190];  // motivo de uma falha, vai no campo "detalhe" do fim da corrida
 };
 QueueHandle_t gEventQueue = nullptr;
 
@@ -114,6 +118,7 @@ void navigationTask(void*) {
     gLocal.begin();
     gDip.begin();
     gMotion.begin();
+    ESP_LOGI(kTag, "mapa de pinos dos motores: %s", adapters::pins::kMotorWiringName);
 
     use_cases::SessionManager session(gLocal);
 
@@ -157,10 +162,32 @@ void navigationTask(void*) {
 #if CONFIG_RATO_BANCADA
         const bool selfTestOk = true;  // bancada: sem IMU nem INA219
 #else
-        const bool selfTestOk = gImu.present() && gPower.present();
+        // RF-27: IMU, INA219 e os 3 ToF precisam responder; sem os ToF o robô não vê as paredes.
+        const bool selfTestOk = gImu.present() && gPower.present() && gSensor.allReady();
 #endif
         session.onSelfTestResult(selfTestOk);
         if (!selfTestOk) {
+#if !CONFIG_RATO_BANCADA
+            // Sem isto, na bateria (sem cabo), um auto-teste reprovado não aparecia em lugar
+            // nenhum: o painel recebe uma corrida que falha na hora, com o motivo.
+            TeleEvent failStart{};
+            failStart.kind = TeleEvent::Start;
+            failStart.time = nowMs();
+            failStart.runIndex = runIndex;
+            failStart.mazeType = static_cast<int>(setup.type);
+            postEvent(failStart);
+            TeleEvent failEnd{};
+            failEnd.kind = TeleEvent::End;
+            failEnd.time = nowMs();
+            failEnd.success = false;
+            std::snprintf(failEnd.detail, sizeof failEnd.detail, "auto-teste reprovou:%s%s%s%s%s",
+                          gImu.present() ? "" : " IMU", gPower.present() ? "" : " INA219",
+                          gSensor.ready(adapters::Vl53l1xSensorAdapter::Side::Left) ? "" : " ToF esquerdo",
+                          gSensor.ready(adapters::Vl53l1xSensorAdapter::Side::Front) ? "" : " ToF frontal",
+                          gSensor.ready(adapters::Vl53l1xSensorAdapter::Side::Right) ? "" : " ToF direito");
+            postEvent(failEnd);
+            ESP_LOGE(kTag, "%s", failEnd.detail);
+#endif
             telemetry::Snapshot state{};
             state.phase = session.getCurrentPhase();
             writeState(state);
@@ -183,23 +210,47 @@ void navigationTask(void*) {
 
         domain::BatteryMonitor battery;
         domain::SensorHealthMonitor sensorHealth;
+        char failure[190] = "";  // motivo, se a corrida terminar em falha
         int cells = 0;
         domain::Position last = setup.start;
         int guard = setup.rows * setup.columns * 4;
         while (!navigator.reachedGoal() && guard-- > 0) {
 #if !CONFIG_RATO_BANCADA
             // RF-55: a cada passo confere os sensores e a bateria. Uma falha confirmada (várias
-            // verificações seguidas) leva ao estado Erro; um NACK isolado no I²C é tolerado.
-            if (sensorHealth.update(gImu.present() && gPower.present())) {
-                ESP_LOGE(kTag, "falha de sensor durante a corrida (IMU ou INA219 nao responde)");
+            // verificações seguidas) leva ao estado Erro; um NACK isolado no I²C é tolerado. Os
+            // ToF contam pelo último sense(): um sensor que parou de ler não pode virar "sem
+            // parede" sem ninguém perceber.
+            const bool imuOk = gImu.present();
+            const bool powerOk = gPower.present();
+            if (sensorHealth.update(imuOk && powerOk && gSensor.healthy())) {
+                std::snprintf(failure, sizeof failure, "falha de sensor por 3 passos:%s%s %s",
+                              imuOk ? "" : " IMU", powerOk ? "" : " INA219",
+                              gSensor.faultSummary());
+                ESP_LOGE(kTag, "%s", failure);
                 break;
             }
-            if (battery.update(gPower.busVoltageV())) {
-                ESP_LOGE(kTag, "bateria fraca durante a corrida");
+            const double voltage = gPower.busVoltageV();
+            if (battery.update(voltage)) {
+                std::snprintf(failure, sizeof failure, "bateria fraca: %.2f V", voltage);
+                ESP_LOGE(kTag, "%s", failure);
                 break;
             }
 #endif
             navigator.step();
+            // Um movimento que não termina no tempo (motor travado, roda solta) leva ao Erro,
+            // em vez de o robô esperar para sempre ou seguir com o mapa errado.
+            if (!gMotion.lastMoveOk()) {
+                char move[64];
+                gMotion.describeLastMove(move, sizeof move);
+                using Side = adapters::Vl53l1xSensorAdapter::Side;
+                std::snprintf(failure, sizeof failure,
+                              "%s nao terminou em 3 s: %s. tof E=%d F=%d D=%d %s",
+                              gMotion.lastMoveName(), move, gSensor.reading(Side::Left).mm,
+                              gSensor.reading(Side::Front).mm, gSensor.reading(Side::Right).mm,
+                              gSensor.faultSummary());
+                ESP_LOGE(kTag, "%s", failure);
+                break;
+            }
             const domain::Position position = navigator.getPosition();
             if (!(position == last)) {
                 ++cells;
@@ -239,6 +290,14 @@ void navigationTask(void*) {
         endEvent.kind = TeleEvent::End;
         endEvent.time = nowMs();
         endEvent.success = reached;
+        if (!reached) {
+            if (failure[0] == '\0') {
+                std::snprintf(failure, sizeof failure,
+                              "limite de passos sem chegar ao objetivo. %s",
+                              gSensor.faultSummary());
+            }
+            std::strncpy(endEvent.detail, failure, sizeof endEvent.detail - 1);
+        }
         postEvent(endEvent);
 
         // RF-56: encerrada a sessão, volta ao Aguardando. O mapa, o contador de células e o
@@ -292,9 +351,12 @@ void telemetryTask(void*) {
                                                  event.east, event.south, event.west);
                     break;
                 case TeleEvent::End:
-                    message = emitter.encodeRunResult(event.time,
-                                                      event.success ? protocol::RunResult::Success
-                                                                    : protocol::RunResult::Failure);
+                    message = emitter.encodeRunResult(
+                        event.time,
+                        event.success ? protocol::RunResult::Success
+                                      : protocol::RunResult::Failure,
+                        event.detail[0] != '\0' ? std::optional<std::string>(event.detail)
+                                                 : std::nullopt);
                     running = false;
                     break;
             }

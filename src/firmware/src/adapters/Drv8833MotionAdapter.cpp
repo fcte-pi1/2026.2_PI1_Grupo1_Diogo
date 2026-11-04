@@ -1,6 +1,7 @@
 #include "adapters/Drv8833MotionAdapter.hpp"
 
 #include <cmath>
+#include <cstdio>
 
 #include "domain/SoftStart.hpp"
 #include "freertos/FreeRTOS.h"
@@ -13,9 +14,17 @@ uint32_t elapsedMsSince(TickType_t start) {
     return static_cast<uint32_t>((xTaskGetTickCount() - start) * portTICK_PERIOD_MS);
 }
 
-constexpr double kBaseSpeed = 0.45;
-constexpr double kMaxSpeed = 1.0;
-constexpr double kTurnSpeed = 0.40;
+// Tempo máximo de um movimento (uma célula ou uma curva). No teste de 04/11, uma célula levou
+// ~0,5 s; sem limite, uma curva que não terminava (robô no ar, rodas paradas) esperou 92 s.
+constexpr uint32_t kMoveTimeoutMs = 3000;
+
+// Potências (fração da tensão da bateria). Em 04/11, com 0,45 na reta e 0,40 na curva, as rodas
+// (já coladas, a direita com mais atrito) às vezes não venciam o atrito estático e o robô não
+// saía do lugar; o firmware de teste do hardware usa 100%. 0,70 com a 2S cheia (8,4 V) dá ~5,9 V,
+// dentro dos 6 V dos N20; o teto de 0,85 limita a correção do PID.
+constexpr double kBaseSpeed = 0.70;
+constexpr double kMaxSpeed = 0.85;
+constexpr double kTurnSpeed = 0.60;
 constexpr double kTurnToleranceDeg = 2.0;
 constexpr double kDeltaTimeSeconds = 0.001;
 constexpr TickType_t kControlPeriod = pdMS_TO_TICKS(1);
@@ -42,7 +51,13 @@ void Drv8833MotionAdapter::advanceCell() {
 
     long previousAverage = 0;
     const TickType_t start = xTaskGetTickCount();
+    lastMoveOk_ = true;
+    lastMoveName_ = "andar 1 celula";
     while (odometry.distanceMm() < wheels_.cellSizeMm) {
+        if (elapsedMsSince(start) > kMoveTimeoutMs) {
+            lastMoveOk_ = false;  // as rodas não levaram o robô a uma célula no tempo
+            break;
+        }
         const long left = encoders_.left();
         const long right = encoders_.right();
         const long average = (left + right) / 2;
@@ -53,9 +68,13 @@ void Drv8833MotionAdapter::advanceCell() {
         const controller::WheelSpeeds speeds = straight_.correct(error, kDeltaTimeSeconds);
         // Partida suave: a potência sobe em rampa no começo de cada célula.
         const double ramp = domain::softStartFactor(elapsedMsSince(start));
-        motors_.setNormalized(ramp * speeds.left, ramp * speeds.right);
+        endLeftCmd_ = ramp * speeds.left;
+        endRightCmd_ = ramp * speeds.right;
+        motors_.setNormalized(endLeftCmd_, endRightCmd_);
         vTaskDelay(kControlPeriod);
     }
+    endLeftCount_ = encoders_.left();
+    endRightCount_ = encoders_.right();
     motors_.brake();
     vTaskDelay(pdMS_TO_TICKS(40));
 }
@@ -67,11 +86,19 @@ void Drv8833MotionAdapter::pivot(double degrees, double leftSpeed, double rightS
     domain::GyroTurnController gyro(degrees, kTurnToleranceDeg);
     const double targetPulses = domain::pulsesForTurn(turnConfig_, degrees);
     const TickType_t start = xTaskGetTickCount();
+    lastMoveOk_ = true;
+    lastMoveName_ = degrees > 135.0 ? "meia-volta" : "curva de 90 graus";
 
     while (!gyro.reached()) {
+        if (elapsedMsSince(start) > kMoveTimeoutMs) {
+            lastMoveOk_ = false;  // nem o giro nem os encoders confirmaram a curva no tempo
+            break;
+        }
         // Partida suave dentro do laço: o giro já é integrado durante a rampa.
         const double ramp = domain::softStartFactor(elapsedMsSince(start));
-        motors_.setNormalized(ramp * leftSpeed, ramp * rightSpeed);
+        endLeftCmd_ = ramp * leftSpeed;
+        endRightCmd_ = ramp * rightSpeed;
+        motors_.setNormalized(endLeftCmd_, endRightCmd_);
         const double turned =
             (std::fabs(encoders_.left()) + std::fabs(encoders_.right())) / 2.0;
         if (turned >= targetPulses) {
@@ -80,8 +107,15 @@ void Drv8833MotionAdapter::pivot(double degrees, double leftSpeed, double rightS
         gyro.integrate(imu_.gyroZDegPerSec(), kDeltaTimeSeconds);
         vTaskDelay(kControlPeriod);
     }
+    endLeftCount_ = encoders_.left();
+    endRightCount_ = encoders_.right();
     motors_.brake();
     vTaskDelay(pdMS_TO_TICKS(40));
+}
+
+void Drv8833MotionAdapter::describeLastMove(char* out, size_t size) const {
+    std::snprintf(out, size, "enc E=%ld D=%ld pot E=%.2f D=%.2f", endLeftCount_, endRightCount_,
+                  endLeftCmd_, endRightCmd_);
 }
 
 void Drv8833MotionAdapter::turnLeft() { pivot(90.0, -kTurnSpeed, kTurnSpeed); }

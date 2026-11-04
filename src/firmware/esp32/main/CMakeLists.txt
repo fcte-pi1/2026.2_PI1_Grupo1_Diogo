@@ -14,6 +14,7 @@ idf_component_register(
         "${CORE_ROOT}/src/domain/BatteryMonitor.cpp"
         "${CORE_ROOT}/src/domain/SensorHealthMonitor.cpp"
         "${CORE_ROOT}/src/domain/SoftStart.cpp"
+        "${CORE_ROOT}/src/drivers/Vl53l1x.cpp"
         "${CORE_ROOT}/src/controller/MotionController.cpp"
         "${CORE_ROOT}/src/use_cases/Navigator.cpp"
         "${CORE_ROOT}/src/use_cases/SessionManager.cpp"
@@ -22,6 +23,7 @@ idf_component_register(
         "${CORE_ROOT}/src/telemetry/TelemetryEmitter.cpp"
         # Adapters - só compilam aqui, no alvo
         "${CORE_ROOT}/src/adapters/I2cBus.cpp"
+        "${CORE_ROOT}/src/adapters/IdfRegisterBus.cpp"
         "${CORE_ROOT}/src/adapters/MotorDriver.cpp"
         "${CORE_ROOT}/src/adapters/Encoders.cpp"
         "${CORE_ROOT}/src/adapters/Vl53l1xSensorAdapter.cpp"

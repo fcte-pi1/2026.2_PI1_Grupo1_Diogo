@@ -69,7 +69,7 @@ As tolerâncias (±10 mm, ±0,05 V, ±10 mA) são **sugestões**: o `4.3` não d
 | 3.8 | INA219: leitura e calibração | `ina 10`, com o multímetro em paralelo (tensão) e em série (corrente) | Tensão com erro de até ±0,05 V e corrente até ±10 mA em relação ao multímetro |
 | 3.9 | Motores: acionamento básico | `motor 0.5 0.5`, `motor -0.5 -0.5`, `motor 0.5 -0.5` | As duas rodas para frente, para trás, e girando em sentidos opostos. **Robô suspenso, com as rodas fora da mesa**. Se a roda esquerda girar ao contrário, rode `inverter motor` e repita (ver "Sentido da roda esquerda") |
 | 3.10 | Encoders: sentido | `motor 0.5 0.5` | Os dois encoders contam **positivo** para frente. Se o esquerdo vier negativo, rode `inverter enc` e repita |
-| 3.11 | Encoders: pulsos por volta | `enc zerar`, girar a roda **uma volta** à mão, `enc 1` | O valor de cada roda. O firmware usa **280**: se der outro, avise a equipe de firmware |
+| 3.11 | Encoders: pulsos por volta | `enc zerar`, girar a roda **uma volta** à mão, `enc 1` | O valor de cada roda. O firmware usa **285**, medido em 04/11 (esquerda 284, direita 286, média de 5 voltas). Repita depois de mexer nas rodas ou nos motores; se mudar mais que uns 5 pulsos, avise a equipe de firmware |
 | 3.12 | Motores com encoders: velocidade | `motor 0.3 0.3 2000`, `motor 0.5 0.5 2000`, `motor 0.7 0.7 2000` | Pulsos/s crescem com a potência, e as duas rodas ficam parecidas (anote a diferença). **Não passe de 0.7** (aviso abaixo) |
 | 3.13 | DIP switch | `dip`, em cada combinação | Vias 1/2: abertas = 4x4, só a 1 = 8x4, só a 2 = 12x4, as duas = "combinação reservada". Via 3: canto de partida |
 | 3.14 | Botão, LEDs e buzzer | `botao`, `led pronto`, `led erro`, `led apagar`, `buzzer` | Cada toque aparece como "pressionado"/"solto"; os LEDs e o buzzer acionam |
@@ -82,12 +82,12 @@ As tolerâncias (±10 mm, ±0,05 V, ±10 mA) são **sugestões**: o `4.3` não d
 
 ### Sentido da roda esquerda (3.9 e 3.10)
 
-Os motores N20 são montados espelhados e o chicote é igual nos dois lados. Por isso o firmware **inverte a roda esquerda**, tanto no acionamento do motor quanto na contagem do encoder (decisão do hardware, #394). As constantes ficam em `include/adapters/BoardPins.hpp`:
+No robô montado na bancada, os fios dos motores foram soldados trocados em relação ao esquemático 4.3, e a equipe decidiu não ressoldar: a roda **esquerda** está nos pinos do motor 1 (16/15) e do encoder 1 (38/39), e a **direita** nos do motor 2 (6/5) e do encoder 2 (41/40). A opção de build **`RATO_FIOS_MOTORES_TROCADOS`** (menu "Rato Borrachudo" do `idf.py menuconfig`, ligada por padrão na S3) faz o firmware seguir essa montagem. **Desligue-a quando o robô passar para a PCB** feita pelo esquemático. O sentido de cada roda fica nestas constantes do `include/adapters/BoardPins.hpp`:
 
-| Constante | Padrão | O que inverte |
-|:--|:--|:--|
-| `kInvertLeftMotor` | `true` | o acionamento do motor esquerdo |
-| `kInvertLeftEncoder` | `true` | a contagem do encoder esquerdo |
+| Constante | Fios trocados (padrão) | Esquemático | O que inverte |
+|:--|:--|:--|:--|
+| `kInvertLeftMotor` | `false` | `true` | o acionamento do motor esquerdo (o direito já sai certo pela ordem dos pinos) |
+| `kInvertLeftEncoder` | `true` | `true` | a contagem do encoder esquerdo |
 
 Como saber se o padrão está certo no chassi: rode `motor 0.5 0.5` (robô suspenso) e `enc`. As duas rodas têm que girar **para frente** e os dois encoders têm que contar **positivo**.
 
