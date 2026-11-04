@@ -14,6 +14,8 @@ public:
     void turnLeft() override;
     void turnRight() override;
     void turnAround() override;
+    // O movimento simulado sempre termina.
+    [[nodiscard]] bool lastMoveOk() const noexcept { return true; }
 };
 
 }  // namespace micromouse::adapters

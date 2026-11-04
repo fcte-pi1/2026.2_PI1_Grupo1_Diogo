@@ -200,6 +200,12 @@ void navigationTask(void*) {
             }
 #endif
             navigator.step();
+            // Um movimento que não termina no tempo (motor travado, roda solta) leva ao Erro,
+            // em vez de o robô esperar para sempre ou seguir com o mapa errado.
+            if (!gMotion.lastMoveOk()) {
+                ESP_LOGE(kTag, "movimento nao terminou no tempo limite (motor ou roda)");
+                break;
+            }
             const domain::Position position = navigator.getPosition();
             if (!(position == last)) {
                 ++cells;
