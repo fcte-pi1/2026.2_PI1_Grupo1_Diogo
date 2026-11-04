@@ -1,6 +1,12 @@
 import type { ReactNode } from 'react';
 import type { DadosExecucao } from '../../dominio';
-import { formatarNumero, formatarTempo, rotuloDesafio, rotuloStatus } from '../../formatacao';
+import {
+  formatarNumero,
+  formatarPercentual,
+  formatarTempo,
+  rotuloDesafio,
+  rotuloStatus,
+} from '../../formatacao';
 import { GraficoConsumo } from '../consumo/GraficoConsumo';
 import { MapaLabirinto } from './MapaLabirinto';
 import estilos from './PainelExecucao.module.css';
@@ -13,8 +19,6 @@ interface Props {
   execucao: DadosExecucao;
   /** Tempo a exibir no cronômetro: contínuo no ao vivo, o tempo gravado no histórico. */
   tempoMs: number | null;
-  /** Abaixo do mapa (ex.: tabela do histórico na tela ao vivo). */
-  children?: ReactNode;
   /** Conteúdo do cartão ALERTAS, específico de cada modo. */
   alertas: ReactNode;
 }
@@ -57,7 +61,7 @@ export function ItemAlerta({
  * Visualização da execução — mapa, trajeto, métricas, consumo e resultado. É a mesma para o
  * acompanhamento ao vivo e para o detalhe de uma execução do histórico; só o `modo` muda.
  */
-export function PainelExecucao({ modo, execucao, tempoMs, children, alertas }: Props) {
+export function PainelExecucao({ modo, execucao, tempoMs, alertas }: Props) {
   const historico = modo === 'historico';
   const tensao = formatarNumero(execucao.tensaoV, 'V');
   const corrente = formatarNumero(execucao.correnteA, 'A');
@@ -82,7 +86,6 @@ export function PainelExecucao({ modo, execucao, tempoMs, children, alertas }: P
             tipoInvalido={execucao.tipoInvalido}
           />
         </article>
-        {children}
       </div>
       <aside className={estilos.painelLateral}>
         <article className={estilos.painelPequeno}>
@@ -90,7 +93,7 @@ export function PainelExecucao({ modo, execucao, tempoMs, children, alertas }: P
           <div className={estilos.duasColunas}>
             <div>
               <small>Labirinto</small>
-              <strong>{execucao.tipoLabirinto ?? '—'}</strong>
+              <strong data-testid="tipo-labirinto">{execucao.tipoLabirinto ?? '—'}</strong>
             </div>
             <div>
               <small>Status</small>
@@ -143,15 +146,21 @@ export function PainelExecucao({ modo, execucao, tempoMs, children, alertas }: P
           <div className={estilos.eletrico}>
             <div>
               <small>Tensão</small>
-              <strong className={estilos.valorTensao}>{tensao}</strong>
+              <strong className={estilos.valorTensao} data-testid="tensao">
+                {tensao}
+              </strong>
             </div>
             <div>
               <small>Corrente</small>
-              <strong className={estilos.valorCorrente}>{corrente}</strong>
+              <strong className={estilos.valorCorrente} data-testid="corrente">
+                {corrente}
+              </strong>
             </div>
             <div>
               <small>Potência</small>
-              <strong className={estilos.valorPotencia}>{potencia}</strong>
+              <strong className={estilos.valorPotencia} data-testid="potencia">
+                {potencia}
+              </strong>
             </div>
           </div>
           <div className={estilos.bateria}>
@@ -160,7 +169,7 @@ export function PainelExecucao({ modo, execucao, tempoMs, children, alertas }: P
               <div className={estilos.bateriaRotulo}>
                 <span>Carga estimada</span>
                 <strong data-testid="carga-estimada">
-                  {execucao.cargaPct === null ? '—' : `${execucao.cargaPct}%`}
+                  {formatarPercentual(execucao.cargaPct)}
                 </strong>
               </div>
               <div className={estilos.bateriaTrilho}>

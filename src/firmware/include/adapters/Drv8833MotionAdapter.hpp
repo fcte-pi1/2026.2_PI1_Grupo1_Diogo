@@ -23,6 +23,7 @@ private:
     domain::WheelConfig wheels_;
     domain::TurnConfig turnConfig_;
     controller::MotionController straight_;
+    bool lastMoveOk_{true};
 
     void pivot(double degrees, double leftSpeed, double rightSpeed);
 
@@ -35,6 +36,10 @@ public:
     void turnLeft() override;
     void turnRight() override;
     void turnAround() override;
+
+    // False se o último movimento estourou o tempo limite: a roda não girou (motor travado, roda
+    // solta, robô suspenso sem os encoders contarem). O laço da navegação leva ao estado Erro.
+    [[nodiscard]] bool lastMoveOk() const noexcept { return lastMoveOk_; }
 };
 
 }  // namespace micromouse::adapters
