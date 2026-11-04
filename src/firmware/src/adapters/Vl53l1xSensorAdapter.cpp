@@ -17,8 +17,10 @@ constexpr uint16_t kIoTimeoutMs = 300;
 // XSHUT em 0 por 150 ms para o sensor esquecer o endereço antigo, e 60 ms de boot ao religar.
 constexpr uint32_t kShutdownMs = 150;
 constexpr uint32_t kBootMs = 60;
-// Ao sentir as paredes, espera uma medida feita depois que o robô parou (no máximo ~1,5 medida).
-constexpr uint32_t kFreshTimeoutMs = 80;
+// Ao sentir as paredes, espera uma medida feita depois que o robô parou. Depois de descartar a
+// medida antiga, a próxima pode levar o período (50 ms) mais o tempo de medida (50 ms): com 80 ms,
+// o teste na placa deu FALHA na primeira leitura de cada comando. 150 ms cobre o pior caso.
+constexpr uint32_t kFreshTimeoutMs = 150;
 
 }  // namespace
 
