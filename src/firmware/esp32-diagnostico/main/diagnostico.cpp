@@ -252,16 +252,28 @@ int cmdTof(int argc, char** argv) {
             return 1;
         }
     }
-    std::printf("esquerdo  frontal  direito (mm)  paredes E/F/D   (%d = nada ao alcance)\n",
+    std::printf("esquerdo  frontal  direito (mm)  paredes E/F/D   (%d = nada ao alcance; "
+                "FALHA = sensor não respondeu, conta como parede)\n",
                 adapters::Vl53l1xSensorAdapter::kNoReadingMm);
+    auto column = [](int mm, char* out, size_t size) {
+        if (mm == adapters::Vl53l1xSensorAdapter::kFaultMm) {
+            std::snprintf(out, size, "%8s", "FALHA");
+        } else {
+            std::snprintf(out, size, "%8d", mm);
+        }
+    };
     for (long i = 0; i < samples; ++i) {
         // sense() espera uma medida nova dos três; depois, a distância de cada um.
         const ports::WallsAhead walls = gSensor.sense();
-        const int left = gSensor.rangeLeftMm();
-        const int front = gSensor.rangeFrontMm();
-        const int right = gSensor.rangeRightMm();
-        std::printf("%8d %8d %8d       %c/%c/%c\n", left, front, right, walls.left ? 'S' : '-',
-                    walls.front ? 'S' : '-', walls.right ? 'S' : '-');
+        char left[12];
+        char front[12];
+        char right[12];
+        column(gSensor.reading(Side::Left).mm, left, sizeof left);
+        column(gSensor.reading(Side::Front).mm, front, sizeof front);
+        column(gSensor.reading(Side::Right).mm, right, sizeof right);
+        std::printf("%s %s %s       %c/%c/%c%s\n", left, front, right, walls.left ? 'S' : '-',
+                    walls.front ? 'S' : '-', walls.right ? 'S' : '-',
+                    gSensor.healthy() ? "" : "   <- falha de leitura");
         sleepMs(100);
     }
     return 0;

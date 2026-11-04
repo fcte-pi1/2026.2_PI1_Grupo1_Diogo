@@ -16,14 +16,17 @@ namespace micromouse::adapters {
 // converte em WallsAhead (parede se distância < limiar). Implementa ISensorPort.
 class Vl53l1xSensorAdapter final : public ports::ISensorPort {
 public:
-    // Devolvido quando o sensor não tem medida válida: nada ao alcance (ou sensor ausente).
+    // Sem alvo ao alcance (corredor aberto): conta como "sem parede".
     static constexpr int kNoReadingMm = 9999;
+    // Sensor em falha (não respondeu ou não mediu a tempo): não se sabe se há parede.
+    static constexpr int kFaultMm = -1;
 
     enum class Side { Left, Front, Right };
 
     struct Reading {
-        int mm{kNoReadingMm};
+        int mm{kFaultMm};
         drivers::Vl53l1x::RangeStatus status{drivers::Vl53l1x::RangeStatus::None};
+        drivers::ReadingKind kind{drivers::ReadingKind::Fault};
     };
 
 private:
@@ -38,6 +41,7 @@ private:
     double thresholdMm_;
     mutable IdfRegisterBus regBus_;
     mutable std::array<Slot, 3> slots_;
+    mutable bool healthy_{true};
 
     bool bringUp(Slot& slot);
     Reading poll(Slot& slot, bool waitFresh) const;
@@ -50,6 +54,9 @@ public:
 
     // True se os 3 sensores responderam e foram configurados no begin() (auto-teste, RF-27).
     [[nodiscard]] bool allReady() const;
+    // True se, no último sense(), os 3 sensores deram medida ou "sem alvo" (nenhuma falha). O laço
+    // da navegação usa isto no SensorHealthMonitor (RF-55): falhas seguidas levam ao estado Erro.
+    [[nodiscard]] bool healthy() const noexcept { return healthy_; }
     [[nodiscard]] bool ready(Side side) const;
     [[nodiscard]] Reading reading(Side side) const;  // última medida, sem esperar uma nova
 

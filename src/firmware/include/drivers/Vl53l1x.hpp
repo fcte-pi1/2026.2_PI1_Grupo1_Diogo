@@ -124,6 +124,7 @@ public:
     // Medida contínua: uma nova medida a cada `periodMs`.
     void startContinuous(uint32_t periodMs);
     void stopContinuous();
+    // True se há medida nova. False também quando o sensor não respondeu (falha de I²C).
     bool dataReady();
     // Lê a medida mais recente. Com blocking, espera ficar pronta (até o timeout).
     uint16_t read(bool blocking = true);
@@ -150,5 +151,17 @@ public:
 
 // Uma leitura conta como medida de verdade? (Os demais estados não dizem nada sobre parede.)
 [[nodiscard]] bool isValidRange(Vl53l1x::RangeStatus status) noexcept;
+
+// O que uma leitura significa para quem procura paredes.
+enum class ReadingKind {
+    Distance,  // medida válida: a distância vale
+    NoTarget,  // o sensor mediu e não achou alvo ao alcance: corredor aberto, sem parede
+    Fault,     // o sensor não respondeu, não mediu a tempo ou reportou falha: não se sabe nada
+};
+
+// Classifica uma leitura. `transferOk`: a leitura pelo I²C foi aceita; `fresh`: chegou uma medida
+// nova no prazo. Sem os dois, é falha, mesmo que o estado pareça válido.
+[[nodiscard]] ReadingKind classifyReading(bool transferOk, bool fresh,
+                                          Vl53l1x::RangeStatus status) noexcept;
 
 }  // namespace micromouse::drivers

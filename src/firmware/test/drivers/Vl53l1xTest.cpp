@@ -201,6 +201,51 @@ TEST(Vl53l1x, TimeoutEncodingMatchesTheApiFormat) {
     }
 }
 
+// Revisão do #438: um sensor que para de responder não pode parecer "medida pronta".
+TEST(Vl53l1x, DataReadyIsFalseWhenSensorDoesNotAnswer) {
+    FakeVl53l1xBus bus;
+    Vl53l1x sensor(bus);
+    ASSERT_TRUE(sensor.init());
+    bus.loadResult(9, 1, 100);
+    ASSERT_TRUE(sensor.dataReady());
+    bus.present = false;  // mau contato na alimentação, no meio da corrida
+    EXPECT_FALSE(sensor.dataReady());
+    EXPECT_FALSE(sensor.lastTransferOk());
+}
+
+TEST(Vl53l1x, ReadFromSilentSensorIsClassifiedAsFault) {
+    FakeVl53l1xBus bus;
+    Vl53l1x sensor(bus);
+    ASSERT_TRUE(sensor.init());
+    bus.present = false;
+    (void)sensor.read(false);  // tudo zerado, estado None
+    EXPECT_EQ(classifyReading(sensor.lastTransferOk(), true, sensor.rangingData().status),
+              ReadingKind::Fault);
+}
+
+TEST(Vl53l1x, ClassifiesDistanceNoTargetAndFault) {
+    using S = Vl53l1x::RangeStatus;
+    EXPECT_EQ(classifyReading(true, true, S::RangeValid), ReadingKind::Distance);
+    EXPECT_EQ(classifyReading(true, true, S::RangeValidMinRangeClipped), ReadingKind::Distance);
+    EXPECT_EQ(classifyReading(true, true, S::RangeValidNoWrapCheckFail), ReadingKind::Distance);
+    // sem alvo: o sensor mediu e não achou nada (corredor aberto)
+    EXPECT_EQ(classifyReading(true, true, S::SignalFail), ReadingKind::NoTarget);
+    EXPECT_EQ(classifyReading(true, true, S::OutOfBoundsFail), ReadingKind::NoTarget);
+    EXPECT_EQ(classifyReading(true, true, S::SigmaFail), ReadingKind::NoTarget);
+    EXPECT_EQ(classifyReading(true, true, S::WrapTargetFail), ReadingKind::NoTarget);
+    // falha: não se sabe nada
+    EXPECT_EQ(classifyReading(true, true, S::HardwareFail), ReadingKind::Fault);
+    EXPECT_EQ(classifyReading(true, true, S::None), ReadingKind::Fault);
+    EXPECT_EQ(classifyReading(true, true, S::MinRangeFail), ReadingKind::Fault);
+}
+
+TEST(Vl53l1x, MissingTransferOrStaleDataIsFaultEvenWithValidStatus) {
+    using S = Vl53l1x::RangeStatus;
+    EXPECT_EQ(classifyReading(false, true, S::RangeValid), ReadingKind::Fault);
+    EXPECT_EQ(classifyReading(true, false, S::RangeValid), ReadingKind::Fault);
+    EXPECT_EQ(classifyReading(false, false, S::SignalFail), ReadingKind::Fault);
+}
+
 TEST(Vl53l1x, OnlyValidStatusesCountAsDistance) {
     using S = Vl53l1x::RangeStatus;
     EXPECT_TRUE(isValidRange(S::RangeValid));
