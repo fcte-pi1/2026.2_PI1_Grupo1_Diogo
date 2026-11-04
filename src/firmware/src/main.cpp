@@ -193,9 +193,11 @@ void navigationTask(void*) {
         while (!navigator.reachedGoal() && guard-- > 0) {
 #if !CONFIG_RATO_BANCADA
             // RF-55: a cada passo confere os sensores e a bateria. Uma falha confirmada (várias
-            // verificações seguidas) leva ao estado Erro; um NACK isolado no I²C é tolerado.
-            if (sensorHealth.update(gImu.present() && gPower.present())) {
-                ESP_LOGE(kTag, "falha de sensor durante a corrida (IMU ou INA219 nao responde)");
+            // verificações seguidas) leva ao estado Erro; um NACK isolado no I²C é tolerado. Os
+            // ToF contam pelo último sense(): um sensor que parou de ler não pode virar "sem
+            // parede" sem ninguém perceber.
+            if (sensorHealth.update(gImu.present() && gPower.present() && gSensor.healthy())) {
+                ESP_LOGE(kTag, "falha de sensor durante a corrida (IMU, INA219 ou ToF)");
                 break;
             }
             if (battery.update(gPower.busVoltageV())) {

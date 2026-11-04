@@ -82,9 +82,12 @@ void Vl53l1xSensorAdapter::begin(i2c_master_bus_handle_t bus) {
     }
 }
 
+// Lê um sensor. Com waitFresh (ao sentir as paredes), espera uma medida nova; se ela não vier no
+// prazo, ou se o sensor não responder, a leitura é FALHA, e não a parede da célula anterior.
 Vl53l1xSensorAdapter::Reading Vl53l1xSensorAdapter::poll(Slot& slot, bool waitFresh) const {
     if (!slot.sensor) {
-        return {};
+        slot.last = {};
+        return slot.last;
     }
     drivers::Vl53l1x& sensor = *slot.sensor;
     bool ready = sensor.dataReady();
@@ -98,8 +101,22 @@ Vl53l1xSensorAdapter::Reading Vl53l1xSensorAdapter::poll(Slot& slot, bool waitFr
     if (ready) {
         const uint16_t mm = sensor.read(false);
         const drivers::Vl53l1x::RangeStatus status = sensor.rangingData().status;
-        // Sem alvo válido (nada ao alcance, sinal fraco), conta como "nenhuma parede perto".
-        slot.last = {drivers::isValidRange(status) ? static_cast<int>(mm) : kNoReadingMm, status};
+        const drivers::ReadingKind kind =
+            drivers::classifyReading(sensor.lastTransferOk(), true, status);
+        switch (kind) {
+            case drivers::ReadingKind::Distance:
+                slot.last = {static_cast<int>(mm), status, kind};
+                break;
+            case drivers::ReadingKind::NoTarget:
+                slot.last = {kNoReadingMm, status, kind};
+                break;
+            case drivers::ReadingKind::Fault:
+                slot.last = {kFaultMm, status, kind};
+                break;
+        }
+    } else if (waitFresh) {
+        // Nenhuma medida nova no prazo (ou o sensor parou de responder).
+        slot.last = {kFaultMm, drivers::Vl53l1x::RangeStatus::None, drivers::ReadingKind::Fault};
     }
     return slot.last;
 }
@@ -134,10 +151,33 @@ ports::WallsAhead Vl53l1xSensorAdapter::sense() const {
             (void)slot.sensor->read(false);
         }
     }
-    const int left = poll(slots_[static_cast<size_t>(Side::Left)], true).mm;
-    const int front = poll(slots_[static_cast<size_t>(Side::Front)], true).mm;
-    const int right = poll(slots_[static_cast<size_t>(Side::Right)], true).mm;
-    return {front < thresholdMm_, left < thresholdMm_, right < thresholdMm_};
+    const Reading left = poll(slots_[static_cast<size_t>(Side::Left)], true);
+    const Reading front = poll(slots_[static_cast<size_t>(Side::Front)], true);
+    const Reading right = poll(slots_[static_cast<size_t>(Side::Right)], true);
+
+    // Um sensor em falha conta como PAREDE: o robô não avança por um lado que não enxerga. E a
+    // falha fica registrada em healthy(), para o laço da navegação levar ao Erro se ela persistir.
+    auto wall = [this](const Reading& reading) {
+        switch (reading.kind) {
+            case drivers::ReadingKind::Distance:
+                return reading.mm < thresholdMm_;
+            case drivers::ReadingKind::NoTarget:
+                return false;
+            case drivers::ReadingKind::Fault:
+                return true;
+        }
+        return true;
+    };
+    healthy_ = left.kind != drivers::ReadingKind::Fault &&
+               front.kind != drivers::ReadingKind::Fault &&
+               right.kind != drivers::ReadingKind::Fault;
+    if (!healthy_) {
+        ESP_LOGW(kTag, "falha de leitura: esq %s, frente %s, dir %s",
+                 left.kind == drivers::ReadingKind::Fault ? "FALHA" : "ok",
+                 front.kind == drivers::ReadingKind::Fault ? "FALHA" : "ok",
+                 right.kind == drivers::ReadingKind::Fault ? "FALHA" : "ok");
+    }
+    return {wall(front), wall(left), wall(right)};
 }
 
 }  // namespace micromouse::adapters

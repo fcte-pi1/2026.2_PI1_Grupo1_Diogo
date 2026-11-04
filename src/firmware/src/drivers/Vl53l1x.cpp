@@ -85,6 +85,24 @@ bool isValidRange(Vl53l1x::RangeStatus status) noexcept {
     }
 }
 
+ReadingKind classifyReading(bool transferOk, bool fresh, Vl53l1x::RangeStatus status) noexcept {
+    if (!transferOk || !fresh) {
+        return ReadingKind::Fault;
+    }
+    if (isValidRange(status)) {
+        return ReadingKind::Distance;
+    }
+    switch (status) {
+        case Vl53l1x::RangeStatus::SignalFail:       // nenhum alvo devolveu sinal
+        case Vl53l1x::RangeStatus::OutOfBoundsFail:  // nada no alcance do modo
+        case Vl53l1x::RangeStatus::SigmaFail:        // medida imprecisa demais (alvo longe)
+        case Vl53l1x::RangeStatus::WrapTargetFail:   // alvo além do alcance, "dobrado"
+            return ReadingKind::NoTarget;
+        default:  // HardwareFail, None, MinRangeFail, XtalkSignalFail, SynchronizationInt
+            return ReadingKind::Fault;
+    }
+}
+
 Vl53l1x::Vl53l1x(IRegisterBus& bus, uint8_t address) : bus_(bus), address_(address) {}
 
 void Vl53l1x::setAddress(uint8_t newAddress) {
@@ -302,7 +320,11 @@ void Vl53l1x::stopContinuous() {
     writeReg(PHASECAL_CONFIG__OVERRIDE, 0x00);
 }
 
-bool Vl53l1x::dataReady() { return (readReg(GPIO__TIO_HV_STATUS) & 0x01) == 0; }
+bool Vl53l1x::dataReady() {
+    // Sem resposta, o readReg() devolve 0, que pareceria "pronto": confere a transferência.
+    const uint8_t status = readReg(GPIO__TIO_HV_STATUS);
+    return lastOk_ && (status & 0x01) == 0;
+}
 
 uint16_t Vl53l1x::read(bool blocking) {
     if (blocking) {
