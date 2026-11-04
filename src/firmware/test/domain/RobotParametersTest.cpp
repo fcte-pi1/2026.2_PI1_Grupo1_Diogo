@@ -8,24 +8,25 @@ namespace micromouse::domain {
 
 namespace {
 
-TEST(RobotParameters, MillimetersPerPulseMatchesHardwareReport) {
+// 285 pulsos por volta (medidos em 04/11) e roda de 34 mm: 34π / 285 = 0,3748 mm por pulso.
+TEST(RobotParameters, MillimetersPerPulseMatchesMeasuredCounts) {
     Odometry odometry(robot::kWheels);
     odometry.onEncoderPulses(1);
-    EXPECT_NEAR(odometry.distanceMm(), 0.2967, 1e-4);
+    EXPECT_NEAR(odometry.distanceMm(), 0.3748, 1e-4);
 }
 
-TEST(RobotParameters, OneCellTakesAbout607Pulses) {
+TEST(RobotParameters, OneCellTakesAbout481Pulses) {
     Odometry belowCell(robot::kWheels);
-    belowCell.onEncoderPulses(606);
+    belowCell.onEncoderPulses(480);
     EXPECT_EQ(belowCell.cellsTraveled(), 0);
 
     Odometry atCell(robot::kWheels);
-    atCell.onEncoderPulses(607);
+    atCell.onEncoderPulses(481);
     EXPECT_EQ(atCell.cellsTraveled(), 1);
 }
 
 TEST(RobotParameters, QuarterTurnUsesWheelTrackAndCounts) {
-    EXPECT_NEAR(pulsesForTurn(robot::kTurn, 90.0), 232.94, 0.01);
+    EXPECT_NEAR(pulsesForTurn(robot::kTurn, 90.0), 184.41, 0.01);
 }
 
 }  // namespace
