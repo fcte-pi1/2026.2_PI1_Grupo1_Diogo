@@ -33,11 +33,12 @@ constexpr TickType_t kControlPeriod = pdMS_TO_TICKS(1);
 Drv8833MotionAdapter::Drv8833MotionAdapter(const domain::WheelConfig& wheels,
                                            const domain::TurnConfig& turnConfig,
                                            const domain::PidGains& straightGains,
+                                           double maxCorrection,
                                            Mpu6050& imu)
     : imu_(imu),
       wheels_(wheels),
       turnConfig_(turnConfig),
-      straight_(straightGains, kBaseSpeed, kMaxSpeed) {}
+      straight_(straightGains, kBaseSpeed, kMaxSpeed, maxCorrection) {}
 
 void Drv8833MotionAdapter::begin() {
     motors_.begin();

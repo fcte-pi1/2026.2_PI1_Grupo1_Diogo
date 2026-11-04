@@ -39,7 +39,8 @@ private:
 public:
     Drv8833MotionAdapter(const domain::WheelConfig& wheels,
                          const domain::TurnConfig& turnConfig,
-                         const domain::PidGains& straightGains, Mpu6050& imu);
+                         const domain::PidGains& straightGains, double maxCorrection,
+                         Mpu6050& imu);
     void begin();
     void advanceCell() override;
     void turnLeft() override;

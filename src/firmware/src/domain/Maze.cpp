@@ -132,6 +132,12 @@ Wall MazeMap::getWall(const Position& position, Direction direction) const {
 }
 
 void MazeMap::setWall(const Position& position, Direction direction, Wall state) {
+    // A borda do labirinto é sempre parede: uma leitura errada do sensor ("sem parede") não pode
+    // abrir uma saída para fora do mapa (no teste de 04/11, a parede oeste da largada sumiu).
+    const Position adj{position.row + rowDelta(direction), position.column + colDelta(direction)};
+    if (!contains(adj)) {
+        state = Wall::Present;
+    }
     edge(position, direction) = state;
 }
 

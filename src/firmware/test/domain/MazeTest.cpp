@@ -69,5 +69,21 @@ TEST(MazeMap, IsBlockedOnlyBlocksWhenWallPresent) {
     EXPECT_TRUE(medium.isBlocked({1, 1}, Direction::North));  // Present
 };
 
+// A borda é sempre parede: uma leitura "sem parede" do sensor não abre saída para fora do mapa
+// (teste de 04/11: a parede oeste da largada sumiu e o mapa ficou sem caminho).
+TEST(MazeMap, SensorCannotOpenThePerimeter) {
+    MazeMap medium(4, 8);
+    medium.initKnownPerimeter();
+    medium.setWall({3, 0}, Direction::West, Wall::Open);
+    medium.setWall({0, 7}, Direction::North, Wall::Open);
+    medium.setWall({3, 7}, Direction::South, Wall::Unknown);
+    EXPECT_TRUE(medium.isBlocked({3, 0}, Direction::West));
+    EXPECT_TRUE(medium.isBlocked({0, 7}, Direction::North));
+    EXPECT_TRUE(medium.isBlocked({3, 7}, Direction::South));
+    // Paredes internas continuam livres para abrir.
+    medium.setWall({3, 0}, Direction::East, Wall::Open);
+    EXPECT_EQ(medium.getWall({3, 0}, Direction::East), Wall::Open);
+};
+
 }  // namespace
 }  // namespace micromouse::domain

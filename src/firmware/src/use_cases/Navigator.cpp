@@ -31,6 +31,8 @@ bool Navigator::reachedGoal() const noexcept {
                        [this](const Position& g) { return g == position_; });
 }
 
+bool Navigator::stuck() const noexcept { return stuck_; }
+
 void Navigator::senseAndRecord() {
     const ports::WallsAhead wall = sensor_.sense();
     maze_.setWall(position_, heading_, wall.front ? Wall::Present : Wall::Open);
@@ -56,9 +58,22 @@ void Navigator::step() {
 
     if (reachedGoal()) return;
 
-    const std::optional<Direction> nextDir = flood_.nextDirection(position_);
+    std::optional<Direction> nextDir = flood_.nextDirection(position_);
 
-    if (!nextDir) return;
+    if (!nextDir) {
+        // Uma parede lida errada (em 04/11, o frontal "via" parede na largada) pode fechar todos os
+        // caminhos. Antes, o robô ficava parado sentindo a mesma célula até o limite de passos.
+        // Agora esquece as paredes lidas (fica só o perímetro), sente de novo e recalcula; se nem
+        // assim houver caminho, desiste.
+        maze_.initKnownPerimeter();
+        senseAndRecord();
+        flood_.computeFloodFill(goals_);
+        nextDir = flood_.nextDirection(position_);
+        if (!nextDir) {
+            stuck_ = true;
+            return;
+        }
+    }
 
     applyTurnTo(*nextDir);
     motion_.advanceCell();
@@ -68,6 +83,7 @@ void Navigator::step() {
 bool Navigator::run(int maxSteps) {
     for (int i = 0; i < maxSteps; ++i) {
         if (reachedGoal()) return true;
+        if (stuck_) return false;
         step();
     }
     return reachedGoal();

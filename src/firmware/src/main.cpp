@@ -52,9 +52,10 @@ constexpr char kTag[] = "main";
 
 // Parâmetros físicos: roda, pulsos por volta e bitola ficam em domain/RobotParameters.hpp (os
 // pulsos por volta foram medidos no docs/7.3; roda e bitola ainda são valores de projeto).
+using domain::robot::kStraightGains;
+using domain::robot::kStraightMaxCorrection;
 using domain::robot::kTurn;
 using domain::robot::kWheels;
-constexpr domain::PidGains kStraightGains{0.02, 0.0, 0.002};
 
 adapters::I2cBus gI2c;
 adapters::Vl53l1xSensorAdapter gSensor;
@@ -66,7 +67,8 @@ adapters::DipReaderAdapter gDip;
 // Modo bancada: placa solta, movimento simulado (ver Kconfig.projbuild).
 adapters::BenchMotionAdapter gMotion;
 #else
-adapters::Drv8833MotionAdapter gMotion{kWheels, kTurn, kStraightGains, gImu};
+adapters::Drv8833MotionAdapter gMotion{kWheels, kTurn, kStraightGains, kStraightMaxCorrection,
+                                       gImu};
 #endif
 adapters::BleTelemetryAdapter gBle;
 
@@ -236,7 +238,19 @@ void navigationTask(void*) {
                 break;
             }
 #endif
+            const domain::Position sensed = navigator.getPosition();  // a célula que o passo sente
             navigator.step();
+            if (navigator.stuck()) {
+                using Side = adapters::Vl53l1xSensorAdapter::Side;
+                std::snprintf(failure, sizeof failure,
+                              "sem caminho ate o objetivo em (%d,%d), mesmo lendo de novo. "
+                              "tof E=%d F=%d D=%d %s",
+                              sensed.row, sensed.column, gSensor.reading(Side::Left).mm,
+                              gSensor.reading(Side::Front).mm, gSensor.reading(Side::Right).mm,
+                              gSensor.faultSummary());
+                ESP_LOGE(kTag, "%s", failure);
+                break;
+            }
             // Um movimento que não termina no tempo (motor travado, roda solta) leva ao Erro,
             // em vez de o robô esperar para sempre ou seguir com o mapa errado.
             if (!gMotion.lastMoveOk()) {
@@ -260,11 +274,13 @@ void navigationTask(void*) {
             TeleEvent cellEvent{};
             cellEvent.kind = TeleEvent::Cell;
             cellEvent.time = nowMs();
-            cellEvent.position = position;
-            cellEvent.north = maze.isBlocked(position, domain::Direction::North);
-            cellEvent.east = maze.isBlocked(position, domain::Direction::East);
-            cellEvent.south = maze.isBlocked(position, domain::Direction::South);
-            cellEvent.west = maze.isBlocked(position, domain::Direction::West);
+            // As paredes da célula que o passo SENTIU. Antes ia a célula nova, ainda não lida, e o
+            // painel só mostrava o perímetro.
+            cellEvent.position = sensed;
+            cellEvent.north = maze.isBlocked(sensed, domain::Direction::North);
+            cellEvent.east = maze.isBlocked(sensed, domain::Direction::East);
+            cellEvent.south = maze.isBlocked(sensed, domain::Direction::South);
+            cellEvent.west = maze.isBlocked(sensed, domain::Direction::West);
             postEvent(cellEvent);
 
             telemetry::Snapshot state{};

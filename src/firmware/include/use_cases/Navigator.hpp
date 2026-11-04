@@ -26,6 +26,7 @@ private:
     Position position_;
     Direction heading_;
     std::vector<Position> goals_;
+    bool stuck_{false};
     void senseAndRecord();
     void applyTurnTo(Direction target);
 
@@ -36,6 +37,9 @@ public:
     [[nodiscard]] Position getPosition() const noexcept;
     [[nodiscard]] Direction getHeading() const noexcept;
     [[nodiscard]] bool reachedGoal() const noexcept;
+    // Sem caminho até o objetivo, mesmo depois de esquecer as paredes lidas e sentir de novo: o
+    // mapa não fecha com o que os sensores leem. O robô não se mexe mais; a corrida vai ao Erro.
+    [[nodiscard]] bool stuck() const noexcept;
     void step();
     bool run(int maxSteps);
 };

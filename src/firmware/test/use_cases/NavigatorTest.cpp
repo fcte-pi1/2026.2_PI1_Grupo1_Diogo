@@ -143,5 +143,44 @@ TEST(Navigator, ReroutesWhenDiscoveringWall) {
     EXPECT_GT(robot.advances(), 3);
 }
 
+// Paredes lidas errado (guardadas no mapa) fecham todos os caminhos: o navegador esquece o que
+// leu, sente de novo e segue, em vez de ficar parado na célula (teste de 04/11).
+TEST(Navigator, ForgetsWrongWallsWhenNoPathIsLeft) {
+    MazeMap known(4, 4);
+    MazeMap truth(4, 4);
+    truth.initKnownPerimeter();
+    known.initKnownPerimeter();
+    // Leituras antigas e erradas: a célula (0,1) fechada por todos os lados.
+    known.setWall({0, 1}, Direction::West, Wall::Present);
+    known.setWall({0, 1}, Direction::East, Wall::Present);
+    known.setWall({0, 1}, Direction::South, Wall::Present);
+
+    SimulatedRobot robot(truth, {3, 0}, Direction::North);
+    Navigator navigator(known, robot, robot, {3, 0}, Direction::North, {{0, 1}});
+
+    EXPECT_TRUE(navigator.run(50));
+    EXPECT_FALSE(navigator.stuck());
+    EXPECT_EQ(navigator.getPosition(), (Position{0, 1}));
+}
+
+// Se nem lendo de novo há caminho (o sensor insiste em paredes que fecham o robô), o navegador
+// desiste: não se mexe e avisa, em vez de gastar o limite de passos parado.
+TEST(Navigator, GivesUpWhenSensorsCloseEveryPath) {
+    MazeMap known(4, 4);
+    MazeMap truth(4, 4);
+    truth.initKnownPerimeter();
+    // A largada (3,0) cercada: frente (norte) e direita (leste) com parede; oeste e sul são borda.
+    truth.setWall({3, 0}, Direction::North, Wall::Present);
+    truth.setWall({3, 0}, Direction::East, Wall::Present);
+
+    SimulatedRobot robot(truth, {3, 0}, Direction::North);
+    Navigator navigator(known, robot, robot, {3, 0}, Direction::North, {{0, 3}});
+
+    EXPECT_FALSE(navigator.run(50));
+    EXPECT_TRUE(navigator.stuck());
+    EXPECT_EQ(robot.advances(), 0);
+    EXPECT_EQ(robot.turns(), 0);
+}
+
 }  // namespace
 }  // namespace micromouse::use_cases

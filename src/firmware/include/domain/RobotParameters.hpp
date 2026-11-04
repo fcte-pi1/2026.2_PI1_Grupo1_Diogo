@@ -2,6 +2,7 @@
 
 #include "domain/Maneuver.hpp"
 #include "domain/Odometry.hpp"
+#include "domain/Pid.hpp"
 
 namespace micromouse::domain::robot {
 
@@ -17,5 +18,14 @@ inline constexpr double kWheelTrackMm = 88.0;  // bitola: valor de projeto, a me
 
 inline constexpr WheelConfig kWheels{kWheelDiameterMm, kCountsPerRevolution, kCellSizeMm};
 inline constexpr TurnConfig kTurn{kWheelDiameterMm, kCountsPerRevolution, kWheelTrackMm};
+
+// Controle de reta: o erro é a diferença de pulsos entre as rodas (esquerda - direita), lida a cada
+// 1 ms. Em 04/11, com {0.02, 0, 0.002}, o derivativo dava 2,0 por 1 pulso de diferença (0,002 / 1 ms)
+// e o proporcional saturava com 15 pulsos: toda falha na pista terminou com uma roda em 0 e a outra
+// em 0,85, o robô girando sobre uma roda até encostar na parede. Agora só proporcional e suave
+// (40 pulsos, ~15 mm de diferença, dão a correção máxima), com a correção limitada: nenhuma roda
+// cai abaixo de base - 0,20.
+inline constexpr PidGains kStraightGains{0.005, 0.0, 0.0};
+inline constexpr double kStraightMaxCorrection = 0.20;
 
 }  // namespace micromouse::domain::robot
