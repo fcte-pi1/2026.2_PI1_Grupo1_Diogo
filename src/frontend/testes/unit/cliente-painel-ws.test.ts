@@ -291,6 +291,159 @@ describe('keepalive e mensagens inválidas', () => {
   });
 });
 
+describe('eventos online/offline do navegador (RNF-39, CT-FE-03 passo 3)', () => {
+  const ficarOffline = () => window.dispatchEvent(new Event('offline'));
+  const voltarOnline = () => window.dispatchEvent(new Event('online'));
+
+  it('offline: mostra "Desconectado" e fecha o socket', () => {
+    vi.useFakeTimers();
+    ficarOffline();
+
+    expect(estado().conexao.estado).toBe('DESCONECTADO');
+    expect(rotuloConexao(estado().conexao.estado, estado().conexao.sinal)).toBe('Desconectado');
+    expect(ws.readyState).toBe(WebSocketFalso.CLOSED);
+  });
+
+  it('offline é só uma dica: segue tentando no recuo de 2 s, sem trocar o rótulo para "Reconectando"', () => {
+    vi.useFakeTimers();
+    ficarOffline();
+    expect(WebSocketFalso.instancias).toHaveLength(1);
+
+    vi.advanceTimersByTime(250);
+    expect(WebSocketFalso.instancias).toHaveLength(2);
+    expect(estado().conexao.estado).toBe('DESCONECTADO');
+
+    // A tentativa falha: o rótulo continua "Desconectado" e a próxima vem 0,5 s depois.
+    WebSocketFalso.instancias[1]!.close();
+    expect(estado().conexao.estado).toBe('DESCONECTADO');
+    vi.advanceTimersByTime(499);
+    expect(WebSocketFalso.instancias).toHaveLength(2);
+    vi.advanceTimersByTime(1);
+    expect(WebSocketFalso.instancias).toHaveLength(3);
+
+    // O recuo para no teto de 2 s (RNF-39).
+    WebSocketFalso.instancias[2]!.close();
+    vi.advanceTimersByTime(1000);
+    WebSocketFalso.instancias[3]!.close();
+    vi.advanceTimersByTime(2000);
+    WebSocketFalso.instancias[4]!.close();
+    vi.advanceTimersByTime(2000);
+    expect(WebSocketFalso.instancias).toHaveLength(6);
+    expect(estado().conexao.estado).toBe('DESCONECTADO');
+  });
+
+  it('offline, mas o backend responde (localhost): o socket abre e o painel volta a "Conectado"', () => {
+    vi.useFakeTimers();
+    ws.receber(aoVivo());
+    ficarOffline();
+    vi.advanceTimersByTime(250);
+
+    const novo = WebSocketFalso.instancias[1]!;
+    novo.abrir();
+
+    expect(estado().conexao.estado).toBe('CONECTADO');
+    expect(novo.enviadas).toEqual([
+      { tipo: 'inscrever', canal: 'ao_vivo' },
+      { tipo: 'inscrever', corrida: CORRIDA },
+    ]);
+  });
+
+  it('depois de reconectar com o navegador ainda offline, uma queda volta a ser "Reconectando"', () => {
+    vi.useFakeTimers();
+    ficarOffline();
+    vi.advanceTimersByTime(250);
+    WebSocketFalso.instancias[1]!.abrir();
+
+    WebSocketFalso.instancias[1]!.close();
+
+    expect(estado().conexao.estado).toBe('RECONECTANDO');
+  });
+
+  it('online depois de offline: reconecta na hora, sem esperar o recuo', () => {
+    vi.useFakeTimers();
+    ficarOffline();
+
+    voltarOnline();
+
+    expect(WebSocketFalso.instancias).toHaveLength(2);
+    expect(estado().conexao.estado).toBe('RECONECTANDO');
+    WebSocketFalso.instancias[1]!.abrir();
+    expect(estado().conexao.estado).toBe('CONECTADO');
+
+    // A tentativa que estava agendada pelo offline não abre uma terceira conexão.
+    vi.advanceTimersByTime(5000);
+    expect(WebSocketFalso.instancias).toHaveLength(2);
+  });
+
+  it('online com uma tentativa do offline em curso: só troca o rótulo, sem abrir outra conexão', () => {
+    vi.useFakeTimers();
+    ficarOffline();
+    vi.advanceTimersByTime(250);
+    expect(WebSocketFalso.instancias).toHaveLength(2);
+
+    voltarOnline();
+
+    expect(WebSocketFalso.instancias).toHaveLength(2);
+    expect(estado().conexao.estado).toBe('RECONECTANDO');
+  });
+
+  it('online com uma tentativa agendada pela queda: antecipa a tentativa', () => {
+    vi.useFakeTimers();
+    ws.close();
+    expect(estado().conexao.estado).toBe('RECONECTANDO');
+    expect(WebSocketFalso.instancias).toHaveLength(1);
+
+    voltarOnline();
+
+    expect(WebSocketFalso.instancias).toHaveLength(2);
+    vi.advanceTimersByTime(5000);
+    expect(WebSocketFalso.instancias).toHaveLength(2);
+  });
+
+  it('online com a conexão já aberta não abre outra', () => {
+    voltarOnline();
+    expect(WebSocketFalso.instancias).toHaveLength(1);
+    expect(estado().conexao.estado).toBe('CONECTADO');
+  });
+
+  it('ao voltar a rede no meio da corrida, inscreve-se de novo no canal e na corrida', () => {
+    ws.receber(aoVivo());
+    ficarOffline();
+    voltarOnline();
+
+    const novo = WebSocketFalso.instancias[1]!;
+    novo.abrir();
+    expect(novo.enviadas).toEqual([
+      { tipo: 'inscrever', canal: 'ao_vivo' },
+      { tipo: 'inscrever', corrida: CORRIDA },
+    ]);
+  });
+
+  it('com navigator.onLine falso na abertura, a primeira conexão é tentada mesmo assim', () => {
+    vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false);
+    const outro = new ClientePainelWS('ws://teste/ws/painel');
+
+    outro.iniciar();
+
+    // Uma conexão do beforeEach e a deste cliente; o rótulo espera pela dica de rede.
+    expect(WebSocketFalso.instancias).toHaveLength(2);
+    expect(estado().conexao.estado).toBe('DESCONECTADO');
+
+    WebSocketFalso.instancias[1]!.abrir();
+    expect(estado().conexao.estado).toBe('CONECTADO');
+    outro.parar();
+  });
+
+  it('depois de parar(), os eventos de rede não fazem nada', () => {
+    cliente.parar();
+
+    voltarOnline();
+    ficarOffline();
+
+    expect(WebSocketFalso.instancias).toHaveLength(1);
+  });
+});
+
 describe('reconexão', () => {
   it('após a queda no meio da corrida, volta a se inscrever no canal e na corrida (RF-89)', () => {
     vi.useFakeTimers();

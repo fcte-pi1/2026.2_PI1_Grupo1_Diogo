@@ -66,32 +66,55 @@ test.describe('verificações de tela', () => {
     });
   }
 
-  // RNF-46: os seis dados obrigatórios (HU-FE-01) com texto de pelo menos 24 px a 1920 × 1080.
-  // Hoje só o cronômetro passa (30 px); os demais têm de 10 a 11 px (#424). `test.fail` passa
-  // enquanto isso acontece e vai falhar no dia em que a #424 for corrigida: nesse dia, troque
-  // por `test`.
-  test.fail(
-    'os dados obrigatórios têm texto de pelo menos 24 px a 1920 × 1080 (RNF-46)',
-    async ({ page }) => {
-      await page.setViewportSize({ width: 1920, height: 1080 });
-      await abrirAoVivo(page);
+  // Os dados obrigatórios (HU-FE-01) da tela: tipo de labirinto, cronômetro, status, velocidade,
+  // células, distância, tensão, corrente e potência. Dados que a tela mostra com o mesmo
+  // `data-testid` ao vivo e no histórico.
+  const dadosObrigatorios = (page: Page) => ({
+    tipo: page.getByTestId('tipo-labirinto'),
+    tempo: page.getByTestId('tempo'),
+    status: page.getByTestId('status-desafio'),
+    velocidade: page.getByTestId('velocidade-media'),
+    celulas: page.getByTestId('celulas-percorridas'),
+    distancia: page.getByTestId('distancia-total'),
+    tensao: page.getByTestId('tensao'),
+    corrente: page.getByTestId('corrente'),
+    potencia: page.getByTestId('potencia'),
+  });
 
-      const painel = page.getByTestId('painel-execucao');
-      const dados = {
-        tipo: painel.getByText('12x4', { exact: true }).first(),
-        tempo: page.getByTestId('tempo'),
-        status: page.getByTestId('status-desafio'),
-        velocidade: page.getByTestId('velocidade-media'),
-        tensao: painel.getByText('8,1 V', { exact: true }).first(),
-        corrente: painel.getByText('0,4 A', { exact: true }).first(),
-        potencia: painel.getByText('3,2 W', { exact: true }).first(),
-      };
-      for (const [nome, local] of Object.entries(dados)) {
-        const altura = await local.evaluate((el) => parseFloat(getComputedStyle(el).fontSize));
-        expect.soft(altura, nome).toBeGreaterThanOrEqual(24);
-      }
-    },
-  );
+  // RNF-46: os dados obrigatórios com texto de pelo menos 24 px a 1920 × 1080.
+  test('os dados obrigatórios têm texto de pelo menos 24 px a 1920 × 1080 (RNF-46)', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1920, height: 1080 });
+    await abrirAoVivo(page);
+
+    for (const [nome, local] of Object.entries(dadosObrigatorios(page))) {
+      await expect(local, nome).toBeVisible();
+      const altura = await local.evaluate((el) => parseFloat(getComputedStyle(el).fontSize));
+      expect.soft(altura, nome).toBeGreaterThanOrEqual(24);
+    }
+  });
+
+  // RNF-44 com o texto de 24 px: nenhum dado sai do próprio cartão nem da tela a 360 px.
+  test('os dados de 24 px cabem no cartão e na tela a 360 px (RNF-44)', async ({ page }) => {
+    await page.setViewportSize({ width: 360, height: 900 });
+    await abrirAoVivo(page);
+
+    for (const [nome, local] of Object.entries(dadosObrigatorios(page))) {
+      const cabe = await local.evaluate((el) => {
+        const caixa = el.getBoundingClientRect();
+        const cartao = el.closest('article')!.getBoundingClientRect();
+        return {
+          dentroDoCartao: caixa.left >= cartao.left - 0.5 && caixa.right <= cartao.right + 0.5,
+          dentroDaTela: caixa.right <= document.documentElement.clientWidth + 0.5,
+        };
+      });
+      expect.soft(cabe.dentroDoCartao, `${nome} dentro do cartão`).toBe(true);
+      expect.soft(cabe.dentroDaTela, `${nome} dentro da tela`).toBe(true);
+    }
+    const largura = await larguraDaPagina(page);
+    expect(largura.rolagem, 'rolagem horizontal').toBeLessThanOrEqual(largura.visivel);
+  });
 
   // RNF-42: pronta para uso em até 3 s. Aqui no servidor de desenvolvimento local; a meta vale
   // para o build servido pelo backend numa rede Wi-Fi, que não é medido por este teste.

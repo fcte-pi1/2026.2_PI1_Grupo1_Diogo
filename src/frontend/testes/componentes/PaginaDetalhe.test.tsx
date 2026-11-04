@@ -76,7 +76,7 @@ describe('PaginaDetalhe — abrir uma execução (HU-FE-11 / CT-FE-11)', () => {
     expect(screen.getByTestId('celulas-percorridas')).toHaveTextContent('45');
     expect(screen.getByTestId('distancia-total')).toHaveTextContent('8,1 m');
     expect(screen.getByTestId('velocidade-media')).toHaveTextContent('0,09 m/s');
-    expect(screen.getByTestId('carga-estimada')).toHaveTextContent('72%');
+    expect(screen.getByTestId('carga-estimada')).toHaveTextContent('72,0%');
     expect(screen.getByTestId('variacao-tensao')).toHaveTextContent('0,4 V');
     expect(screen.getByTestId('desafio')).toHaveTextContent('Concluído');
     expect(screen.getByTestId('status-desafio')).toHaveTextContent('Concluída');

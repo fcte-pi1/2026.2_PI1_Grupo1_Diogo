@@ -13,10 +13,6 @@ import estilos from './PaginaAoVivo.module.css';
 
 type ModoVisualizacao = 'ao-vivo' | 'depuracao';
 
-function HistoricoVazio() {
-  return <div className={estilos.historicoVazio}>Nenhuma execução armazenada disponível.</div>;
-}
-
 export function PaginaAoVivo() {
   const navegar = useNavigate();
   const [modo, definirModo] = useState<ModoVisualizacao>('ao-vivo');
@@ -82,27 +78,7 @@ export function PaginaAoVivo() {
             <ItemAlerta tom="ok" titulo="Banco de dados" descricao={saude.banco} />
           </>
         }
-      >
-        <article className={estilos.painelHistorico}>
-          <div className={estilos.cabecalhoPainel}>
-            <h3>Histórico de Tentativas</h3>
-            <div className={estilos.filtros}>
-              <button className={estilos.filtroAtivo}>Todos</button>
-              <button className={estilos.filtro}>4×4</button>
-              <button className={estilos.filtro}>8×4</button>
-              <button className={estilos.filtro}>12×4</button>
-            </div>
-          </div>
-          <div className={estilos.tabelaCabecalho}>
-            <span>Tentativa</span>
-            <span>Data e hora</span>
-            <span>Labirinto</span>
-            <span>Duração</span>
-            <span>Resultado</span>
-          </div>
-          <HistoricoVazio />
-        </article>
-      </PainelExecucao>
+      />
     </section>
   );
 }

@@ -7,6 +7,13 @@ export function formatarNumero(valor: number | null, unidade: string): string {
     : `${valor.toLocaleString('pt-BR', { maximumFractionDigits: 2 })} ${unidade}`;
 }
 
+/** Percentual no padrão pt-BR, sempre com uma casa (ex.: 87,5%); traço quando não há valor. */
+export function formatarPercentual(valor: number | null): string {
+  return valor === null
+    ? '—'
+    : `${valor.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`;
+}
+
 export function formatarTempo(tempoMs: number | null): string {
   return formatarTempoCorrida(tempoMs);
 }

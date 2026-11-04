@@ -1,4 +1,23 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
+/*
+ * Fontes servidas pelo próprio build (RNF-41): a apresentação roda em rede isolada, sem acesso
+ * a CDN. Arquivos em public/fontes (Inter e JetBrains Mono, licença OFL, subconjunto latin,
+ * que cobre a acentuação do português). Sem o arquivo, cai nas fontes do sistema.
+ */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url('/fontes/inter-latin-wght-normal.woff2') format('woff2-variations');
+}
+
+@font-face {
+  font-family: 'JetBrains Mono';
+  font-style: normal;
+  font-weight: 100 800;
+  font-display: swap;
+  src: url('/fontes/jetbrains-mono-latin-wght-normal.woff2') format('woff2-variations');
+}
 
 /* Tokens visuais alinhados ao protótipo do painel. */
 :root {

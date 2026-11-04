@@ -35,7 +35,7 @@ test.describe('detalhe de uma execução', () => {
     await expect(page.getByTestId('celulas-percorridas')).toHaveText('45');
     await expect(page.getByTestId('distancia-total')).toHaveText('8,1 m');
     await expect(page.getByTestId('velocidade-media')).toHaveText('0,09 m/s');
-    await expect(page.getByTestId('carga-estimada')).toHaveText('72%');
+    await expect(page.getByTestId('carga-estimada')).toHaveText('72,0%');
     await expect(page.getByTestId('variacao-tensao')).toHaveText('0,4 V');
     await expect(page.getByTestId('labirinto')).toBeVisible();
     await expect(page.getByTestId('trajetoria')).toBeAttached();
