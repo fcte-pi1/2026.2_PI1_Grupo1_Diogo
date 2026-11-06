@@ -97,9 +97,13 @@ ReadingKind classifyReading(bool transferOk, bool fresh, Vl53l1x::RangeStatus st
             return ReadingKind::Distance;
         case Vl53l1x::RangeStatus::SignalFail:       // nenhum alvo devolveu sinal
         case Vl53l1x::RangeStatus::OutOfBoundsFail:  // nada no alcance do modo
-        case Vl53l1x::RangeStatus::SigmaFail:        // medida imprecisa demais (alvo longe)
-        case Vl53l1x::RangeStatus::WrapTargetFail:   // alvo além do alcance, "dobrado"
             return ReadingKind::NoTarget;
+        // SigmaFail (medida imprecisa) e WrapTargetFail (alvo "dobrado") também aparecem com parede
+        // escura, brilhante, inclinada ou com luz forte: não se sabe se há parede. Tratar como lado
+        // aberto mandaria o robô contra ela (revisão do #438). Num 4x4 o maior vão (~720 mm) cabe
+        // no modo curto, então "sem alvo" de verdade deve ser raro.
+        case Vl53l1x::RangeStatus::SigmaFail:
+        case Vl53l1x::RangeStatus::WrapTargetFail:
         default:  // HardwareFail, None, XtalkSignalFail, SynchronizationInt
             return ReadingKind::Fault;
     }
@@ -204,35 +208,42 @@ bool Vl53l1x::init(bool io2v8) {
     return lastOk_;
 }
 
+void Vl53l1x::noteTransfer(bool ok) noexcept {
+    lastOk_ = ok;
+    if (!ok) {
+        anyFailed_ = true;
+    }
+}
+
 void Vl53l1x::writeReg(uint16_t reg, uint8_t value) {
     const uint8_t data[3] = {static_cast<uint8_t>(reg >> 8), static_cast<uint8_t>(reg), value};
-    lastOk_ = bus_.write(address_, data, sizeof(data));
+    noteTransfer(bus_.write(address_, data, sizeof(data)));
 }
 
 void Vl53l1x::writeReg16(uint16_t reg, uint16_t value) {
     const uint8_t data[4] = {static_cast<uint8_t>(reg >> 8), static_cast<uint8_t>(reg),
                              static_cast<uint8_t>(value >> 8), static_cast<uint8_t>(value)};
-    lastOk_ = bus_.write(address_, data, sizeof(data));
+    noteTransfer(bus_.write(address_, data, sizeof(data)));
 }
 
 void Vl53l1x::writeReg32(uint16_t reg, uint32_t value) {
     const uint8_t data[6] = {static_cast<uint8_t>(reg >> 8),    static_cast<uint8_t>(reg),
                              static_cast<uint8_t>(value >> 24), static_cast<uint8_t>(value >> 16),
                              static_cast<uint8_t>(value >> 8),  static_cast<uint8_t>(value)};
-    lastOk_ = bus_.write(address_, data, sizeof(data));
+    noteTransfer(bus_.write(address_, data, sizeof(data)));
 }
 
 uint8_t Vl53l1x::readReg(uint16_t reg) {
     const uint8_t tx[2] = {static_cast<uint8_t>(reg >> 8), static_cast<uint8_t>(reg)};
     uint8_t value = 0;
-    lastOk_ = bus_.writeRead(address_, tx, sizeof(tx), &value, 1);
+    noteTransfer(bus_.writeRead(address_, tx, sizeof(tx), &value, 1));
     return value;
 }
 
 uint16_t Vl53l1x::readReg16(uint16_t reg) {
     const uint8_t tx[2] = {static_cast<uint8_t>(reg >> 8), static_cast<uint8_t>(reg)};
     uint8_t rx[2] = {};
-    lastOk_ = bus_.writeRead(address_, tx, sizeof(tx), rx, sizeof(rx));
+    noteTransfer(bus_.writeRead(address_, tx, sizeof(tx), rx, sizeof(rx)));
     return static_cast<uint16_t>((rx[0] << 8) | rx[1]);
 }
 
@@ -395,7 +406,7 @@ void Vl53l1x::readResults() {
     const uint8_t tx[2] = {static_cast<uint8_t>(RESULT__RANGE_STATUS >> 8),
                            static_cast<uint8_t>(RESULT__RANGE_STATUS)};
     uint8_t rx[17] = {};
-    lastOk_ = bus_.writeRead(address_, tx, sizeof(tx), rx, sizeof(rx));
+    noteTransfer(bus_.writeRead(address_, tx, sizeof(tx), rx, sizeof(rx)));
 
     auto word = [&rx](int index) { return static_cast<uint16_t>((rx[index] << 8) | rx[index + 1]); };
     results_.rangeStatus = rx[0];

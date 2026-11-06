@@ -1,7 +1,9 @@
 #include "adapters/Vl53l1xSensorAdapter.hpp"
 
-#include "adapters/BoardPins.hpp"
 #include <cstdio>
+
+#include "adapters/BoardPins.hpp"
+#include "sdkconfig.h"
 
 #include "esp_log.h"
 
@@ -49,13 +51,17 @@ bool Vl53l1xSensorAdapter::bringUp(Slot& slot) {
         if (!sensor.init()) {
             continue;
         }
+        // Qualquer NACK na configuração deixa o sensor mal ajustado: não basta olhar a última
+        // transação (revisão do #438).
+        sensor.clearTransferErrors();
         if (sensor.address() != slot.address) {
             sensor.setAddress(slot.address);
         }
-        sensor.setDistanceMode(drivers::Vl53l1x::DistanceMode::Short);
-        sensor.setMeasurementTimingBudget(kTimingBudgetUs);
+        const bool configured =
+            sensor.setDistanceMode(drivers::Vl53l1x::DistanceMode::Short) &&
+            sensor.setMeasurementTimingBudget(kTimingBudgetUs);
         sensor.startContinuous(kPeriodMs);
-        if (sensor.lastTransferOk()) {
+        if (configured && !sensor.transferFailedSinceClear()) {
             ESP_LOGI(kTag, "%s pronto em 0x%02X", slot.name, slot.address);
             return true;
         }
@@ -95,22 +101,23 @@ void Vl53l1xSensorAdapter::begin(i2c_master_bus_handle_t bus) {
     }
 }
 
-// Lê um sensor. Com waitFresh (ao sentir as paredes), espera uma medida nova; se ela não vier no
-// prazo, ou se o sensor não responder, a leitura é FALHA, e não a parede da célula anterior.
-Vl53l1xSensorAdapter::Reading Vl53l1xSensorAdapter::poll(Slot& slot, bool waitFresh) const {
+// Lê um sensor, sem esperar. Com requireFresh (ao sentir as paredes), a falta de uma medida nova
+// é FALHA, e não a parede da célula anterior.
+Vl53l1xSensorAdapter::Reading Vl53l1xSensorAdapter::poll(Slot& slot, bool requireFresh) const {
     if (!slot.sensor) {
+#if CONFIG_RATO_BANCADA
+        // Modo bancada: a placa não tem ToF e a corrida simulada percorre o labirinto aberto. Sem
+        // isto, "sem sensor" viraria falha, ou seja, parede nos três lados, e a corrida nunca
+        // chegaria ao objetivo (revisão do #438).
+        slot.last = {kNoReadingMm, drivers::Vl53l1x::RangeStatus::None,
+                     drivers::ReadingKind::NoTarget};
+#else
         slot.last = {};
+#endif
         return slot.last;
     }
     drivers::Vl53l1x& sensor = *slot.sensor;
-    bool ready = sensor.dataReady();
-    if (waitFresh) {
-        const uint32_t start = regBus_.millis();
-        while (!ready && regBus_.millis() - start < kFreshTimeoutMs) {
-            regBus_.delayMs(1);
-            ready = sensor.dataReady();
-        }
-    }
+    const bool ready = sensor.dataReady();
     if (ready) {
         const uint16_t mm = sensor.read(false);
         const drivers::Vl53l1x::RangeStatus status = sensor.rangingData().status;
@@ -132,7 +139,7 @@ Vl53l1xSensorAdapter::Reading Vl53l1xSensorAdapter::poll(Slot& slot, bool waitFr
                 slot.last = {kFaultMm, status, kind};
                 break;
         }
-    } else if (waitFresh) {
+    } else if (requireFresh) {
         // Nenhuma medida nova no prazo (ou o sensor parou de responder).
         slot.last = {kFaultMm, drivers::Vl53l1x::RangeStatus::None, drivers::ReadingKind::Fault};
     }
@@ -156,7 +163,9 @@ bool Vl53l1xSensorAdapter::allReady() const {
 }
 
 Vl53l1xSensorAdapter::Reading Vl53l1xSensorAdapter::reading(Side side) const {
-    return poll(slots_[static_cast<size_t>(side)], false);
+    // A última medida, sem consumir uma nova (assim a coluna de mm e a de parede do comando `tof`
+    // vêm da mesma medida). Revisão do #438.
+    return slots_[static_cast<size_t>(side)].last;
 }
 
 ports::WallsAhead Vl53l1xSensorAdapter::sense() const {
@@ -168,6 +177,21 @@ ports::WallsAhead Vl53l1xSensorAdapter::sense() const {
         if (slot.sensor && slot.sensor->dataReady()) {
             (void)slot.sensor->read(false);
         }
+    }
+    // Um prazo único para os três: os sensores medem ao mesmo tempo, e um com defeito não soma o
+    // seu timeout aos dos outros (antes, 3 x 150 ms por célula no pior caso).
+    const uint32_t start = regBus_.millis();
+    for (;;) {
+        bool allReadyNow = true;
+        for (Slot& slot : slots_) {
+            if (slot.sensor && !slot.sensor->dataReady()) {
+                allReadyNow = false;
+            }
+        }
+        if (allReadyNow || regBus_.millis() - start >= kFreshTimeoutMs) {
+            break;
+        }
+        regBus_.delayMs(1);
     }
     const Reading left = poll(slots_[static_cast<size_t>(Side::Left)], true);
     const Reading front = poll(slots_[static_cast<size_t>(Side::Front)], true);
@@ -197,7 +221,9 @@ ports::WallsAhead Vl53l1xSensorAdapter::sense() const {
                       right.kind == drivers::ReadingKind::Fault ? " direito" : "");
         ESP_LOGW(kTag, "%s", faultSummary_);
     }
-    return {wall(front), wall(left), wall(right)};
+    auto unknown = [](const Reading& reading) { return reading.kind == drivers::ReadingKind::Fault; };
+    return {wall(front),    wall(left),    wall(right),
+            unknown(front), unknown(left), unknown(right)};
 }
 
 }  // namespace micromouse::adapters

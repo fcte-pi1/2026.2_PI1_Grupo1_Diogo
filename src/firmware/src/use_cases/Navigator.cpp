@@ -35,9 +35,31 @@ bool Navigator::stuck() const noexcept { return stuck_; }
 
 void Navigator::senseAndRecord() {
     const ports::WallsAhead wall = sensor_.sense();
-    maze_.setWall(position_, heading_, wall.front ? Wall::Present : Wall::Open);
-    maze_.setWall(position_, turnLeft(heading_), wall.left ? Wall::Present : Wall::Open);
-    maze_.setWall(position_, turnRight(heading_), wall.right ? Wall::Present : Wall::Open);
+    lastSense_ = wall;
+    // Um lado em falha (NACK, medida atrasada) não grava nada: uma parede falsa ficaria no mapa
+    // até o fim da corrida e podia fechar o único caminho (revisão do #438).
+    if (!wall.frontUnknown) {
+        maze_.setWall(position_, heading_, wall.front ? Wall::Present : Wall::Open);
+    }
+    if (!wall.leftUnknown) {
+        maze_.setWall(position_, turnLeft(heading_), wall.left ? Wall::Present : Wall::Open);
+    }
+    if (!wall.rightUnknown) {
+        maze_.setWall(position_, turnRight(heading_), wall.right ? Wall::Present : Wall::Open);
+    }
+}
+
+// O lado "direction" da célula atual não foi visto agora e o mapa não sabe nada sobre ele.
+bool Navigator::wasUnseen(Direction direction) const {
+    bool unseen = false;
+    if (direction == heading_) {
+        unseen = lastSense_.frontUnknown;
+    } else if (direction == turnLeft(heading_)) {
+        unseen = lastSense_.leftUnknown;
+    } else if (direction == turnRight(heading_)) {
+        unseen = lastSense_.rightUnknown;
+    }
+    return unseen && maze_.getWall(position_, direction) == Wall::Unknown;
 }
 
 void Navigator::applyTurnTo(Direction target) {
@@ -74,6 +96,10 @@ void Navigator::step() {
             return;
         }
     }
+
+    // Não avança por um lado que o sensor não viu: espera a próxima leitura. Se a falha persistir,
+    // o SensorHealthMonitor do laço da corrida leva ao Erro.
+    if (wasUnseen(*nextDir)) return;
 
     applyTurnTo(*nextDir);
     motion_.advanceCell();

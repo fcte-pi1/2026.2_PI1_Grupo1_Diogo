@@ -75,6 +75,8 @@ private:
     IRegisterBus& bus_;
     uint8_t address_;
     bool lastOk_{true};
+    bool anyFailed_{false};
+    void noteTransfer(bool ok) noexcept;
     uint16_t timeoutMs_{0};
     bool didTimeout_{false};
     uint32_t timeoutStartMs_{0};
@@ -134,6 +136,10 @@ public:
     bool timeoutOccurred();
     // True se a última transação I²C foi aceita pelo sensor.
     [[nodiscard]] bool lastTransferOk() const noexcept { return lastOk_; }
+    // Algum NACK desde o último clearTransferErrors(). lastTransferOk() só vê a última transação:
+    // um NACK no meio de uma configuração (endereço, modo, timing budget) passaria despercebido.
+    [[nodiscard]] bool transferFailedSinceClear() const noexcept { return anyFailed_; }
+    void clearTransferErrors() noexcept { anyFailed_ = false; }
 
     // Acesso a registradores (16 bits de endereço, valores big-endian).
     void writeReg(uint16_t reg, uint8_t value);

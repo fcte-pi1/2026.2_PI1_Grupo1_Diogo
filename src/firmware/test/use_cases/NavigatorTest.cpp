@@ -1,6 +1,8 @@
 #include <gtest/gtest.h>
 
 #include "domain/Maze.hpp"
+#include "ports/MotionPort.hpp"
+#include "ports/SensorPort.hpp"
 #include "simulation/SimulatedRobot.hpp"
 #include "use_cases/Navigator.hpp"
 
@@ -141,6 +143,53 @@ TEST(Navigator, ReroutesWhenDiscoveringWall) {
     EXPECT_EQ(navigator.getPosition(), (Position{0, 3}));
     EXPECT_TRUE(known.isBlocked({0, 1}, Direction::East));
     EXPECT_GT(robot.advances(), 3);
+}
+
+// Robô simulado cujo sensor frontal falha nas primeiras leituras (NACK, medida atrasada).
+class FlakyFrontRobot final : public ports::ISensorPort, public ports::IMotionPort {
+private:
+    SimulatedRobot robot_;
+    mutable int failures_;
+
+public:
+    FlakyFrontRobot(const MazeMap& truth, Position start, Direction heading, int failures)
+        : robot_(truth, start, heading), failures_(failures) {}
+    [[nodiscard]] ports::WallsAhead sense() const override {
+        ports::WallsAhead walls = robot_.sense();
+        if (failures_ > 0) {
+            --failures_;
+            walls.front = true;  // falha conta como parede, mas não pode ir para o mapa
+            walls.frontUnknown = true;
+        }
+        return walls;
+    }
+    void advanceCell() override { robot_.advanceCell(); }
+    void turnLeft() override { robot_.turnLeft(); }
+    void turnRight() override { robot_.turnRight(); }
+    void turnAround() override { robot_.turnAround(); }
+    [[nodiscard]] const SimulatedRobot& robot() const { return robot_; }
+};
+
+// Uma falha passageira do sensor não vira parede no mapa (que ficaria até o fim da corrida) e o
+// robô não avança às cegas: espera a próxima leitura e segue (revisão do #438).
+TEST(Navigator, TransientSensorFaultDoesNotRecordAWallNorAdvanceBlindly) {
+    MazeMap known(4, 4);
+    MazeMap truth(4, 4);
+    truth.initKnownPerimeter();
+    known.initKnownPerimeter();
+
+    FlakyFrontRobot robot(truth, {3, 0}, Direction::North, /*failures=*/2);
+    Navigator navigator(known, robot, robot, {3, 0}, Direction::North, {{0, 0}});
+
+    navigator.step();  // frente em falha: não grava parede e não anda
+    EXPECT_EQ(known.getWall({3, 0}, Direction::North), Wall::Unknown);
+    EXPECT_EQ(robot.robot().advances(), 0);
+    navigator.step();  // falha de novo
+    EXPECT_EQ(robot.robot().advances(), 0);
+    navigator.step();  // sensor volta: lê "aberto" e avança
+    EXPECT_EQ(known.getWall({3, 0}, Direction::North), Wall::Open);
+    EXPECT_EQ(robot.robot().advances(), 1);
+    EXPECT_FALSE(navigator.stuck());
 }
 
 // Paredes lidas errado (guardadas no mapa) fecham todos os caminhos: o navegador esquece o que

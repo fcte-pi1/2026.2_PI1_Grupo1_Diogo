@@ -45,7 +45,7 @@ private:
     mutable char faultSummary_[48]{};
 
     bool bringUp(Slot& slot);
-    Reading poll(Slot& slot, bool waitFresh) const;
+    Reading poll(Slot& slot, bool requireFresh) const;
     [[nodiscard]] int rangeMm(Side side) const;
 
 public:
@@ -61,7 +61,7 @@ public:
     // Quais sensores falharam no último sense() (vazio se nenhum), para o motivo do fim da corrida.
     [[nodiscard]] const char* faultSummary() const noexcept { return faultSummary_; }
     [[nodiscard]] bool ready(Side side) const;
-    [[nodiscard]] Reading reading(Side side) const;  // última medida, sem esperar uma nova
+    [[nodiscard]] Reading reading(Side side) const;  // última medida guardada, não lê uma nova
 
     // Distâncias em mm. Públicas para o firmware de diagnóstico (esp32-diagnostico/).
     [[nodiscard]] int rangeFrontMm() const;

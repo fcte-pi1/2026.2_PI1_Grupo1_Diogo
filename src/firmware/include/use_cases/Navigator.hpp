@@ -27,8 +27,10 @@ private:
     Direction heading_;
     std::vector<Position> goals_;
     bool stuck_{false};
+    ports::WallsAhead lastSense_{};  // última leitura, com os lados que falharam
     void senseAndRecord();
     void applyTurnTo(Direction target);
+    [[nodiscard]] bool wasUnseen(Direction direction) const;
 
 public:
     Navigator(MazeMap& maze, ISensorPort& sensor, IMotionPort& motion, Position start,

@@ -269,14 +269,35 @@ TEST(Vl53l1x, ClassifiesDistanceNoTargetAndFault) {
     // sem alvo: o sensor mediu e não achou nada (corredor aberto)
     EXPECT_EQ(classifyReading(true, true, S::SignalFail), ReadingKind::NoTarget);
     EXPECT_EQ(classifyReading(true, true, S::OutOfBoundsFail), ReadingKind::NoTarget);
-    EXPECT_EQ(classifyReading(true, true, S::SigmaFail), ReadingKind::NoTarget);
-    EXPECT_EQ(classifyReading(true, true, S::WrapTargetFail), ReadingKind::NoTarget);
-    // falha: não se sabe nada
+    // falha: não se sabe nada. SigmaFail e WrapTargetFail também aparecem com parede escura,
+    // brilhante, inclinada ou com luz forte, então não valem "lado aberto" (revisão do #438)
+    EXPECT_EQ(classifyReading(true, true, S::SigmaFail), ReadingKind::Fault);
+    EXPECT_EQ(classifyReading(true, true, S::WrapTargetFail), ReadingKind::Fault);
     EXPECT_EQ(classifyReading(true, true, S::HardwareFail), ReadingKind::Fault);
     EXPECT_EQ(classifyReading(true, true, S::None), ReadingKind::Fault);
     EXPECT_EQ(classifyReading(true, true, S::XtalkSignalFail), ReadingKind::Fault);
     // alvo colado no sensor: é parede (visto na pista com o robô encostado na parede lateral)
     EXPECT_EQ(classifyReading(true, true, S::MinRangeFail), ReadingKind::Distance);
+}
+
+// lastTransferOk() só vê a última transação: um NACK no meio da configuração (endereço, modo, timing
+// budget) passava despercebido. O erro "pegajoso" fica até clearTransferErrors() (revisão do #438).
+TEST(Vl53l1x, TransferErrorSticksUntilCleared) {
+    FakeVl53l1xBus bus;
+    Vl53l1x sensor(bus);
+    ASSERT_TRUE(sensor.init());
+    sensor.clearTransferErrors();
+    EXPECT_FALSE(sensor.transferFailedSinceClear());
+
+    bus.present = false;
+    (void)sensor.setMeasurementTimingBudget(50000);  // NACK no meio da configuração
+    bus.present = true;
+    (void)sensor.setDistanceMode(Vl53l1x::DistanceMode::Short);  // a última transação deu certo
+    EXPECT_TRUE(sensor.lastTransferOk());
+    EXPECT_TRUE(sensor.transferFailedSinceClear());
+
+    sensor.clearTransferErrors();
+    EXPECT_FALSE(sensor.transferFailedSinceClear());
 }
 
 TEST(Vl53l1x, MissingTransferOrStaleDataIsFaultEvenWithValidStatus) {
