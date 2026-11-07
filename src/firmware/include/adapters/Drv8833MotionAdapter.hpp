@@ -29,6 +29,7 @@ private:
     const Vl53l1xSensorAdapter* walls_{nullptr};  // RF-44: só com enableWallCentering()
     bool lastMoveOk_{true};
     const char* lastMoveName_{"nenhum"};
+    const char* lastMoveFailure_{""};  // por que o último movimento falhou (vazio se não falhou)
     // Retrato do fim do último movimento, para o motivo de uma falha (corrida na bateria, sem
     // cabo: é o único jeito de saber se as rodas giraram e se os encoders contaram).
     long endLeftCount_{0};
@@ -52,9 +53,12 @@ public:
     void turnRight() override;
     void turnAround() override;
 
-    // False se o último movimento estourou o tempo limite: a roda não girou (motor travado, roda
-    // solta, robô suspenso sem os encoders contarem). O laço da navegação leva ao estado Erro.
+    // False se o último movimento falhou: estourou o tempo limite (motor travado, roda solta, robô
+    // suspenso sem os encoders contarem) ou, na reta, uma roda ficou parada enquanto a outra
+    // andava. O laço da navegação leva ao estado Erro.
     [[nodiscard]] bool lastMoveOk() const noexcept { return lastMoveOk_; }
+    // Por que o último movimento falhou: "tempo de 3 s esgotado" ou "roda esquerda parada".
+    [[nodiscard]] const char* lastMoveFailure() const noexcept { return lastMoveFailure_; }
     // O último movimento feito ("andar 1 celula", "curva de 90 graus", "meia-volta").
     [[nodiscard]] const char* lastMoveName() const noexcept { return lastMoveName_; }
     // Pulsos de cada encoder e potência mandada a cada motor no fim do último movimento.

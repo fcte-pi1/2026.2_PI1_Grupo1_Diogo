@@ -255,15 +255,15 @@ void navigationTask(void*) {
                 ESP_LOGE(kTag, "%s", failure);
                 break;
             }
-            // Um movimento que não termina no tempo (motor travado, roda solta) leva ao Erro,
-            // em vez de o robô esperar para sempre ou seguir com o mapa errado.
+            // Um movimento que não termina no tempo (motor travado, roda solta) ou com uma roda
+            // parada leva ao Erro, em vez de o robô esperar para sempre ou seguir com o mapa errado.
             if (!gMotion.lastMoveOk()) {
                 char move[64];
                 gMotion.describeLastMove(move, sizeof move);
                 using Side = adapters::Vl53l1xSensorAdapter::Side;
                 std::snprintf(failure, sizeof failure,
-                              "%s nao terminou em 3 s: %s. tof E=%d F=%d D=%d %s",
-                              gMotion.lastMoveName(), move, gSensor.reading(Side::Left).mm,
+                              "%s falhou (%s): %s. tof E=%d F=%d D=%d %s", gMotion.lastMoveName(),
+                              gMotion.lastMoveFailure(), move, gSensor.reading(Side::Left).mm,
                               gSensor.reading(Side::Front).mm, gSensor.reading(Side::Right).mm,
                               gSensor.faultSummary());
                 ESP_LOGE(kTag, "%s", failure);

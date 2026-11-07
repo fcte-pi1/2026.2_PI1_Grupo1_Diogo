@@ -55,6 +55,7 @@ add_library(firmware_logic STATIC
     src/domain/BuzzerPattern.cpp
     src/domain/Pid.cpp
     src/domain/WallCentering.cpp
+    src/domain/WheelStall.cpp
     src/controller/MotionController.cpp
     src/protocol/ProtocolV1.cpp
     src/telemetry/TelemetryBuffer.cpp

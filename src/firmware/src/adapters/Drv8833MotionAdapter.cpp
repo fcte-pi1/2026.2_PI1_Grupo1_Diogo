@@ -23,6 +23,7 @@ uint32_t elapsedMsSince(TickType_t start) {
 // Tempo máximo de um movimento (uma célula ou uma curva). No teste de 04/11, uma célula levou
 // ~0,5 s; sem limite, uma curva que não terminava (robô no ar, rodas paradas) esperou 92 s.
 constexpr uint32_t kMoveTimeoutMs = 3000;
+constexpr char kTimeoutFailure[] = "tempo de 3 s esgotado";
 
 // Potências (fração da tensão da bateria). As da reta ficam em domain/RobotParameters.hpp (0,70 e
 // teto 0,85), junto dos ganhos, para a simulação do host usar os mesmos valores. Em 04/11, com 0,40
@@ -66,14 +67,26 @@ void Drv8833MotionAdapter::advanceCell() {
     uint32_t lastWallPollMs = 0;
     const TickType_t start = xTaskGetTickCount();
     lastMoveOk_ = true;
+    lastMoveFailure_ = "";
     lastMoveName_ = "andar 1 celula";
     while (odometry.distanceMm() < wheels_.cellSizeMm) {
         if (elapsedMsSince(start) > kMoveTimeoutMs) {
             lastMoveOk_ = false;  // as rodas não levaram o robô a uma célula no tempo
+            lastMoveFailure_ = kTimeoutFailure;
             break;
         }
         const long left = encoders_.left();
         const long right = encoders_.right();
+        // Uma roda parada e a outra andando: sem isto, suspenso, a célula "terminava" pela média dos
+        // encoders com uma roda só, e no chão o robô girava contra a parede até o tempo limite
+        // (07/11: "enc E=0 D=123 pot E=0.85").
+        const domain::StalledWheel stalled =
+            domain::detectStalledWheel(left, right, domain::robot::kWheelStall);
+        if (stalled != domain::StalledWheel::None) {
+            lastMoveOk_ = false;
+            lastMoveFailure_ = domain::stalledWheelName(stalled);
+            break;
+        }
         const long average = (left + right) / 2;
         odometry.onEncoderPulses(average - previousAverage);
         previousAverage = average;
@@ -113,7 +126,7 @@ void Drv8833MotionAdapter::advanceCell() {
              "parede=%.1f %s",
              domain::robot::kStraightGains.proportionalGain, endLeftCount_, endRightCount_,
              stats.lastError, stats.maxAbsError, stats.maxAbsCorrection, stats.saturatedSteps,
-             stats.steps, wallTerm, lastMoveOk_ ? "ok" : "TEMPO ESGOTADO");
+             stats.steps, wallTerm, lastMoveOk_ ? "ok" : lastMoveFailure_);
 #endif
     vTaskDelay(pdMS_TO_TICKS(40));
 }
@@ -126,11 +139,13 @@ void Drv8833MotionAdapter::pivot(double degrees, double leftSpeed, double rightS
     const double targetPulses = domain::pulsesForTurn(turnConfig_, degrees);
     const TickType_t start = xTaskGetTickCount();
     lastMoveOk_ = true;
+    lastMoveFailure_ = "";
     lastMoveName_ = degrees > 135.0 ? "meia-volta" : "curva de 90 graus";
 
     while (!gyro.reached()) {
         if (elapsedMsSince(start) > kMoveTimeoutMs) {
             lastMoveOk_ = false;  // nem o giro nem os encoders confirmaram a curva no tempo
+            lastMoveFailure_ = kTimeoutFailure;
             break;
         }
         // Partida suave dentro do laço: o giro já é integrado durante a rampa.

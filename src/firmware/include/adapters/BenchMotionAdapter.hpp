@@ -19,6 +19,7 @@ public:
     // O movimento simulado sempre termina.
     [[nodiscard]] bool lastMoveOk() const noexcept { return true; }
     [[nodiscard]] const char* lastMoveName() const noexcept { return "movimento simulado"; }
+    [[nodiscard]] const char* lastMoveFailure() const noexcept { return ""; }
     void describeLastMove(char* out, size_t size) const {
         if (size > 0) out[0] = '\0';
     }

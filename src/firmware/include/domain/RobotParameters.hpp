@@ -4,6 +4,7 @@
 #include "domain/Odometry.hpp"
 #include "domain/Pid.hpp"
 #include "domain/WallCentering.hpp"
+#include "domain/WheelStall.hpp"
 
 namespace micromouse::domain::robot {
 
@@ -45,6 +46,10 @@ inline constexpr double kStraightMaxSpeed = 0.85;
 // ~35 mm = (180 - 12 de parede - 100 de robô) / 2, a medir com o robô centrado; só a parede da
 // própria célula (abaixo do limiar de 90 mm); 10 mm fora do centro = 5 pulsos; termo máximo de
 // 15 pulsos (correção 0,075 com kp 0,005), longe do limite de 0,20.
+// Roda parada na reta (04/11 e 07/11: "enc E=0 D=123 pot E=0.85"): depois de 120 pulsos (~45 mm)
+// na roda mais rápida, a outra abaixo de 20% dela está parada. Rodas 25% diferentes ficam em 80%.
+inline constexpr WheelStallConfig kWheelStall{120, 0.20};
+
 inline constexpr WallCenteringConfig kWallCentering{35.0, 90.0, 0.5, 15.0};
 
 }  // namespace micromouse::domain::robot
