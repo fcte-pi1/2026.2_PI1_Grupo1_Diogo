@@ -48,6 +48,14 @@ Passo a passo para quem está com o robô testar o **firmware da corrida** e jun
 | Pista com paredes e pelo menos 7 peças de parede soltas | Fases B a G |
 | Fita crepe e caneta | Marcar o centro das células e a posição de largada |
 
+### Bateria e USB ao mesmo tempo
+
+A equipe não liga a bateria com o robô no USB. Com essa restrição:
+- os passos que precisam dos motores **e** do console (A8, A11 a A13) e as linhas `reta` da Fase D **não podem ser feitos**;
+- as corridas ficam na bateria, sem cabo, e a informação sai só pela **telemetria BLE**: o `detalhe` do `fim_corrida` e as mensagens de `energia`.
+
+Para liberar esses passos, use um **cabo USB só de dados** (sem o fio de 5 V, o VBUS) ou um **isolador USB**. Com eles, a placa é alimentada só pela bateria, e o PC só conversa pelo serial. Enquanto não houver um, siga o roteiro pulando esses passos e **anote na ficha quais ficaram de fora**.
+
 ### Antes de começar
 
 1. **Anote a versão do firmware.**
@@ -211,6 +219,35 @@ Na ficha, calcule para cada linha a **razão = maior / menor**.
 
 **Não passe de 0.7** no comando `motor` (motores de 6 V; ver o aviso no `TESTES_HARDWARE.md`).
 
+### A14: roda que não gira (só se uma roda falhar no A13, no C2 ou nas corridas)
+
+Em 04/11 e em 07/11, a roda esquerda não girou no chão (`enc E=0`, com o firmware pedindo `pot E=0.85`). Este passo descobre **onde** o sinal se perde, do ESP32 até o motor. Faça na ordem e pare no primeiro que falhar.
+
+**Pinos dos motores** (montagem atual, com `RATO_FIOS_MOTORES_TROCADOS` ligada; confira com `pinos` no diagnóstico):
+
+| Roda | IN1 (para frente) | IN2 | Saída do DRV8833 |
+|:--|:--|:--|:--|
+| **Esquerda** | GPIO16 (pino 9) | GPIO15 (pino 8) | a do "motor 1" do esquemático |
+| Direita | GPIO5 (pino 5) | GPIO6 (pino 6) | a do "motor 2" do esquemático |
+
+> No esquemático 4.3 é o contrário (esquerda nos GPIO 6/5). Como os fios foram soldados trocados, a roda **esquerda** do robô montado é comandada pelos **GPIO 16 e 15**. Medir nos pinos 5 e 6 é medir a roda direita.
+
+Para andar para frente, o firmware põe PWM no IN1 e deixa o IN2 em 0 V.
+
+1. **O ESP32 manda o sinal?** Só no USB, sem bateria, com o diagnóstico gravado. Use o multímetro em tensão DC, com a ponta preta no GND.
+   - `motor 0.5 0 2000`: **GPIO16 ≈ 1,6 V** (média de 50% de 3,3 V) e **GPIO15 ≈ 0 V**.
+   - `motor 0 0.5 2000`: GPIO5 ≈ 1,6 V e GPIO6 ≈ 0 V.
+   - Se a esquerda não tiver os 1,6 V no GPIO16, o problema está entre o ESP32 e o DRV8833: solda, trilha ou pino. Faça a medição com a DIP 1 aberta e depois fechada, e anote as duas.
+2. **O motor está inteiro?** Tudo desligado (sem bateria e sem USB). Meça a **resistência** nos dois terminais de cada motor e compare a esquerda com a direita. Um N20 mostra alguns ohms a algumas dezenas de ohms. **Aberto** (sem leitura): motor ou fio rompido. Mexa no fio e no conector enquanto mede: se a leitura pula, achou o mau contato.
+3. **Chega tensão no motor?** Robô **suspenso**, na **bateria**, sem USB, com o firmware da corrida. Multímetro em DC nos terminais do motor esquerdo durante a largada, e depois no direito.
+   - Se aparecerem alguns volts no motor e a roda não gira: motor ou redução travados.
+   - Se aparecer 0 V no motor e tensão nas saídas do DRV8833: fio ou conector.
+   - Se aparecer 0 V nas saídas do DRV8833 com o passo 1 bom: canal do DRV8833.
+4. **Pela telemetria, sem medir nada:** um motor que recebe tensão e está travado puxa **mais de 1 A**. Se o `energia` mostra o robô inteiro em ~0,2 A enquanto a roda deveria estar com 0,85, **o motor não está recebendo corrente**: o circuito está aberto (passo 2 ou 3), e não é atrito.
+5. **Curto com a DIP:** tudo desligado, continuidade entre o **pino 7 (DIP 1)** e os vizinhos, **pino 6** (GPIO6) e **pino 8** (GPIO15). Faça com a DIP 1 aberta e fechada. Olhe as soldas com lupa ou com a câmera do celular.
+
+Lembre que **mudar a DIP 1 muda o labirinto** que o firmware usa (4×4 ou 8×4). Corridas com a DIP em posições diferentes não são comparáveis.
+
 ---
 
 ## Fase B: sensores de distância na pista
@@ -223,6 +260,8 @@ Na ficha, calcule para cada linha a **razão = maior / menor**.
 
 A marca `?` e o resumo no fim da linha só existem no diagnóstico compilado a partir da branch com a correção das medidas incertas. O binário antigo do CI mostra só os números e `FALHA`.
 
+A **primeira linha** de cada `tof` pode vir com lixo (0, 6, 22 ou 9999, visto em 07/11): é a primeira medida depois que os sensores ficaram medindo sem ninguém ler. Ignore essa linha. O firmware da corrida descarta a primeira leitura da largada pelo mesmo motivo.
+
 ```
 esquerdo  frontal  direito (mm)  paredes E/F/D
       38      612      41       S/-/S
@@ -231,7 +270,7 @@ esquerdo  frontal  direito (mm)  paredes E/F/D
 ```
 
 - **Número:** distância em mm. **`9999`:** nada ao alcance (corredor aberto).
-- **`140?`:** medida **incerta** (o sensor funcionou, mas não confia na medida: parede escura, brilhante, inclinada, luz forte ou alvo longe). Se for menor que 180 mm, o robô trata como parede possível e não grava no mapa. A partir de 180 mm, vale "sem parede".
+- **`140?`:** medida **incerta** (o sensor funcionou, mas não confia na medida: parede escura, brilhante, inclinada, luz forte ou alvo longe). Vale "sem parede" a partir de **90 mm** com `wrap` (o alvo real está ainda mais longe que o lido) e a partir de **135 mm** com `sigma` ou `xtalk`. Mais perto que isso, o robô trata como parede possível e não grava no mapa.
 - **`FALHA`:** o sensor não respondeu ou não mediu a tempo. Três passos seguidos com `FALHA` levam o robô ao **Erro**.
 - **`S/-/S`:** parede (`S`) ou livre (`-`) na esquerda, frente e direita.
 - **Fim da linha:** resumo das falhas e das medidas incertas, com o tipo: `sigma`, `wrap` ou `xtalk`.
@@ -255,7 +294,7 @@ esquerdo  frontal  direito (mm)  paredes E/F/D
 **B5. Corredor longo (importante).** Coloque o robô na largada, olhando para o **corredor aberto mais longo** da pista. No 12×4 pode passar de 2 m. Rode `tof 50`.
 - Conte quantas linhas do frontal deram `9999`, número normal, número com `?` e `FALHA`.
 - Anote os tipos (`sigma`, `wrap`, `xtalk`) e as distâncias com `?`.
-- **Passa se:** não houver `FALHA` e nenhum `?` abaixo de 180 mm.
+- **Passa se:** não houver `FALHA`, nenhum `wrap` abaixo de 90 mm e nenhum `sigma`/`xtalk` abaixo de 135 mm. Em 07/11, o direito deu `wrap` em ~180 mm: agora isso vale "livre" de forma estável.
 - Repita com o robô na metade do corredor.
 
 **B6. Paredes difíceis.** Se a pista tiver paredes de cores ou materiais diferentes, ou luz forte (janela, refletor), repita o B1 nesses lugares e anote.
@@ -300,7 +339,8 @@ I (...) main: aguardando o botao de largada
 **Anote:** como terminou, o motivo (seção 10.2) e as linhas `reta`.
 
 **Passa se:**
-- nenhuma linha `reta` mostra `TEMPO ESGOTADO`;
+- a corrida **não** termina com `roda esquerda parada` ou `roda direita parada`. Agora o firmware detecta uma roda que fica abaixo de 20% da outra, mesmo suspenso. Antes, a corrida "concluía" com uma roda só, porque a célula fecha pela média dos encoders;
+- nenhuma linha `reta` termina em `tempo de 3 s esgotado` ou `roda ... parada`;
 - `saturou` fica em `0` ou perto de 0;
 - os pulsos E e D de cada célula ficam perto de ~481.
 
@@ -378,7 +418,7 @@ Para trocar o kp:
 | `max` bem maior que o `erro final` (ex.: `max=30`, `erro final=3`), robô "serpenteando" no vídeo, motor "cantando" | **Oscilação**: ganho alto demais | Volte ao kp anterior |
 | `erro final` grande (acima de ~20) e do mesmo sinal em todas as células | Sobra do controle: o robô desvia sempre para o mesmo lado | Normal com kp baixo. Subir o kp diminui |
 | `erro final` muda de sinal de uma célula para outra sem padrão | Ruído ou roda patinando | Anote e filme |
-| `TEMPO ESGOTADO` | A célula não terminou em 3 s | Ver a seção 10.2 |
+| Termina em `tempo de 3 s esgotado` ou `roda ... parada` | A célula falhou | Ver a seção 10.2 |
 | `enc` de uma roda muito menor que o da outra (ex.: `E=50 D=480`) | Roda travando | **Mecânica**. Pare a Fase D |
 
 **Escolha** o maior kp que tenha `saturou=0`, nenhuma oscilação e o menor desvio lateral nas 3 repetições. Anote na ficha e **avise a equipe de firmware** do valor, junto com os logs.
@@ -406,7 +446,7 @@ Esta parte é experimental. Os passos detalhados estão em [`docs/rf44-centraliz
 2. **E2:** repita com a partida pela **direita** (mude a via 3 do DIP e espelhe a pista). A curva passa a ser **à esquerda**.
 3. **E3, meia-volta:** monte um beco sem saída de 1 célula logo na frente da largada: paredes ao **norte** e a **leste** da célula (2,0) (a oeste já é a borda). Deixe **aberto** o leste da largada (3,0). O robô deve entrar no beco, ver as paredes, dar meia-volta e sair pela largada. Filme.
 
-**Falhas comuns:** curva com `TEMPO ESGOTADO` (seção 10.2), robô que gira demais ou de menos (anote o ângulo estimado), robô que gira no lugar e não para.
+**Falhas comuns:** curva com `tempo de 3 s esgotado` (seção 10.2), robô que gira demais ou de menos (anote o ângulo estimado), robô que gira no lugar e não para.
 
 ---
 
@@ -442,7 +482,7 @@ Depois de chegar ao objetivo, o robô volta ao **Aguardando** e larga de novo no
 |:--|:--|:--|
 | G1 | Robô desligado: solte o conector de **um** ToF, ligue e aperte o botão | `auto-teste reprovou: ToF [lado]`, e o robô não sai do lugar |
 | G2 | DIP com as vias 1 e 2 **fechadas**, ligar | Log `DIP em combinacao proibida`, e o robô não larga |
-| G3 | Na corrida, **segure uma roda** com a mão na metade de uma célula por 3 s | `andar 1 celula nao terminou em 3 s: enc E=... D=... pot E=... D=...` |
+| G3 | Na corrida, **segure uma roda** com a mão no começo de uma célula | `andar 1 celula falhou (roda esquerda parada): enc E=... D=... pot E=... D=...` (ou `direita`), logo depois de a outra roda andar ~45 mm |
 | G4 | Monte a largada **fechada** (parede na frente e à direita) | `sem caminho ate o objetivo em (3,0), mesmo lendo de novo. tof E=... F=... D=...` |
 | G5 | Pista em L, com uma folha de papel **preto fosco** cobrindo a parede do fim da primeira reta. Antes, com o diagnóstico e o robô a 1 célula da folha, rode `tof 20` e anote o frontal | Com medida válida ou `?`: o robô **não** vai ao Erro por `falha de sensor`. Com `?` 3 vezes seguidas, ele assume parede e faz a curva. **Se o frontal mostrar `9999` com a folha na frente, é grave** (o robô bateria): anote e avise |
 
@@ -478,8 +518,9 @@ O motivo aparece no serial (`E (...) main: ...`) e no `"detalhe"` do `fim_corrid
 | `falha de sensor por 3 passos: [IMU] [INA219] ToF em falha: [lados]` | Um sensor parou de responder no meio da corrida | O log, a célula onde parou (vídeo) e o teste B7 |
 | `bateria fraca: X.XX V` | A tensão ficou abaixo de 6,6 V | A tensão no multímetro logo depois |
 | `sem caminho ate o objetivo em (L,C), mesmo lendo de novo. tof E=.. F=.. D=.. [resumo]` | Com as paredes que leu, o robô não acha caminho. (L,C) é linha e coluna, com a linha 0 em cima e a coluna 0 à esquerda | Foto do labirinto, o vídeo, as leituras `tof` daquela célula (diagnóstico, Fase B) |
-| `andar 1 celula nao terminou em 3 s: enc E=.. D=.. pot E=.. D=.. tof ...` | Andou menos de uma célula em 3 s: roda travada, patinando ou encoder sem contar | O vídeo e o A13. Se um `enc` está perto de 0 e o `pot` dele está alto: roda travada ou encoder solto |
-| `curva de 90 graus nao terminou em 3 s: ...` / `meia-volta nao terminou em 3 s: ...` | Nem o giroscópio nem os encoders confirmaram a curva | O vídeo, o A7 (IMU) e o A11 |
+| `andar 1 celula falhou (roda esquerda parada): enc E=.. D=.. pot E=.. D=.. tof ...` (ou `direita`) | Uma roda ficou abaixo de 20% da outra depois de ~45 mm: motor sem força, fio solto, roda travada ou encoder sem contar | O vídeo, a corrente do `energia` e o **A14** |
+| `andar 1 celula falhou (tempo de 3 s esgotado): enc E=.. D=.. pot E=.. D=.. tof ...` | Andou menos de uma célula em 3 s, com as duas rodas girando: robô empurrando uma parede, ou as duas rodas fracas | O vídeo e o A13 |
+| `curva de 90 graus falhou (tempo de 3 s esgotado): ...` / `meia-volta falhou (...)` | Nem o giroscópio nem os encoders confirmaram a curva | O vídeo, o A7 (IMU) e o A11 |
 | `limite de passos sem chegar ao objetivo. [resumo]` | Deu mais passos que 4 × o número de células sem chegar | Vídeo inteiro, foto do labirinto e o log completo |
 
 ### 10.3 A linha `reta`
@@ -497,7 +538,7 @@ reta: kp=0.0050 enc E=482 D=470 erro final=12 max=15 corr max=0.075 saturou=0/52
 | `corr max` | Maior correção aplicada a uma roda (o limite é 0,200) |
 | `saturou=N/T` | Em N dos T passos de 1 ms, a correção ficou no limite |
 | `parede` | Termo da centralização pelas paredes (0 com o RF-44 desligado) |
-| `ok` / `TEMPO ESGOTADO` | A célula terminou ou estourou os 3 s |
+| `ok` / `tempo de 3 s esgotado` / `roda esquerda parada` | A célula terminou ou falhou, e por quê |
 
 ### 10.4 LEDs e buzzer
 
