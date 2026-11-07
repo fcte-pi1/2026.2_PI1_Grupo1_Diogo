@@ -4,6 +4,8 @@ Roteiro para testar **cada componente do robô separadamente**, com o mesmo cód
 
 > **Público:** equipe de eletrônica e hardware. Não é preciso instalar o ESP-IDF nem compilar nada. Basta o **Chrome ou o Edge** e um **cabo USB de dados**.
 
+> **Robô montado, firmware da corrida:** para testar o robô inteiro andando e juntar os logs que a equipe de firmware precisa, siga o [`ROTEIRO_TESTE_ROBO.md`](ROTEIRO_TESTE_ROBO.md).
+
 ## Como funciona
 
 O firmware de diagnóstico (`esp32-diagnostico/`) abre um console na serial. Nele, cada comando testa um componente: `i2c`, `tof`, `imu`, `ina`, `motor`, `enc`, `dip`, `botao`, `led`, `buzzer`, `ble`, `taxa` e `inverter`.
