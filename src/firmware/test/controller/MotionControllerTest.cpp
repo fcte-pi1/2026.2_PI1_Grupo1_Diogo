@@ -56,6 +56,29 @@ TEST(MotionController, LimitsCorrectionSoNoWheelStops) {
     EXPECT_DOUBLE_EQ(ahead.right, 0.50);
 }
 
+// Números da reta para a calibração na pista (log "reta" no fim de cada célula): maior erro, maior
+// correção e quantos passos ficaram no limite. Zeram no reset(), a cada célula.
+TEST(MotionController, TracksErrorCorrectionAndSaturation) {
+    MotionController controller({0.005, 0.0, 0.0}, 0.70, 0.85, 0.20);
+    (void)controller.correct(10.0, 0.001);   // correção 0,05
+    (void)controller.correct(-20.0, 0.001);  // correção -0,10
+    EXPECT_EQ(controller.stats().steps, 2);
+    EXPECT_DOUBLE_EQ(controller.stats().maxAbsError, 20.0);
+    EXPECT_NEAR(controller.stats().maxAbsCorrection, 0.10, 1e-9);
+    EXPECT_EQ(controller.stats().saturatedSteps, 0);
+    EXPECT_DOUBLE_EQ(controller.stats().lastError, -20.0);
+
+    (void)controller.correct(100.0, 0.001);  // 0,50 pedido, limitado a 0,20: saturou
+    (void)controller.correct(-35.0, 0.001);  // -0,175: a roda esquerda iria a 0,875, bate no teto
+    EXPECT_EQ(controller.stats().saturatedSteps, 2);
+    EXPECT_NEAR(controller.stats().maxAbsCorrection, 0.20, 1e-9);
+
+    controller.reset();
+    EXPECT_EQ(controller.stats().steps, 0);
+    EXPECT_EQ(controller.stats().saturatedSteps, 0);
+    EXPECT_DOUBLE_EQ(controller.stats().maxAbsError, 0.0);
+}
+
 }  // namespace
 
 }  // namespace micromouse::controller

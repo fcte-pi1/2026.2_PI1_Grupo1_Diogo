@@ -7,6 +7,11 @@
 #include "domain/SoftStart.hpp"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "sdkconfig.h"
+
+#if CONFIG_RATO_LOG_RETA
+#include "esp_log.h"
+#endif
 
 namespace micromouse::adapters {
 
@@ -77,6 +82,16 @@ void Drv8833MotionAdapter::advanceCell() {
     endLeftCount_ = encoders_.left();
     endRightCount_ = encoders_.right();
     motors_.brake();
+#if CONFIG_RATO_LOG_RETA
+    // Calibração do ganho da reta (roteiro do PR): saturou > 0 ou erro máximo perto de
+    // kStraightMaxCorrection / kp indicam ganho baixo ou roda com problema.
+    const controller::StraightStats& stats = straight_.stats();
+    ESP_LOGI("reta",
+             "kp=%.4f enc E=%ld D=%ld erro final=%.0f max=%.0f corr max=%.3f saturou=%d/%d %s",
+             domain::robot::kStraightGains.proportionalGain, endLeftCount_, endRightCount_,
+             stats.lastError, stats.maxAbsError, stats.maxAbsCorrection, stats.saturatedSteps,
+             stats.steps, lastMoveOk_ ? "ok" : "TEMPO ESGOTADO");
+#endif
     vTaskDelay(pdMS_TO_TICKS(40));
 }
 

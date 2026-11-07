@@ -21,4 +21,13 @@ menu "Rato Borrachudo"
             encoder 2 (41/40). Ligada, o firmware segue essa montagem. Desligue
             quando o robô passar para a PCB feita pelo esquemático.
 
+    config RATO_LOG_RETA
+        bool "Logar o controle de reta no fim de cada célula (calibração)"
+        default n
+        help
+            Para calibrar o ganho da reta na pista (com o cabo USB). No fim de cada
+            advanceCell, uma linha com a tag "reta": pulsos de cada roda, erro final e
+            máximo, maior correção e quantos passos de 1 ms ficaram no limite. Não muda
+            o movimento; o log leva alguns ms durante a frenagem.
+
 endmenu
