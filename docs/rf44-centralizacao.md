@@ -57,7 +57,7 @@ Em `RobotParameters.hpp` (`kWallCentering`):
 
 | Parâmetro         | Valor          | Por quê                                                                                                                                                                            |
 | ----------------- | -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `centerMm`        | 35 mm          | (180 − 12 de parede − 100 de robô) / 2 ≈ 34 mm. **Medir:** robô centrado numa célula com as duas paredes, `tof 20`, média de E e D.                                                 |
+| `centerMm`        | 33,6 mm        | **Medido em 07/11** (B1 do roteiro): robô centrado numa célula com as duas paredes, `tof 20`, média de E = 31 e D = 36,5 mm, conferidos com régua. A estimativa de projeto era (180 − 12 − 100) / 2 ≈ 34 mm. |
 | `useBelowMm`      | 90 mm          | o limiar de parede atual                                                                                                                                                          |
 | `gainPulsesPerMm` | 0,5            | 10 mm fora do centro = 5 pulsos = correção 0,025 com kp 0,005. Um quarto do que a sobra dos encoders pede (~13 pulsos), para começar sem brigar com os encoders.                 |
 | `maxPulses`       | 15             | 15 × 0,005 = correção 0,075, menos da metade do limite de 0,20: a parede sozinha nunca satura o controle (teste `RobotConfigCannotSaturateTheStraightControlAlone`).             |
@@ -83,7 +83,7 @@ Em `RobotParameters.hpp` (`kWallCentering`):
 
 **Na pista (roteiro sugerido, depois da calibração do kp):**
 
-1. Medir `centerMm` (acima).
+1. Conferir `centerMm` (acima; medido em 07/11, refazer se os sensores forem remontados).
 2. Compilar com `RATO_CENTRALIZAR_PAREDES` e `RATO_LOG_RETA` ligados.
 3. Corredor reto de 3 a 4 células com as duas paredes. Largar o robô **5 a 10 mm fora do centro**, alinhado. Esperado: chega ao fim sem encostar, e o erro final da linha `reta` não cresce de célula para célula.
 4. O mesmo com **uma parede só** (tirar a parede direita): confere o `centerMm`.
