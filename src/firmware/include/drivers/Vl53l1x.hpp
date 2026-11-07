@@ -182,9 +182,14 @@ struct SideJudgement {
     bool fault;    // sensor quebrado: conta para o SensorHealthMonitor (falhas seguidas levam ao Erro)
 };
 
-// Medida incerta a pelo menos 2x o limiar (uma célula além) vale "sem parede nesta célula": com
-// WrapTargetFail a distância real é ainda maior que a lida, e um SigmaFail não erra 90 mm. Assim um
-// corredor longo, além do alcance do modo curto, não para o robô. Mais perto que isso, desconhecido.
-[[nodiscard]] SideJudgement judgeSide(ReadingKind kind, int mm, double thresholdMm) noexcept;
+// Medida incerta longe vale "sem parede nesta célula", para um corredor longo (além do alcance do
+// modo curto) não parar o robô:
+// - WrapTargetFail: o alvo está além da distância de ambiguidade, então a distância real é MAIOR que
+//   a lida. Acima do limiar, não há parede (07/11: "wrap" em ~180 mm oscilava num corte de 180);
+// - SigmaFail e XtalkSignalFail: a medida pode errar para os dois lados; vale a partir de 1,5x o
+//   limiar (45 mm de margem com 90).
+// Mais perto que isso, desconhecido.
+[[nodiscard]] SideJudgement judgeSide(ReadingKind kind, Vl53l1x::RangeStatus status, int mm,
+                                      double thresholdMm) noexcept;
 
 }  // namespace micromouse::drivers

@@ -111,17 +111,22 @@ ReadingKind classifyReading(bool transferOk, bool fresh, Vl53l1x::RangeStatus st
     }
 }
 
-SideJudgement judgeSide(ReadingKind kind, int mm, double thresholdMm) noexcept {
+SideJudgement judgeSide(ReadingKind kind, Vl53l1x::RangeStatus status, int mm,
+                        double thresholdMm) noexcept {
     switch (kind) {
         case ReadingKind::Distance:
             return {mm < thresholdMm, false, false};
         case ReadingKind::NoTarget:
             return {false, false, false};
-        case ReadingKind::Uncertain:
-            if (mm >= 2.0 * thresholdMm) {
+        case ReadingKind::Uncertain: {
+            const double clearFromMm = status == Vl53l1x::RangeStatus::WrapTargetFail
+                                           ? thresholdMm
+                                           : 1.5 * thresholdMm;
+            if (mm >= clearFromMm) {
                 return {false, false, false};
             }
             return {true, true, false};
+        }
         case ReadingKind::Fault:
             break;
     }

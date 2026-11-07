@@ -391,32 +391,48 @@ TEST(Vl53l1x, TransferErrorSticksUntilCleared) {
 
 // O que cada leitura diz sobre a parede da célula (limiar de 90 mm).
 TEST(Vl53l1x, JudgesTheWallFromEachKindOfReading) {
+    using S = Vl53l1x::RangeStatus;
     constexpr double kThreshold = 90.0;
-    const SideJudgement near = judgeSide(ReadingKind::Distance, 60, kThreshold);
+    const SideJudgement near = judgeSide(ReadingKind::Distance, S::RangeValid, 60, kThreshold);
     EXPECT_TRUE(near.wall);
     EXPECT_FALSE(near.unknown);
     EXPECT_FALSE(near.fault);
-    EXPECT_FALSE(judgeSide(ReadingKind::Distance, 120, kThreshold).wall);
-    const SideJudgement open = judgeSide(ReadingKind::NoTarget, 9999, kThreshold);
+    EXPECT_FALSE(judgeSide(ReadingKind::Distance, S::RangeValid, 120, kThreshold).wall);
+    const SideJudgement open = judgeSide(ReadingKind::NoTarget, S::SignalFail, 9999, kThreshold);
     EXPECT_FALSE(open.wall);
     EXPECT_FALSE(open.unknown);
 
-    // Incerta e longe (pelo menos uma célula além do limiar): não há parede NESTA célula. É o caso
-    // do corredor longo no 12x4, além do alcance do modo curto.
-    const SideJudgement farUncertain = judgeSide(ReadingKind::Uncertain, 800, kThreshold);
-    EXPECT_FALSE(farUncertain.wall);
-    EXPECT_FALSE(farUncertain.unknown);
-    EXPECT_FALSE(farUncertain.fault);
-    // Incerta e perto: pode ser parede. Desconhecido (conta como parede), mas não é falha.
-    const SideJudgement nearUncertain = judgeSide(ReadingKind::Uncertain, 100, kThreshold);
-    EXPECT_TRUE(nearUncertain.wall);
-    EXPECT_TRUE(nearUncertain.unknown);
-    EXPECT_FALSE(nearUncertain.fault);
+    // Sigma incerta e longe: não há parede NESTA célula (corredor longo, além do modo curto).
+    const SideJudgement farSigma = judgeSide(ReadingKind::Uncertain, S::SigmaFail, 800, kThreshold);
+    EXPECT_FALSE(farSigma.wall);
+    EXPECT_FALSE(farSigma.unknown);
+    EXPECT_FALSE(farSigma.fault);
+    EXPECT_FALSE(judgeSide(ReadingKind::Uncertain, S::SigmaFail, 140, kThreshold).unknown);
+    // Sigma incerta e perto: pode ser parede. Desconhecido (conta como parede), mas não é falha.
+    const SideJudgement nearSigma = judgeSide(ReadingKind::Uncertain, S::SigmaFail, 100, kThreshold);
+    EXPECT_TRUE(nearSigma.wall);
+    EXPECT_TRUE(nearSigma.unknown);
+    EXPECT_FALSE(nearSigma.fault);
 
-    const SideJudgement fault = judgeSide(ReadingKind::Fault, -1, kThreshold);
+    const SideJudgement fault = judgeSide(ReadingKind::Fault, S::None, -1, kThreshold);
     EXPECT_TRUE(fault.wall);
     EXPECT_TRUE(fault.unknown);
     EXPECT_TRUE(fault.fault);
+}
+
+// Teste de 07/11 (B5, corredor de 80 cm): o direito deu WrapTargetFail em 49 de 50 leituras, entre
+// 178 e 183 mm, e o lado oscilava entre parede e livre porque o corte era 180 mm. Com "wrap", o alvo
+// está além da distância de ambiguidade: a distância real é MAIOR que a lida. Acima do limiar, então,
+// não há parede na célula, e o lado fica estável.
+TEST(Vl53l1x, WrapAboveTheThresholdIsNeverAWall) {
+    using S = Vl53l1x::RangeStatus;
+    for (const int mm : {91, 135, 178, 179, 180, 181, 183, 400}) {
+        const SideJudgement side = judgeSide(ReadingKind::Uncertain, S::WrapTargetFail, mm, 90.0);
+        EXPECT_FALSE(side.wall) << mm;
+        EXPECT_FALSE(side.unknown) << mm;
+    }
+    // Abaixo do limiar, um "wrap" ainda pode ser uma parede perto mal medida: desconhecido.
+    EXPECT_TRUE(judgeSide(ReadingKind::Uncertain, S::WrapTargetFail, 60, 90.0).unknown);
 }
 
 TEST(Vl53l1x, MissingTransferOrStaleDataIsFaultEvenWithValidStatus) {

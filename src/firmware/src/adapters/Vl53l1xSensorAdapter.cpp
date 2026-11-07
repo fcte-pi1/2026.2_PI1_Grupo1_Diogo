@@ -232,9 +232,12 @@ ports::WallsAhead Vl53l1xSensorAdapter::sense() const {
     // Falha ou medida incerta perto conta como PAREDE e lado desconhecido: o mapa não grava e o robô
     // não avança por ali às cegas. Só a falha (sensor quebrado) conta em healthy(), para o laço da
     // navegação levar ao Erro se ela persistir. Regras em drivers::judgeSide (testadas no host).
-    const drivers::SideJudgement l = drivers::judgeSide(left.kind, left.mm, thresholdMm_);
-    const drivers::SideJudgement f = drivers::judgeSide(front.kind, front.mm, thresholdMm_);
-    const drivers::SideJudgement r = drivers::judgeSide(right.kind, right.mm, thresholdMm_);
+    const drivers::SideJudgement l =
+        drivers::judgeSide(left.kind, left.status, left.mm, thresholdMm_);
+    const drivers::SideJudgement f =
+        drivers::judgeSide(front.kind, front.status, front.mm, thresholdMm_);
+    const drivers::SideJudgement r =
+        drivers::judgeSide(right.kind, right.status, right.mm, thresholdMm_);
     healthy_ = !l.fault && !f.fault && !r.fault;
 
     faultSummary_[0] = '\0';
