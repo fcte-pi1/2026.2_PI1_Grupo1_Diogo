@@ -253,13 +253,17 @@ int cmdTof(int argc, char** argv) {
         }
     }
     std::printf("esquerdo  frontal  direito (mm)  paredes E/F/D   (%d = nada ao alcance; "
-                "FALHA = sensor não respondeu, conta como parede)\n",
+                "FALHA = sensor não respondeu, conta como parede; ? = medida incerta, "
+                "parede se < 2x o limiar; S = parede, - = livre)\n",
                 adapters::Vl53l1xSensorAdapter::kNoReadingMm);
-    auto column = [](int mm, char* out, size_t size) {
-        if (mm == adapters::Vl53l1xSensorAdapter::kFaultMm) {
+    auto column = [](const adapters::Vl53l1xSensorAdapter::Reading& reading, char* out,
+                     size_t size) {
+        if (reading.kind == drivers::ReadingKind::Fault) {
             std::snprintf(out, size, "%8s", "FALHA");
+        } else if (reading.kind == drivers::ReadingKind::Uncertain) {
+            std::snprintf(out, size, "%7d?", reading.mm);
         } else {
-            std::snprintf(out, size, "%8d", mm);
+            std::snprintf(out, size, "%8d", reading.mm);
         }
     };
     for (long i = 0; i < samples; ++i) {
@@ -268,12 +272,11 @@ int cmdTof(int argc, char** argv) {
         char left[12];
         char front[12];
         char right[12];
-        column(gSensor.reading(Side::Left).mm, left, sizeof left);
-        column(gSensor.reading(Side::Front).mm, front, sizeof front);
-        column(gSensor.reading(Side::Right).mm, right, sizeof right);
-        std::printf("%s %s %s       %c/%c/%c%s\n", left, front, right, walls.left ? 'S' : '-',
-                    walls.front ? 'S' : '-', walls.right ? 'S' : '-',
-                    gSensor.healthy() ? "" : "   <- falha de leitura");
+        column(gSensor.reading(Side::Left), left, sizeof left);
+        column(gSensor.reading(Side::Front), front, sizeof front);
+        column(gSensor.reading(Side::Right), right, sizeof right);
+        std::printf("%s %s %s       %c/%c/%c   %s\n", left, front, right, walls.left ? 'S' : '-',
+                    walls.front ? 'S' : '-', walls.right ? 'S' : '-', gSensor.faultSummary());
         sleepMs(100);
     }
     return 0;

@@ -163,14 +163,28 @@ public:
 
 // O que uma leitura significa para quem procura paredes.
 enum class ReadingKind {
-    Distance,  // medida válida (ou alvo colado no sensor, abaixo do alcance mínimo): a distância vale
-    NoTarget,  // o sensor mediu e não achou alvo ao alcance: corredor aberto, sem parede
-    Fault,     // o sensor não respondeu, não mediu a tempo ou reportou falha: não se sabe nada
+    Distance,   // medida válida (ou alvo colado no sensor, abaixo do alcance mínimo): a distância vale
+    NoTarget,   // o sensor mediu e não achou alvo ao alcance: corredor aberto, sem parede
+    Uncertain,  // o sensor funcionou, mas a medida não é confiável (SigmaFail, WrapTargetFail,
+                // XtalkSignalFail): parede escura, brilhante, inclinada, luz forte ou alvo longe
+    Fault,      // o sensor não respondeu, não mediu a tempo ou reportou defeito: sensor quebrado
 };
 
 // Classifica uma leitura. `transferOk`: a leitura pelo I²C foi aceita; `fresh`: chegou uma medida
 // nova no prazo. Sem os dois, é falha, mesmo que o estado pareça válido.
 [[nodiscard]] ReadingKind classifyReading(bool transferOk, bool fresh,
                                           Vl53l1x::RangeStatus status) noexcept;
+
+// O que uma leitura diz sobre a parede da célula.
+struct SideJudgement {
+    bool wall;     // tratar como parede (conservador quando unknown)
+    bool unknown;  // não se sabe: o mapa não grava e o robô não avança por aqui às cegas
+    bool fault;    // sensor quebrado: conta para o SensorHealthMonitor (falhas seguidas levam ao Erro)
+};
+
+// Medida incerta a pelo menos 2x o limiar (uma célula além) vale "sem parede nesta célula": com
+// WrapTargetFail a distância real é ainda maior que a lida, e um SigmaFail não erra 90 mm. Assim um
+// corredor longo, além do alcance do modo curto, não para o robô. Mais perto que isso, desconhecido.
+[[nodiscard]] SideJudgement judgeSide(ReadingKind kind, int mm, double thresholdMm) noexcept;
 
 }  // namespace micromouse::drivers

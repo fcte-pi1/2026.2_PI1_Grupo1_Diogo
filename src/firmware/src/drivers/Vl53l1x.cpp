@@ -98,15 +98,34 @@ ReadingKind classifyReading(bool transferOk, bool fresh, Vl53l1x::RangeStatus st
         case Vl53l1x::RangeStatus::SignalFail:       // nenhum alvo devolveu sinal
         case Vl53l1x::RangeStatus::OutOfBoundsFail:  // nada no alcance do modo
             return ReadingKind::NoTarget;
-        // SigmaFail (medida imprecisa) e WrapTargetFail (alvo "dobrado") também aparecem com parede
-        // escura, brilhante, inclinada ou com luz forte: não se sabe se há parede. Tratar como lado
-        // aberto mandaria o robô contra ela (revisão do #438). Num 4x4 o maior vão (~720 mm) cabe
-        // no modo curto, então "sem alvo" de verdade deve ser raro.
+        // SigmaFail (medida imprecisa), WrapTargetFail (alvo além da distância de ambiguidade) e
+        // XtalkSignalFail (sinal abaixo do limite de crosstalk) também aparecem com parede escura,
+        // brilhante, inclinada ou com luz forte. Tratar como lado aberto mandaria o robô contra ela
+        // (revisão do #438), mas o sensor funcionou: não é falha que leve ao Erro. Ver judgeSide().
         case Vl53l1x::RangeStatus::SigmaFail:
         case Vl53l1x::RangeStatus::WrapTargetFail:
-        default:  // HardwareFail, None, XtalkSignalFail, SynchronizationInt
+        case Vl53l1x::RangeStatus::XtalkSignalFail:
+            return ReadingKind::Uncertain;
+        default:  // HardwareFail, None, SynchronizationInt
             return ReadingKind::Fault;
     }
+}
+
+SideJudgement judgeSide(ReadingKind kind, int mm, double thresholdMm) noexcept {
+    switch (kind) {
+        case ReadingKind::Distance:
+            return {mm < thresholdMm, false, false};
+        case ReadingKind::NoTarget:
+            return {false, false, false};
+        case ReadingKind::Uncertain:
+            if (mm >= 2.0 * thresholdMm) {
+                return {false, false, false};
+            }
+            return {true, true, false};
+        case ReadingKind::Fault:
+            break;
+    }
+    return {true, true, true};
 }
 
 Vl53l1x::Vl53l1x(IRegisterBus& bus, uint8_t address) : bus_(bus), address_(address) {}

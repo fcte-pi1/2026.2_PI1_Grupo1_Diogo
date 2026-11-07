@@ -42,7 +42,7 @@ private:
     mutable IdfRegisterBus regBus_;
     mutable std::array<Slot, 3> slots_;
     mutable bool healthy_{true};
-    mutable char faultSummary_[48]{};
+    mutable char faultSummary_[80]{};  // pior caso: ~76 caracteres
 
     bool bringUp(Slot& slot);
     Reading poll(Slot& slot, bool requireFresh) const;
@@ -55,10 +55,11 @@ public:
 
     // True se os 3 sensores responderam e foram configurados no begin() (auto-teste, RF-27).
     [[nodiscard]] bool allReady() const;
-    // True se, no último sense(), os 3 sensores deram medida ou "sem alvo" (nenhuma falha). O laço
+    // True se, no último sense(), nenhum dos 3 sensores falhou (medida incerta não é falha). O laço
     // da navegação usa isto no SensorHealthMonitor (RF-55): falhas seguidas levam ao estado Erro.
     [[nodiscard]] bool healthy() const noexcept { return healthy_; }
-    // Quais sensores falharam no último sense() (vazio se nenhum), para o motivo do fim da corrida.
+    // Quais sensores falharam ou deram medida incerta no último sense() (vazio se nenhum), para o
+    // motivo do fim da corrida. Ex.: "ToF em falha: direito; incerto: frontal(sigma 140)".
     [[nodiscard]] const char* faultSummary() const noexcept { return faultSummary_; }
     [[nodiscard]] bool ready(Side side) const;
     [[nodiscard]] Reading reading(Side side) const;  // última medida guardada, não lê uma nova

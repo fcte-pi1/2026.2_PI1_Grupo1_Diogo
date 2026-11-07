@@ -91,15 +91,27 @@ void Navigator::step() {
         senseAndRecord();
         flood_.computeFloodFill(goals_);
         nextDir = flood_.nextDirection(position_);
-        if (!nextDir) {
+        // Sem caminho, ou o único caminho é um lado que já se mostrou ilegível nesta célula: desiste.
+        if (!nextDir || (assumedWallHere_ && wasUnseen(*nextDir))) {
             stuck_ = true;
             return;
         }
     }
 
-    // Não avança por um lado que o sensor não viu: espera a próxima leitura. Se a falha persistir,
-    // o SensorHealthMonitor do laço da corrida leva ao Erro.
-    if (wasUnseen(*nextDir)) return;
+    // Não avança por um lado que o sensor não viu: espera a próxima leitura. Sensor quebrado leva
+    // ao Erro pelo SensorHealthMonitor do laço da corrida. Uma medida incerta que persiste (o
+    // sensor funciona, mas não lê aquele lado) vira parede depois de kMaxBlindWaits leituras: o
+    // robô procura outro caminho, e o "esquecer" acima a reabre se ela fechar todos.
+    if (wasUnseen(*nextDir)) {
+        if (++blindWaits_ >= kMaxBlindWaits) {
+            maze_.setWall(position_, *nextDir, Wall::Present);
+            blindWaits_ = 0;
+            assumedWallHere_ = true;
+        }
+        return;
+    }
+    blindWaits_ = 0;
+    assumedWallHere_ = false;
 
     applyTurnTo(*nextDir);
     motion_.advanceCell();

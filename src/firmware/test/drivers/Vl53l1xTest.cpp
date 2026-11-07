@@ -355,13 +355,16 @@ TEST(Vl53l1x, ClassifiesDistanceNoTargetAndFault) {
     // sem alvo: o sensor mediu e não achou nada (corredor aberto)
     EXPECT_EQ(classifyReading(true, true, S::SignalFail), ReadingKind::NoTarget);
     EXPECT_EQ(classifyReading(true, true, S::OutOfBoundsFail), ReadingKind::NoTarget);
-    // falha: não se sabe nada. SigmaFail e WrapTargetFail também aparecem com parede escura,
-    // brilhante, inclinada ou com luz forte, então não valem "lado aberto" (revisão do #438)
-    EXPECT_EQ(classifyReading(true, true, S::SigmaFail), ReadingKind::Fault);
-    EXPECT_EQ(classifyReading(true, true, S::WrapTargetFail), ReadingKind::Fault);
+    // incerta: o sensor funcionou, mas a medida não é confiável (parede escura, brilhante,
+    // inclinada, luz forte, alvo além do alcance). Não vale "lado aberto" (revisão do #438), mas
+    // também não é sensor quebrado: não pode levar ao Erro num corredor longo
+    EXPECT_EQ(classifyReading(true, true, S::SigmaFail), ReadingKind::Uncertain);
+    EXPECT_EQ(classifyReading(true, true, S::WrapTargetFail), ReadingKind::Uncertain);
+    EXPECT_EQ(classifyReading(true, true, S::XtalkSignalFail), ReadingKind::Uncertain);
+    // falha: o sensor ou o barramento não funcionaram
     EXPECT_EQ(classifyReading(true, true, S::HardwareFail), ReadingKind::Fault);
     EXPECT_EQ(classifyReading(true, true, S::None), ReadingKind::Fault);
-    EXPECT_EQ(classifyReading(true, true, S::XtalkSignalFail), ReadingKind::Fault);
+    EXPECT_EQ(classifyReading(true, true, S::SynchronizationInt), ReadingKind::Fault);
     // alvo colado no sensor: é parede (visto na pista com o robô encostado na parede lateral)
     EXPECT_EQ(classifyReading(true, true, S::MinRangeFail), ReadingKind::Distance);
 }
@@ -384,6 +387,36 @@ TEST(Vl53l1x, TransferErrorSticksUntilCleared) {
 
     sensor.clearTransferErrors();
     EXPECT_FALSE(sensor.transferFailedSinceClear());
+}
+
+// O que cada leitura diz sobre a parede da célula (limiar de 90 mm).
+TEST(Vl53l1x, JudgesTheWallFromEachKindOfReading) {
+    constexpr double kThreshold = 90.0;
+    const SideJudgement near = judgeSide(ReadingKind::Distance, 60, kThreshold);
+    EXPECT_TRUE(near.wall);
+    EXPECT_FALSE(near.unknown);
+    EXPECT_FALSE(near.fault);
+    EXPECT_FALSE(judgeSide(ReadingKind::Distance, 120, kThreshold).wall);
+    const SideJudgement open = judgeSide(ReadingKind::NoTarget, 9999, kThreshold);
+    EXPECT_FALSE(open.wall);
+    EXPECT_FALSE(open.unknown);
+
+    // Incerta e longe (pelo menos uma célula além do limiar): não há parede NESTA célula. É o caso
+    // do corredor longo no 12x4, além do alcance do modo curto.
+    const SideJudgement farUncertain = judgeSide(ReadingKind::Uncertain, 800, kThreshold);
+    EXPECT_FALSE(farUncertain.wall);
+    EXPECT_FALSE(farUncertain.unknown);
+    EXPECT_FALSE(farUncertain.fault);
+    // Incerta e perto: pode ser parede. Desconhecido (conta como parede), mas não é falha.
+    const SideJudgement nearUncertain = judgeSide(ReadingKind::Uncertain, 100, kThreshold);
+    EXPECT_TRUE(nearUncertain.wall);
+    EXPECT_TRUE(nearUncertain.unknown);
+    EXPECT_FALSE(nearUncertain.fault);
+
+    const SideJudgement fault = judgeSide(ReadingKind::Fault, -1, kThreshold);
+    EXPECT_TRUE(fault.wall);
+    EXPECT_TRUE(fault.unknown);
+    EXPECT_TRUE(fault.fault);
 }
 
 TEST(Vl53l1x, MissingTransferOrStaleDataIsFaultEvenWithValidStatus) {

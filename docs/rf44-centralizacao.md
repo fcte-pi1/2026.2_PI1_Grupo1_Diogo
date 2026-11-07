@@ -38,7 +38,7 @@ A função é pura (`domain/WallCentering`), testada no host. O adaptador só l�
 
 Um lado só entra no cálculo se:
 
-- a leitura for **medida de distância** (`ReadingKind::Distance`). "Sem alvo" e falha (inclusive SigmaFail e WrapTargetFail) **não** entram: o lado é tratado como "sem parede", e o controle segue pelos encoders e pelo outro lado;
+- a leitura for **medida de distância** (`ReadingKind::Distance`). "Sem alvo", medida incerta (SigmaFail, WrapTargetFail, XtalkSignalFail) e falha **não** entram: o lado é tratado como "sem parede", e o controle segue pelos encoders e pelo outro lado;
 - a distância for **menor que `useBelowMm`** (90 mm, o limiar de parede). Acima disso, o sensor está vendo a parede da célula vizinha ou o fim de uma parede, e a distância não diz nada sobre a posição na célula.
 
 A leitura desconhecida nunca vira "parede no centro" nem "parede encostada". Ela simplesmente sai da conta.

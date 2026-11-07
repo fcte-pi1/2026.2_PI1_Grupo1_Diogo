@@ -18,6 +18,11 @@ using ports::IMotionPort;
 using ports::ISensorPort;
 
 class Navigator {
+public:
+    // Leituras seguidas, na mesma célula, de um lado desconhecido pelo qual o caminho passa, antes de
+    // assumir parede nele e procurar outro caminho.
+    static constexpr int kMaxBlindWaits = 3;
+
 private:
     MazeMap& maze_;
     FloodFill flood_;
@@ -28,6 +33,8 @@ private:
     std::vector<Position> goals_;
     bool stuck_{false};
     ports::WallsAhead lastSense_{};  // última leitura, com os lados que falharam
+    int blindWaits_{0};               // leituras seguidas esperando um lado desconhecido
+    bool assumedWallHere_{false};     // já assumiu parede num lado desconhecido nesta célula
     void senseAndRecord();
     void applyTurnTo(Direction target);
     [[nodiscard]] bool wasUnseen(Direction direction) const;

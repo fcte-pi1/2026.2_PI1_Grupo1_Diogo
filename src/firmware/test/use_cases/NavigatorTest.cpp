@@ -192,6 +192,41 @@ TEST(Navigator, TransientSensorFaultDoesNotRecordAWallNorAdvanceBlindly) {
     EXPECT_FALSE(navigator.stuck());
 }
 
+// O frontal dá medida incerta o tempo todo (SigmaFail perto de uma parede escura, por exemplo), mas
+// o sensor funciona: não há Erro pelo SensorHealthMonitor. Antes, o robô esperava uma leitura boa
+// para sempre, parado, até o limite de passos. Agora, depois de algumas leituras, assume parede
+// naquele lado e segue por outro caminho.
+TEST(Navigator, PersistentUnknownSideIsTreatedAsWallAndRobotTakesAnotherWay) {
+    MazeMap known(4, 4);
+    MazeMap truth(4, 4);
+    truth.initKnownPerimeter();
+    known.initKnownPerimeter();
+
+    FlakyFrontRobot robot(truth, {3, 0}, Direction::North, /*failures=*/1000000);
+    Navigator navigator(known, robot, robot, {3, 0}, Direction::North, {{0, 3}});
+
+    EXPECT_TRUE(navigator.run(100));
+    EXPECT_FALSE(navigator.stuck());
+    EXPECT_GT(robot.robot().advances(), 0);
+}
+
+// Se o único caminho é pelo lado que nunca se deixa ler, o navegador desiste com stuck() (a corrida
+// vai ao Erro com o motivo e as leituras dos ToF), em vez de ficar parado até o limite de passos.
+TEST(Navigator, GivesUpWhenTheOnlyWayIsASideThatNeverReads) {
+    MazeMap known(4, 4);
+    MazeMap truth(4, 4);
+    truth.initKnownPerimeter();
+    known.initKnownPerimeter();
+    truth.setWall({3, 0}, Direction::East, Wall::Present);  // só o norte (a frente) está aberto
+
+    FlakyFrontRobot robot(truth, {3, 0}, Direction::North, /*failures=*/1000000);
+    Navigator navigator(known, robot, robot, {3, 0}, Direction::North, {{0, 0}});
+
+    EXPECT_FALSE(navigator.run(20));
+    EXPECT_TRUE(navigator.stuck());
+    EXPECT_EQ(robot.robot().advances(), 0);
+}
+
 // Paredes lidas errado (guardadas no mapa) fecham todos os caminhos: o navegador esquece o que
 // leu, sente de novo e segue, em vez de ficar parado na célula (teste de 04/11).
 TEST(Navigator, ForgetsWrongWallsWhenNoPathIsLeft) {

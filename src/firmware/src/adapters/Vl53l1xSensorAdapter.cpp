@@ -26,6 +26,26 @@ constexpr uint32_t kBootMs = 60;
 // o teste na placa deu FALHA na primeira leitura de cada comando. 150 ms cobre o pior caso.
 constexpr uint32_t kFreshTimeoutMs = 150;
 
+// Nome curto do estado da medida, para o log e o motivo de falha.
+const char* statusName(drivers::Vl53l1x::RangeStatus status) {
+    using S = drivers::Vl53l1x::RangeStatus;
+    switch (status) {
+        case S::RangeValid: return "ok";
+        case S::SigmaFail: return "sigma";
+        case S::SignalFail: return "sinal";
+        case S::RangeValidMinRangeClipped: return "minclip";
+        case S::OutOfBoundsFail: return "fora";
+        case S::HardwareFail: return "hw";
+        case S::RangeValidNoWrapCheckFail: return "ok1";
+        case S::WrapTargetFail: return "wrap";
+        case S::XtalkSignalFail: return "xtalk";
+        case S::SynchronizationInt: return "sync";
+        case S::MinRangeFail: return "colado";
+        case S::None: return "nenhum";
+    }
+    return "?";
+}
+
 }  // namespace
 
 Vl53l1xSensorAdapter::Vl53l1xSensorAdapter(double wallThresholdMm)
@@ -135,6 +155,10 @@ Vl53l1xSensorAdapter::Reading Vl53l1xSensorAdapter::poll(Slot& slot, bool requir
             case drivers::ReadingKind::NoTarget:
                 slot.last = {kNoReadingMm, status, kind};
                 break;
+            case drivers::ReadingKind::Uncertain:
+                // Guarda a distância lida: longe, ela ainda diz que não há parede nesta célula.
+                slot.last = {static_cast<int>(mm), status, kind};
+                break;
             case drivers::ReadingKind::Fault:
                 slot.last = {kFaultMm, status, kind};
                 break;
@@ -205,33 +229,48 @@ ports::WallsAhead Vl53l1xSensorAdapter::sense() const {
     const Reading front = poll(slots_[static_cast<size_t>(Side::Front)], true);
     const Reading right = poll(slots_[static_cast<size_t>(Side::Right)], true);
 
-    // Um sensor em falha conta como PAREDE: o robô não avança por um lado que não enxerga. E a
-    // falha fica registrada em healthy(), para o laço da navegação levar ao Erro se ela persistir.
-    auto wall = [this](const Reading& reading) {
-        switch (reading.kind) {
-            case drivers::ReadingKind::Distance:
-                return reading.mm < thresholdMm_;
-            case drivers::ReadingKind::NoTarget:
-                return false;
-            case drivers::ReadingKind::Fault:
-                return true;
-        }
-        return true;
-    };
-    healthy_ = left.kind != drivers::ReadingKind::Fault &&
-               front.kind != drivers::ReadingKind::Fault &&
-               right.kind != drivers::ReadingKind::Fault;
+    // Falha ou medida incerta perto conta como PAREDE e lado desconhecido: o mapa não grava e o robô
+    // não avança por ali às cegas. Só a falha (sensor quebrado) conta em healthy(), para o laço da
+    // navegação levar ao Erro se ela persistir. Regras em drivers::judgeSide (testadas no host).
+    const drivers::SideJudgement l = drivers::judgeSide(left.kind, left.mm, thresholdMm_);
+    const drivers::SideJudgement f = drivers::judgeSide(front.kind, front.mm, thresholdMm_);
+    const drivers::SideJudgement r = drivers::judgeSide(right.kind, right.mm, thresholdMm_);
+    healthy_ = !l.fault && !f.fault && !r.fault;
+
     faultSummary_[0] = '\0';
+    size_t used = 0;
+    auto append = [this, &used](const char* text) {
+        if (used < sizeof faultSummary_) {
+            const int n = std::snprintf(faultSummary_ + used, sizeof faultSummary_ - used, "%s", text);
+            used += n > 0 ? static_cast<size_t>(n) : 0;
+        }
+    };
     if (!healthy_) {
-        std::snprintf(faultSummary_, sizeof faultSummary_, "ToF em falha:%s%s%s",
-                      left.kind == drivers::ReadingKind::Fault ? " esquerdo" : "",
-                      front.kind == drivers::ReadingKind::Fault ? " frontal" : "",
-                      right.kind == drivers::ReadingKind::Fault ? " direito" : "");
+        append("ToF em falha:");
+        if (l.fault) append(" esquerdo");
+        if (f.fault) append(" frontal");
+        if (r.fault) append(" direito");
+    }
+    const Reading* readings[3] = {&left, &front, &right};
+    const char* names[3] = {"esquerdo", "frontal", "direito"};
+    bool firstUncertain = true;
+    for (int i = 0; i < 3; ++i) {
+        if (readings[i]->kind != drivers::ReadingKind::Uncertain) continue;
+        if (firstUncertain) {
+            append(healthy_ ? "incerto:" : "; incerto:");
+        } else {
+            append(",");
+        }
+        firstUncertain = false;
+        char item[40];
+        std::snprintf(item, sizeof item, " %s(%s %d)", names[i], statusName(readings[i]->status),
+                      readings[i]->mm);
+        append(item);
+    }
+    if (faultSummary_[0] != '\0') {
         ESP_LOGW(kTag, "%s", faultSummary_);
     }
-    auto unknown = [](const Reading& reading) { return reading.kind == drivers::ReadingKind::Fault; };
-    return {wall(front),    wall(left),    wall(right),
-            unknown(front), unknown(left), unknown(right)};
+    return {f.wall, l.wall, r.wall, f.unknown, l.unknown, r.unknown};
 }
 
 }  // namespace micromouse::adapters
