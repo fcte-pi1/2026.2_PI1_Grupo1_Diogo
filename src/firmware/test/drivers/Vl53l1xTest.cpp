@@ -257,6 +257,22 @@ TEST(Vl53l1x, FirstReadingHasNoWrapCheck) {
     EXPECT_EQ(sensor.rangingData().status, Vl53l1x::RangeStatus::RangeValidNoWrapCheckFail);
 }
 
+// O RESULT__RANGE_STATUS só tem o estado nos bits 4..0; os bits 5..7 são outras flags
+// (max/min_threshold_hit e gph_id). A API da ST mascara com 0x1F (VL53L1_RANGE_STATUS__RANGE_STATUS_MASK
+// na API completa, "RgSt & 0x1F" na ULD); sem a máscara, uma medida válida com um desses bits ligado
+// virava estado None, ou seja, falha, e contava como parede.
+TEST(Vl53l1x, RangeStatusIgnoresTheUpperFlagBits) {
+    FakeVl53l1xBus bus;
+    Vl53l1x sensor(bus);
+    ASSERT_TRUE(sensor.init());
+    bus.loadResult(0x80 | 9, 1, 100);  // RANGECOMPLETE com gph_id_range_status = 1
+    EXPECT_EQ(sensor.read(), 98);
+    EXPECT_EQ(sensor.rangingData().status, Vl53l1x::RangeStatus::RangeValid);
+    bus.loadResult(0x20 | 4, 1, 0);  // MSRCNOTARGET com max_threshold_hit = 1
+    (void)sensor.read();
+    EXPECT_EQ(sensor.rangingData().status, Vl53l1x::RangeStatus::SignalFail);
+}
+
 TEST(Vl53l1x, NoTargetIsSignalFail) {
     FakeVl53l1xBus bus;
     Vl53l1x sensor(bus);

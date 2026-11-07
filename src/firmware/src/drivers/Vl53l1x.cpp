@@ -459,8 +459,9 @@ void Vl53l1x::getRangingData() {
     // "apply correction gain": 2011/2048 (cerca de 98%), com 1024 para arredondar
     ranging_.rangeMm = static_cast<uint16_t>((static_cast<uint32_t>(range) * 2011 + 0x0400) / 0x0800);
 
-    // Estado a partir do RESULT__RANGE_STATUS (ConvertStatusLite())
-    switch (results_.rangeStatus) {
+    // Estado a partir do RESULT__RANGE_STATUS (ConvertStatusLite()). Só os bits 4..0 são o estado;
+    // os bits 5..7 são outras flags, e a API da ST os mascara (RANGE_STATUS__RANGE_STATUS_MASK).
+    switch (results_.rangeStatus & 0x1F) {
         case 17:  // MULTCLIPFAIL
         case 2:   // VCSELWATCHDOGTESTFAILURE
         case 1:   // VCSELCONTINUITYTESTFAILURE
