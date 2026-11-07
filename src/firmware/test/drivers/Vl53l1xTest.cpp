@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <map>
+#include <stdexcept>
 
 #include "drivers/RegisterBus.hpp"
 #include "drivers/Vl53l1x.hpp"
@@ -21,6 +22,14 @@ public:
     int nackOnceAtReg{-1};  // recusa uma única escrita neste registrador (NACK no meio da config.)
     std::map<uint16_t, uint8_t> regs;
     uint32_t nowMs{0};
+    long callBudget{-1};  // > 0: lança depois de tantas transações (pega um laço sem fim no teste)
+
+    void spend() {
+        ++nowMs;
+        if (callBudget > 0 && --callBudget == 0) {
+            throw std::runtime_error("driver em laço sem fim no barramento");
+        }
+    }
 
     FakeVl53l1xBus() {
         set16(0x010F, Vl53l1x::kModelId);  // IDENTIFICATION__MODEL_ID
@@ -39,7 +48,7 @@ public:
     }
 
     bool write(uint8_t address, const uint8_t* data, size_t length) override {
-        ++nowMs;
+        spend();
         if (!present || address != deviceAddress || length < 2) return false;
         const auto reg = static_cast<uint16_t>((data[0] << 8) | data[1]);
         if (static_cast<int>(reg) == nackOnceAtReg) {
@@ -62,7 +71,7 @@ public:
 
     bool writeRead(uint8_t address, const uint8_t* tx, size_t txLength, uint8_t* rx,
                    size_t rxLength) override {
-        ++nowMs;
+        spend();
         if (!present || address != deviceAddress || txLength < 2) return false;
         const auto reg = static_cast<uint16_t>((tx[0] << 8) | tx[1]);
         for (size_t i = 0; i < rxLength; ++i) {
@@ -181,6 +190,19 @@ TEST(Vl53l1x, InitTimesOutIfSensorStopsAnsweringDuringBoot) {
     silent.setTimeout(100);
     EXPECT_FALSE(silent.init());
     EXPECT_TRUE(silent.timeoutOccurred());
+}
+
+// Sem setTimeout() (o padrão da Pololu é 0, "sem limite"), um sensor que nunca termina o boot
+// prendia o init() para sempre, e o robô travava no begin() sem chegar ao auto-teste.
+TEST(Vl53l1x, InitGivesUpOnBootEvenWithoutConfiguredTimeout) {
+    FakeVl53l1xBus bus;
+    bus.regs[0x00E5] = 0x00;  // boot nunca termina
+    bus.callBudget = 100000;
+    Vl53l1x sensor(bus);
+    bool ok = true;
+    EXPECT_NO_THROW(ok = sensor.init());
+    EXPECT_FALSE(ok);
+    EXPECT_TRUE(sensor.timeoutOccurred());
 }
 
 TEST(Vl53l1x, InitTimesOutIfBootNeverCompletes) {

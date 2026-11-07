@@ -45,6 +45,8 @@ class Vl53l1x {
 public:
     static constexpr uint8_t kDefaultAddress = 0x29;
     static constexpr uint16_t kModelId = 0xEACC;
+    // Prazo do boot no init() quando setTimeout() não foi chamado (o boot leva ~1,2 ms no datasheet).
+    static constexpr uint32_t kBootTimeoutMs = 500;
 
     enum class DistanceMode { Short, Medium, Long, Unknown };
 

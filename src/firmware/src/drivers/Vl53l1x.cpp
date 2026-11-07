@@ -151,10 +151,13 @@ bool Vl53l1x::init(bool io2v8) {
     // dá tempo de boot; senão o sensor dá NACK na leitura abaixo
     bus_.delayMs(1);
 
-    // VL53L1_poll_for_boot_completion(): repete enquanto houver NACK ou o boot não terminar
-    startTimeout();
+    // VL53L1_poll_for_boot_completion(): repete enquanto houver NACK ou o boot não terminar. Sem
+    // timeout configurado (0, o padrão da Pololu), usa kBootTimeoutMs: um sensor que não termina o
+    // boot não pode prender o robô no begin() para sempre.
+    const uint32_t bootTimeoutMs = timeoutMs_ > 0 ? timeoutMs_ : kBootTimeoutMs;
+    const uint32_t bootStart = bus_.millis();
     while ((readReg(FIRMWARE__SYSTEM_STATUS) & 0x01) == 0 || !lastOk_) {
-        if (timeoutExpired()) {
+        if (bus_.millis() - bootStart > bootTimeoutMs) {
             didTimeout_ = true;
             return false;
         }
