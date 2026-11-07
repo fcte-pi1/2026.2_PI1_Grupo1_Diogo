@@ -121,6 +121,10 @@ void navigationTask(void*) {
     gDip.begin();
     gMotion.begin();
     ESP_LOGI(kTag, "mapa de pinos dos motores: %s", adapters::pins::kMotorWiringName);
+#if CONFIG_RATO_CENTRALIZAR_PAREDES && !CONFIG_RATO_BANCADA
+    gMotion.enableWallCentering(gSensor);
+    ESP_LOGW(kTag, "centralizacao pelas paredes (RF-44) LIGADA, ganhos nao calibrados");
+#endif
 
     use_cases::SessionManager session(gLocal);
 

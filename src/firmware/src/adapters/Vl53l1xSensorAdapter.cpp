@@ -168,6 +168,14 @@ Vl53l1xSensorAdapter::Reading Vl53l1xSensorAdapter::reading(Side side) const {
     return slots_[static_cast<size_t>(side)].last;
 }
 
+std::optional<Vl53l1xSensorAdapter::Reading> Vl53l1xSensorAdapter::freshReading(Side side) const {
+    Slot& slot = slots_[static_cast<size_t>(side)];
+    if (!slot.sensor || !slot.sensor->dataReady()) {
+        return std::nullopt;
+    }
+    return poll(slot, false);
+}
+
 ports::WallsAhead Vl53l1xSensorAdapter::sense() const {
     // Parede presente quando a distância medida fica abaixo do limiar
     // calibrado (RNF-31). O limiar vem do construtor (thresholdMm_).

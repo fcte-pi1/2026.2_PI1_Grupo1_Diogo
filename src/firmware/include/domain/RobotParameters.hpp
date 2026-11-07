@@ -3,6 +3,7 @@
 #include "domain/Maneuver.hpp"
 #include "domain/Odometry.hpp"
 #include "domain/Pid.hpp"
+#include "domain/WallCentering.hpp"
 
 namespace micromouse::domain::robot {
 
@@ -38,5 +39,12 @@ inline constexpr double kStraightMaxCorrection = 0.20;
 // limita a roda que a correção acelera.
 inline constexpr double kStraightBaseSpeed = 0.70;
 inline constexpr double kStraightMaxSpeed = 0.85;
+
+// Centralização pelas paredes laterais (RF-44), só com a opção RATO_CENTRALIZAR_PAREDES do Kconfig
+// (desligada por padrão). Valores iniciais, NÃO calibrados (docs/rf44-centralizacao.md): centro de
+// ~35 mm = (180 - 12 de parede - 100 de robô) / 2, a medir com o robô centrado; só a parede da
+// própria célula (abaixo do limiar de 90 mm); 10 mm fora do centro = 5 pulsos; termo máximo de
+// 15 pulsos (correção 0,075 com kp 0,005), longe do limite de 0,20.
+inline constexpr WallCenteringConfig kWallCentering{35.0, 90.0, 0.5, 15.0};
 
 }  // namespace micromouse::domain::robot

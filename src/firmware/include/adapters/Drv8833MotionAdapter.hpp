@@ -5,6 +5,7 @@
 #include "adapters/Encoders.hpp"
 #include "adapters/MotorDriver.hpp"
 #include "adapters/Mpu6050.hpp"
+#include "adapters/Vl53l1xSensorAdapter.hpp"
 #include "controller/MotionController.hpp"
 #include "domain/Maneuver.hpp"
 #include "domain/Odometry.hpp"
@@ -25,6 +26,7 @@ private:
     domain::WheelConfig wheels_;
     domain::TurnConfig turnConfig_;
     controller::MotionController straight_;
+    const Vl53l1xSensorAdapter* walls_{nullptr};  // RF-44: só com enableWallCentering()
     bool lastMoveOk_{true};
     const char* lastMoveName_{"nenhum"};
     // Retrato do fim do último movimento, para o motivo de uma falha (corrida na bateria, sem
@@ -42,6 +44,9 @@ public:
                          const domain::PidGains& straightGains, double maxCorrection,
                          Mpu6050& imu);
     void begin();
+    // RF-44 (opção RATO_CENTRALIZAR_PAREDES, desligada por padrão): na reta, soma ao erro dos
+    // encoders o deslocamento lateral lido pelos ToF laterais (docs/rf44-centralizacao.md).
+    void enableWallCentering(const Vl53l1xSensorAdapter& sensor) noexcept { walls_ = &sensor; }
     void advanceCell() override;
     void turnLeft() override;
     void turnRight() override;

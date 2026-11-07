@@ -37,6 +37,7 @@ add_executable(firmware_tests
     domain/BatteryMonitorTest.cpp
     domain/SensorHealthMonitorTest.cpp
     domain/SoftStartTest.cpp
+    domain/WallCenteringTest.cpp
     drivers/Vl53l1xTest.cpp
 )
 

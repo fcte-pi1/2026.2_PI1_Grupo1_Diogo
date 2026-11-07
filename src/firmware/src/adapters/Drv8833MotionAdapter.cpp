@@ -33,6 +33,9 @@ constexpr double kTurnSpeed = 0.60;
 constexpr double kTurnToleranceDeg = 2.0;
 constexpr double kDeltaTimeSeconds = 0.001;
 constexpr TickType_t kControlPeriod = pdMS_TO_TICKS(1);
+// RF-44: de quanto em quanto tempo pergunta aos ToF laterais se há medida nova (eles medem a cada
+// 50 ms; perguntar mais vezes só pega a medida mais cedo).
+constexpr uint32_t kWallPollMs = 10;
 }  // namespace
 
 Drv8833MotionAdapter::Drv8833MotionAdapter(const domain::WheelConfig& wheels,
@@ -56,6 +59,11 @@ void Drv8833MotionAdapter::advanceCell() {
     straight_.reset();
 
     long previousAverage = 0;
+    // RF-44: última leitura de cada parede lateral nesta célula e o termo que ela dá (0 sem walls_).
+    domain::SideReading leftWall{};
+    domain::SideReading rightWall{};
+    double wallTerm = 0.0;
+    uint32_t lastWallPollMs = 0;
     const TickType_t start = xTaskGetTickCount();
     lastMoveOk_ = true;
     lastMoveName_ = "andar 1 celula";
@@ -70,7 +78,21 @@ void Drv8833MotionAdapter::advanceCell() {
         odometry.onEncoderPulses(average - previousAverage);
         previousAverage = average;
 
-        const double error = static_cast<double>(left - right);
+        if (walls_ != nullptr && elapsedMsSince(start) - lastWallPollMs >= kWallPollMs) {
+            lastWallPollMs = elapsedMsSince(start);
+            using Side = Vl53l1xSensorAdapter::Side;
+            auto refresh = [this](Side side, domain::SideReading& out) {
+                if (const auto reading = walls_->freshReading(side)) {
+                    out = {reading->kind == drivers::ReadingKind::Distance,
+                           static_cast<double>(reading->mm)};
+                }
+            };
+            refresh(Side::Left, leftWall);
+            refresh(Side::Right, rightWall);
+            wallTerm =
+                domain::wallCenteringError(leftWall, rightWall, domain::robot::kWallCentering);
+        }
+        const double error = static_cast<double>(left - right) + wallTerm;
         const controller::WheelSpeeds speeds = straight_.correct(error, kDeltaTimeSeconds);
         // Partida suave: a potência sobe em rampa no começo de cada célula.
         const double ramp = domain::softStartFactor(elapsedMsSince(start));
@@ -87,10 +109,11 @@ void Drv8833MotionAdapter::advanceCell() {
     // kStraightMaxCorrection / kp indicam ganho baixo ou roda com problema.
     const controller::StraightStats& stats = straight_.stats();
     ESP_LOGI("reta",
-             "kp=%.4f enc E=%ld D=%ld erro final=%.0f max=%.0f corr max=%.3f saturou=%d/%d %s",
+             "kp=%.4f enc E=%ld D=%ld erro final=%.0f max=%.0f corr max=%.3f saturou=%d/%d "
+             "parede=%.1f %s",
              domain::robot::kStraightGains.proportionalGain, endLeftCount_, endRightCount_,
              stats.lastError, stats.maxAbsError, stats.maxAbsCorrection, stats.saturatedSteps,
-             stats.steps, lastMoveOk_ ? "ok" : "TEMPO ESGOTADO");
+             stats.steps, wallTerm, lastMoveOk_ ? "ok" : "TEMPO ESGOTADO");
 #endif
     vTaskDelay(pdMS_TO_TICKS(40));
 }

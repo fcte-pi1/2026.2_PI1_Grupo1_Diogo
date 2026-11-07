@@ -62,6 +62,9 @@ public:
     [[nodiscard]] const char* faultSummary() const noexcept { return faultSummary_; }
     [[nodiscard]] bool ready(Side side) const;
     [[nodiscard]] Reading reading(Side side) const;  // última medida guardada, não lê uma nova
+    // Medida nova de um lado, se o sensor tiver uma pronta (não espera, e consome a medida). Para a
+    // centralização pelas paredes durante o movimento (RF-44). Não mexe em healthy().
+    [[nodiscard]] std::optional<Reading> freshReading(Side side) const;
 
     // Distâncias em mm. Públicas para o firmware de diagnóstico (esp32-diagnostico/).
     [[nodiscard]] int rangeFrontMm() const;

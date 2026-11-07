@@ -30,4 +30,14 @@ menu "Rato Borrachudo"
             máximo, maior correção e quantos passos de 1 ms ficaram no limite. Não muda
             o movimento; o log leva alguns ms durante a frenagem.
 
+    config RATO_CENTRALIZAR_PAREDES
+        bool "Centralizar pelas paredes laterais na reta (RF-44, experimental)"
+        depends on !RATO_BANCADA
+        default n
+        help
+            Na reta, soma ao erro dos encoders o deslocamento lateral lido pelos ToF
+            laterais (domain/WallCentering, docs/rf44-centralizacao.md). Ganhos iniciais
+            NÃO calibrados em RobotParameters.hpp (kWallCentering). Desligada, o
+            advanceCell anda só pelos encoders, como antes.
+
 endmenu
