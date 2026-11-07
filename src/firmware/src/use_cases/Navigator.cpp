@@ -75,6 +75,13 @@ void Navigator::applyTurnTo(Direction target) {
 }
 
 void Navigator::step() {
+    // A primeira leitura da corrida não vale: desde o boot os ToF mediam sem ninguém ler, e a
+    // primeira medida depois disso vinha com lixo (07/11: 0, 6, 22 ou 9999 na primeira linha do
+    // `tof`; 04/11: o frontal "via" parede na largada). Custa uma leitura a mais, só na largada.
+    if (!warmedUp_) {
+        (void)sensor_.sense();
+        warmedUp_ = true;
+    }
     senseAndRecord();
     flood_.computeFloodFill(goals_);
 

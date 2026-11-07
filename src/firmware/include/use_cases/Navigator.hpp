@@ -35,6 +35,7 @@ private:
     ports::WallsAhead lastSense_{};  // última leitura, com os lados que falharam
     int blindWaits_{0};               // leituras seguidas esperando um lado desconhecido
     bool assumedWallHere_{false};     // já assumiu parede num lado desconhecido nesta célula
+    bool warmedUp_{false};            // a primeira leitura da corrida já foi descartada
     void senseAndRecord();
     void applyTurnTo(Direction target);
     [[nodiscard]] bool wasUnseen(Direction direction) const;

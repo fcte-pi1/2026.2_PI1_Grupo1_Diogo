@@ -178,7 +178,9 @@ TEST(Navigator, TransientSensorFaultDoesNotRecordAWallNorAdvanceBlindly) {
     truth.initKnownPerimeter();
     known.initKnownPerimeter();
 
-    FlakyFrontRobot robot(truth, {3, 0}, Direction::North, /*failures=*/2);
+    // 3 falhas: a primeira leitura da corrida é descartada pelo navegador, e as outras 2 caem nos
+    // dois primeiros passos.
+    FlakyFrontRobot robot(truth, {3, 0}, Direction::North, /*failures=*/3);
     Navigator navigator(known, robot, robot, {3, 0}, Direction::North, {{0, 0}});
 
     navigator.step();  // frente em falha: não grava parede e não anda
@@ -225,6 +227,53 @@ TEST(Navigator, GivesUpWhenTheOnlyWayIsASideThatNeverReads) {
     EXPECT_FALSE(navigator.run(20));
     EXPECT_TRUE(navigator.stuck());
     EXPECT_EQ(robot.robot().advances(), 0);
+}
+
+// Robô simulado cuja PRIMEIRA leitura vem com lixo: os ToF ficaram medindo sem ninguém ler desde o
+// boot, e a primeira medida depois disso não vale (07/11: a primeira linha do `tof` saía com 0, 6,
+// 22 ou 9999; 04/11: o frontal "via" parede na largada). Conta quantas vezes ele avançou contra
+// uma parede de verdade.
+class GarbageFirstReadingRobot final : public ports::ISensorPort, public ports::IMotionPort {
+private:
+    const MazeMap& truth_;
+    SimulatedRobot robot_;
+    mutable bool first_{true};
+    int collisions_{0};
+
+public:
+    GarbageFirstReadingRobot(const MazeMap& truth, Position start, Direction heading)
+        : truth_(truth), robot_(truth, start, heading) {}
+    [[nodiscard]] ports::WallsAhead sense() const override {
+        if (first_) {
+            first_ = false;
+            return {};  // "nada ao alcance" nos três lados
+        }
+        return robot_.sense();
+    }
+    void advanceCell() override {
+        if (truth_.isBlocked(robot_.position(), robot_.heading())) ++collisions_;
+        robot_.advanceCell();
+    }
+    void turnLeft() override { robot_.turnLeft(); }
+    void turnRight() override { robot_.turnRight(); }
+    void turnAround() override { robot_.turnAround(); }
+    [[nodiscard]] int collisions() const { return collisions_; }
+};
+
+// A primeira leitura da corrida é descartada: com lixo dizendo "livre", o robô avançaria contra a
+// parede da largada.
+TEST(Navigator, DiscardsTheFirstReadingOfTheRun) {
+    MazeMap known(4, 4);
+    MazeMap truth(4, 4);
+    truth.initKnownPerimeter();
+    known.initKnownPerimeter();
+    truth.setWall({3, 0}, Direction::North, Wall::Present);  // parede logo à frente da largada
+
+    GarbageFirstReadingRobot robot(truth, {3, 0}, Direction::North);
+    Navigator navigator(known, robot, robot, {3, 0}, Direction::North, {{0, 0}});
+
+    EXPECT_TRUE(navigator.run(50));
+    EXPECT_EQ(robot.collisions(), 0);
 }
 
 // Paredes lidas errado (guardadas no mapa) fecham todos os caminhos: o navegador esquece o que
