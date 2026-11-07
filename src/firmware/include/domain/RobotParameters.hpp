@@ -19,13 +19,24 @@ inline constexpr double kWheelTrackMm = 88.0;  // bitola: valor de projeto, a me
 inline constexpr WheelConfig kWheels{kWheelDiameterMm, kCountsPerRevolution, kCellSizeMm};
 inline constexpr TurnConfig kTurn{kWheelDiameterMm, kCountsPerRevolution, kWheelTrackMm};
 
-// Controle de reta: o erro é a diferença de pulsos entre as rodas (esquerda - direita), lida a cada
-// 1 ms. Em 04/11, com {0.02, 0, 0.002}, o derivativo dava 2,0 por 1 pulso de diferença (0,002 / 1 ms)
+// Controle de reta (RF-43). O erro é a diferença ACUMULADA de pulsos (esquerda - direita) desde o
+// começo da célula (os encoders são zerados a cada advanceCell), amostrada a cada 1 ms. 1 pulso de
+// diferença = 0,375 mm de caminho a mais numa roda, ~0,24 grau de rumo com a bitola de 88 mm.
+// Em 04/11, com {0.02, 0, 0.002}, o derivativo dava 2,0 a cada pulso que o erro mudava (0,002 / 1 ms)
 // e o proporcional saturava com 15 pulsos: toda falha na pista terminou com uma roda em 0 e a outra
 // em 0,85, o robô girando sobre uma roda até encostar na parede. Agora só proporcional e suave
-// (40 pulsos, ~15 mm de diferença, dão a correção máxima), com a correção limitada: nenhuma roda
-// cai abaixo de base - 0,20.
+// (40 pulsos, ~15 mm ou ~10 graus de rumo, dão a correção máxima), com a correção limitada: nenhuma
+// roda cai abaixo de base - 0,20. Só com P sobra um erro constante na célula (correção / kp pulsos,
+// ~13 com rodas 25% diferentes na simulação do host); como os encoders zeram a cada célula, esse resto
+// vira desvio de rumo que se soma célula a célula até a centralização pelas paredes (RF-44) corrigir.
+// Ganhos não calibrados: ver test/controller/StraightLineSimulationTest.cpp e o roteiro de calibração.
 inline constexpr PidGains kStraightGains{0.005, 0.0, 0.0};
 inline constexpr double kStraightMaxCorrection = 0.20;
+
+// Potências da reta (fração da tensão da bateria). Em 04/11, com 0,45 as rodas às vezes não venciam
+// o atrito estático; 0,70 com a 2S cheia (8,4 V) dá ~5,9 V, dentro dos 6 V dos N20. O teto de 0,85
+// limita a roda que a correção acelera.
+inline constexpr double kStraightBaseSpeed = 0.70;
+inline constexpr double kStraightMaxSpeed = 0.85;
 
 }  // namespace micromouse::domain::robot

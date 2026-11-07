@@ -3,6 +3,7 @@
 #include <cmath>
 #include <cstdio>
 
+#include "domain/RobotParameters.hpp"
 #include "domain/SoftStart.hpp"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -18,12 +19,11 @@ uint32_t elapsedMsSince(TickType_t start) {
 // ~0,5 s; sem limite, uma curva que não terminava (robô no ar, rodas paradas) esperou 92 s.
 constexpr uint32_t kMoveTimeoutMs = 3000;
 
-// Potências (fração da tensão da bateria). Em 04/11, com 0,45 na reta e 0,40 na curva, as rodas
-// (já coladas, a direita com mais atrito) às vezes não venciam o atrito estático e o robô não
-// saía do lugar; o firmware de teste do hardware usa 100%. 0,70 com a 2S cheia (8,4 V) dá ~5,9 V,
-// dentro dos 6 V dos N20; o teto de 0,85 limita a correção do PID.
-constexpr double kBaseSpeed = 0.70;
-constexpr double kMaxSpeed = 0.85;
+// Potências (fração da tensão da bateria). As da reta ficam em domain/RobotParameters.hpp (0,70 e
+// teto 0,85), junto dos ganhos, para a simulação do host usar os mesmos valores. Em 04/11, com 0,40
+// na curva, as rodas às vezes não venciam o atrito estático; o firmware de teste do hardware usa 100%.
+constexpr double kBaseSpeed = domain::robot::kStraightBaseSpeed;
+constexpr double kMaxSpeed = domain::robot::kStraightMaxSpeed;
 constexpr double kTurnSpeed = 0.60;
 constexpr double kTurnToleranceDeg = 2.0;
 constexpr double kDeltaTimeSeconds = 0.001;

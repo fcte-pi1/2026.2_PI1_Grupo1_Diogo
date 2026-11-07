@@ -26,6 +26,8 @@ add_executable(firmware_tests
     domain/BuzzerPatternTest.cpp
     domain/PidTest.cpp
     controller/MotionControllerTest.cpp
+    controller/StraightLineSimulationTest.cpp
+    simulation/StraightLinePlant.hpp
     protocol/ProtocolV1Test.cpp
     telemetry/TelemetryBufferTest.cpp
     telemetry/TelemetryEmitterTest.cpp
