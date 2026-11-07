@@ -18,6 +18,7 @@ public:
     bool present{true};
     int nackResetRelease{0};  // recusa as N primeiras escritas de SOFT_RESET = 1 (visto na placa)
     bool resetGoesToDefault{false};  // o reset de software leva o sensor de volta ao 0x29
+    int nackOnceAtReg{-1};  // recusa uma única escrita neste registrador (NACK no meio da config.)
     std::map<uint16_t, uint8_t> regs;
     uint32_t nowMs{0};
 
@@ -41,6 +42,10 @@ public:
         ++nowMs;
         if (!present || address != deviceAddress || length < 2) return false;
         const auto reg = static_cast<uint16_t>((data[0] << 8) | data[1]);
+        if (static_cast<int>(reg) == nackOnceAtReg) {
+            nackOnceAtReg = -1;
+            return false;
+        }
         if (reg == 0x0000 && length >= 3 && data[2] == 0x01 && nackResetRelease > 0) {
             --nackResetRelease;
             return false;
@@ -133,6 +138,49 @@ TEST(Vl53l1x, InitGivesUpIfTheSensorNeverLeavesReset) {
     bus.nackResetRelease = 1000;
     Vl53l1x sensor(bus);
     EXPECT_FALSE(sensor.init());
+}
+
+// Um NACK no meio da configuração do init() (VL53L1_StaticInit) deixava o sensor mal configurado e
+// o init() devolvia true, porque só olhava a última transação. O bringUp() só começa a contar os
+// NACKs depois do init(), então ninguém via esse caso.
+TEST(Vl53l1x, InitFailsOnNackInTheMiddleOfConfiguration) {
+    FakeVl53l1xBus bus;
+    bus.nackOnceAtReg = 0x0064;  // RANGE_CONFIG__SIGMA_THRESH, no meio do StaticInit
+    Vl53l1x sensor(bus);
+    EXPECT_FALSE(sensor.init());
+}
+
+// O sensor sai do reset e para de responder durante o boot: o init() desiste no timeout.
+TEST(Vl53l1x, InitTimesOutIfSensorStopsAnsweringDuringBoot) {
+    FakeVl53l1xBus bus;
+    // some logo depois de sair do reset: só a leitura do modelo e o reset são aceitos
+    struct DropAfterReset final : IRegisterBus {
+        FakeVl53l1xBus& inner;
+        bool released{false};
+        explicit DropAfterReset(FakeVl53l1xBus& b) : inner(b) {}
+        bool write(uint8_t a, const uint8_t* d, size_t n) override {
+            if (released) {
+                inner.nowMs++;
+                return false;
+            }
+            const bool ok = inner.write(a, d, n);
+            released = ok && n >= 3 && d[0] == 0 && d[1] == 0 && d[2] == 0x01;
+            return ok;
+        }
+        bool writeRead(uint8_t a, const uint8_t* tx, size_t tn, uint8_t* rx, size_t rn) override {
+            if (released) {
+                inner.nowMs++;
+                return false;
+            }
+            return inner.writeRead(a, tx, tn, rx, rn);
+        }
+        void delayMs(uint32_t ms) override { inner.delayMs(ms); }
+        [[nodiscard]] uint32_t millis() const override { return inner.millis(); }
+    } dropping(bus);
+    Vl53l1x silent(dropping);
+    silent.setTimeout(100);
+    EXPECT_FALSE(silent.init());
+    EXPECT_TRUE(silent.timeoutOccurred());
 }
 
 TEST(Vl53l1x, InitTimesOutIfBootNeverCompletes) {

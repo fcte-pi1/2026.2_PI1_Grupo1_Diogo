@@ -159,6 +159,9 @@ bool Vl53l1x::init(bool io2v8) {
             return false;
         }
     }
+    // Daqui em diante nenhum NACK é esperado: um NACK no meio da configuração deixa o sensor mal
+    // ajustado, e o retorno precisa refletir isso, não só a última transação.
+    clearTransferErrors();
 
     // VL53L1_DataInit(): o I/O sai em 1V8; passa para 2V8 se pedido
     if (io2v8) {
@@ -205,7 +208,7 @@ bool Vl53l1x::init(bool io2v8) {
     writeReg16(ALGO__PART_TO_PART_RANGE_OFFSET_MM,
                static_cast<uint16_t>(readReg16(MM_CONFIG__OUTER_OFFSET_MM) * 4));
 
-    return lastOk_;
+    return !anyFailed_;
 }
 
 void Vl53l1x::noteTransfer(bool ok) noexcept {

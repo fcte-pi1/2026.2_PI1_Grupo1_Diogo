@@ -114,8 +114,9 @@ public:
     void setAddress(uint8_t newAddress);
     [[nodiscard]] uint8_t address() const noexcept { return address_; }
 
-    // Confere o modelo, reinicia e configura o sensor. False se não for um VL53L1X ou se não
-    // terminar o boot dentro do timeout.
+    // Confere o modelo, reinicia e configura o sensor. False se não for um VL53L1X, se não
+    // terminar o boot dentro do timeout ou se houver qualquer NACK na configuração. Zera o registro
+    // de NACKs (clearTransferErrors) depois do boot, onde os NACKs do reset são esperados.
     bool init(bool io2v8 = true);
 
     bool setDistanceMode(DistanceMode mode);
