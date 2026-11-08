@@ -23,13 +23,15 @@ menu "Rato Borrachudo"
             esquemático.
 
     config RATO_LOG_RETA
-        bool "Logar o controle de reta no fim de cada célula (calibração)"
+        bool "Logar a reta e as curvas no fim de cada movimento (calibração)"
         default n
         help
-            Para calibrar o ganho da reta na pista (com o cabo USB). No fim de cada
-            advanceCell, uma linha com a tag "reta": pulsos de cada roda, erro final e
-            máximo, maior correção e quantos passos de 1 ms ficaram no limite. Não muda
-            o movimento; o log leva alguns ms durante a frenagem.
+            Para calibrar o ganho da reta e a curva na pista (com o cabo USB). No fim de
+            cada advanceCell, uma linha com a tag "reta": pulsos de cada roda, erro final
+            e máximo, maior correção e quantos passos de 1 ms ficaram no limite. No fim
+            de cada curva, uma linha com a tag "curva": ângulo do giroscópio ao frear e
+            depois do freio, tempo e pulsos medidos contra os esperados sem patinar. Não
+            muda o movimento; o log leva alguns ms durante a frenagem.
 
     config RATO_CENTRALIZAR_PAREDES
         bool "Centralizar pelas paredes laterais na reta (RF-44, experimental)"

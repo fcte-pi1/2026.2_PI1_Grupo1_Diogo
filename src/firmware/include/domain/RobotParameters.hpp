@@ -43,6 +43,13 @@ inline constexpr double kStraightMaxCorrection = 0.20;
 inline constexpr double kStraightBaseSpeed = 0.70;
 inline constexpr double kStraightMaxSpeed = 0.85;
 
+// Curva no lugar (pivô), encerrada só pelo giroscópio (controller::PivotTurn):
+// - cruzeiro 0,75: em 07/11, com 0,60 a curva às vezes não saía do lugar no chão;
+// - nos últimos 30 graus a potência cai até 0,65 (a roda já está girando, o atrito é menor que na
+//   partida), para o robô girar menos depois do freio. NÃO calibrado: ver o E1 do roteiro;
+// - termina 2 graus antes do alvo, por causa do que o robô ainda gira depois do freio.
+inline constexpr PivotProfile kPivot{0.75, 0.65, 30.0, 2.0};
+
 // Roda parada na reta (04/11 e 07/11: "enc E=0 D=123 pot E=0.85"): depois de 120 pulsos (~45 mm)
 // na roda mais rápida, a outra abaixo de 20% dela está parada. Rodas 25% diferentes ficam em 80%.
 inline constexpr WheelStallConfig kWheelStall{120, 0.20};

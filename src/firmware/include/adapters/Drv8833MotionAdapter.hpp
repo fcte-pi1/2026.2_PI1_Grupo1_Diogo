@@ -7,6 +7,7 @@
 #include "adapters/Mpu6050.hpp"
 #include "adapters/Vl53l1xSensorAdapter.hpp"
 #include "controller/MotionController.hpp"
+#include "controller/PivotTurn.hpp"
 #include "domain/Maneuver.hpp"
 #include "domain/Odometry.hpp"
 #include "domain/Pid.hpp"
@@ -17,7 +18,7 @@ namespace micromouse::adapters {
 // Executa comandos de célula/giro em MALHA FECHADA:
 //  - advanceCell: anda 1 célula igualando as rodas pela diferença de pulsos
 //    (MotionController, RF-43) e para pela odometria (Odometry).
-//  - giros: pivô parando pelo ângulo do giroscópio (Maneuver + IMU, RF-45/46).
+//  - giros: pivô parando só pelo ângulo do giroscópio (PivotTurn + IMU, RF-45/46).
 class Drv8833MotionAdapter final : public ports::IMotionPort {
 private:
     MotorDriver motors_;
@@ -36,8 +37,10 @@ private:
     long endRightCount_{0};
     double endLeftCmd_{0.0};
     double endRightCmd_{0.0};
+    bool lastMoveWasTurn_{false};
+    double lastTurnDeg_{0.0};  // ângulo da última curva medido pelo giroscópio, depois do freio
 
-    void pivot(double degrees, double leftSpeed, double rightSpeed);
+    void pivot(double degrees, controller::PivotTurn::Direction direction);
 
 public:
     Drv8833MotionAdapter(const domain::WheelConfig& wheels,
@@ -61,7 +64,8 @@ public:
     [[nodiscard]] const char* lastMoveFailure() const noexcept { return lastMoveFailure_; }
     // O último movimento feito ("andar 1 celula", "curva de 90 graus", "meia-volta").
     [[nodiscard]] const char* lastMoveName() const noexcept { return lastMoveName_; }
-    // Pulsos de cada encoder e potência mandada a cada motor no fim do último movimento.
+    // Pulsos de cada encoder e potência mandada a cada motor no fim do último movimento (e, numa
+    // curva, o ângulo medido pelo giroscópio).
     void describeLastMove(char* out, size_t size) const;
 };
 

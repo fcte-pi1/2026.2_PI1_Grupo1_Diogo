@@ -27,6 +27,7 @@ add_executable(firmware_tests
     domain/PidTest.cpp
     controller/MotionControllerTest.cpp
     controller/StraightLineSimulationTest.cpp
+    controller/PivotTurnTest.cpp
     simulation/StraightLinePlant.hpp
     protocol/ProtocolV1Test.cpp
     telemetry/TelemetryBufferTest.cpp

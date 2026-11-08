@@ -58,6 +58,7 @@ add_library(firmware_logic STATIC
     src/domain/WheelStall.cpp
     src/domain/BridgeDrive.cpp
     src/controller/MotionController.cpp
+    src/controller/PivotTurn.cpp
     src/protocol/ProtocolV1.cpp
     src/telemetry/TelemetryBuffer.cpp
     src/telemetry/TelemetryEmitter.cpp

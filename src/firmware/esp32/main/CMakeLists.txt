@@ -19,6 +19,7 @@ idf_component_register(
         "${CORE_ROOT}/src/domain/BridgeDrive.cpp"
         "${CORE_ROOT}/src/drivers/Vl53l1x.cpp"
         "${CORE_ROOT}/src/controller/MotionController.cpp"
+        "${CORE_ROOT}/src/controller/PivotTurn.cpp"
         "${CORE_ROOT}/src/use_cases/Navigator.cpp"
         "${CORE_ROOT}/src/use_cases/SessionManager.cpp"
         "${CORE_ROOT}/src/protocol/ProtocolV1.cpp"
