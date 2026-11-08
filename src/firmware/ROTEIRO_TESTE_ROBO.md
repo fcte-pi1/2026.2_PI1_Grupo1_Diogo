@@ -180,13 +180,24 @@ Faça os passos em ordem. Os detalhes de cada comando estão no [`TESTES_HARDWAR
 | A9 | `dip` | Mostra o labirinto e o canto que você escolheu | A saída |
 | A10 | `botao`, `led pronto`, `led erro`, `led apagar`, `buzzer pronto`, `buzzer alarme` | Tudo funciona | O que não funcionou |
 
-### A11: sentido das rodas e dos encoders (robô suspenso)
+### A11: cada encoder conta a sua roda (só USB, sem bateria)
+
+Este é o teste que teria achado o defeito de 04/11 e 07/11: os encoders estavam trocados em relação aos motores. O firmware lia o encoder da roda direita como se fosse o da esquerda, e o controle de reta corrigia ao contrário. Girar as duas rodas juntas **não** mostra isso, porque os dois encoders contam do mesmo jeito.
 
 1. `enc zerar`
-2. `motor 0.5 0.5 1000`
-3. `enc 1`
+2. Gire **só a roda esquerda** à mão, **para a frente**, uma volta.
+3. `enc 1`: **só o encoder esquerdo** tem que ter contado, **positivo** (~285); o direito fica perto de 0.
+4. `enc zerar` e repita com **só a roda direita**: só o direito conta, positivo.
 
-**Passa se:** as **duas** rodas giram **para frente** e os **dois** encoders contam **positivo**. Se algo vier ao contrário, siga a seção "Sentido da roda esquerda" do `TESTES_HARDWARE.md` e **pare**: o firmware da corrida vai andar errado.
+**Passa se:** cada roda move só o seu encoder, e para frente conta positivo. Se a roda esquerda mexer o encoder direito (ou o contrário), os encoders estão trocados no `BoardPins.hpp`: **pare** e avise a equipe de firmware.
+
+### A11b: sentido dos motores (robô suspenso, precisa de bateria)
+
+1. `enc zerar`
+2. `motor 0.5 0 1000`: só a roda **esquerda** gira, **para a frente**. Depois `enc 1`: só o encoder esquerdo contou, positivo.
+3. `enc zerar`, `motor 0 0.5 1000`, `enc 1`: o mesmo para a direita.
+
+**Passa se:** cada comando move a roda certa, para a frente, e só o encoder dela conta. Se algo vier ao contrário, siga a seção "Sentido da roda esquerda" do `TESTES_HARDWARE.md` e **pare**: o firmware da corrida vai andar errado.
 
 ### A12: pulsos por volta
 
@@ -221,7 +232,9 @@ Na ficha, calcule para cada linha a **razão = maior / menor**.
 
 ### A14: roda que não gira (só se uma roda falhar no A13, no C2 ou nas corridas)
 
-Em 04/11 e em 07/11, a roda esquerda não girou no chão (`enc E=0`, com o firmware pedindo `pot E=0.85`). Este passo descobre **onde** o sinal se perde, do ESP32 até o motor. Faça na ordem e pare no primeiro que falhar.
+**Antes, refaça o A11.** Em 04/11 e em 07/11, o `enc E=0` com `pot E=0.85` parecia uma roda esquerda sem força, mas era o firmware lendo o **encoder da roda errada** (corrigido no `80a87b9`). Com os encoders certos, uma roda que não gira de verdade aparece como `andar 1 celula falhou (roda ... parada)`.
+
+Se o A11 passa e uma roda continua sem girar, este passo descobre **onde** o sinal se perde, do ESP32 até o motor. Faça na ordem e pare no primeiro que falhar.
 
 **Pinos dos motores** (montagem atual, com `RATO_FIOS_MOTORES_TROCADOS` ligada; confira com `pinos` no diagnóstico):
 
@@ -317,12 +330,13 @@ Abra o monitor (seção 2) com o arquivo `C1_boot_1.txt` e aperte o **RST**. O l
 I (...) tof: esquerdo pronto em 0x30
 I (...) tof: frontal pronto em 0x31
 I (...) tof: direito pronto em 0x32
+I (...) mpu6050: giroscopio em +-1000 graus/s
 I (...) main: mapa de pinos dos motores: [...]
 I (...) main: DIP lido no boot: labirinto [4x4], partida pela [esquerda]
 I (...) main: aguardando o botao de largada
 ```
 
-- **Passa se:** as 6 linhas aparecem nas 5 vezes.
+- **Passa se:** as 7 linhas aparecem nas 5 vezes. Se aparecer `giroscopio ficou em +-250 graus/s` no lugar da linha do `mpu6050`, a curva pode girar demais: avise.
 - **Anote** qualquer `tentativa 1 de 3 falhou`, `nao respondeu` ou aviso do MPU-6050 (`WHO_AM_I`), e em qual das 5 vezes apareceu.
 - Confira se o labirinto e o canto batem com o DIP.
 
