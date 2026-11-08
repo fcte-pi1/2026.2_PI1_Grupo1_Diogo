@@ -52,8 +52,9 @@ inline constexpr WheelStallConfig kWheelStall{120, 0.20};
 // - centro de 33,6 mm: média dos ToF laterais com o robô centrado, medida em 07/11 (B1 do roteiro,
 //   E=31 e D=36,5 mm, conferidos com régua); a estimativa de projeto era ~34-35 mm;
 // - só a parede da própria célula (abaixo do limiar de 90 mm);
-// - ganhos NÃO calibrados: 10 mm fora do centro = 5 pulsos; termo máximo de 15 pulsos (correção
-//   0,075 com kp 0,005), longe do limite de 0,20.
-inline constexpr WallCenteringConfig kWallCentering{33.6, 90.0, 0.5, 15.0};
+// - ganhos NÃO calibrados, definidos pelo efeito na potência (ganho x kp): 10 mm fora do centro =
+//   2,5 pulsos = correção 0,025; termo máximo de 7,5 pulsos = 0,075, longe do limite de 0,20. Com o
+//   kp 0,010 os pulsos são a metade dos de antes (0,5 e 15 com kp 0,005); se o kp mudar, eles mudam.
+inline constexpr WallCenteringConfig kWallCentering{33.6, 90.0, 0.25, 7.5};
 
 }  // namespace micromouse::domain::robot

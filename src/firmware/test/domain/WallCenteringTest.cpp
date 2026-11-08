@@ -60,5 +60,14 @@ TEST(WallCentering, RobotConfigCannotSaturateTheStraightControlAlone) {
     EXPECT_LE(robot::kWallCentering.useBelowMm, 90.0);  // só a parede da própria célula
 }
 
+// O efeito do termo de parede na potência é ganho x kp. O projeto (docs/rf44-centralizacao.md) é
+// 10 mm fora do centro = correção 0,025 e no máximo 0,075; quando o kp da reta muda, os ganhos da
+// parede acompanham (07/11: kp de 0,005 para 0,010 dobrava o efeito da parede).
+TEST(WallCentering, RobotConfigKeepsTheDesignedAuthority) {
+    const double kp = robot::kStraightGains.proportionalGain;
+    EXPECT_NEAR(robot::kWallCentering.gainPulsesPerMm * kp * 10.0, 0.025, 1e-9);
+    EXPECT_NEAR(robot::kWallCentering.maxPulses * kp, 0.075, 1e-9);
+}
+
 }  // namespace
 }  // namespace micromouse::domain

@@ -6,7 +6,7 @@ Proposta para revisão, de 07/11/2026. A implementação está atrás da opção
 
 Hoje o `advanceCell` anda só pelos encoders. O erro do controle de reta é a diferença acumulada de pulsos (esquerda − direita) desde o começo da célula, e os encoders são zerados a cada célula. Isso gera dois efeitos:
 
-1. **Sobra de rumo por célula.** Com controle só P, o erro estabiliza em `correção / kp` pulsos. Na simulação do host (`StraightLineSimulationTest`), com rodas 25% diferentes e kp = 0,005, sobram ~13 pulsos por célula. Isso dá ~5 mm de caminho a mais numa roda, ou ~3° de rumo. Como o erro zera a cada célula, esses ~3° se somam a cada célula, e depois de 4 ou 5 células seguidas o robô encosta na parede.
+1. **Sobra de rumo por célula.** Com controle só P, o erro estabiliza em `correção / kp` pulsos. Na simulação do host (`StraightLineSimulationTest`), com rodas 25% diferentes, sobravam ~13 pulsos por célula com kp = 0,005 (~5 mm de caminho a mais numa roda, ou ~3° de rumo) e sobram ~7 com o kp = 0,010 medido na pista em 07/11 (~1,6°). Como o erro zera a cada célula, esse resto se soma a cada célula, e depois de algumas células seguidas o robô encosta na parede.
 2. **Posição lateral.** Os encoders não sabem onde o robô está entre as paredes. Uma curva imperfeita, ou uma partida torta, nunca é corrigida.
 
 Só uma referência externa resolve isso: as paredes, lidas pelos ToF laterais.
@@ -59,8 +59,8 @@ Em `RobotParameters.hpp` (`kWallCentering`):
 | ----------------- | -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `centerMm`        | 33,6 mm        | **Medido em 07/11** (B1 do roteiro): robô centrado numa célula com as duas paredes, `tof 20`, média de E = 31 e D = 36,5 mm, conferidos com régua. A estimativa de projeto era (180 − 12 − 100) / 2 ≈ 34 mm. |
 | `useBelowMm`      | 90 mm          | o limiar de parede atual                                                                                                                                                          |
-| `gainPulsesPerMm` | 0,5            | 10 mm fora do centro = 5 pulsos = correção 0,025 com kp 0,005. Um quarto do que a sobra dos encoders pede (~13 pulsos), para começar sem brigar com os encoders.                 |
-| `maxPulses`       | 15             | 15 × 0,005 = correção 0,075, menos da metade do limite de 0,20: a parede sozinha nunca satura o controle (teste `RobotConfigCannotSaturateTheStraightControlAlone`).             |
+| `gainPulsesPerMm` | 0,25           | 10 mm fora do centro = 2,5 pulsos = correção 0,025 com kp 0,010. Era 0,5 com kp 0,005: o que vale é o efeito na potência (ganho × kp), e ele não mudou (teste `RobotConfigKeepsTheDesignedAuthority`). |
+| `maxPulses`       | 7,5            | 7,5 × 0,010 = correção 0,075, menos da metade do limite de 0,20: a parede sozinha nunca satura o controle (teste `RobotConfigCannotSaturateTheStraightControlAlone`). Era 15 com kp 0,005. |
 
 ### Riscos conhecidos
 
@@ -88,7 +88,7 @@ Em `RobotParameters.hpp` (`kWallCentering`):
 3. Corredor reto de 3 a 4 células com as duas paredes. Largar o robô **5 a 10 mm fora do centro**, alinhado. Esperado: chega ao fim sem encostar, e o erro final da linha `reta` não cresce de célula para célula.
 4. O mesmo com **uma parede só** (tirar a parede direita): confere o `centerMm`.
 5. O mesmo **sem paredes** laterais: tem que se comportar como com a opção desligada.
-6. Largar **torto** (~5°): ver se corrige sem serpentear. Se serpentear, baixar `gainPulsesPerMm` para 0,25. Se demorar demais, subir para 1,0.
+6. Largar **torto** (~5°): ver se corrige sem serpentear. Se serpentear, baixar `gainPulsesPerMm` para 0,125. Se demorar demais, subir para 0,5.
 7. Só depois, uma corrida completa no 4×4.
 
 ## Fora do escopo
