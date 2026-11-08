@@ -24,4 +24,14 @@ enum class ImuModel {
 
 [[nodiscard]] const char* imuModelName(ImuModel model) noexcept;
 
+// Faixa do giroscópio (GYRO_CONFIG, registrador 0x1B, bits 4..3 FS_SEL; igual no MPU-6050 e nos
+// compatíveis). O padrão depois do reset é ±250 °/s, pouco para um pivô: a curva, que termina só
+// pelo giroscópio, saturaria a leitura e o robô giraria demais. O firmware usa ±1000 °/s.
+inline constexpr uint8_t kGyroConfigRegister = 0x1B;
+inline constexpr uint8_t kGyroConfigForTurns = 0x10;  // FS_SEL = 2: ±1000 °/s
+
+// Escala (LSB por °/s) e faixa (°/s) para um valor LIDO do GYRO_CONFIG.
+[[nodiscard]] double gyroLsbPerDegPerSec(uint8_t gyroConfig) noexcept;
+[[nodiscard]] double gyroFullScaleDegPerSec(uint8_t gyroConfig) noexcept;
+
 }  // namespace micromouse::domain

@@ -64,4 +64,23 @@ TEST(ImuIdentity, NamesAreReadable) {
     EXPECT_STREQ(imuModelName(ImuModel::Unknown), "modelo desconhecido");
 }
 
+// A escala do giro sai do GYRO_CONFIG LIDO DE VOLTA (bits 4..3, FS_SEL), e não da faixa que o
+// firmware tentou escrever: se a escrita falhar, a escala continua batendo com o sensor. Com a escala
+// errada, o ângulo da curva sairia 4x menor e o robô giraria demais.
+TEST(ImuIdentity, GyroScaleFollowsTheConfiguredFullScale) {
+    EXPECT_DOUBLE_EQ(gyroLsbPerDegPerSec(0x00), 131.0);  // ±250 °/s (padrão depois do reset)
+    EXPECT_DOUBLE_EQ(gyroLsbPerDegPerSec(0x08), 65.5);   // ±500 °/s
+    EXPECT_DOUBLE_EQ(gyroLsbPerDegPerSec(0x10), 32.8);   // ±1000 °/s
+    EXPECT_DOUBLE_EQ(gyroLsbPerDegPerSec(0x18), 16.4);   // ±2000 °/s
+    // Os outros bits (auto-teste XG/YG/ZG_ST, FCHOICE_B do MPU-6500) não mudam a escala.
+    EXPECT_DOUBLE_EQ(gyroLsbPerDegPerSec(0xE3 | 0x10), 32.8);
+}
+
+// A curva agora termina só pelo giroscópio: a faixa tem que cobrir o giro do robô. Em pivô, com
+// ~0,3 m/s em cada roda e bitola de 88 mm, são ~390 °/s, acima dos ±250 °/s do padrão.
+TEST(ImuIdentity, ConfiguredGyroRangeCoversAPivotTurn) {
+    EXPECT_GE(gyroFullScaleDegPerSec(kGyroConfigForTurns), 390.0);
+    EXPECT_DOUBLE_EQ(gyroFullScaleDegPerSec(kGyroConfigForTurns), 1000.0);
+}
+
 }  // namespace micromouse::domain

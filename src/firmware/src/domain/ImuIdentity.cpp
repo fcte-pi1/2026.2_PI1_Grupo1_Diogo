@@ -36,4 +36,21 @@ const char* imuModelName(ImuModel model) noexcept {
     return "modelo desconhecido";
 }
 
+double gyroLsbPerDegPerSec(uint8_t gyroConfig) noexcept {
+    switch ((gyroConfig >> 3) & 0x03) {
+        case 1:
+            return 65.5;
+        case 2:
+            return 32.8;
+        case 3:
+            return 16.4;
+        default:
+            return 131.0;
+    }
+}
+
+double gyroFullScaleDegPerSec(uint8_t gyroConfig) noexcept {
+    return 250.0 * static_cast<double>(1 << ((gyroConfig >> 3) & 0x03));
+}
+
 }  // namespace micromouse::domain

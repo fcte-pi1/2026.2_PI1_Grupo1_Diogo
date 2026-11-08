@@ -298,6 +298,8 @@ int cmdImu(int argc, char** argv) {
                 domain::isSupportedImu(model)
                     ? ""
                     : ": modelo não aceito, o auto-teste do robô reprova");
+    std::printf("Faixa do giro: ±%.0f °/s (o robô usa ±1000; a curva termina pelo giroscópio)\n",
+                gImu.gyroFullScaleDegPerSec());
 
     std::printf("Lendo o giro Z por %ld s. Parado: o ângulo deve ficar perto de 0. Gire o robô "
                 "90° à mão: deve dar perto de ±90.\n",
