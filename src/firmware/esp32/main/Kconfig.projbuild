@@ -17,9 +17,10 @@ menu "Rato Borrachudo"
         help
             No robô montado na bancada, os fios dos motores foram soldados trocados em
             relação ao esquemático 4.3: a roda esquerda está nos pinos do motor 1
-            (16/15) e do encoder 1 (38/39), e a direita nos do motor 2 (6/5) e do
-            encoder 2 (41/40). Ligada, o firmware segue essa montagem. Desligue
-            quando o robô passar para a PCB feita pelo esquemático.
+            (16/15) e a direita nos do motor 2 (6/5). Os encoders seguem o esquemático
+            (esquerdo 41/40, direito 38/39), medido em 07/11. Ligada, o firmware segue
+            essa montagem. Desligue quando o robô passar para a PCB feita pelo
+            esquemático.
 
     config RATO_LOG_RETA
         bool "Logar o controle de reta no fim de cada célula (calibração)"

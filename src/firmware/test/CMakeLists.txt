@@ -40,10 +40,14 @@ add_executable(firmware_tests
     domain/WallCenteringTest.cpp
     domain/WheelStallTest.cpp
     drivers/Vl53l1xTest.cpp
+    adapters/BoardPinsAssembledTest.cpp
+    adapters/BoardPinsSchematicTest.cpp
 )
 
 target_include_directories(firmware_tests PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
+    # driver/gpio.h e sdkconfig.h mínimos, só para testar o BoardPins.hpp no PC
+    ${CMAKE_CURRENT_SOURCE_DIR}/idf_stubs
 )
 
 target_link_libraries(firmware_tests PRIVATE
