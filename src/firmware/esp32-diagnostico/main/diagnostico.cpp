@@ -629,7 +629,8 @@ int cmdPinos(int /*argc*/, char** /*argv*/) {
 #else
     std::printf("Mapa da placa oficial (ESP32-S3), de include/adapters/BoardPins.hpp:\n");
 #endif
-    std::printf("  Motores    mapa: %s\n", pins::kMotorWiringName);
+    std::printf("  Motores    mapa: %s; PWM em %s\n", pins::kMotorWiringName,
+                adapters::kMotorDecayName);
     std::printf("  I2C        SDA=GPIO%d  SCL=GPIO%d\n", pins::kI2cSda, pins::kI2cScl);
     std::printf("  XSHUT ToF  frente=GPIO%d  esquerda=GPIO%d  direita=GPIO%d\n",
                 pins::kTofFrontXshut, pins::kTofLeftXshut, pins::kTofRightXshut);
@@ -744,8 +745,8 @@ extern "C" void app_main() {
     esp_console_register_help_command();
 
     std::printf("\n=== Rato Borrachudo: firmware de diagnóstico ===\n"
-                "Mapa de pinos dos motores: %s\n"
+                "Mapa de pinos dos motores: %s; PWM em %s\n"
                 "Digite `help` para ver os comandos, ou `verificar` para começar.\n\n",
-                pins::kMotorWiringName);
+                pins::kMotorWiringName, adapters::kMotorDecayName);
     ESP_ERROR_CHECK(esp_console_start_repl(repl));
 }

@@ -54,8 +54,8 @@ void MotorDriver::apply(int in1Channel, int in2Channel, const domain::BridgeDuty
 }
 
 void MotorDriver::setNormalized(double left, double right) {
-    apply(kLeftIn1, kLeftIn2, domain::bridgeDuty(invertLeft_ ? -left : left));
-    apply(kRightIn1, kRightIn2, domain::bridgeDuty(right));
+    apply(kLeftIn1, kLeftIn2, domain::bridgeDuty(invertLeft_ ? -left : left, kMotorDecay));
+    apply(kRightIn1, kRightIn2, domain::bridgeDuty(right, kMotorDecay));
 }
 
 // Freio de verdade (as duas entradas em 1). Com as duas em 0, o motor ficava solto e o robô

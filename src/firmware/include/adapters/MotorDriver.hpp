@@ -2,8 +2,18 @@
 
 #include "adapters/BoardPins.hpp"
 #include "domain/BridgeDrive.hpp"
+#include "sdkconfig.h"
 
 namespace micromouse::adapters {
+
+// Modo do PWM (domain/BridgeDrive): fast decay por padrão, slow com a opção RATO_SLOW_DECAY.
+#if CONFIG_RATO_SLOW_DECAY
+inline constexpr domain::DecayMode kMotorDecay = domain::DecayMode::Slow;
+inline constexpr const char* kMotorDecayName = "slow decay (RATO_SLOW_DECAY)";
+#else
+inline constexpr domain::DecayMode kMotorDecay = domain::DecayMode::Fast;
+inline constexpr const char* kMotorDecayName = "fast decay (padrao)";
+#endif
 
 // Driver de baixo nível do DRV8833: velocidade de cada roda em [-1.0, 1.0]
 // (sinal = sentido), gerando PWM nos 4 pinos via LEDC (domain/BridgeDrive).

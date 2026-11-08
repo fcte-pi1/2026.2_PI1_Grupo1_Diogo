@@ -43,4 +43,15 @@ menu "Rato Borrachudo"
             NÃO calibrados em RobotParameters.hpp (kWallCentering). Desligada, o
             advanceCell anda só pelos encoders, como antes.
 
+    config RATO_SLOW_DECAY
+        bool "PWM dos motores em slow decay (experimental)"
+        depends on !RATO_BANCADA
+        default n
+        help
+            No tempo desligado do PWM, o motor fica freado em vez de solto. A
+            velocidade fica proporcional à potência, o que deve tirar a zona morta
+            de 0,45-0,51 em que as rodas não arrancam. A mesma potência dá mais
+            força que no fast decay: as potências e o kp foram calibrados em fast
+            decay e precisam ser refeitos (roteiro, D.7). Desligada, nada muda.
+
 endmenu
