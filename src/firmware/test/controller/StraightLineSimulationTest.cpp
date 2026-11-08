@@ -37,12 +37,23 @@ TEST(StraightLineSimulation, RobotGainsConvergeWithoutSaturating) {
         const test::StraightRunStats run = simulateStraight(controller, left, right, kRunMs);
 
         EXPECT_EQ(run.saturatedSteps, 0) << "tau " << tau;
-        EXPECT_LT(run.maxAbsCorrection, 0.5 * robot::kStraightMaxCorrection) << "tau " << tau;
+        // Com kp 0,010 a correção chega a ~0,10 (metade do limite) no motor mais lento.
+        EXPECT_LT(run.maxAbsCorrection, 0.6 * robot::kStraightMaxCorrection) << "tau " << tau;
         EXPECT_LE(std::labs(run.errorChangeLast100ms), 2) << "tau " << tau;  // velocidades iguais
-        // Sobra um erro constante (só P): correção / kp. Aqui ~13 pulsos, ~5 mm, ~3 graus de rumo.
+        // Sobra um erro constante (só P): correção / kp. Aqui ~7 pulsos, ~2,5 mm, ~1,6 grau de rumo.
         EXPECT_GT(run.finalError, 0) << "tau " << tau;
         EXPECT_LE(run.finalError, 20) << "tau " << tau;
     }
+}
+
+// O que sobra no fim da célula (só P: correção / kp) vira rumo, e se soma célula a célula porque os
+// encoders zeram. Em 07/11, com kp 0,005 o robô encostava numa parede em 1 a 2 células; com 0,010
+// as rodas ficaram a 1-3 pulsos uma da outra e a reta de 4 células saiu centrada. Limite: 8 pulsos
+// (~3 mm numa roda, ~2 graus de rumo) por célula, mesmo com rodas 25% diferentes.
+TEST(StraightLineSimulation, RobotGainLeavesLessThanTwoDegreesPerCell) {
+    MotionController controller = robotController();
+    const test::StraightRunStats run = simulateStraight(controller, kStrongLeft, kWeakRight, kRunMs);
+    EXPECT_LE(std::labs(run.finalError), 8);
 }
 
 // O mesmo com a roda fraca do outro lado: o sinal da correção está certo.

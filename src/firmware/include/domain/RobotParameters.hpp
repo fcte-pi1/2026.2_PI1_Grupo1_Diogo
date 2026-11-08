@@ -27,12 +27,14 @@ inline constexpr TurnConfig kTurn{kWheelDiameterMm, kCountsPerRevolution, kWheel
 // Em 04/11, com {0.02, 0, 0.002}, o derivativo dava 2,0 a cada pulso que o erro mudava (0,002 / 1 ms)
 // e o proporcional saturava com 15 pulsos: toda falha na pista terminou com uma roda em 0 e a outra
 // em 0,85, o robô girando sobre uma roda até encostar na parede. Agora só proporcional e suave
-// (40 pulsos, ~15 mm ou ~10 graus de rumo, dão a correção máxima), com a correção limitada: nenhuma
+// (20 pulsos, ~7,5 mm ou ~5 graus de rumo, dão a correção máxima), com a correção limitada: nenhuma
 // roda cai abaixo de base - 0,20. Só com P sobra um erro constante na célula (correção / kp pulsos,
-// ~13 com rodas 25% diferentes na simulação do host); como os encoders zeram a cada célula, esse resto
+// ~7 com rodas 25% diferentes na simulação do host); como os encoders zeram a cada célula, esse resto
 // vira desvio de rumo que se soma célula a célula até a centralização pelas paredes (RF-44) corrigir.
-// Ganhos não calibrados: ver test/controller/StraightLineSimulationTest.cpp e o roteiro de calibração.
-inline constexpr PidGains kStraightGains{0.005, 0.0, 0.0};
+// kp 0,010 medido na pista em 07/11 (encoders já no lado certo): com 0,005 o robô encostava numa
+// parede em 1 a 2 células; com 0,010 as rodas ficaram a 1-3 pulsos uma da outra, sem saturar, e a
+// reta de 4 células saiu centrada. Falta a varredura completa com o log "reta" (D do roteiro).
+inline constexpr PidGains kStraightGains{0.010, 0.0, 0.0};
 inline constexpr double kStraightMaxCorrection = 0.20;
 
 // Potências da reta (fração da tensão da bateria). Em 04/11, com 0,45 as rodas às vezes não venciam

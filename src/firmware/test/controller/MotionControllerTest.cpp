@@ -29,15 +29,16 @@ TEST(MotionController, SaturatesAtMotorLimit) {
 }
 
 // Os ganhos do robô (RobotParameters): 1 pulso de diferença mexe pouco na potência (em 04/11, o
-// derivativo antigo dava correção 2,0 e uma roda ia a 0) e nenhum erro deixa uma roda abaixo de 0,50.
+// derivativo antigo dava correção 2,0 e uma roda ia a 0; com kp 0,010, 1 pulso dá 0,01) e nenhum erro
+// deixa uma roda abaixo de 0,50.
 TEST(MotionController, RobotStraightGainsAreGentle) {
     MotionController controller(domain::robot::kStraightGains, 0.70, 0.85,
                                 domain::robot::kStraightMaxCorrection);
     const WheelSpeeds first = controller.correct(0.0, 0.001);
     const WheelSpeeds onePulse = controller.correct(1.0, 0.001);
     EXPECT_DOUBLE_EQ(first.left, 0.70);
-    EXPECT_NEAR(onePulse.left, 0.70, 0.01);
-    EXPECT_NEAR(onePulse.right, 0.70, 0.01);
+    EXPECT_NEAR(onePulse.left, 0.70, 0.015);
+    EXPECT_NEAR(onePulse.right, 0.70, 0.015);
     for (const double error : {-500.0, -50.0, 50.0, 500.0}) {
         const WheelSpeeds speed = controller.correct(error, 0.001);
         EXPECT_GE(speed.left, 0.50 - 1e-9) << error;
