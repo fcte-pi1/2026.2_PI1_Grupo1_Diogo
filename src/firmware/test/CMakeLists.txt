@@ -39,6 +39,7 @@ add_executable(firmware_tests
     domain/SoftStartTest.cpp
     domain/WallCenteringTest.cpp
     domain/WheelStallTest.cpp
+    domain/BridgeDriveTest.cpp
     drivers/Vl53l1xTest.cpp
     adapters/BoardPinsAssembledTest.cpp
     adapters/BoardPinsSchematicTest.cpp

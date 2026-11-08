@@ -1,9 +1,9 @@
 #include "adapters/MotorDriver.hpp"
 
-#include <algorithm>
 #include <cmath>
 
 #include "adapters/BoardPins.hpp"
+#include "domain/BridgeDrive.hpp"
 #include "driver/ledc.h"
 
 namespace micromouse::adapters {
@@ -44,28 +44,25 @@ void MotorDriver::begin() {
     configChannel(kRightIn2, pins::kMotorRightIn2);
 }
 
-void MotorDriver::drive(int in1Channel, int in2Channel, double value) {
-    value = std::clamp(value, -1.0, 1.0);
-    const uint32_t duty = static_cast<uint32_t>(std::abs(value) * kDutyMax);
+void MotorDriver::apply(int in1Channel, int in2Channel, const domain::BridgeDuty& duty) {
     const auto channel1 = static_cast<ledc_channel_t>(in1Channel);
     const auto channel2 = static_cast<ledc_channel_t>(in2Channel);
-
-    if (value >= 0.0) {
-        ledc_set_duty(kMode, channel1, duty);
-        ledc_set_duty(kMode, channel2, 0);
-    } else {
-        ledc_set_duty(kMode, channel1, 0);
-        ledc_set_duty(kMode, channel2, duty);
-    }
+    ledc_set_duty(kMode, channel1, static_cast<uint32_t>(std::lround(duty.in1 * kDutyMax)));
+    ledc_set_duty(kMode, channel2, static_cast<uint32_t>(std::lround(duty.in2 * kDutyMax)));
     ledc_update_duty(kMode, channel1);
     ledc_update_duty(kMode, channel2);
 }
 
 void MotorDriver::setNormalized(double left, double right) {
-    drive(kLeftIn1, kLeftIn2, invertLeft_ ? -left : left);
-    drive(kRightIn1, kRightIn2, right);
+    apply(kLeftIn1, kLeftIn2, domain::bridgeDuty(invertLeft_ ? -left : left));
+    apply(kRightIn1, kRightIn2, domain::bridgeDuty(right));
 }
 
-void MotorDriver::brake() { setNormalized(0.0, 0.0); }
+// Freio de verdade (as duas entradas em 1). Com as duas em 0, o motor ficava solto e o robô
+// deslizava depois de cada célula e de cada curva.
+void MotorDriver::brake() {
+    apply(kLeftIn1, kLeftIn2, domain::kBridgeBrake);
+    apply(kRightIn1, kRightIn2, domain::kBridgeBrake);
+}
 
 }  // namespace micromouse::adapters

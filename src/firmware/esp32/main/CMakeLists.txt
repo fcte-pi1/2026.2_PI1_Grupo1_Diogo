@@ -16,6 +16,7 @@ idf_component_register(
         "${CORE_ROOT}/src/domain/SoftStart.cpp"
         "${CORE_ROOT}/src/domain/WallCentering.cpp"
         "${CORE_ROOT}/src/domain/WheelStall.cpp"
+        "${CORE_ROOT}/src/domain/BridgeDrive.cpp"
         "${CORE_ROOT}/src/drivers/Vl53l1x.cpp"
         "${CORE_ROOT}/src/controller/MotionController.cpp"
         "${CORE_ROOT}/src/use_cases/Navigator.cpp"
