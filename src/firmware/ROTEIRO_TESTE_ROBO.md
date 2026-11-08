@@ -96,8 +96,9 @@ No `menuconfig`, entre em **Rato Borrachudo** e marque com a barra de espaço:
 
 | Opção | Quando ligar | O que faz |
 |:--|:--|:--|
-| `Logar o controle de reta no fim de cada célula (calibração)` (`RATO_LOG_RETA`) | Fases D, E e F | Uma linha `reta` por célula com os números do controle (seção 10.3). Não muda o movimento |
+| `Logar a reta e as curvas no fim de cada movimento (calibração)` (`RATO_LOG_RETA`) | Fases C a F | Uma linha `reta` por célula e uma `curva` por curva, com os números do controle (seções 10.3 e 10.4). Não muda o movimento |
 | `Centralizar pelas paredes laterais na reta (RF-44, experimental)` (`RATO_CENTRALIZAR_PAREDES`) | **Só** na Fase D.6 | Liga a correção pelas paredes. **Muda o movimento** |
+| `PWM dos motores em slow decay (experimental)` (`RATO_SLOW_DECAY`) | **Só** no diagnóstico, na D7 | Muda a força dos motores para a mesma potência. **Nunca** no firmware da corrida sem a equipe de firmware recalibrar as potências |
 | `Fios dos motores trocados` (`RATO_FIOS_MOTORES_TROCADOS`) | Já vem ligada | Não mexa, a menos que a Fase A mostre roda ou encoder ao contrário |
 | `Modo bancada` (`RATO_BANCADA`) | **Nunca** no robô | Só para uma placa solta |
 
@@ -184,6 +185,7 @@ Faça os passos em ordem. Os detalhes de cada comando estão no [`TESTES_HARDWAR
 
 Este é o teste que teria achado o defeito de 04/11 e 07/11: os encoders estavam trocados em relação aos motores. O firmware lia o encoder da roda direita como se fosse o da esquerda, e o controle de reta corrigia ao contrário. Girar as duas rodas juntas **não** mostra isso, porque os dois encoders contam do mesmo jeito.
 
+0. `pinos`: tem que mostrar `Enc esq A=GPIO41 B=GPIO40` e `Enc dir A=GPIO39 B=GPIO38` (corrigido no `e4214c8`). Se mostrar 38/39 no esquerdo, o firmware gravado é antigo: grave o atual.
 1. `enc zerar`
 2. Gire **só a roda esquerda** à mão, **para a frente**, uma volta.
 3. `enc 1`: **só o encoder esquerdo** tem que ter contado, **positivo** (~285); o direito fica perto de 0.
@@ -232,7 +234,7 @@ Na ficha, calcule para cada linha a **razão = maior / menor**.
 
 ### A14: roda que não gira (só se uma roda falhar no A13, no C2 ou nas corridas)
 
-**Antes, refaça o A11.** Em 04/11 e em 07/11, o `enc E=0` com `pot E=0.85` parecia uma roda esquerda sem força, mas era o firmware lendo o **encoder da roda errada** (corrigido no `80a87b9`). Com os encoders certos, uma roda que não gira de verdade aparece como `andar 1 celula falhou (roda ... parada)`.
+**Antes, refaça o A11.** Em 04/11 e em 07/11, o `enc E=0` com `pot E=0.85` parecia uma roda esquerda sem força, mas era o firmware lendo o **encoder da roda errada** (corrigido no `e4214c8`). Com os encoders certos, uma roda que não gira de verdade aparece como `andar 1 celula falhou (roda ... parada)`.
 
 Se o A11 passa e uma roda continua sem girar, este passo descobre **onde** o sinal se perde, do ESP32 até o motor. Faça na ordem e pare no primeiro que falhar.
 
@@ -245,7 +247,7 @@ Se o A11 passa e uma roda continua sem girar, este passo descobre **onde** o sin
 
 > No esquemático 4.3 é o contrário (esquerda nos GPIO 6/5). Como os fios foram soldados trocados, a roda **esquerda** do robô montado é comandada pelos **GPIO 16 e 15**. Medir nos pinos 5 e 6 é medir a roda direita.
 
-Para andar para frente, o firmware põe PWM no IN1 e deixa o IN2 em 0 V.
+Para andar para frente, o firmware põe PWM no IN1 e deixa o IN2 em 0 V (no padrão, fast decay). Parado depois de um movimento, as duas entradas ficam em 3,3 V: é o freio.
 
 1. **O ESP32 manda o sinal?** Só no USB, sem bateria, com o diagnóstico gravado. Use o multímetro em tensão DC, com a ponta preta no GND.
    - `motor 0.5 0 2000`: **GPIO16 ≈ 1,6 V** (média de 50% de 3,3 V) e **GPIO15 ≈ 0 V**.
@@ -256,7 +258,7 @@ Para andar para frente, o firmware põe PWM no IN1 e deixa o IN2 em 0 V.
    - Se aparecerem alguns volts no motor e a roda não gira: motor ou redução travados.
    - Se aparecer 0 V no motor e tensão nas saídas do DRV8833: fio ou conector.
    - Se aparecer 0 V nas saídas do DRV8833 com o passo 1 bom: canal do DRV8833.
-4. **Pela telemetria, sem medir nada:** um motor que recebe tensão e está travado puxa **mais de 1 A**. Se o `energia` mostra o robô inteiro em ~0,2 A enquanto a roda deveria estar com 0,85, **o motor não está recebendo corrente**: o circuito está aberto (passo 2 ou 3), e não é atrito.
+4. **Pela telemetria, sem medir nada:** um motor que recebe tensão e está **travado** puxa **mais de 1 A**. Corrente baixa **não** prova circuito aberto: em 07/11 o robô inteiro puxava ~0,24 A com as duas rodas boas, porque no PWM em fast decay pouca tensão chega ao motor perto de 50% de potência (ver a D7).
 5. **Curto com a DIP:** tudo desligado, continuidade entre o **pino 7 (DIP 1)** e os vizinhos, **pino 6** (GPIO6) e **pino 8** (GPIO15). Faça com a DIP 1 aberta e fechada. Olhe as soldas com lupa ou com a câmera do celular.
 
 Lembre que **mudar a DIP 1 muda o labirinto** que o firmware usa (4×4 ou 8×4). Corridas com a DIP em posições diferentes não são comparáveis.
@@ -346,23 +348,25 @@ I (...) main: aguardando o botao de largada
 2. **Esperado:**
    - o LED de pronto acende e tocam **2 bips**;
    - as rodas giram para frente, param, giram de novo (uma "célula" por vez) e às vezes giram em sentidos opostos (as curvas);
-   - com o log da reta ligado, aparece uma linha `reta` por célula.
-3. Como o robô está no ar, os ToF não veem paredes, e as curvas não terminam pelo giroscópio, porque o robô não gira. O comportamento normal aqui é a curva terminar **pelos encoders** em menos de 3 s.
-4. Deixe rodar até parar: ou chega ao "objetivo" (**3 tons subindo**) ou vai ao **Erro** (LED de erro e **3 bips**).
+   - com o log da reta ligado, aparece uma linha `reta` por célula;
+   - no fim de cada célula as rodas **param seco** (freio), em vez de girar mais um pouco soltas.
+3. Como o robô está no ar, os ToF não veem paredes e o robô **não gira**. A curva termina **só pelo giroscópio** (desde o `2dff8ef`), então a primeira curva não termina: as rodas giram em sentidos opostos por 3 s e a corrida vai ao **Erro** com `curva de 90 graus falhou (tempo de 3 s esgotado): ... giro=0`. **Isso é o esperado.** Antes, a curva terminava pelos pulsos, e no chão isso fazia o robô "virar" só no mapa.
+4. Deixe rodar até parar.
 
-**Anote:** como terminou, o motivo (seção 10.2) e as linhas `reta`.
+**Anote:** como terminou, o motivo (seção 10.2) e as linhas `reta` e `curva`.
 
 **Passa se:**
-- a corrida **não** termina com `roda esquerda parada` ou `roda direita parada`. Agora o firmware detecta uma roda que fica abaixo de 20% da outra, mesmo suspenso. Antes, a corrida "concluía" com uma roda só, porque a célula fecha pela média dos encoders;
+- a corrida termina na primeira curva com `tempo de 3 s esgotado` e `giro=` perto de 0 (até ~5, a deriva e a vibração). Se o `giro=` vier grande com o robô parado no ar, o giroscópio está errado: avise;
+- nenhuma célula termina com `roda esquerda parada` ou `roda direita parada` (o firmware detecta uma roda abaixo de 20% da outra);
 - nenhuma linha `reta` termina em `tempo de 3 s esgotado` ou `roda ... parada`;
 - `saturou` fica em `0` ou perto de 0;
-- os pulsos E e D de cada célula ficam perto de ~481.
+- os pulsos E e D de cada célula ficam perto de ~481, a 1-3 pulsos um do outro.
 
 ---
 
 ## Fase D: reta no chão e calibração do ganho (kp)
 
-**Objetivo:** ver se o robô anda reto e escolher o ganho do controle de reta (`kp`). Hoje o kp é **0,005**, um valor estimado, não medido.
+**Objetivo:** ver se o robô anda reto e fechar o ganho do controle de reta (`kp`). Hoje o kp é **0,010**: em 07/11, sem o log `reta`, ele deixou as rodas a 1-3 pulsos uma da outra e a reta de 4 células centrada (com 0,005 o robô encostava em 1 a 2 células). Falta a varredura com o log.
 
 **Firmware:** corrida, compilado com `RATO_LOG_RETA` (seção 1, opção 2). **Robô:** no chão, **com o cabo USB** (alguém segura o cabo no alto, sem puxar o robô). **Vídeo:** sempre.
 
@@ -389,37 +393,40 @@ lin 3  | LARG. |                       |
 - Com o **8×4** (DIP em 8×4), a parte de cima fica com **7 células** seguidas: melhor para ver o desvio acumulado. Use se a pista permitir.
 - Marque com fita o **centro** da célula de largada e posicione o robô sempre ali, **alinhado** com as paredes.
 
-### D1. Primeira corrida com o kp atual (0,005)
+### D1. Primeira corrida com o kp atual (0,010)
 
 1. Meça e anote a tensão da bateria.
-2. Abra o log (`D1_kp0.005_rep1.txt`) e comece a filmar.
+2. Abra o log (`D1_kp0.010_rep1.txt`) e comece a filmar.
 3. Aperte o botão de largada.
 4. A cada célula, aparece uma linha como esta:
 
    ```
-   I (...) reta: kp=0.0050 enc E=482 D=470 erro final=12 max=15 corr max=0.075 saturou=0/520 parede=0.0 ok
+   I (...) reta: kp=0.0100 enc E=482 D=476 erro final=6 max=8 corr max=0.060 saturou=0/520 parede=0.0 ok
    ```
 
 5. No fim da **primeira reta** (antes da curva), meça com a régua a **distância do centro do robô ao centro do corredor** e anote se o robô encostou numa parede.
-6. Repita **3 vezes**: `rep1`, `rep2` e `rep3`.
+6. Anote também **onde o robô para** em cada célula, em relação à marca do centro (à frente ou atrás, em mm). Desde o `8bd91c7` ele freia de verdade no fim da célula; antes, ele deslizava solto alguns milímetros.
+7. Repita **3 vezes**: `rep1`, `rep2` e `rep3`.
 
-### D2 a D5. Subir o kp
+### D2 a D5. Variar o kp
 
 Para cada valor da tabela, faça como em D1 (3 repetições):
 
 | Passo | kp |
 |:--|:--|
 | D2 | 0,0075 |
-| D3 | 0,010 |
+| D3 | 0,0125 |
 | D4 | 0,015 |
 | D5 | 0,020 (**só se D4 estiver limpo**) |
 
 Para trocar o kp:
 
-1. Abra `include/domain/RobotParameters.hpp` e ache a linha `inline constexpr PidGains kStraightGains{0.005, 0.0, 0.0};`.
+1. Abra `include/domain/RobotParameters.hpp` e ache a linha `inline constexpr PidGains kStraightGains{0.010, 0.0, 0.0};`.
 2. Troque **só o primeiro número**.
 3. `idf.py -C esp32 build` e `idf.py -C esp32 -p <porta> flash`.
 4. Confira na linha `reta` que o `kp=` mudou.
+
+Para a D6 (RF-44), os ganhos de `kWallCentering` dependem do kp: se o kp escolhido não for 0,010, avise a equipe de firmware (o teste `RobotConfigKeepsTheDesignedAuthority` falha até eles serem ajustados).
 
 **Pare de subir** assim que aparecer qualquer sinal de oscilação ou de saturação (abaixo).
 
@@ -428,9 +435,9 @@ Para trocar o kp:
 | Sinal | Significado | O que fazer |
 |:--|:--|:--|
 | `saturou=0` e `max` perto de `erro final` | Controle convergiu sem saturar | Bom. Pode tentar o próximo kp |
-| `saturou` acima de ~5% dos passos (ex.: `30/520`), ou `corr max=0.200` | **Saturação**: o controle pediu mais do que o limite. O erro que satura é 0,20 / kp: 40 pulsos com kp 0,005, 20 com 0,010 | Se acontecer já com o kp 0,005, o problema é a **roda** (volte à A13). Se só com kp alto, volte ao kp anterior |
+| `saturou` acima de ~5% dos passos (ex.: `30/520`), ou `corr max=0.200` | **Saturação**: o controle pediu mais do que o limite. O erro que satura é 0,20 / kp: 20 pulsos com kp 0,010, 10 com 0,020 | Se acontecer já com o kp 0,010, o problema é a **roda** (volte à A13). Se só com kp alto, volte ao kp anterior |
 | `max` bem maior que o `erro final` (ex.: `max=30`, `erro final=3`), robô "serpenteando" no vídeo, motor "cantando" | **Oscilação**: ganho alto demais | Volte ao kp anterior |
-| `erro final` grande (acima de ~20) e do mesmo sinal em todas as células | Sobra do controle: o robô desvia sempre para o mesmo lado | Normal com kp baixo. Subir o kp diminui |
+| `erro final` grande (acima de ~10) e do mesmo sinal em todas as células | Sobra do controle: o robô desvia sempre para o mesmo lado | Normal com kp baixo. Subir o kp diminui |
 | `erro final` muda de sinal de uma célula para outra sem padrão | Ruído ou roda patinando | Anote e filme |
 | Termina em `tempo de 3 s esgotado` ou `roda ... parada` | A célula falhou | Ver a seção 10.2 |
 | `enc` de uma roda muito menor que o da outra (ex.: `E=50 D=480`) | Roda travando | **Mecânica**. Pare a Fase D |
@@ -441,26 +448,41 @@ Para trocar o kp:
 
 Esta parte é experimental. Os passos detalhados estão em [`docs/rf44-centralizacao.md`](../../docs/rf44-centralizacao.md), seção "Na pista". Em resumo:
 
-1. Ponha a média de E e D do B1 no **primeiro número** de `kWallCentering` em `RobotParameters.hpp`.
+1. O **primeiro número** de `kWallCentering` em `RobotParameters.hpp` já é **33,6 mm** (B1 de 07/11). Só troque se os ToF forem remontados (refaça o B1).
 2. Compile com `RATO_CENTRALIZAR_PAREDES` **e** `RATO_LOG_RETA` ligados.
 3. Repita a pista em L com o kp escolhido, largando **5 a 10 mm fora do centro**. Na linha `reta`, o campo `parede=` mostra o termo das paredes.
 4. Compare o desvio lateral no fim da reta com e sem a opção.
+
+### D7. Zona morta dos motores: fast decay contra slow decay (diagnóstico, opcional)
+
+Em 04/11 e 07/11, as rodas não arrancavam com 0,45 a 0,51 de potência. Uma causa provável é o modo do PWM (explicado em `include/domain/BridgeDrive.hpp`): no padrão (fast decay), perto de 50% quase nada chega ao motor. Este passo mede isso. **Só no diagnóstico**, robô **suspenso**, com bateria e cabo de dados.
+
+1. Com o diagnóstico **normal** gravado (`pinos` mostra `PWM em fast decay (padrao)`), para cada potência **0.3, 0.4, 0.5, 0.6 e 0.7**: `enc zerar`, `motor P P 2000`, `enc 1`. Anote E e D (0 se a roda não girou).
+2. Compile o diagnóstico com `RATO_SLOW_DECAY` ligado (`idf.py -C esp32-diagnostico menuconfig`), grave e confira que `pinos` mostra `PWM em slow decay`.
+3. Repita a mesma tabela. **Não passe de 0.6** no slow decay: a mesma potência dá bem mais tensão no motor.
+4. Repita os dois modos **no chão**, segurando o robô pela traseira, só com 0.4 e 0.5.
+
+**O que mandar:** a tabela (modo × potência × E × D) e a corrente do `ina` durante um `motor 0.5 0.5 2000` em cada modo. Com isso a equipe de firmware decide se troca o modo e recalibra as potências. **Não** use o slow decay no firmware da corrida antes disso.
 
 ---
 
 ## Fase E: curvas
 
-**Objetivo:** ver se as curvas de 90° e a meia-volta saem certas. Não há log do ângulo, então a evidência é o **vídeo** e a **posição** do robô depois da curva.
+**Objetivo:** ver se as curvas de 90° e a meia-volta saem certas. Desde o `2dff8ef`, a curva termina **só pelo giroscópio**, perto do fim a potência cai de 0,75 para 0,65, e com `RATO_LOG_RETA` cada curva gera uma linha `curva` (seção 10.4) com o ângulo medido.
 
-**Firmware:** corrida, com o kp escolhido. **Robô:** no chão, com cabo.
+**Firmware:** corrida, com o kp escolhido e `RATO_LOG_RETA`. **Robô:** no chão, com cabo.
 
-1. **E1:** use a pista em L da Fase D. Depois da curva, na primeira célula da reta de cima, pare o vídeo e anote:
-   - se o robô ficou **alinhado** com o corredor (ângulo aproximado, olhando de cima);
+1. **E1:** use a pista em L da Fase D, filmando **de cima**. Depois da curva, na primeira célula da reta de cima, pare o vídeo e anote:
+   - a linha `curva` inteira;
+   - o **ângulo real** da curva, medido no vídeo (ex.: com um transferidor na tela, ou pela direção do robô contra as paredes);
+   - se o robô ficou **alinhado** e **no centro** do corredor;
    - se ele encostou em alguma parede na reta seguinte.
+
+   Repita **3 vezes**. Compare o `final=` da linha `curva` com o ângulo real: se o real for sempre maior ou menor que o `final=` pela mesma proporção (ex.: real 95° com `final=90`), a escala do giroscópio está errada (em 07/11, o A7 deu 85,1° num giro de 90° à mão). Avise com os números.
 2. **E2:** repita com a partida pela **direita** (mude a via 3 do DIP e espelhe a pista). A curva passa a ser **à esquerda**.
 3. **E3, meia-volta:** monte um beco sem saída de 1 célula logo na frente da largada: paredes ao **norte** e a **leste** da célula (2,0) (a oeste já é a borda). Deixe **aberto** o leste da largada (3,0). O robô deve entrar no beco, ver as paredes, dar meia-volta e sair pela largada. Filme.
 
-**Falhas comuns:** curva com `tempo de 3 s esgotado` (seção 10.2), robô que gira demais ou de menos (anote o ângulo estimado), robô que gira no lugar e não para.
+**Falhas comuns:** curva com `tempo de 3 s esgotado` (seção 10.2), robô que gira demais ou de menos (anote o ângulo real e a linha `curva`), robô que gira no lugar e não para, robô que para no meio da curva (a potência final de 0,65 não venceu o atrito: anote o `parou=` e o `giro=`).
 
 ---
 
@@ -519,6 +541,9 @@ Depois de chegar ao objetivo, o robô volta ao **Aguardando** e larga de novo no
 | `main: aguardando o botao de largada` | Pronto para largar |
 | `main: centralizacao pelas paredes (RF-44) LIGADA` | O firmware foi compilado com o RF-44: confira se era a intenção |
 | `reta: kp=... enc E=... D=...` | Fim de uma célula, com os números do controle (10.3) |
+| `curva: alvo=90 parou=... final=...` | Fim de uma curva, com o ângulo do giroscópio (10.4) |
+| `main: motores em slow decay (...)` | O firmware foi compilado com `RATO_SLOW_DECAY`: as potências não estão calibradas para isso |
+| `mpu6050: giroscopio em +-1000 graus/s` | Faixa do giroscópio configurada. `ficou em +-250` é aviso: a curva pode girar demais |
 | `mpu6050: WHO_AM_I = 0x.. (...): aceito como MPU-6050` | IMU compatível: normal |
 | `E (...) main: ...` | Erro. O texto é o motivo do fim da corrida (10.2) |
 
@@ -534,13 +559,13 @@ O motivo aparece no serial (`E (...) main: ...`) e no `"detalhe"` do `fim_corrid
 | `sem caminho ate o objetivo em (L,C), mesmo lendo de novo. tof E=.. F=.. D=.. [resumo]` | Com as paredes que leu, o robô não acha caminho. (L,C) é linha e coluna, com a linha 0 em cima e a coluna 0 à esquerda | Foto do labirinto, o vídeo, as leituras `tof` daquela célula (diagnóstico, Fase B) |
 | `andar 1 celula falhou (roda esquerda parada): enc E=.. D=.. pot E=.. D=.. tof ...` (ou `direita`) | Uma roda ficou abaixo de 20% da outra depois de ~45 mm: motor sem força, fio solto, roda travada ou encoder sem contar | O vídeo, a corrente do `energia` e o **A14** |
 | `andar 1 celula falhou (tempo de 3 s esgotado): enc E=.. D=.. pot E=.. D=.. tof ...` | Andou menos de uma célula em 3 s, com as duas rodas girando: robô empurrando uma parede, ou as duas rodas fracas | O vídeo e o A13 |
-| `curva de 90 graus falhou (tempo de 3 s esgotado): ...` / `meia-volta falhou (...)` | Nem o giroscópio nem os encoders confirmaram a curva | O vídeo, o A7 (IMU) e o A11 |
+| `curva de 90 graus falhou (tempo de 3 s esgotado): enc E=.. D=.. pot E=.. D=.. giro=.. tof ...` / `meia-volta falhou (...)` | O giroscópio não chegou ao ângulo em 3 s. `giro=` é quanto o robô girou. Com o robô suspenso (C2), é o esperado. No chão, com `giro=0` e `enc` altos: as rodas patinaram sem girar o robô; com `giro=` entre 30 e 85: o robô parou no meio da curva | O vídeo, o A7 (IMU) e a linha `curva` |
 | `limite de passos sem chegar ao objetivo. [resumo]` | Deu mais passos que 4 × o número de células sem chegar | Vídeo inteiro, foto do labirinto e o log completo |
 
 ### 10.3 A linha `reta`
 
 ```
-reta: kp=0.0050 enc E=482 D=470 erro final=12 max=15 corr max=0.075 saturou=0/520 parede=0.0 ok
+reta: kp=0.0100 enc E=482 D=476 erro final=6 max=8 corr max=0.060 saturou=0/520 parede=0.0 ok
 ```
 
 | Campo | Significa |
@@ -554,7 +579,25 @@ reta: kp=0.0050 enc E=482 D=470 erro final=12 max=15 corr max=0.075 saturou=0/52
 | `parede` | Termo da centralização pelas paredes (0 com o RF-44 desligado) |
 | `ok` / `tempo de 3 s esgotado` / `roda esquerda parada` | A célula terminou ou falhou, e por quê |
 
-### 10.4 LEDs e buzzer
+### 10.4 A linha `curva`
+
+```
+curva: alvo=90 parou=88.2 final=93.5 tempo=410 ms enc E=196 D=-201 esperado=184 ok
+```
+
+| Campo | Significa |
+|:--|:--|
+| `alvo` | 90 numa curva, 180 na meia-volta |
+| `parou` | Ângulo do giroscópio quando o firmware mandou frear (termina 2° antes do alvo) |
+| `final` | Ângulo depois de 40 ms freado: o que o robô girou de verdade, pelo giroscópio. `final − parou` é o quanto ele girou depois do freio |
+| `tempo` | Duração da curva até o freio |
+| `enc E= D=` | Pulsos de cada roda (sentidos opostos) |
+| `esperado` | Pulsos que cada roda daria numa curva sem patinar (bitola de 88 mm). `enc` bem acima disso: as rodas patinaram |
+| `ok` / `tempo de 3 s esgotado` | A curva terminou ou falhou |
+
+**Como ler:** `final` entre 88 e 92 é bom. Acima de 92 com frequência: o robô gira demais depois do freio (avise com as linhas). Abaixo de 88 não deveria acontecer: avise.
+
+### 10.5 LEDs e buzzer
 
 | Sinal | Significa |
 |:--|:--|
@@ -594,7 +637,7 @@ Copie para um papel ou planilha.
 | Data | |
 | Quem testou | |
 | Versão do firmware (commit ou CI) | |
-| Opções (`RATO_LOG_RETA`, `RATO_CENTRALIZAR_PAREDES`, outras) | |
+| Opções (`RATO_LOG_RETA`, `RATO_CENTRALIZAR_PAREDES`, `RATO_SLOW_DECAY`, outras) | |
 | Bateria no início (V) | |
 
 **Fase A**
@@ -626,24 +669,31 @@ Copie para um papel ou planilha.
 | Passo | Passou? | Observação |
 |:--|:--:|:--|
 | C1 boot ×5 (quantas OK) | | |
-| C2 suspenso: como terminou, motivo | | |
+| C2 suspenso: como terminou, motivo (esperado: Erro na 1ª curva, `giro=` ~0) | | |
 
 **Fase D** (uma linha por repetição)
 
 | Passo | kp | Rep. | Bateria (V) | `erro final` (células 1, 2, 3) | `max` | `saturou` | Desvio lateral (mm) | Encostou? | Oscilou? |
 |:--|:--:|:--:|:--:|:--|:--:|:--:|:--:|:--:|:--:|
-| D1 | 0,005 | 1 | | | | | | | |
-| D1 | 0,005 | 2 | | | | | | | |
-| D1 | 0,005 | 3 | | | | | | | |
+| D1 | 0,010 | 1 | | | | | | | |
+| D1 | 0,010 | 2 | | | | | | | |
+| D1 | 0,010 | 3 | | | | | | | |
 | D2 | 0,0075 | 1 | | | | | | | |
 | ... | | | | | | | | | |
 | **kp escolhido:** | | | | | | | | | |
+
+**D7** (pulsos em 2 s, robô suspenso)
+
+| Modo | 0.3 (E / D) | 0.4 (E / D) | 0.5 (E / D) | 0.6 (E / D) | 0.7 (E / D) | Corrente em 0.5 (A) |
+|:--|:--:|:--:|:--:|:--:|:--:|:--:|
+| fast decay | | | | | | |
+| slow decay | | | | | não fazer | |
 
 **Fases E, F e G**
 
 | Passo | Resultado (objetivo / Erro / outro) | Motivo (`detalhe`) | Tempo | Observação |
 |:--|:--|:--|:--:|:--|
-| E1 curva à direita | | | | ângulo após a curva: |
+| E1 curva à direita (×3) | | | | `final=` / ângulo real / centrado? |
 | E2 curva à esquerda | | | | |
 | E3 meia-volta | | | | |
 | F1 com cabo | | | | |

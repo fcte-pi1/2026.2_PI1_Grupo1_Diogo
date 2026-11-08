@@ -84,19 +84,21 @@ As tolerâncias (±10 mm, ±0,05 V, ±10 mA) são **sugestões**: o `4.3` não d
 
 ### Sentido da roda esquerda (3.9 e 3.10)
 
-No robô montado na bancada, os **fios dos motores** foram soldados trocados em relação ao esquemático 4.3, e a equipe decidiu não ressoldar: a roda **esquerda** está nos pinos do motor 1 (16/15) e a **direita** nos do motor 2 (6/5). Os **encoders não foram trocados**: seguem o esquemático, com o esquerdo no encoder 2 (41/40) e o direito no encoder 1 (38/39). Até 07/11 o firmware trocava os encoders junto com os motores, e o controle de reta corrigia ao contrário (corrigido no `80a87b9`, branch `fix/encoders-e-curva-robo`). A opção de build **`RATO_FIOS_MOTORES_TROCADOS`** (menu "Rato Borrachudo" do `idf.py menuconfig`, ligada por padrão na S3) faz o firmware seguir essa montagem. **Desligue-a quando o robô passar para a PCB** feita pelo esquemático. O sentido de cada roda fica nestas constantes do `include/adapters/BoardPins.hpp`:
+No robô montado na bancada, os **fios dos motores** foram soldados trocados em relação ao esquemático 4.3, e a equipe decidiu não ressoldar: a roda **esquerda** está nos pinos do motor 1 (16/15) e a **direita** nos do motor 2 (6/5). Os **encoders não foram trocados**: seguem o esquemático, com o esquerdo no encoder 2 (41/40) e o direito no encoder 1 (38/39). Até 07/11 o firmware trocava os encoders junto com os motores, e o controle de reta corrigia ao contrário (corrigido no `e4214c8`). A opção de build **`RATO_FIOS_MOTORES_TROCADOS`** (menu "Rato Borrachudo" do `idf.py menuconfig`, ligada por padrão na S3) faz o firmware seguir essa montagem. **Desligue-a quando o robô passar para a PCB** feita pelo esquemático. O sentido de cada roda fica nestas constantes do `include/adapters/BoardPins.hpp`:
 
 | Constante | Fios trocados (padrão) | Esquemático | O que inverte |
 |:--|:--|:--|:--|
 | `kInvertLeftMotor` | `false` | `true` | o acionamento do motor esquerdo (o direito já sai certo pela ordem dos pinos) |
-| `kInvertLeftEncoder` | `true` | `true` | a contagem do encoder esquerdo |
+| `kInvertLeftEncoder` | `false` | `true` | a contagem do encoder esquerdo |
+
+No robô montado, o encoder **direito** conta para a frente com A e B trocados (`kEncRightA` = 39, `kEncRightB` = 38), medido em 07/11. O `pinos` do diagnóstico mostra `Enc esq A=GPIO41 B=GPIO40` e `Enc dir A=GPIO39 B=GPIO38`. Na PCB, o bloco do esquemático supõe o contrário (esquerdo invertido, direito normal): confira de novo antes de confiar nele.
 
 Como saber se o padrão está certo no chassi, **uma roda por vez** (com as duas juntas, encoders trocados passam despercebidos):
 
 1. Só no USB: `enc zerar`, gire **só a roda esquerda** à mão para a frente e rode `enc 1`. **Só o encoder esquerdo** conta, positivo. Repita com a direita.
 2. Com bateria e o robô suspenso: `motor 0.5 0 1000` e `enc 1`. Só a roda **esquerda** gira, para a frente, e só o encoder dela conta. Repita com `motor 0 0.5 1000`.
 
-Se algo vier ao contrário, o comando **`inverter motor`** (ou **`inverter enc`**) inverte aquele lado **na hora, sem recompilar**, e `inverter` sozinho mostra o estado. Vale até reiniciar a placa. Quando achar a combinação certa, anote e peça à equipe de firmware para ajustar a constante correspondente.
+Se algo vier ao contrário na roda esquerda, o comando **`inverter motor`** (ou **`inverter enc`**) inverte aquele lado **na hora, sem recompilar**, e `inverter` sozinho mostra o estado. Para a roda direita não há comando: anote e avise a equipe de firmware. Vale até reiniciar a placa. Quando achar a combinação certa, anote e peça à equipe de firmware para ajustar a constante correspondente.
 
 ### Sobre os ToF (3.3 a 3.5)
 

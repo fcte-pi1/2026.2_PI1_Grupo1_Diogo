@@ -23,6 +23,7 @@ menu "Rato Borrachudo (diagnóstico)"
             velocidade fica proporcional à potência, o que deve tirar a zona morta
             de 0,45-0,51 em que as rodas não arrancam. A mesma potência dá mais
             força que no fast decay: as potências e o kp foram calibrados em fast
-            decay e precisam ser refeitos (roteiro, D.7). Desligada, nada muda.
+            decay e precisam ser refeitos (D7 do ROTEIRO_TESTE_ROBO.md).
+            Desligada, nada muda.
 
 endmenu
