@@ -76,6 +76,15 @@ void Drv8833MotionAdapter::drive(double leftVolts, double rightVolts) {
                           domain::commandForVolts(rightVolts, batteryVolts_, kMotorDecay));
 }
 
+bool Drv8833MotionAdapter::aborted() {
+    if (abort_ == nullptr || !abort_->load()) {
+        return false;
+    }
+    lastMoveOk_ = false;
+    lastMoveFailure_ = "parado pelo operador";
+    return true;
+}
+
 void Drv8833MotionAdapter::stopAndSettle() {
     endLeftCount_ = encoders_.left();
     endRightCount_ = encoders_.right();
@@ -107,6 +116,9 @@ void Drv8833MotionAdapter::advanceCell() {
     while (true) {
         const double dt = clock.tick();
         const double now = clock.elapsed();
+        if (aborted()) {
+            break;
+        }
         if (now > kMoveTimeoutS) {
             lastMoveOk_ = false;  // as rodas não levaram o robô a uma célula no tempo
             lastMoveFailure_ = kTimeoutFailure;
@@ -191,6 +203,9 @@ void Drv8833MotionAdapter::pivot(double degrees, controller::PivotMove::Directio
     while (true) {
         const double dt = clock.tick();
         const double now = clock.elapsed();
+        if (aborted()) {
+            break;
+        }
         if (now > kMoveTimeoutS) {
             lastMoveOk_ = false;  // o giroscópio não confirmou a curva no tempo
             lastMoveFailure_ = kTimeoutFailure;

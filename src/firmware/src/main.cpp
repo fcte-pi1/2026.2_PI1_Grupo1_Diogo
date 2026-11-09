@@ -2,6 +2,7 @@
 // Liga o núcleo aos adapters e às tarefas FreeRTOS. Compilado
 // apenas no alvo ESP32; o build de host usa src/main.cpp (stub).
 
+#include <atomic>
 #include <cstdarg>
 #include <cstdio>
 #include <cstring>
@@ -118,6 +119,20 @@ int mirrorLogToBle(const char* format, va_list args) {
     return written;
 }
 
+// Comandos de teste pelo BLE (canal RX do NUS), para testar na bateria sem cabo e sem tocar no
+// robô: "largar" faz o mesmo que o botão; "parar" freia na hora e leva a corrida ao Erro.
+std::atomic<bool> gRemoteStart{false};
+std::atomic<bool> gRemoteStop{false};
+
+void onBleCommand(const std::string& command) {
+    if (command == "largar") {
+        gRemoteStop = false;
+        gRemoteStart = true;
+    } else if (command == "parar") {
+        gRemoteStop = true;
+    }
+}
+
 // Tira as cores ANSI e a quebra de linha do log do ESP-IDF.
 std::string plainLogLine(const char* text) {
     std::string out = "#";
@@ -161,6 +176,9 @@ void navigationTask(void*) {
     ESP_LOGI(kTag, "mapa de pinos dos motores: %s", adapters::pins::kMotorWiringName);
     ESP_LOGI(kTag, "PWM dos motores em %s, controle em volts (teto %.1f V no motor)",
              adapters::kMotorDecayName, controller::robot::kMotorMaxVolts);
+#if CONFIG_RATO_LOG_RETA && !CONFIG_RATO_BANCADA
+    gMotion.setAbortFlag(gRemoteStop);
+#endif
 #if CONFIG_RATO_CENTRALIZAR_PAREDES && !CONFIG_RATO_BANCADA
     gMotion.enableWallCentering(gSensor);
     ESP_LOGW(kTag, "centralizacao pelas paredes (RF-44) LIGADA, ganhos nao calibrados");
@@ -199,9 +217,17 @@ void navigationTask(void*) {
         while (gLocal.buttonPressed()) {  // espera soltar o botão da sessão anterior
             vTaskDelay(pdMS_TO_TICKS(10));
         }
+#if CONFIG_RATO_LOG_RETA
+        gRemoteStart = false;
+        while (!gLocal.buttonPressed() && !gRemoteStart.exchange(false)) {
+            vTaskDelay(pdMS_TO_TICKS(10));
+        }
+        gRemoteStop = false;
+#else
         while (!gLocal.buttonPressed()) {
             vTaskDelay(pdMS_TO_TICKS(10));
         }
+#endif
         ESP_LOGI(kTag, "botao de largada acionado");
         session.start();
 
@@ -378,7 +404,11 @@ void navigationTask(void*) {
 
 // ===================== Tarefa de telemetria (baixa prioridade) ===============
 void telemetryTask(void*) {
+#if CONFIG_RATO_LOG_RETA
+    gBle.begin("RatoBorrachudo", onBleCommand);
+#else
     gBle.begin("RatoBorrachudo");
+#endif
 
     char boot[7];
     std::snprintf(boot, sizeof(boot), "%06x", static_cast<unsigned>(esp_random() & 0xFFFFFF));

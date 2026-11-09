@@ -1,5 +1,6 @@
 #pragma once
 
+#include <atomic>
 #include <cstddef>
 
 #include "adapters/Encoders.hpp"
@@ -24,6 +25,7 @@ private:
     Encoders encoders_;
     Mpu6050& imu_;
     const Vl53l1xSensorAdapter* walls_{nullptr};  // RF-44: só com enableWallCentering()
+    const std::atomic<bool>* abort_{nullptr};       // parada pedida de fora (comando "parar")
     double batteryVolts_;
     bool lastMoveOk_{true};
     const char* lastMoveName_{"nenhum"};
@@ -39,6 +41,7 @@ private:
 
     void drive(double leftVolts, double rightVolts);
     void stopAndSettle();
+    bool aborted();  // a flag de parada está ligada: marca a falha
     void pivot(double degrees, controller::PivotMove::Direction direction);
 
 public:
@@ -51,6 +54,9 @@ public:
     // RF-44 (opção RATO_CENTRALIZAR_PAREDES, desligada por padrão): na reta, soma à diferença entre
     // as rodas o deslocamento lateral lido pelos ToF laterais (docs/rf44-centralizacao.md).
     void enableWallCentering(const Vl53l1xSensorAdapter& sensor) noexcept { walls_ = &sensor; }
+    // Com a flag ligada, o movimento em curso freia na hora e falha ("parado pelo operador"); os
+    // seguintes falham logo no começo. Só nos builds de teste (comando "parar" pelo BLE).
+    void setAbortFlag(const std::atomic<bool>& flag) noexcept { abort_ = &flag; }
     void advanceCell() override;
     void turnLeft() override;
     void turnRight() override;

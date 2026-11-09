@@ -9,6 +9,7 @@ namespace micromouse::adapters {
 namespace {
 constexpr char kNusService[] = "6E400001-B5A3-F393-E0A9-E50E24DCCA9E";
 constexpr char kNusTxChar[] = "6E400003-B5A3-F393-E0A9-E50E24DCCA9E";  // notify
+constexpr char kNusRxChar[] = "6E400002-B5A3-F393-E0A9-E50E24DCCA9E";  // write (comandos de teste)
 
 // Só vale "conectado" depois que o cliente assina as notificações: o notify enviado
 // antes disso (ex.: o hello logo após a conexão) é descartado pela pilha BLE.
@@ -30,9 +31,27 @@ class TxCallbacks : public NimBLECharacteristicCallbacks {
         g_connected = (subValue & 1U) != 0;  // bit 0 = notificações habilitadas
     }
 };
+
+class RxCallbacks : public NimBLECharacteristicCallbacks {
+public:
+    explicit RxCallbacks(BleTelemetryAdapter::CommandHandler handler) : handler_(handler) {}
+
+    void onWrite(NimBLECharacteristic* characteristic, NimBLEConnInfo& /*info*/) override {
+        std::string command = characteristic->getValue();
+        const auto first = command.find_first_not_of(" \r\n\t");
+        const auto last = command.find_last_not_of(" \r\n\t");
+        if (first == std::string::npos) {
+            return;
+        }
+        handler_(command.substr(first, last - first + 1));
+    }
+
+private:
+    BleTelemetryAdapter::CommandHandler handler_;
+};
 }  // namespace
 
-void BleTelemetryAdapter::begin(const std::string& deviceName) {
+void BleTelemetryAdapter::begin(const std::string& deviceName, CommandHandler onCommand) {
     NimBLEDevice::init(deviceName);
     NimBLEDevice::setMTU(247);
 
@@ -42,6 +61,11 @@ void BleTelemetryAdapter::begin(const std::string& deviceName) {
     NimBLEService* service = server->createService(kNusService);
     txCharacteristic_ = service->createCharacteristic(kNusTxChar, NIMBLE_PROPERTY::NOTIFY);
     txCharacteristic_->setCallbacks(new TxCallbacks());
+    if (onCommand != nullptr) {
+        NimBLECharacteristic* rx = service->createCharacteristic(
+            kNusRxChar, NIMBLE_PROPERTY::WRITE | NIMBLE_PROPERTY::WRITE_NR);
+        rx->setCallbacks(new RxCallbacks(onCommand));
+    }
 
     NimBLEAdvertising* advertising = NimBLEDevice::getAdvertising();
     advertising->addServiceUUID(kNusService);

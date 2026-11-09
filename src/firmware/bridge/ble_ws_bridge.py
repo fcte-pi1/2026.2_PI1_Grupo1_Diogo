@@ -40,6 +40,7 @@ from collections import deque
 # UUIDs do Nordic UART Service (iguais aos do BleTelemetryAdapter no firmware).
 NUS_SERVICE = "6E400001-B5A3-F393-E0A9-E50E24DCCA9E"
 NUS_TX_CHAR = "6E400003-B5A3-F393-E0A9-E50E24DCCA9E"  # firmware -> ponte (notify)
+NUS_RX_CHAR = "6E400002-B5A3-F393-E0A9-E50E24DCCA9E"  # ponte -> firmware (comandos de teste)
 DEVICE_NAME = "RatoBorrachudo"
 
 # Fechamentos do backend que não se resolvem reenviando o mesmo `hello`.
@@ -193,7 +194,25 @@ def _is_robot(name: str):
     return match
 
 
-async def produce_from_ble(device_name: str, deliver):
+def _read_command_lines(path: str) -> list[str]:
+    """Bloqueia até alguém escrever no FIFO e devolve as linhas não vazias."""
+    with open(path, "r", encoding="utf-8") as handle:
+        return [line.strip() for line in handle if line.strip()]
+
+
+async def _send_commands(client, path: str, loop):
+    """Repassa ao robô (canal RX do NUS) cada linha escrita no FIFO `path`.
+
+    Só o firmware compilado com RATO_LOG_RETA tem o canal RX: "largar" faz o mesmo que o botão de
+    largada e "parar" freia o robô na hora (a corrida termina em Erro).
+    """
+    while True:
+        for command in await loop.run_in_executor(None, _read_command_lines, path):
+            print(f"[cmd] -> {command}")
+            await client.write_gatt_char(NUS_RX_CHAR, (command + "\n").encode(), response=False)
+
+
+async def produce_from_ble(device_name: str, deliver, commands_path: str | None = None):
     """Produtor real: procura o robô, assina as notificações e repete se cair."""
     from bleak import BleakClient, BleakScanner
     from bleak.exc import BleakDBusError, BleakError
@@ -235,7 +254,13 @@ async def produce_from_ble(device_name: str, deliver):
             ) as client:
                 print("[ble] conectado; assinando a telemetria (NUS TX)")
                 await client.start_notify(NUS_TX_CHAR, on_notify)
-                await disconnected.wait()
+                sender = (asyncio.ensure_future(_send_commands(client, commands_path, loop))
+                          if commands_path else None)
+                try:
+                    await disconnected.wait()
+                finally:
+                    if sender is not None:
+                        sender.cancel()
         except (BleakError, OSError, asyncio.TimeoutError) as exc:
             print(f"[ble] falha na conexão ({exc})")
         print("[ble] desconectado; procurando de novo em 1 s")
@@ -358,7 +383,7 @@ async def run(args):
     if args.replay is not None:
         producer = produce_from_replay(args.replay, deliver, args.interval)
     else:
-        producer = produce_from_ble(args.name, deliver)
+        producer = produce_from_ble(args.name, deliver, args.comandos)
 
     consumer_task = asyncio.ensure_future(consume_to_ws(args.ws, outbox)) if outbox else None
     try:
@@ -393,6 +418,9 @@ def main():
                         help="não usa BLE: reenvia cada linha JSON do ARQUIVO (teste sem placa)")
     parser.add_argument("--interval", type=float, default=0.5,
                         help="intervalo (s) entre mensagens no --replay (padrão 0,5)")
+    parser.add_argument("--comandos", metavar="FIFO", default=None,
+                        help="repassa ao robô cada linha escrita neste FIFO (mkfifo), pelo canal "
+                             "RX do NUS: \"largar\" ou \"parar\" (firmware com RATO_LOG_RETA)")
     parser.add_argument("--log-robo", metavar="ARQUIVO", default=None,
                         help="grava as linhas de log do robô (\"#...\", firmware com "
                              "RATO_LOG_RETA) neste arquivo, além de mostrá-las")
