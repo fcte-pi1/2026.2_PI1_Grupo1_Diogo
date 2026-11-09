@@ -98,7 +98,7 @@ void postEvent(const TeleEvent& event) {
 // texto começando com "#". A ponte não as manda ao backend (não são mensagens do protocolo): grava
 // num arquivo (bridge/ble_ws_bridge.py --log-robo).
 struct DebugLine {
-    char text[200];
+    char text[320];  // a linha "reta" passa de 200 caracteres (09/11: o giro no fim se perdia)
 };
 QueueHandle_t gDebugQueue = nullptr;
 vprintf_like_t gSerialLog = nullptr;
