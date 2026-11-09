@@ -111,7 +111,8 @@ int mirrorLogToBle(const char* format, va_list args) {
         std::vsnprintf(line.text, sizeof line.text, format, copy);
         if (std::strstr(line.text, " reta: ") != nullptr ||
             std::strstr(line.text, " curva: ") != nullptr ||
-            std::strstr(line.text, " main: ") != nullptr) {
+            std::strstr(line.text, " main: ") != nullptr ||
+            std::strstr(line.text, " teste: ") != nullptr) {
             xQueueSend(gDebugQueue, &line, 0);
         }
     }
@@ -123,6 +124,9 @@ int mirrorLogToBle(const char* format, va_list args) {
 // robô: "largar" faz o mesmo que o botão; "parar" freia na hora e leva a corrida ao Erro.
 std::atomic<bool> gRemoteStart{false};
 std::atomic<bool> gRemoteStop{false};
+// "frente <potência> <ms>": teste sem controle, com o robô parado esperando a largada.
+std::atomic<int> gTestPermille{0};
+std::atomic<int> gTestMs{0};
 
 void onBleCommand(const std::string& command) {
     if (command == "largar") {
@@ -130,6 +134,14 @@ void onBleCommand(const std::string& command) {
         gRemoteStart = true;
     } else if (command == "parar") {
         gRemoteStop = true;
+    } else if (command.rfind("frente ", 0) == 0) {
+        float power = 0.0F;
+        int ms = 0;
+        if (std::sscanf(command.c_str() + 7, "%f %d", &power, &ms) == 2 && ms > 0 && ms <= 3000 &&
+            power >= -1.0F && power <= 1.0F) {
+            gTestPermille = static_cast<int>(power * 1000.0F);
+            gTestMs = ms;
+        }
     }
 }
 
@@ -220,6 +232,12 @@ void navigationTask(void*) {
 #if CONFIG_RATO_LOG_RETA
         gRemoteStart = false;
         while (!gLocal.buttonPressed() && !gRemoteStart.exchange(false)) {
+#if !CONFIG_RATO_BANCADA
+            if (const int ms = gTestMs.exchange(0); ms > 0) {
+                gMotion.setBatteryVolts(gPower.busVoltageV());
+                gMotion.openLoopTest(gTestPermille.load() / 1000.0, static_cast<uint32_t>(ms));
+            }
+#endif
             vTaskDelay(pdMS_TO_TICKS(10));
         }
         gRemoteStop = false;

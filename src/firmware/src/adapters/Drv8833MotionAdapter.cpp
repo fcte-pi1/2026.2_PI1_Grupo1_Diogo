@@ -12,9 +12,7 @@
 #include "freertos/task.h"
 #include "sdkconfig.h"
 
-#if CONFIG_RATO_LOG_RETA
 #include "esp_log.h"
-#endif
 
 namespace micromouse::adapters {
 
@@ -89,6 +87,31 @@ void Drv8833MotionAdapter::stopAndSettle() {
     endLeftCount_ = encoders_.left();
     endRightCount_ = encoders_.right();
     motors_.brake();
+}
+
+void Drv8833MotionAdapter::openLoopTest(double command, uint32_t ms) {
+    encoders_.reset();
+    const int64_t start = esp_timer_get_time();
+    int64_t nextLog = start;
+    while (true) {
+        const int64_t now = esp_timer_get_time();
+        const double elapsedMs = static_cast<double>(now - start) / 1000.0;
+        if (elapsedMs >= ms) {
+            break;
+        }
+        const double ramp = std::min(elapsedMs / 80.0, 1.0);  // a rampa do firmware do hardware
+        motors_.setNormalized(ramp * command, ramp * command);
+        if (now >= nextLog) {
+            ESP_LOGI("teste", "t=%4.0f ms pot=%.2f enc E=%ld D=%ld", elapsedMs, ramp * command,
+                     encoders_.left(), encoders_.right());
+            nextLog += 100000;
+        }
+        vTaskDelay(kControlPeriod);
+    }
+    motors_.brake();
+    ESP_LOGI("teste", "fim: pot=%.2f por %lu ms enc E=%ld D=%ld bat=%.2f V (%s)", command,
+             static_cast<unsigned long>(ms), encoders_.left(), encoders_.right(), batteryVolts_,
+             kMotorDecayName);
 }
 
 void Drv8833MotionAdapter::advanceCell() {

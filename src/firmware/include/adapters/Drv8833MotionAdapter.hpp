@@ -57,6 +57,10 @@ public:
     // Com a flag ligada, o movimento em curso freia na hora e falha ("parado pelo operador"); os
     // seguintes falham logo no começo. Só nos builds de teste (comando "parar" pelo BLE).
     void setAbortFlag(const std::atomic<bool>& flag) noexcept { abort_ = &flag; }
+    // Teste sem controle (comando "frente" pelo BLE, builds de teste): as duas rodas com o mesmo
+    // comando de PWM (fração em [-1, 1], como no firmware de teste do hardware, com a mesma rampa
+    // de 80 ms) por `ms`, e o log "teste" dos pulsos de cada roda a cada 100 ms.
+    void openLoopTest(double command, uint32_t ms);
     void advanceCell() override;
     void turnLeft() override;
     void turnRight() override;

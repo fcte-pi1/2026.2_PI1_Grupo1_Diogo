@@ -200,16 +200,24 @@ def _read_command_lines(path: str) -> list[str]:
         return [line.strip() for line in handle if line.strip()]
 
 
-async def _send_commands(client, path: str, loop):
-    """Repassa ao robô (canal RX do NUS) cada linha escrita no FIFO `path`.
+async def _read_commands(path: str, queue: asyncio.Queue, loop):
+    """Lê o FIFO `path` para sempre e põe cada linha na fila (uma leitura só, para todas as
+    conexões: se cada conexão lesse o FIFO, um comando lido por uma conexão que caía se perdia)."""
+    while True:
+        for command in await loop.run_in_executor(None, _read_command_lines, path):
+            await queue.put(command)
+
+
+async def _send_commands(client, queue: asyncio.Queue):
+    """Repassa ao robô (canal RX do NUS) os comandos da fila.
 
     Só o firmware compilado com RATO_LOG_RETA tem o canal RX: "largar" faz o mesmo que o botão de
     largada e "parar" freia o robô na hora (a corrida termina em Erro).
     """
     while True:
-        for command in await loop.run_in_executor(None, _read_command_lines, path):
-            print(f"[cmd] -> {command}")
-            await client.write_gatt_char(NUS_RX_CHAR, (command + "\n").encode(), response=False)
+        command = await queue.get()
+        print(f"[cmd] -> {command}")
+        await client.write_gatt_char(NUS_RX_CHAR, (command + "\n").encode(), response=False)
 
 
 async def produce_from_ble(device_name: str, deliver, commands_path: str | None = None):
@@ -219,6 +227,10 @@ async def produce_from_ble(device_name: str, deliver, commands_path: str | None 
 
     loop = asyncio.get_running_loop()
     reassembler = JsonReassembler()
+    commands: asyncio.Queue | None = None
+    if commands_path:
+        commands = asyncio.Queue()
+        asyncio.ensure_future(_read_commands(commands_path, commands, loop))
 
     def on_notify(_char, data: bytearray):
         for message in reassembler.feed(bytes(data)):
@@ -254,8 +266,8 @@ async def produce_from_ble(device_name: str, deliver, commands_path: str | None 
             ) as client:
                 print("[ble] conectado; assinando a telemetria (NUS TX)")
                 await client.start_notify(NUS_TX_CHAR, on_notify)
-                sender = (asyncio.ensure_future(_send_commands(client, commands_path, loop))
-                          if commands_path else None)
+                sender = (asyncio.ensure_future(_send_commands(client, commands))
+                          if commands is not None else None)
                 try:
                     await disconnected.wait()
                 finally:
