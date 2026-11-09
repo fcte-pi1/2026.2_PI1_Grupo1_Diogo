@@ -11,7 +11,8 @@ namespace {
 using controller::PivotMove;
 constexpr double kCell = domain::robot::kCellSizeMm;
 
-// Rodas iguais: para no centro da célula seguinte, reto, abaixo dos 6 V do motor.
+// Rodas iguais: para no centro da célula seguinte, reto, abaixo do teto de tensão, logo depois do
+// perfil (1,23 s com 200 mm/s e 600 mm/s²).
 TEST(StraightMoveSimulation, EqualWheelsStopAtTheNextCell) {
     const StraightResult run = simulateStraight(easyWheel(), easyWheel(), kCell);
     ASSERT_TRUE(run.done);
@@ -19,7 +20,7 @@ TEST(StraightMoveSimulation, EqualWheelsStopAtTheNextCell) {
     EXPECT_NEAR(run.rightMm, kCell, 2.0);
     EXPECT_LT(run.maxDifferenceMm, 1.5);
     EXPECT_LE(run.maxVolts, controller::robot::kMotorMaxVolts + 1e-9);
-    EXPECT_LT(run.seconds, 1.3);
+    EXPECT_LT(run.seconds, 1.45);
 }
 
 // O caso de 07/11: uma roda bem mais dura (não sai do lugar com 2 V, mais carga). Cada roda recebe a

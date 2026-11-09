@@ -14,8 +14,12 @@ namespace micromouse::controller::robot {
 // girava a 38-41% da velocidade de 100%, como prevê o fast decay (41%), e a ~51% não saía do lugar.
 // Agora o controle pede tensão, e domain::commandForVolts a converte pela bateria lida no INA219.
 
-// Teto da tensão no motor: a nominal do N20.
-inline constexpr double kMotorMaxVolts = 6.0;
+// Teto da tensão no motor. A nominal do N20 é 6 V, mas em 09/11, no chão, a roda esquerda não saiu do
+// lugar com 6 V (nem em slow nem em fast decay) e só andou com a bateria inteira (~7,8 V, PWM 100% no
+// firmware de teste do hardware); suspensas, as duas rodas giram iguais (1% de diferença). O lado
+// esquerdo tem mais atrito com o peso do robô. O controle só chega perto do teto quando a roda não
+// acompanha a trajetória (partida, roda mais dura), e as manobras duram menos de 1,5 s.
+inline constexpr double kMotorMaxVolts = 7.5;
 // Bateria usada se a leitura do INA219 não for plausível.
 inline constexpr double kNominalBatteryVolts = 8.0;
 
@@ -26,12 +30,13 @@ inline constexpr double kMmPerPulse =
 // Controle de cada roda (WheelLoop). Valores iniciais, ajustados na simulação do host com motores
 // de 6 V e zona morta diferente em cada roda (test/simulation/MotorPlant.hpp); conferir na pista:
 // - feedforward: em 07/11, a 100% (~8 V) a roda suspensa fez ~3000 pulsos/s = ~1120 mm/s, ou
-//   ~0,0071 V por mm/s sem carga; 0,0075 para o chão. Atrito estático de 1,0 V para sair do lugar;
+//   ~0,0071 V por mm/s sem carga; 0,0075 para o chão. Empurrão do atrito estático de 2,5 V para sair
+//   do lugar (1,0 V não tirava a roda esquerda do lugar no chão em 09/11);
 // - P de 0,25 V por mm, I de 3,0 V por mm·s (no máximo 3 V) e D de 0,004 V por mm/s no erro de
 //   velocidade. Com I menor (1,0), a roda "dura" da simulação (2,5 V para sair do lugar) parava a
 //   3 mm do alvo; com 0,30/4,0 e 0,30/5,0 também passa, mas o robô real tem atraso e ruído: começar
 //   pelo mais moderado.
-inline constexpr WheelLoopGains kWheelLoop{0.0075, 1.0, 0.25, 3.0, 0.004, kMotorMaxVolts, 3.0};
+inline constexpr WheelLoopGains kWheelLoop{0.0075, 2.5, 0.25, 3.0, 0.004, kMotorMaxVolts, 3.0};
 
 // Reta de uma célula: 200 mm/s de cruzeiro e 600 mm/s² (o perfil leva ~1,23 s por célula). Em 09/11,
 // com 250 mm/s e 1200 mm/s², até a roda boa ficava atrás da trajetória com 6 V no chão. A sincronia
