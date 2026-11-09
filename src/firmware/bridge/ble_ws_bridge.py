@@ -323,6 +323,27 @@ async def consume_to_ws(ws_url: str, outbox: Outbox, connect=None):
         delay = min(delay * 2, RECONNECT_MAX_DELAY)
 
 
+def divert_robot_log(deliver, path=None, log=print):
+    """Separa o log de diagnóstico do robô da telemetria.
+
+    O firmware compilado com RATO_LOG_RETA manda pelo BLE, além do JSON do protocolo, as linhas de
+    log "reta", "curva" e "main" começando com "#" (na bateria não há cabo serial). Elas não são
+    mensagens do protocolo e não vão ao backend: saem na tela e, com `path`, num arquivo.
+    """
+
+    def handle(line):
+        if line.startswith("#"):
+            text = line[1:].strip()
+            log("[robo]", text)
+            if path:
+                with open(path, "a", encoding="utf-8") as out:
+                    out.write(text + "\n")
+            return
+        deliver(line)
+
+    return handle
+
+
 async def run(args):
     if args.ws is None:
         def deliver(line):
@@ -332,6 +353,7 @@ async def run(args):
     else:
         outbox = Outbox()
         deliver = outbox.receive
+    deliver = divert_robot_log(deliver, args.log_robo)
 
     if args.replay is not None:
         producer = produce_from_replay(args.replay, deliver, args.interval)
@@ -371,6 +393,9 @@ def main():
                         help="não usa BLE: reenvia cada linha JSON do ARQUIVO (teste sem placa)")
     parser.add_argument("--interval", type=float, default=0.5,
                         help="intervalo (s) entre mensagens no --replay (padrão 0,5)")
+    parser.add_argument("--log-robo", metavar="ARQUIVO", default=None,
+                        help="grava as linhas de log do robô (\"#...\", firmware com "
+                             "RATO_LOG_RETA) neste arquivo, além de mostrá-las")
     args = parser.parse_args()
 
     if args.print_only:

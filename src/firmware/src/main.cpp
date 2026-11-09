@@ -2,6 +2,7 @@
 // Liga o núcleo aos adapters e às tarefas FreeRTOS. Compilado
 // apenas no alvo ESP32; o build de host usa src/main.cpp (stub).
 
+#include <cstdarg>
 #include <cstdio>
 #include <cstring>
 #include <optional>
@@ -88,6 +89,49 @@ void postEvent(const TeleEvent& event) {
         xQueueSend(gEventQueue, &event, 0);
     }
 }
+
+#if CONFIG_RATO_LOG_RETA
+// Diagnóstico sem cabo: na bateria, o serial não chega a ninguém (não se pode ligar o USB junto),
+// então as linhas de log "reta", "curva" e "main" (motivo das falhas) também vão pelo BLE, como
+// texto começando com "#". A ponte não as manda ao backend (não são mensagens do protocolo): grava
+// num arquivo (bridge/ble_ws_bridge.py --log-robo).
+struct DebugLine {
+    char text[200];
+};
+QueueHandle_t gDebugQueue = nullptr;
+vprintf_like_t gSerialLog = nullptr;
+
+int mirrorLogToBle(const char* format, va_list args) {
+    va_list copy;
+    va_copy(copy, args);
+    const int written = gSerialLog != nullptr ? gSerialLog(format, args) : std::vprintf(format, args);
+    if (gDebugQueue != nullptr) {
+        DebugLine line{};
+        std::vsnprintf(line.text, sizeof line.text, format, copy);
+        if (std::strstr(line.text, " reta: ") != nullptr ||
+            std::strstr(line.text, " curva: ") != nullptr ||
+            std::strstr(line.text, " main: ") != nullptr) {
+            xQueueSend(gDebugQueue, &line, 0);
+        }
+    }
+    va_end(copy);
+    return written;
+}
+
+// Tira as cores ANSI e a quebra de linha do log do ESP-IDF.
+std::string plainLogLine(const char* text) {
+    std::string out = "#";
+    for (const char* c = text; *c != '\0'; ++c) {
+        if (*c == '\033') {
+            while (*c != '\0' && *c != 'm') ++c;
+            if (*c == '\0') break;
+            continue;
+        }
+        if (*c != '\n' && *c != '\r') out.push_back(*c);
+    }
+    return out;
+}
+#endif
 
 void writeState(const telemetry::Snapshot& state) {
     if (xSemaphoreTake(gStateMutex, portMAX_DELAY) == pdTRUE) {
@@ -354,6 +398,13 @@ void telemetryTask(void*) {
         }
         wasConnected = connected;
 
+#if CONFIG_RATO_LOG_RETA
+        DebugLine debugLine;
+        while (xQueueReceive(gDebugQueue, &debugLine, 0) == pdTRUE) {
+            gBle.publish(plainLogLine(debugLine.text));
+        }
+#endif
+
         TeleEvent event;
         while (xQueueReceive(gEventQueue, &event, 0) == pdTRUE) {
             std::string message;
@@ -410,6 +461,10 @@ void telemetryTask(void*) {
 extern "C" void app_main() {
     gStateMutex = xSemaphoreCreateMutex();
     gEventQueue = xQueueCreate(64, sizeof(TeleEvent));
+#if CONFIG_RATO_LOG_RETA
+    gDebugQueue = xQueueCreate(32, sizeof(DebugLine));
+    gSerialLog = esp_log_set_vprintf(mirrorLogToBle);
+#endif
 
     xTaskCreatePinnedToCore(navigationTask, "nav", 8192, nullptr, configMAX_PRIORITIES - 1, nullptr,
                             1);

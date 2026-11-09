@@ -269,3 +269,25 @@ def test_hello_no_meio_da_conexao_segue_em_ordem():
         assert backend.conexoes == 1
 
     asyncio.run(cenario())
+
+
+# --- log de diagnóstico do robô ("#...", firmware com RATO_LOG_RETA) ---------------------------
+
+
+def test_linha_de_log_do_robo_nao_vai_ao_backend(tmp_path):
+    recebidas, mostradas = [], []
+    arquivo = tmp_path / "robo.log"
+    handle = ponte.divert_robot_log(recebidas.append, str(arquivo),
+                                    log=lambda *a: mostradas.append(" ".join(a)))
+    handle("#I (1234) reta: enc E=481 D=480 ok")
+    handle(mensagem(1))
+    assert recebidas == [mensagem(1)]
+    assert mostradas == ["[robo] I (1234) reta: enc E=481 D=480 ok"]
+    assert arquivo.read_text(encoding="utf-8") == "I (1234) reta: enc E=481 D=480 ok\n"
+
+
+def test_sem_arquivo_o_log_do_robo_so_aparece_na_tela():
+    recebidas, mostradas = [], []
+    handle = ponte.divert_robot_log(recebidas.append, None, log=lambda *a: mostradas.append(a))
+    handle("#E (99) main: curva de 90 graus falhou")
+    assert recebidas == [] and len(mostradas) == 1
