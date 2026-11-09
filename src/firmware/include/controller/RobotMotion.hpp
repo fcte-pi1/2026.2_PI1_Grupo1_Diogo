@@ -33,10 +33,13 @@ inline constexpr double kMmPerPulse =
 //   pelo mais moderado.
 inline constexpr WheelLoopGains kWheelLoop{0.0075, 1.0, 0.25, 3.0, 0.004, kMotorMaxVolts, 3.0};
 
-// Reta de uma célula: 250 mm/s de cruzeiro e 1200 mm/s² (o perfil leva ~0,93 s por célula).
-// A sincronia divide meia diferença entre as rodas para cada lado; a reta termina com as duas rodas
-// a menos de 1,5 mm do alvo e abaixo de 15 mm/s, ou 0,3 s depois do fim do perfil.
-inline constexpr StraightMoveConfig kStraightMove{{250.0, 1200.0}, kWheelLoop, 0.5, 1.5, 15.0, 0.3};
+// Reta de uma célula: 200 mm/s de cruzeiro e 600 mm/s² (o perfil leva ~1,23 s por célula). Em 09/11,
+// com 250 mm/s e 1200 mm/s², até a roda boa ficava atrás da trajetória com 6 V no chão. A sincronia
+// divide meia diferença entre as rodas para cada lado; a reta termina com as duas rodas a menos de
+// 1,5 mm do alvo e abaixo de 15 mm/s, ou 0,3 s depois do fim do perfil. Nesse caso, uma roda a mais
+// de 10 mm do alvo é falha ("nao chegou ao fim da celula").
+inline constexpr StraightMoveConfig kStraightMove{
+    {200.0, 600.0}, kWheelLoop, 0.5, 1.5, 15.0, 0.3, 10.0};
 
 // Curva no lugar: 300 °/s de cruzeiro e 1500 °/s² (~0,5 s numa curva de 90°; nas rodas, ~230 mm/s).
 // Termina 2° antes do alvo (o robô ainda gira um pouco com o freio). Se o perfil acabar sem o

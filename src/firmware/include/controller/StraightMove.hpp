@@ -12,6 +12,7 @@ struct StraightMoveConfig {
     double settleToleranceMm; // no fim, as duas rodas a menos disto do alvo...
     double settleMmPerS;      // ...e mais devagar que isto: parou
     double maxSettleSeconds;  // depois do perfil, espera no máximo isto para assentar
+    double maxMissMm;         // terminou pelo tempo com uma roda mais longe que isto do alvo: falhou
 };
 
 // Uma reta de `distanceMm` com as duas rodas seguindo o mesmo perfil trapezoidal.
@@ -35,6 +36,9 @@ public:
     [[nodiscard]] Output step(double dtSeconds, double leftMm, double rightMm, double leftMmPerS,
                               double rightMmPerS, double offsetMm = 0.0) noexcept;
 
+    // False se a reta terminou pelo tempo de assentar com uma roda longe do alvo (roda travada,
+    // robô preso numa parede): o robô NÃO chegou à célula seguinte.
+    [[nodiscard]] bool reachedTarget() const noexcept { return reached_; }
     [[nodiscard]] double elapsed() const noexcept { return time_; }
     [[nodiscard]] double maxDifferenceMm() const noexcept { return maxDifference_; }
     [[nodiscard]] double lastDifferenceMm() const noexcept { return lastDifference_; }
@@ -56,6 +60,7 @@ private:
     double maxRightVolts_{0.0};
     int saturated_{0};
     int steps_{0};
+    bool reached_{true};
 };
 
 }  // namespace micromouse::controller

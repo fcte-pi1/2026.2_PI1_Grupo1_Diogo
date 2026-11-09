@@ -144,6 +144,10 @@ void Drv8833MotionAdapter::advanceCell() {
             move.step(dt, leftMm, rightMm, leftSpeed.update(leftMm, now),
                       rightSpeed.update(rightMm, now), wallMm);
         if (out.done) {
+            if (!move.reachedTarget()) {
+                lastMoveOk_ = false;
+                lastMoveFailure_ = "nao chegou ao fim da celula";
+            }
             break;
         }
         drive(out.leftVolts, out.rightVolts);

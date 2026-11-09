@@ -38,6 +38,38 @@ TEST(StraightMoveSimulation, StiffWheelGetsMoreVoltageAndKeepsUp) {
     }
 }
 
+// Roda travada (09/11: a esquerda não andou nem com 6 V): a reta termina pelo tempo e é FALHA, e
+// não "ok" com o robô parado.
+TEST(StraightMoveSimulation, BlockedWheelIsReportedAsNotReached) {
+    MotorWheel blocked = easyWheel();
+    blocked.breakawayVolts = 100.0;  // não sai do lugar com nenhuma tensão
+    controller::StraightMove move(kCell, controller::robot::kStraightMove);
+    MotorWheel right = easyWheel();
+    controller::StraightMove::Output out{};
+    double t = 0.0;
+    while (!out.done && t < 3.0) {
+        t += 0.002;
+        out = move.step(0.002, blocked.encoderMm(), right.encoderMm(), blocked.speed, right.speed);
+        blocked.step(out.leftVolts, 0.002);
+        right.step(out.rightVolts, 0.002);
+    }
+    ASSERT_TRUE(out.done);
+    EXPECT_FALSE(move.reachedTarget());
+}
+
+TEST(StraightMoveSimulation, NormalRunReachesTheTarget) {
+    controller::StraightMove move(kCell, controller::robot::kStraightMove);
+    MotorWheel left = easyWheel();
+    MotorWheel right = stiffWheel();
+    controller::StraightMove::Output out{};
+    for (double t = 0.0; !out.done && t < 3.0; t += 0.002) {
+        out = move.step(0.002, left.encoderMm(), right.encoderMm(), left.speed, right.speed);
+        left.step(out.leftVolts, 0.002);
+        right.step(out.rightVolts, 0.002);
+    }
+    EXPECT_TRUE(move.reachedTarget());
+}
+
 // Com a potência fixa antiga (0,70 em fast decay = ~3,2 V), a roda dura nem sairia do lugar.
 TEST(StraightMoveSimulation, OldFixedPowerWouldNotMoveTheStiffWheel) {
     MotorWheel wheel = stiffWheel();

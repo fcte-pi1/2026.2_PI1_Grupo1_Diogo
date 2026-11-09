@@ -40,7 +40,14 @@ StraightMove::Output StraightMove::step(double dtSeconds, double leftMm, double 
                              std::fabs(rightTarget - rightMm) < config_.settleToleranceMm &&
                              std::fabs(leftMmPerS) < config_.settleMmPerS &&
                              std::fabs(rightMmPerS) < config_.settleMmPerS;
-        if (settled || time_ >= profile_.duration() + config_.maxSettleSeconds) {
+        if (settled) {
+            return {0.0, 0.0, true};
+        }
+        if (time_ >= profile_.duration() + config_.maxSettleSeconds) {
+            // 09/11: com a roda esquerda travada, a reta "terminava" pelo tempo com o robô parado, e
+            // o Navigator seguia achando que tinha andado.
+            reached_ = std::fabs(leftTarget - leftMm) <= config_.maxMissMm &&
+                       std::fabs(rightTarget - rightMm) <= config_.maxMissMm;
             return {0.0, 0.0, true};
         }
     }
