@@ -117,8 +117,10 @@ TEST(PivotMoveSimulation, TurnAroundReachesOneEighty) {
     EXPECT_NEAR(std::fabs(turn.trueDeg), 180.0, 5.0);
 }
 
-// Curva em arco (09/11): as duas rodas só andam para a frente (nenhuma tensão negativa), a de fora
-// mais rápida, e o giroscópio fecha os 90° nos dois sentidos, mesmo com as rodas patinando um pouco.
+// Curva em arco (09/11): as duas rodas andam para a frente (a de dentro só freia, até -2 V), a de
+// fora mais rápida, e o giroscópio fecha os 90° nos dois sentidos, mesmo com as rodas patinando.
+// A roda de dentro tem que ficar perto do arco planejado (raio 46 mm, ~72 mm em 90°): em 09/11, sem
+// poder frear, ela andou 223 mm e o arco abriu.
 TEST(PivotMoveSimulation, ArcTurnKeepsBothWheelsGoingForward) {
     constexpr double kDt = 0.002;
     constexpr double kRadToDeg = 57.29577951308232;
@@ -149,7 +151,10 @@ TEST(PivotMoveSimulation, ArcTurnKeepsBothWheelsGoingForward) {
         }
         ASSERT_TRUE(out.done);
         EXPECT_NEAR(std::fabs(trueDeg), 90.0, 4.0);
-        EXPECT_GE(minVolts, 0.0);  // nenhuma roda é empurrada para trás
+        const double innerMm = direction == PivotMove::Direction::Right ? right.position : left.position;
+        EXPECT_LT(innerMm, 110.0);
+        EXPECT_GT(innerMm, 40.0);
+        EXPECT_GE(minVolts, -2.0 - 1e-9);  // a de dentro só freia, até -2 V
         EXPECT_LT(t, 2.0);
     }
 }

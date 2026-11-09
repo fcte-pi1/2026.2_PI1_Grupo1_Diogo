@@ -63,10 +63,13 @@ PivotMove::Output PivotMove::step(double dtSeconds, double gyroDegPerS, double l
     double leftVolts = left_.update(leftTarget, radiansPerS * leftRadius, leftMm, leftMmPerS, dt);
     double rightVolts =
         right_.update(rightTarget, radiansPerS * rightRadius, rightMm, rightMmPerS, dt);
-    // Em arco, as duas rodas só andam para a frente: a adiantada só desacelera, nunca é empurrada
-    // para trás (09/11: pedido para não girar com uma roda para trás).
-    if (leftRadius > 0.0) leftVolts = std::max(leftVolts, 0.0);
-    if (rightRadius > 0.0) rightVolts = std::max(rightVolts, 0.0);
+    // Em arco, as duas rodas andam para a frente (09/11: pedido para não girar com uma roda para
+    // trás). A de dentro precisa FREAR para não ser arrastada pelo robô: com a tensão presa em >= 0
+    // ela andou 223 mm em vez de 72 e o arco abriu (V1-1, 86° em 3 s). Então ela pode receber até
+    // kArcBrakeVolts negativos: isso só desacelera, a referência dela continua para a frente.
+    constexpr double kArcBrakeVolts = 2.0;
+    if (leftRadius > 0.0) leftVolts = std::max(leftVolts, -kArcBrakeVolts);
+    if (rightRadius > 0.0) rightVolts = std::max(rightVolts, -kArcBrakeVolts);
     maxVolts_ = std::max({maxVolts_, std::fabs(leftVolts), std::fabs(rightVolts)});
     return {leftVolts, rightVolts, false};
 }
