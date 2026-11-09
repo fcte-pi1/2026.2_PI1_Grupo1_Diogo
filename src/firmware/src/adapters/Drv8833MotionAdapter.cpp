@@ -369,9 +369,10 @@ void Drv8833MotionAdapter::arcTurn(controller::PivotMove::Direction direction) {
     // Recua a meia célula inteira, mesmo se a reta anterior parou antes pela parede da frente: com
     // o eixo atrás do centro, o arco tem espaço no canto (V3b de 09/11).
     lastShortMm_ = 0.0;
-    straight(-controller::robot::kArcSetbackMm, "recuo antes da curva", false);
+    straight(-controller::robot::kArcStartSetbackMm, "recuo antes da curva", false);
     pivot(90.0, direction, controller::robot::kArcTurn);
     if (lastMoveOk_) {
+        // O arco de raio kArcSetbackMm leva o robô meia célula à frente na nova direção.
         aheadMm_ = controller::robot::kArcSetbackMm;
     }
 }

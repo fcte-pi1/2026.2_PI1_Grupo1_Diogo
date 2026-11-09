@@ -62,6 +62,12 @@ inline constexpr PivotMoveConfig kPivotMove{
 // longa vai sempre para o lado aberto, e o canto mais próximo fica a ~40 mm da lateral de dentro.
 // 120 °/s e 600 °/s²: a roda de fora chega a ~280 mm/s.
 inline constexpr double kArcSetbackMm = domain::robot::kCellSizeMm / 2.0;
+// Recuo antes do arco: 75 mm, um pouco menos que meia célula. Com 90, o centro do arco caía na
+// própria quina da parede de dentro (B3/B4 em A4) e, com as rodas patinando no arco, o robô
+// terminava a curva com a roda traseira de dentro colada à quina e enganchava nela ao seguir
+// (corridas 14 e 15 de 09/11, "rumo perdido"). Com 75, o arco fica ~15 mm longe da quina e o robô
+// termina a curva ~15 mm para o lado de fora.
+inline constexpr double kArcStartSetbackMm = 75.0;
 
 // Parada pela parede da frente (09/11). As rodas ficam na traseira e a frente é longa: com o eixo no
 // centro de uma célula com parede à frente, a frente encosta ou empurra a parede (o robô bateu em A2
