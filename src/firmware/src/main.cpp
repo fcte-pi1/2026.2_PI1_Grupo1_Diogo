@@ -328,6 +328,9 @@ void navigationTask(void*) {
             }
 #endif
             const domain::Position sensed = navigator.getPosition();  // a célula que o passo sente
+#if !CONFIG_RATO_BANCADA
+            gMotion.clearLastMove();
+#endif
             navigator.step();
             if (navigator.stuck()) {
                 using Side = adapters::Vl53l1xSensorAdapter::Side;

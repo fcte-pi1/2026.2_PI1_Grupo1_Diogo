@@ -115,6 +115,9 @@ void Drv8833MotionAdapter::openLoopTest(double command, uint32_t ms) {
 }
 
 void Drv8833MotionAdapter::advanceCell() {
+    if (!lastMoveOk_) {
+        return;  // um movimento anterior deste passo falhou: não anda com o robô na pose errada
+    }
     encoders_.reset();
     controller::StraightMove move(domain::robot::kCellSizeMm, controller::robot::kStraightMove);
     controller::SpeedEstimator leftSpeed;
@@ -128,8 +131,6 @@ void Drv8833MotionAdapter::advanceCell() {
     double wallMm = 0.0;
     double lastWallPoll = -kWallPollS;
 
-    lastMoveOk_ = true;
-    lastMoveFailure_ = "";
     lastMoveName_ = "andar 1 celula";
     lastMoveWasTurn_ = false;
     endLeftVolts_ = 0.0;
@@ -205,6 +206,9 @@ void Drv8833MotionAdapter::advanceCell() {
 }
 
 void Drv8833MotionAdapter::pivot(double degrees, controller::PivotMove::Direction direction) {
+    if (!lastMoveOk_) {
+        return;  // um movimento anterior deste passo falhou
+    }
     encoders_.reset();
     // Uma curva nova por manobra: o ângulo parte de zero, e o erro da deriva do giroscópio não se
     // propaga entre curvas consecutivas (RNF-34).
@@ -213,8 +217,6 @@ void Drv8833MotionAdapter::pivot(double degrees, controller::PivotMove::Directio
     controller::SpeedEstimator rightSpeed;
     leftSpeed.reset(0.0, 0.0);
     rightSpeed.reset(0.0, 0.0);
-    lastMoveOk_ = true;
-    lastMoveFailure_ = "";
     lastMoveName_ = degrees > 135.0 ? "meia-volta" : "curva de 90 graus";
     lastMoveWasTurn_ = true;
     endLeftVolts_ = 0.0;

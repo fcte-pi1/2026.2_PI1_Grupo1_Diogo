@@ -61,13 +61,21 @@ public:
     // comando de PWM (fração em [-1, 1], como no firmware de teste do hardware, com a mesma rampa
     // de 80 ms) por `ms`, e o log "teste" dos pulsos de cada roda a cada 100 ms.
     void openLoopTest(double command, uint32_t ms);
+    // O laço da corrida chama antes de cada passo do Navigator. Uma falha fica registrada até aqui:
+    // num passo, o Navigator faz curva E reta, e a reta não pode apagar a falha da curva (09/11: com
+    // o robô suspenso, a curva esgotava o tempo e a corrida seguia como se tivesse virado).
+    void clearLastMove() noexcept {
+        lastMoveOk_ = true;
+        lastMoveFailure_ = "";
+    }
     void advanceCell() override;
     void turnLeft() override;
     void turnRight() override;
     void turnAround() override;
 
-    // False se o último movimento falhou: estourou o tempo limite (motor travado, robô suspenso na
-    // curva) ou, na reta, uma roda ficou parada enquanto a outra andava. Leva ao estado Erro.
+    // False se algum movimento desde o último clearLastMove() falhou: estourou o tempo limite (motor
+    // travado, robô suspenso na curva) ou, na reta, uma roda ficou parada ou não chegou ao fim.
+    // Depois de uma falha, os movimentos seguintes do mesmo passo não são feitos. Leva ao Erro.
     [[nodiscard]] bool lastMoveOk() const noexcept { return lastMoveOk_; }
     // Por que o último movimento falhou: "tempo de 3 s esgotado" ou "roda esquerda parada".
     [[nodiscard]] const char* lastMoveFailure() const noexcept { return lastMoveFailure_; }
