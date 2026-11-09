@@ -348,13 +348,10 @@ void Drv8833MotionAdapter::describeLastMove(char* out, size_t size) const {
 // Curva de 90° em arco (controller/RobotMotion.hpp, kArcTurn): recua até a borda de entrada da
 // célula, faz o quarto de círculo com as duas rodas para a frente e recua até o centro, já virado.
 void Drv8833MotionAdapter::arcTurn(controller::PivotMove::Direction direction) {
-    // Se a reta anterior parou antes pela parede da frente, o robô já está mais perto da borda de
-    // entrada: recua só o que falta até ela.
-    const double setback = std::max(0.0, controller::robot::kArcSetbackMm - lastShortMm_);
+    // Recua a meia célula inteira, mesmo se a reta anterior parou antes pela parede da frente: com
+    // o eixo atrás do centro, o arco tem espaço no canto (V3b de 09/11).
     lastShortMm_ = 0.0;
-    if (setback > 1.0) {
-        straight(-setback, "recuo antes da curva", false);
-    }
+    straight(-controller::robot::kArcSetbackMm, "recuo antes da curva", false);
     pivot(90.0, direction, controller::robot::kArcTurn);
     straight(-controller::robot::kArcSetbackMm, "recuo depois da curva", false);
 }
