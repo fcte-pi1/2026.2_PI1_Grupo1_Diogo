@@ -114,6 +114,39 @@ void Drv8833MotionAdapter::openLoopTest(double command, uint32_t ms) {
              kMotorDecayName);
 }
 
+void Drv8833MotionAdapter::testManeuver(Maneuver maneuver) {
+    using Direction = controller::PivotMove::Direction;
+    clearLastMove();
+    lastShortMm_ = 0.0;
+    switch (maneuver) {
+        case Maneuver::TurnLeft:
+            turnLeft();
+            break;
+        case Maneuver::TurnRight:
+            turnRight();
+            break;
+        case Maneuver::ArcLeft:
+            pivot(90.0, Direction::Left, controller::robot::kArcTurn);
+            break;
+        case Maneuver::ArcRight:
+            pivot(90.0, Direction::Right, controller::robot::kArcTurn);
+            break;
+        case Maneuver::PivotLeft:
+            pivot(90.0, Direction::Left, controller::robot::kPivotMove);
+            break;
+        case Maneuver::PivotRight:
+            pivot(90.0, Direction::Right, controller::robot::kPivotMove);
+            break;
+        case Maneuver::Advance:
+            advanceCell();
+            break;
+        case Maneuver::None:
+            break;
+    }
+    ESP_LOGI("teste", "manobra %s: %s", lastMoveName_, lastMoveOk_ ? "ok" : lastMoveFailure_);
+    clearLastMove();
+}
+
 void Drv8833MotionAdapter::advanceCell() {
     straight(domain::robot::kCellSizeMm, "andar 1 celula", walls_ != nullptr);
 }

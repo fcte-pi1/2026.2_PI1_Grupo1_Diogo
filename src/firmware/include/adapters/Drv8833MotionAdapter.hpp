@@ -69,6 +69,11 @@ public:
     // comando de PWM (fração em [-1, 1], como no firmware de teste do hardware, com a mesma rampa
     // de 80 ms) por `ms`, e o log "teste" dos pulsos de cada roda a cada 100 ms.
     void openLoopTest(double command, uint32_t ms);
+    // Manobras avulsas para teste (comandos pelo BLE, builds de teste), com o robô parado esperando a
+    // largada: "virar d|e" (curva completa da corrida), "arco d|e" (só o arco), "pivo d|e" (90° no
+    // lugar) e "andar" (uma célula). Cada uma loga a linha "curva" ou "reta".
+    enum class Maneuver { None, TurnLeft, TurnRight, ArcLeft, ArcRight, PivotLeft, PivotRight, Advance };
+    void testManeuver(Maneuver maneuver);
     // O laço da corrida chama antes de cada passo do Navigator. Uma falha fica registrada até aqui:
     // num passo, o Navigator faz curva E reta, e a reta não pode apagar a falha da curva (09/11: com
     // o robô suspenso, a curva esgotava o tempo e a corrida seguia como se tivesse virado).

@@ -129,6 +129,8 @@ std::atomic<bool> gRemoteStop{false};
 // "frente <potência> <ms>": teste sem controle, com o robô parado esperando a largada.
 std::atomic<int> gTestPermille{0};
 std::atomic<int> gTestMs{0};
+// Manobra avulsa pedida pelo BLE (Drv8833MotionAdapter::Maneuver), executada esperando a largada.
+std::atomic<int> gTestManeuver{0};
 
 void onBleCommand(const std::string& command) {
     if (command == "largar") {
@@ -136,6 +138,16 @@ void onBleCommand(const std::string& command) {
         gRemoteStart = true;
     } else if (command == "parar") {
         gRemoteStop = true;
+    } else if (command == "virar d" || command == "virar e" || command == "arco d" ||
+               command == "arco e" || command == "pivo d" || command == "pivo e" ||
+               command == "andar") {
+        using M = adapters::Drv8833MotionAdapter::Maneuver;
+        const bool right = command.back() == 'd';
+        M maneuver = M::Advance;
+        if (command.rfind("virar", 0) == 0) maneuver = right ? M::TurnRight : M::TurnLeft;
+        if (command.rfind("arco", 0) == 0) maneuver = right ? M::ArcRight : M::ArcLeft;
+        if (command.rfind("pivo", 0) == 0) maneuver = right ? M::PivotRight : M::PivotLeft;
+        gTestManeuver = static_cast<int>(maneuver);
     } else if (command == "reiniciar") {
         esp_restart();  // como o botão RST: depois de um Erro, a placa só larga de novo reiniciando
     } else if (command.rfind("frente ", 0) == 0) {
@@ -243,6 +255,11 @@ void navigationTask(void*) {
             if (const int ms = gTestMs.exchange(0); ms > 0) {
                 gMotion.setBatteryVolts(gPower.busVoltageV());
                 gMotion.openLoopTest(gTestPermille.load() / 1000.0, static_cast<uint32_t>(ms));
+            }
+            if (const int maneuver = gTestManeuver.exchange(0); maneuver != 0) {
+                gMotion.setBatteryVolts(gPower.busVoltageV());
+                gMotion.testManeuver(
+                    static_cast<adapters::Drv8833MotionAdapter::Maneuver>(maneuver));
             }
 #endif
             vTaskDelay(pdMS_TO_TICKS(10));
