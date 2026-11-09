@@ -31,6 +31,7 @@
 #include "domain/SensorHealthMonitor.hpp"
 #include "esp_log.h"
 #include "esp_random.h"
+#include "esp_system.h"
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
@@ -121,7 +122,8 @@ int mirrorLogToBle(const char* format, va_list args) {
 }
 
 // Comandos de teste pelo BLE (canal RX do NUS), para testar na bateria sem cabo e sem tocar no
-// robô: "largar" faz o mesmo que o botão; "parar" freia na hora e leva a corrida ao Erro.
+// robô: "largar" faz o mesmo que o botão; "parar" freia na hora e leva a corrida ao Erro;
+// "reiniciar" reinicia a placa, como o RST.
 std::atomic<bool> gRemoteStart{false};
 std::atomic<bool> gRemoteStop{false};
 // "frente <potência> <ms>": teste sem controle, com o robô parado esperando a largada.
@@ -134,6 +136,8 @@ void onBleCommand(const std::string& command) {
         gRemoteStart = true;
     } else if (command == "parar") {
         gRemoteStop = true;
+    } else if (command == "reiniciar") {
+        esp_restart();  // como o botão RST: depois de um Erro, a placa só larga de novo reiniciando
     } else if (command.rfind("frente ", 0) == 0) {
         float power = 0.0F;
         int ms = 0;
