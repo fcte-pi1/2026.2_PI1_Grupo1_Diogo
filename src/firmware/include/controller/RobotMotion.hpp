@@ -62,6 +62,14 @@ inline constexpr PivotMoveConfig kPivotMove{
 // longa vai sempre para o lado aberto, e o canto mais próximo fica a ~40 mm da lateral de dentro.
 // 120 °/s e 600 °/s²: a roda de fora chega a ~280 mm/s.
 inline constexpr double kArcSetbackMm = domain::robot::kCellSizeMm / 2.0;
+
+// Parada pela parede da frente (09/11). As rodas ficam na traseira e a frente passa de meia célula:
+// com o eixo no centro de uma célula com parede à frente, a frente já estaria dentro da parede (o
+// robô bateu em A2 e chegava a A4 empurrando a borda). Na reta, se o ToF frontal mede menos que
+// isto (a leitura com o robô centrado no B1 de 07/11 foi 37-52 mm), o robô para ali mesmo, sem
+// completar a célula; o que faltou é descontado do recuo da curva seguinte. Só depois de andar
+// metade da reta, para não parar por uma leitura da célula de trás.
+inline constexpr double kFrontStopMm = 45.0;
 inline constexpr PivotMoveConfig kArcTurn{{120.0, 600.0}, kWheelLoop, domain::robot::kWheelTrackMm,
                                           0.5, 2.0, 40.0, 30.0, kArcSetbackMm};
 

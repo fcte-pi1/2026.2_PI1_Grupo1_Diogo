@@ -192,6 +192,9 @@ void navigationTask(void*) {
     ESP_LOGI(kTag, "mapa de pinos dos motores: %s", adapters::pins::kMotorWiringName);
     ESP_LOGI(kTag, "PWM dos motores em %s, controle em volts (teto %.1f V no motor)",
              adapters::kMotorDecayName, controller::robot::kMotorMaxVolts);
+#if !CONFIG_RATO_BANCADA
+    gMotion.enableFrontStop(gSensor);
+#endif
 #if CONFIG_RATO_LOG_RETA && !CONFIG_RATO_BANCADA
     gMotion.setAbortFlag(gRemoteStop);
 #endif

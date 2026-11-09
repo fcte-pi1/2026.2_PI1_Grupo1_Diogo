@@ -141,6 +141,9 @@ void Drv8833MotionAdapter::straight(double distanceMm, const char* name, bool ce
     lastMoveWasTurn_ = false;
     endLeftVolts_ = 0.0;
     endRightVolts_ = 0.0;
+    lastShortMm_ = 0.0;
+    double lastFrontPoll = -kWallPollS;
+    int frontMm = -1;  // última leitura válida do frontal nesta reta (-1 = nenhuma)
 
     LoopClock clock;
     while (true) {
@@ -182,6 +185,21 @@ void Drv8833MotionAdapter::straight(double distanceMm, const char* name, bool ce
                      controller::robot::kMmPerPulse;
         }
 
+        // Parada pela parede da frente: só para a frente, depois de meia reta.
+        const double travelled = 0.5 * (leftMm + rightMm);
+        if (sign > 0.0 && front_ != nullptr && now - lastFrontPoll >= kWallPollS &&
+            travelled > 0.5 * std::fabs(distanceMm)) {
+            lastFrontPoll = now;
+            if (const auto reading = front_->freshReading(Vl53l1xSensorAdapter::Side::Front);
+                reading && reading->kind == drivers::ReadingKind::Distance) {
+                frontMm = reading->mm;
+                if (reading->mm < controller::robot::kFrontStopMm) {
+                    lastShortMm_ = std::max(0.0, std::fabs(distanceMm) - travelled);
+                    break;
+                }
+            }
+        }
+
         const controller::StraightMove::Output out =
             move.step(dt, leftMm, rightMm, leftSpeed.update(leftMm, now),
                       rightSpeed.update(rightMm, now), wallMm);
@@ -201,12 +219,13 @@ void Drv8833MotionAdapter::straight(double distanceMm, const char* name, bool ce
     // por mm com a bitola de 88 mm), "satur" os passos com uma roda no teto de tensão.
     ESP_LOGI("reta",
              "%s %.0f mm: enc E=%ld D=%ld (%.1f / %.1f mm) dif max=%.1f fim=%.1f mm V max E=%.1f "
-             "D=%.1f satur=%d/%d tempo=%.0f ms perfil=%.0f ms bat=%.2f V parede=%.1f mm %s",
+             "D=%.1f satur=%d/%d tempo=%.0f ms perfil=%.0f ms bat=%.2f V parede=%.1f mm "
+             "frente=%d mm parou antes=%.0f mm %s",
              name, distanceMm, endLeftCount_, endRightCount_, mmFromPulses(endLeftCount_),
              mmFromPulses(endRightCount_), move.maxDifferenceMm(), move.lastDifferenceMm(),
              move.maxLeftVolts(), move.maxRightVolts(), move.saturatedSteps(), move.steps(),
-             move.elapsed() * 1000.0, move.duration() * 1000.0, batteryVolts_, wallMm,
-             lastMoveOk_ ? "ok" : lastMoveFailure_);
+             move.elapsed() * 1000.0, move.duration() * 1000.0, batteryVolts_, wallMm, frontMm,
+             lastShortMm_, lastMoveOk_ ? "ok" : lastMoveFailure_);
 #endif
     vTaskDelay(pdMS_TO_TICKS(kSettleMs));
 }
@@ -296,7 +315,13 @@ void Drv8833MotionAdapter::describeLastMove(char* out, size_t size) const {
 // Curva de 90° em arco (controller/RobotMotion.hpp, kArcTurn): recua até a borda de entrada da
 // célula, faz o quarto de círculo com as duas rodas para a frente e recua até o centro, já virado.
 void Drv8833MotionAdapter::arcTurn(controller::PivotMove::Direction direction) {
-    straight(-controller::robot::kArcSetbackMm, "recuo antes da curva", false);
+    // Se a reta anterior parou antes pela parede da frente, o robô já está mais perto da borda de
+    // entrada: recua só o que falta até ela.
+    const double setback = std::max(0.0, controller::robot::kArcSetbackMm - lastShortMm_);
+    lastShortMm_ = 0.0;
+    if (setback > 1.0) {
+        straight(-setback, "recuo antes da curva", false);
+    }
     pivot(90.0, direction, controller::robot::kArcTurn);
     straight(-controller::robot::kArcSetbackMm, "recuo depois da curva", false);
 }

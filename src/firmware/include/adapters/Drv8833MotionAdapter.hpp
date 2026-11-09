@@ -26,6 +26,8 @@ private:
     Mpu6050& imu_;
     const Vl53l1xSensorAdapter* walls_{nullptr};  // RF-44: só com enableWallCentering()
     const std::atomic<bool>* abort_{nullptr};       // parada pedida de fora (comando "parar")
+    const Vl53l1xSensorAdapter* front_{nullptr};    // parada pela parede da frente
+    double lastShortMm_{0.0};  // quanto a última reta parou antes do fim, pela parede da frente
     double batteryVolts_;
     bool lastMoveOk_{true};
     const char* lastMoveName_{"nenhum"};
@@ -61,6 +63,8 @@ public:
     // Com a flag ligada, o movimento em curso freia na hora e falha ("parado pelo operador"); os
     // seguintes falham logo no começo. Só nos builds de teste (comando "parar" pelo BLE).
     void setAbortFlag(const std::atomic<bool>& flag) noexcept { abort_ = &flag; }
+    // Para a reta antes da parede da frente pelo ToF frontal (controller::robot::kFrontStopMm).
+    void enableFrontStop(const Vl53l1xSensorAdapter& sensor) noexcept { front_ = &sensor; }
     // Teste sem controle (comando "frente" pelo BLE, builds de teste): as duas rodas com o mesmo
     // comando de PWM (fração em [-1, 1], como no firmware de teste do hardware, com a mesma rampa
     // de 80 ms) por `ms`, e o log "teste" dos pulsos de cada roda a cada 100 ms.
