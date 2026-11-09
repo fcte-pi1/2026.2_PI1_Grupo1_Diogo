@@ -28,6 +28,7 @@ private:
     const std::atomic<bool>* abort_{nullptr};       // parada pedida de fora (comando "parar")
     const Vl53l1xSensorAdapter* front_{nullptr};    // parada pela parede da frente
     double lastShortMm_{0.0};  // quanto a última reta parou antes do fim, pela parede da frente
+    double aheadMm_{0.0};      // quanto o robô já está à frente do centro (fim de uma curva em arco)
     double batteryVolts_;
     bool lastMoveOk_{true};
     const char* lastMoveName_{"nenhum"};

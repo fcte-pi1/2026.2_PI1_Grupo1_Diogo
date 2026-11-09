@@ -120,10 +120,14 @@ void Drv8833MotionAdapter::testManeuver(Maneuver maneuver) {
     lastShortMm_ = 0.0;
     switch (maneuver) {
         case Maneuver::TurnLeft:
-            turnLeft();
-            break;
         case Maneuver::TurnRight:
-            turnRight();
+            // Avulsa: depois do arco, volta ao centro da célula (na corrida, a reta seguinte anda
+            // o resto).
+            maneuver == Maneuver::TurnLeft ? turnLeft() : turnRight();
+            if (aheadMm_ > 0.0) {
+                straight(-aheadMm_, "volta ao centro", false);
+                aheadMm_ = 0.0;
+            }
             break;
         case Maneuver::ArcLeft:
             pivot(90.0, Direction::Left, controller::robot::kArcTurn);
@@ -148,7 +152,10 @@ void Drv8833MotionAdapter::testManeuver(Maneuver maneuver) {
 }
 
 void Drv8833MotionAdapter::advanceCell() {
-    straight(domain::robot::kCellSizeMm, "andar 1 celula", walls_ != nullptr);
+    // Depois de uma curva em arco o robô já está na borda de saída da célula: anda só o resto.
+    const double distance = domain::robot::kCellSizeMm - aheadMm_;
+    aheadMm_ = 0.0;
+    straight(distance, "andar 1 celula", walls_ != nullptr);
 }
 
 void Drv8833MotionAdapter::straight(double distanceMm, const char* name, bool centerOnWalls) {
@@ -353,14 +360,20 @@ void Drv8833MotionAdapter::describeLastMove(char* out, size_t size) const {
 }
 
 // Curva de 90° em arco (controller/RobotMotion.hpp, kArcTurn): recua até a borda de entrada da
-// célula, faz o quarto de círculo com as duas rodas para a frente e recua até o centro, já virado.
+// célula e faz o quarto de círculo com as duas rodas para a frente. O robô termina na borda de
+// SAÍDA da célula, já virado, e NÃO recua: a reta seguinte (o Navigator sempre anda depois de
+// virar) anda só o que falta até o centro da célula seguinte. Na corrida 14 de 09/11, o recuo
+// depois da curva fazia o robô passar duas vezes pela ponta da parede B3/B4, e na segunda a roda
+// traseira enganchou nela ("rumo perdido").
 void Drv8833MotionAdapter::arcTurn(controller::PivotMove::Direction direction) {
     // Recua a meia célula inteira, mesmo se a reta anterior parou antes pela parede da frente: com
     // o eixo atrás do centro, o arco tem espaço no canto (V3b de 09/11).
     lastShortMm_ = 0.0;
     straight(-controller::robot::kArcSetbackMm, "recuo antes da curva", false);
     pivot(90.0, direction, controller::robot::kArcTurn);
-    straight(-controller::robot::kArcSetbackMm, "recuo depois da curva", false);
+    if (lastMoveOk_) {
+        aheadMm_ = controller::robot::kArcSetbackMm;
+    }
 }
 
 void Drv8833MotionAdapter::turnLeft() { arcTurn(controller::PivotMove::Direction::Left); }
