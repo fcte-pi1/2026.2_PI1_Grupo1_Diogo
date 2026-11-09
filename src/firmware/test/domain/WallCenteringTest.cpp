@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 
-#include "controller/MotionController.hpp"
+#include "controller/RobotMotion.hpp"
+#include "controller/StraightMove.hpp"
 #include "domain/RobotParameters.hpp"
 #include "domain/WallCentering.hpp"
 
@@ -43,30 +44,24 @@ TEST(WallCentering, TermIsLimited) {
     EXPECT_DOUBLE_EQ(wallCenteringError(wall(0), wall(85), kConfig), -15.0);
 }
 
-// O sinal fecha com o controle de reta: perto da parede direita, a roda direita acelera e o robô
-// vira para a esquerda, de volta ao centro.
-TEST(WallCentering, SignMatchesTheStraightController) {
-    controller::MotionController straight(robot::kStraightGains, robot::kStraightBaseSpeed,
-                                          robot::kStraightMaxSpeed, robot::kStraightMaxCorrection);
+// O sinal fecha com a reta: perto da parede direita, a roda direita é adiantada e o robô vira para
+// a esquerda, de volta ao centro. O adaptador passa o termo em mm (pulsos x mm por pulso).
+TEST(WallCentering, SignMatchesTheStraightMove) {
     const double term = wallCenteringError(wall(60), wall(20), robot::kWallCentering);
-    const controller::WheelSpeeds speeds = straight.correct(0.0 + term, 0.001);
-    EXPECT_GT(speeds.right, speeds.left);
+    ASSERT_GT(term, 0.0);
+    controller::StraightMove move(robot::kCellSizeMm, controller::robot::kStraightMove);
+    controller::StraightMove::Output out{};
+    for (int i = 0; i < 50; ++i) {
+        out = move.step(0.002, 0.0, 0.0, 0.0, 0.0, term * controller::robot::kMmPerPulse);
+    }
+    EXPECT_GT(out.rightVolts, out.leftVolts);
 }
 
-// Valores do robô: termo máximo bem abaixo do que satura o controle de reta.
-TEST(WallCentering, RobotConfigCannotSaturateTheStraightControlAlone) {
-    EXPECT_LT(robot::kWallCentering.maxPulses * robot::kStraightGains.proportionalGain,
-              robot::kStraightMaxCorrection);
-    EXPECT_LE(robot::kWallCentering.useBelowMm, 90.0);  // só a parede da própria célula
-}
-
-// O efeito do termo de parede na potência é ganho x kp. O projeto (docs/rf44-centralizacao.md) é
-// 10 mm fora do centro = correção 0,025 e no máximo 0,075; quando o kp da reta muda, os ganhos da
-// parede acompanham (07/11: kp de 0,005 para 0,010 dobrava o efeito da parede).
-TEST(WallCentering, RobotConfigKeepsTheDesignedAuthority) {
-    const double kp = robot::kStraightGains.proportionalGain;
-    EXPECT_NEAR(robot::kWallCentering.gainPulsesPerMm * kp * 10.0, 0.025, 1e-9);
-    EXPECT_NEAR(robot::kWallCentering.maxPulses * kp, 0.075, 1e-9);
+// Valores do robô: o termo máximo é pequeno perto da tolerância da reta, e só a parede da própria
+// célula entra.
+TEST(WallCentering, RobotConfigStaysSmall) {
+    EXPECT_LT(robot::kWallCentering.maxPulses * controller::robot::kMmPerPulse, 3.0);
+    EXPECT_LE(robot::kWallCentering.useBelowMm, 90.0);
 }
 
 }  // namespace

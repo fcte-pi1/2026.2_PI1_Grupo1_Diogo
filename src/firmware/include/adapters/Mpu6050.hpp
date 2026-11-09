@@ -7,7 +7,7 @@
 
 namespace micromouse::adapters {
 
-// IMU MPU-6050: velocidade angular em Z (graus/s) para o GyroTurnController.
+// IMU MPU-6050: velocidade angular em Z (graus/s) para a curva (controller::PivotMove).
 class Mpu6050 {
 private:
     i2c_master_dev_handle_t device_{nullptr};

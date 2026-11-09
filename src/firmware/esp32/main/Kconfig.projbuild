@@ -44,15 +44,16 @@ menu "Rato Borrachudo"
             advanceCell anda só pelos encoders, como antes.
 
     config RATO_SLOW_DECAY
-        bool "PWM dos motores em slow decay (experimental)"
+        bool "PWM dos motores em slow decay"
         depends on !RATO_BANCADA
-        default n
+        default y
         help
-            No tempo desligado do PWM, o motor fica freado em vez de solto. A
-            velocidade fica proporcional à potência, o que deve tirar a zona morta
-            de 0,45-0,51 em que as rodas não arrancam. A mesma potência dá mais
-            força que no fast decay: as potências e o kp foram calibrados em fast
-            decay e precisam ser refeitos (D7 do ROTEIRO_TESTE_ROBO.md).
-            Desligada, nada muda.
+            No tempo desligado do PWM, o motor fica freado em vez de solto: a
+            tensão média no motor fica proporcional ao comando, sem a zona morta
+            do fast decay (perto de 50%, quase nada chegava ao motor).
+            O controle de movimento pede tensão no motor e converte pelo modo do
+            PWM e pela bateria (domain/MotorVoltage), então funciona nos dois
+            modos; em slow decay a resposta é linear e o feedforward acerta mais.
+            Desligue só para comparar com o fast decay.
 
 endmenu

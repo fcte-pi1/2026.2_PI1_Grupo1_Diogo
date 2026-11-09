@@ -25,10 +25,9 @@ add_executable(firmware_tests
     domain/DipDecoderTest.cpp
     domain/BuzzerPatternTest.cpp
     domain/PidTest.cpp
-    controller/MotionControllerTest.cpp
-    controller/StraightLineSimulationTest.cpp
-    controller/PivotTurnTest.cpp
-    simulation/StraightLinePlant.hpp
+    controller/MotionProfileTest.cpp
+    controller/MotionSimulationTest.cpp
+    simulation/MotorPlant.hpp
     protocol/ProtocolV1Test.cpp
     telemetry/TelemetryBufferTest.cpp
     telemetry/TelemetryEmitterTest.cpp

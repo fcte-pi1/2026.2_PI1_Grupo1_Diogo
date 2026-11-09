@@ -1,10 +1,12 @@
 #include "adapters/Drv8833MotionAdapter.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 
+#include "controller/RobotMotion.hpp"
+#include "domain/MotorVoltage.hpp"
 #include "domain/RobotParameters.hpp"
-#include "domain/SoftStart.hpp"
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -17,85 +19,102 @@
 namespace micromouse::adapters {
 
 namespace {
-uint32_t elapsedMsSince(TickType_t start) {
-    return static_cast<uint32_t>((xTaskGetTickCount() - start) * portTICK_PERIOD_MS);
-}
-
 // Tempo máximo de um movimento (uma célula ou uma curva). No teste de 04/11, uma célula levou
 // ~0,5 s; sem limite, uma curva que não terminava (robô no ar, rodas paradas) esperou 92 s.
-constexpr uint32_t kMoveTimeoutMs = 3000;
+constexpr double kMoveTimeoutS = 3.0;
 constexpr char kTimeoutFailure[] = "tempo de 3 s esgotado";
-
-// Potências (fração da tensão da bateria) e perfil da curva: em domain/RobotParameters.hpp, para a
-// simulação do host usar os mesmos valores.
-constexpr double kBaseSpeed = domain::robot::kStraightBaseSpeed;
-constexpr double kMaxSpeed = domain::robot::kStraightMaxSpeed;
-constexpr double kDeltaTimeSeconds = 0.001;
-constexpr TickType_t kControlPeriod = pdMS_TO_TICKS(1);
+// Laço de controle: 2 ms. O intervalo real é medido a cada volta (I²C do giroscópio, BLE, log).
+constexpr TickType_t kControlPeriod = pdMS_TO_TICKS(2);
+// O intervalo medido é limitado: uma volta muito atrasada não pode virar um salto no integral.
+constexpr double kMinDtS = 0.0005;
+constexpr double kMaxDtS = 0.02;
 // RF-44: de quanto em quanto tempo pergunta aos ToF laterais se há medida nova (eles medem a cada
 // 50 ms; perguntar mais vezes só pega a medida mais cedo).
-constexpr uint32_t kWallPollMs = 10;
-// Pausa depois de cada movimento, com o freio ligado.
+constexpr double kWallPollS = 0.01;
+// Pausa depois de cada movimento, com o freio ligado (mede também o giro depois do freio).
 constexpr uint32_t kSettleMs = 40;
 
-// Segundos desde a leitura anterior do giroscópio (relógio de µs do esp_timer). O laço espera 1 tick
-// por volta, mas a leitura I²C, a tarefa do BLE e o log atrasam algumas voltas.
-class GyroClock {
+double mmFromPulses(long pulses) {
+    return static_cast<double>(pulses) * controller::robot::kMmPerPulse;
+}
+
+// Relógio do laço: segundos desde o começo do movimento e intervalo desde a volta anterior.
+class LoopClock {
 private:
-    int64_t lastUs_{esp_timer_get_time()};
+    int64_t startUs_{esp_timer_get_time()};
+    int64_t lastUs_{startUs_};
 
 public:
-    double secondsSinceLast() {
+    double tick() {
         const int64_t now = esp_timer_get_time();
-        const double seconds = static_cast<double>(now - lastUs_) * 1e-6;
+        const double dt = static_cast<double>(now - lastUs_) * 1e-6;
         lastUs_ = now;
-        return seconds;
+        return std::clamp(dt, kMinDtS, kMaxDtS);
+    }
+    [[nodiscard]] double elapsed() const {
+        return static_cast<double>(esp_timer_get_time() - startUs_) * 1e-6;
     }
 };
 }  // namespace
 
-Drv8833MotionAdapter::Drv8833MotionAdapter(const domain::WheelConfig& wheels,
-                                           const domain::TurnConfig& turnConfig,
-                                           const domain::PidGains& straightGains,
-                                           double maxCorrection,
-                                           Mpu6050& imu)
-    : imu_(imu),
-      wheels_(wheels),
-      turnConfig_(turnConfig),
-      straight_(straightGains, kBaseSpeed, kMaxSpeed, maxCorrection) {}
+Drv8833MotionAdapter::Drv8833MotionAdapter(Mpu6050& imu)
+    : imu_(imu), batteryVolts_(controller::robot::kNominalBatteryVolts) {}
 
 void Drv8833MotionAdapter::begin() {
     motors_.begin();
     encoders_.begin();
 }
 
-void Drv8833MotionAdapter::advanceCell() {
-    domain::Odometry odometry(wheels_);
-    encoders_.reset();
-    straight_.reset();
+void Drv8833MotionAdapter::setBatteryVolts(double volts) noexcept {
+    batteryVolts_ = domain::usableBatteryVolts(volts, controller::robot::kNominalBatteryVolts);
+}
 
-    long previousAverage = 0;
+void Drv8833MotionAdapter::drive(double leftVolts, double rightVolts) {
+    endLeftVolts_ = leftVolts;
+    endRightVolts_ = rightVolts;
+    motors_.setNormalized(domain::commandForVolts(leftVolts, batteryVolts_, kMotorDecay),
+                          domain::commandForVolts(rightVolts, batteryVolts_, kMotorDecay));
+}
+
+void Drv8833MotionAdapter::stopAndSettle() {
+    endLeftCount_ = encoders_.left();
+    endRightCount_ = encoders_.right();
+    motors_.brake();
+}
+
+void Drv8833MotionAdapter::advanceCell() {
+    encoders_.reset();
+    controller::StraightMove move(domain::robot::kCellSizeMm, controller::robot::kStraightMove);
+    controller::SpeedEstimator leftSpeed;
+    controller::SpeedEstimator rightSpeed;
+    leftSpeed.reset(0.0, 0.0);
+    rightSpeed.reset(0.0, 0.0);
+
     // RF-44: última leitura de cada parede lateral nesta célula e o termo que ela dá (0 sem walls_).
     domain::SideReading leftWall{};
     domain::SideReading rightWall{};
-    double wallTerm = 0.0;
-    uint32_t lastWallPollMs = 0;
-    const TickType_t start = xTaskGetTickCount();
+    double wallMm = 0.0;
+    double lastWallPoll = -kWallPollS;
+
     lastMoveOk_ = true;
     lastMoveFailure_ = "";
     lastMoveName_ = "andar 1 celula";
     lastMoveWasTurn_ = false;
-    while (odometry.distanceMm() < wheels_.cellSizeMm) {
-        if (elapsedMsSince(start) > kMoveTimeoutMs) {
+    endLeftVolts_ = 0.0;
+    endRightVolts_ = 0.0;
+
+    LoopClock clock;
+    while (true) {
+        const double dt = clock.tick();
+        const double now = clock.elapsed();
+        if (now > kMoveTimeoutS) {
             lastMoveOk_ = false;  // as rodas não levaram o robô a uma célula no tempo
             lastMoveFailure_ = kTimeoutFailure;
             break;
         }
         const long left = encoders_.left();
         const long right = encoders_.right();
-        // Uma roda parada e a outra andando: sem isto, suspenso, a célula "terminava" pela média dos
-        // encoders com uma roda só, e no chão o robô girava contra a parede até o tempo limite
-        // (07/11: "enc E=0 D=123 pot E=0.85").
+        // Uma roda parada e a outra andando (roda travada, motor ou encoder solto): Erro na hora.
         const domain::StalledWheel stalled =
             domain::detectStalledWheel(left, right, domain::robot::kWheelStall);
         if (stalled != domain::StalledWheel::None) {
@@ -103,12 +122,11 @@ void Drv8833MotionAdapter::advanceCell() {
             lastMoveFailure_ = domain::stalledWheelName(stalled);
             break;
         }
-        const long average = (left + right) / 2;
-        odometry.onEncoderPulses(average - previousAverage);
-        previousAverage = average;
+        const double leftMm = mmFromPulses(left);
+        const double rightMm = mmFromPulses(right);
 
-        if (walls_ != nullptr && elapsedMsSince(start) - lastWallPollMs >= kWallPollMs) {
-            lastWallPollMs = elapsedMsSince(start);
+        if (walls_ != nullptr && now - lastWallPoll >= kWallPollS) {
+            lastWallPoll = now;
             using Side = Vl53l1xSensorAdapter::Side;
             auto refresh = [this](Side side, domain::SideReading& out) {
                 if (const auto reading = walls_->freshReading(side)) {
@@ -118,105 +136,114 @@ void Drv8833MotionAdapter::advanceCell() {
             };
             refresh(Side::Left, leftWall);
             refresh(Side::Right, rightWall);
-            wallTerm =
-                domain::wallCenteringError(leftWall, rightWall, domain::robot::kWallCentering);
+            wallMm = domain::wallCenteringError(leftWall, rightWall, domain::robot::kWallCentering) *
+                     controller::robot::kMmPerPulse;
         }
-        const double error = static_cast<double>(left - right) + wallTerm;
-        const controller::WheelSpeeds speeds = straight_.correct(error, kDeltaTimeSeconds);
-        // Partida suave: a potência sobe em rampa no começo de cada célula.
-        const double ramp = domain::softStartFactor(elapsedMsSince(start));
-        endLeftCmd_ = ramp * speeds.left;
-        endRightCmd_ = ramp * speeds.right;
-        motors_.setNormalized(endLeftCmd_, endRightCmd_);
+
+        const controller::StraightMove::Output out =
+            move.step(dt, leftMm, rightMm, leftSpeed.update(leftMm, now),
+                      rightSpeed.update(rightMm, now), wallMm);
+        if (out.done) {
+            break;
+        }
+        drive(out.leftVolts, out.rightVolts);
         vTaskDelay(kControlPeriod);
     }
-    endLeftCount_ = encoders_.left();
-    endRightCount_ = encoders_.right();
-    motors_.brake();
+    stopAndSettle();
 #if CONFIG_RATO_LOG_RETA
-    // Calibração do ganho da reta (roteiro do PR): saturou > 0 ou erro máximo perto de
-    // kStraightMaxCorrection / kp indicam ganho baixo ou roda com problema.
-    const controller::StraightStats& stats = straight_.stats();
+    // Calibração da reta: "dif" é a diferença de caminho entre as rodas (mm; ~0,65 grau de rumo
+    // por mm com a bitola de 88 mm), "satur" os passos com uma roda no teto de tensão.
     ESP_LOGI("reta",
-             "kp=%.4f enc E=%ld D=%ld erro final=%.0f max=%.0f corr max=%.3f saturou=%d/%d "
-             "parede=%.1f %s",
-             domain::robot::kStraightGains.proportionalGain, endLeftCount_, endRightCount_,
-             stats.lastError, stats.maxAbsError, stats.maxAbsCorrection, stats.saturatedSteps,
-             stats.steps, wallTerm, lastMoveOk_ ? "ok" : lastMoveFailure_);
+             "enc E=%ld D=%ld (%.1f / %.1f mm) dif max=%.1f fim=%.1f mm V max E=%.1f D=%.1f "
+             "satur=%d/%d tempo=%.0f ms perfil=%.0f ms bat=%.2f V parede=%.1f mm %s",
+             endLeftCount_, endRightCount_, mmFromPulses(endLeftCount_),
+             mmFromPulses(endRightCount_), move.maxDifferenceMm(), move.lastDifferenceMm(),
+             move.maxLeftVolts(), move.maxRightVolts(), move.saturatedSteps(), move.steps(),
+             move.elapsed() * 1000.0, move.duration() * 1000.0, batteryVolts_, wallMm,
+             lastMoveOk_ ? "ok" : lastMoveFailure_);
 #endif
     vTaskDelay(pdMS_TO_TICKS(kSettleMs));
 }
 
-void Drv8833MotionAdapter::pivot(double degrees, controller::PivotTurn::Direction direction) {
+void Drv8833MotionAdapter::pivot(double degrees, controller::PivotMove::Direction direction) {
     encoders_.reset();
-    // Uma curva nova por manobra: a referência angular parte de zero a cada curva, e o erro da
-    // deriva do giroscópio não se propaga entre curvas consecutivas (RNF-34).
-    controller::PivotTurn turn(degrees, direction, domain::robot::kPivot);
-    const TickType_t start = xTaskGetTickCount();
+    // Uma curva nova por manobra: o ângulo parte de zero, e o erro da deriva do giroscópio não se
+    // propaga entre curvas consecutivas (RNF-34).
+    controller::PivotMove turn(degrees, direction, controller::robot::kPivotMove);
+    controller::SpeedEstimator leftSpeed;
+    controller::SpeedEstimator rightSpeed;
+    leftSpeed.reset(0.0, 0.0);
+    rightSpeed.reset(0.0, 0.0);
     lastMoveOk_ = true;
     lastMoveFailure_ = "";
     lastMoveName_ = degrees > 135.0 ? "meia-volta" : "curva de 90 graus";
     lastMoveWasTurn_ = true;
+    endLeftVolts_ = 0.0;
+    endRightVolts_ = 0.0;
 
-    // Só o giroscópio encerra a curva (07/11: pelos pulsos, com as rodas patinando, ela "terminava"
-    // com o robô parado). Sem girar, quem para é o tempo limite, e a corrida vai para Erro.
-    GyroClock clock;
+    // O giroscópio decide o fim (07/11: pelos pulsos, com as rodas patinando, a curva "terminava"
+    // com o robô parado). Sem girar (suspenso), quem para é o tempo limite, e a corrida vai a Erro.
+    LoopClock clock;
     while (true) {
-        if (elapsedMsSince(start) > kMoveTimeoutMs) {
+        const double dt = clock.tick();
+        const double now = clock.elapsed();
+        if (now > kMoveTimeoutS) {
             lastMoveOk_ = false;  // o giroscópio não confirmou a curva no tempo
             lastMoveFailure_ = kTimeoutFailure;
             break;
         }
-        const double rate = imu_.gyroZDegPerSec();
-        const controller::WheelSpeeds speeds = turn.step(rate, clock.secondsSinceLast());
-        if (turn.done()) {
+        const double leftMm = mmFromPulses(encoders_.left());
+        const double rightMm = mmFromPulses(encoders_.right());
+        const controller::PivotMove::Output out =
+            turn.step(dt, imu_.gyroZDegPerSec(), leftMm, rightMm, leftSpeed.update(leftMm, now),
+                      rightSpeed.update(rightMm, now));
+        if (out.done) {
             break;
         }
-        // Partida suave dentro do laço: o giro já é integrado durante a rampa.
-        const double ramp = domain::softStartFactor(elapsedMsSince(start));
-        endLeftCmd_ = ramp * speeds.left;
-        endRightCmd_ = ramp * speeds.right;
-        motors_.setNormalized(endLeftCmd_, endRightCmd_);
+        drive(out.leftVolts, out.rightVolts);
         vTaskDelay(kControlPeriod);
     }
-    endLeftCount_ = encoders_.left();
-    endRightCount_ = encoders_.right();
-    motors_.brake();
+    stopAndSettle();
 #if CONFIG_RATO_LOG_RETA
     const double stopDeg = turn.angle();
-    const uint32_t turnMs = elapsedMsSince(start);
+    const double turnMs = clock.elapsed() * 1000.0;
 #endif
     // A pausa com o freio também mede quanto o robô ainda gira depois de frear.
-    const TickType_t settleStart = xTaskGetTickCount();
-    while (elapsedMsSince(settleStart) < kSettleMs) {
+    const int64_t settleStart = esp_timer_get_time();
+    clock.tick();
+    while (esp_timer_get_time() - settleStart < static_cast<int64_t>(kSettleMs) * 1000) {
         vTaskDelay(kControlPeriod);
-        turn.settle(imu_.gyroZDegPerSec(), clock.secondsSinceLast());
+        turn.settle(imu_.gyroZDegPerSec(), clock.tick());
     }
     lastTurnDeg_ = turn.angle();
 #if CONFIG_RATO_LOG_RETA
-    // Calibração da curva (E1 do roteiro): "final" é o ângulo depois do freio, e os pulsos medidos
-    // contra os esperados sem patinar mostram quanto as rodas patinaram.
-    ESP_LOGI("curva", "alvo=%.0f parou=%.1f final=%.1f tempo=%lu ms enc E=%ld D=%ld esperado=%.0f %s",
-             degrees, stopDeg, lastTurnDeg_, static_cast<unsigned long>(turnMs), endLeftCount_,
-             endRightCount_, domain::pulsesForTurn(turnConfig_, degrees),
-             lastMoveOk_ ? "ok" : lastMoveFailure_);
+    // Calibração da curva (E1 do roteiro): "final" é o ângulo depois do freio; os pulsos contra os
+    // esperados sem patinar mostram quanto as rodas patinaram, e "continuou" se o perfil acabou sem
+    // o giroscópio chegar ao alvo.
+    ESP_LOGI("curva",
+             "alvo=%.0f parou=%.1f final=%.1f tempo=%.0f ms enc E=%ld D=%ld (esperado %.0f) "
+             "V max=%.1f bat=%.2f V continuou=%s %s",
+             degrees, stopDeg, lastTurnDeg_, turnMs, endLeftCount_, endRightCount_,
+             turn.expectedArcMm() / controller::robot::kMmPerPulse, turn.maxVolts(), batteryVolts_,
+             turn.crept() ? "sim" : "nao", lastMoveOk_ ? "ok" : lastMoveFailure_);
 #endif
 }
 
 void Drv8833MotionAdapter::describeLastMove(char* out, size_t size) const {
     if (lastMoveWasTurn_) {
-        std::snprintf(out, size, "enc E=%ld D=%ld pot E=%.2f D=%.2f giro=%.0f", endLeftCount_,
-                      endRightCount_, endLeftCmd_, endRightCmd_, lastTurnDeg_);
+        std::snprintf(out, size, "enc E=%ld D=%ld V E=%.1f D=%.1f bat=%.1f giro=%.0f",
+                      endLeftCount_, endRightCount_, endLeftVolts_, endRightVolts_, batteryVolts_,
+                      lastTurnDeg_);
         return;
     }
-    std::snprintf(out, size, "enc E=%ld D=%ld pot E=%.2f D=%.2f", endLeftCount_, endRightCount_,
-                  endLeftCmd_, endRightCmd_);
+    std::snprintf(out, size, "enc E=%ld D=%ld V E=%.1f D=%.1f bat=%.1f", endLeftCount_,
+                  endRightCount_, endLeftVolts_, endRightVolts_, batteryVolts_);
 }
 
-void Drv8833MotionAdapter::turnLeft() { pivot(90.0, controller::PivotTurn::Direction::Left); }
+void Drv8833MotionAdapter::turnLeft() { pivot(90.0, controller::PivotMove::Direction::Left); }
 
-void Drv8833MotionAdapter::turnRight() { pivot(90.0, controller::PivotTurn::Direction::Right); }
+void Drv8833MotionAdapter::turnRight() { pivot(90.0, controller::PivotMove::Direction::Right); }
 
-void Drv8833MotionAdapter::turnAround() { pivot(180.0, controller::PivotTurn::Direction::Right); }
+void Drv8833MotionAdapter::turnAround() { pivot(180.0, controller::PivotMove::Direction::Right); }
 
 }  // namespace micromouse::adapters

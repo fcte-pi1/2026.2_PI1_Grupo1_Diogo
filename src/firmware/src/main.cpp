@@ -13,6 +13,7 @@
 #include "adapters/BoardPins.hpp"
 #include "adapters/DipReaderAdapter.hpp"
 #include "adapters/Drv8833MotionAdapter.hpp"
+#include "controller/RobotMotion.hpp"
 #include "adapters/I2cBus.hpp"
 #include "adapters/Ina219.hpp"
 #include "adapters/LocalInterfaceAdapter.hpp"
@@ -50,13 +51,6 @@ namespace {
 
 constexpr char kTag[] = "main";
 
-// Parâmetros físicos: roda, pulsos por volta e bitola ficam em domain/RobotParameters.hpp (os
-// pulsos por volta foram medidos no docs/7.3; roda e bitola ainda são valores de projeto).
-using domain::robot::kStraightGains;
-using domain::robot::kStraightMaxCorrection;
-using domain::robot::kTurn;
-using domain::robot::kWheels;
-
 adapters::I2cBus gI2c;
 adapters::Vl53l1xSensorAdapter gSensor;
 adapters::Mpu6050 gImu;
@@ -67,8 +61,8 @@ adapters::DipReaderAdapter gDip;
 // Modo bancada: placa solta, movimento simulado (ver Kconfig.projbuild).
 adapters::BenchMotionAdapter gMotion;
 #else
-adapters::Drv8833MotionAdapter gMotion{kWheels, kTurn, kStraightGains, kStraightMaxCorrection,
-                                       gImu};
+// Movimentos em volts no motor: parâmetros em controller/RobotMotion.hpp.
+adapters::Drv8833MotionAdapter gMotion{gImu};
 #endif
 adapters::BleTelemetryAdapter gBle;
 
@@ -121,9 +115,8 @@ void navigationTask(void*) {
     gDip.begin();
     gMotion.begin();
     ESP_LOGI(kTag, "mapa de pinos dos motores: %s", adapters::pins::kMotorWiringName);
-#if CONFIG_RATO_SLOW_DECAY
-    ESP_LOGW(kTag, "motores em %s: potencias calibradas em fast decay", adapters::kMotorDecayName);
-#endif
+    ESP_LOGI(kTag, "PWM dos motores em %s, controle em volts (teto %.1f V no motor)",
+             adapters::kMotorDecayName, controller::robot::kMotorMaxVolts);
 #if CONFIG_RATO_CENTRALIZAR_PAREDES && !CONFIG_RATO_BANCADA
     gMotion.enableWallCentering(gSensor);
     ESP_LOGW(kTag, "centralizacao pelas paredes (RF-44) LIGADA, ganhos nao calibrados");
@@ -239,6 +232,7 @@ void navigationTask(void*) {
                 break;
             }
             const double voltage = gPower.busVoltageV();
+            gMotion.setBatteryVolts(voltage);  // volts no motor -> PWM pela bateria real
             if (battery.update(voltage)) {
                 std::snprintf(failure, sizeof failure, "bateria fraca: %.2f V", voltage);
                 ESP_LOGE(kTag, "%s", failure);

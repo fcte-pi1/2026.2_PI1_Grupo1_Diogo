@@ -10,14 +10,6 @@ struct TurnConfig {
 
 [[nodiscard]] double pulsesForTurn(const TurnConfig& config, double degrees);
 
-// Potência da curva no lugar (controller::PivotTurn).
-struct PivotProfile {
-    double cruiseSpeed;   // potência das rodas longe do alvo
-    double finalSpeed;    // potência ao chegar ao alvo (a roda já está girando)
-    double slowdownDeg;   // a quantos graus do alvo a potência começa a cair
-    double toleranceDeg;  // a curva termina com |ângulo| >= alvo - tolerância
-};
-
 class GyroTurnController {
 private:
     double targetDeg_;
