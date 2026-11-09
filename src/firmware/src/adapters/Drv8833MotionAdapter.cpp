@@ -369,7 +369,20 @@ void Drv8833MotionAdapter::arcTurn(controller::PivotMove::Direction direction) {
     // Recua a meia célula inteira, mesmo se a reta anterior parou antes pela parede da frente: com
     // o eixo atrás do centro, o arco tem espaço no canto (V3b de 09/11).
     lastShortMm_ = 0.0;
-    straight(-controller::robot::kArcStartSetbackMm, "recuo antes da curva", false);
+    // Com parede à frente, posiciona pelo frontal: recua (ou avança) até ele ler kArcStartFrontMm.
+    // Sem parede à frente (ou sem leitura), usa o recuo fixo.
+    double setback = controller::robot::kArcStartSetbackMm;
+    if (front_ != nullptr) {
+        const auto reading = front_->reading(Vl53l1xSensorAdapter::Side::Front);
+        if (reading.kind == drivers::ReadingKind::Distance &&
+            reading.mm < controller::robot::kArcFrontWallMaxMm) {
+            setback = controller::robot::kArcStartFrontMm - static_cast<double>(reading.mm);
+        }
+    }
+    if (std::fabs(setback) > 3.0) {
+        straight(-setback, setback > 0.0 ? "recuo antes da curva" : "avanco antes da curva",
+                 false);
+    }
     pivot(90.0, direction, controller::robot::kArcTurn);
     if (lastMoveOk_) {
         // O arco de raio kArcSetbackMm leva o robô meia célula à frente na nova direção.

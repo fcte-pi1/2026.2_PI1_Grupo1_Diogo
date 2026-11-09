@@ -68,6 +68,14 @@ inline constexpr double kArcSetbackMm = domain::robot::kCellSizeMm / 2.0;
 // (corridas 14 e 15 de 09/11, "rumo perdido"). Com 75, o arco fica ~15 mm longe da quina e o robô
 // termina a curva ~15 mm para o lado de fora.
 inline constexpr double kArcStartSetbackMm = 75.0;
+// Com parede à frente, o início do arco é posicionado pelo ToF FRONTAL, e não pelo recuo fixo: o
+// robô recua (ou avança) até o frontal ler isto e só então faz o arco. Na V3b de 09/11 (frente
+// encostada na borda de A4 + recuo de 90 mm, ~90 mm de frontal no início) a curva saiu perfeita;
+// começando com ~140-165 mm (corridas 15 e 16) o robô terminava a curva deslocado para dentro e a
+// roda traseira de dentro enganchava na quina; com ~150 mm (V3, centralizado) o arco batia a 55°.
+inline constexpr double kArcStartFrontMm = 90.0;
+// Até onde a leitura do frontal vale como "parede à frente" para posicionar o arco.
+inline constexpr double kArcFrontWallMaxMm = 250.0;
 
 // Parada pela parede da frente (09/11). As rodas ficam na traseira e a frente é longa: com o eixo no
 // centro de uma célula com parede à frente, a frente encosta ou empurra a parede (o robô bateu em A2
