@@ -52,4 +52,17 @@ inline constexpr StraightMoveConfig kStraightMove{
 inline constexpr PivotMoveConfig kPivotMove{
     {300.0, 1500.0}, kWheelLoop, domain::robot::kWheelTrackMm, 0.5, 2.0, 60.0, 45.0};
 
+// Curva de 90° em ARCO (09/11). Girando no lugar, o robô (rodas na traseira, frente longa) batia
+// no canto A4 da pista em 7 de 7 corridas: travava a 68-75° ou saía colado na parede. Agora:
+//   1. recua kArcSetbackMm até a borda de entrada da célula (o lado por onde chegou, sempre aberto);
+//   2. faz um quarto de círculo de raio kArcSetbackMm em volta do canto entre a entrada e a saída
+//      (as duas rodas para a frente: a de dentro em 90 - 44 = 46 mm, a de fora em 134 mm);
+//   3. recua de novo kArcSetbackMm, até o centro da mesma célula, já virado.
+// Para o Navigator nada muda: depois da curva o robô está na mesma célula, na nova direção. A frente
+// longa vai sempre para o lado aberto, e o canto mais próximo fica a ~40 mm da lateral de dentro.
+// 120 °/s e 600 °/s²: a roda de fora chega a ~280 mm/s.
+inline constexpr double kArcSetbackMm = domain::robot::kCellSizeMm / 2.0;
+inline constexpr PivotMoveConfig kArcTurn{{120.0, 600.0}, kWheelLoop, domain::robot::kWheelTrackMm,
+                                          0.5, 2.0, 40.0, 30.0, kArcSetbackMm};
+
 }  // namespace micromouse::controller::robot

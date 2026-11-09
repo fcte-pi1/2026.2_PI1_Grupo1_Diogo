@@ -42,7 +42,11 @@ private:
     void drive(double leftVolts, double rightVolts);
     void stopAndSettle();
     bool aborted();  // a flag de parada está ligada: marca a falha
-    void pivot(double degrees, controller::PivotMove::Direction direction);
+    void pivot(double degrees, controller::PivotMove::Direction direction,
+               const controller::PivotMoveConfig& config);
+    void arcTurn(controller::PivotMove::Direction direction);
+    // Reta de `distanceMm` (negativa = para trás); `centerOnWalls` usa o RF-44 se estiver ligado.
+    void straight(double distanceMm, const char* name, bool centerOnWalls);
 
 public:
     explicit Drv8833MotionAdapter(Mpu6050& imu);

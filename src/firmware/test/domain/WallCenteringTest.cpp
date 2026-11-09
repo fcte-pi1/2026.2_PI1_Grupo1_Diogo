@@ -57,10 +57,10 @@ TEST(WallCentering, SignMatchesTheStraightMove) {
     EXPECT_GT(out.rightVolts, out.leftVolts);
 }
 
-// Valores do robô: o termo máximo é pequeno perto da tolerância da reta, e só a parede da própria
-// célula entra.
+// Valores do robô: o termo máximo fica em poucos mm de diferença entre as rodas (~4 graus de rumo),
+// e só a parede da própria célula entra.
 TEST(WallCentering, RobotConfigStaysSmall) {
-    EXPECT_LT(robot::kWallCentering.maxPulses * controller::robot::kMmPerPulse, 3.0);
+    EXPECT_LT(robot::kWallCentering.maxPulses * controller::robot::kMmPerPulse, 7.0);
     EXPECT_LE(robot::kWallCentering.useBelowMm, 90.0);
 }
 

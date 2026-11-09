@@ -27,14 +27,14 @@ inline constexpr TurnConfig kTurn{kWheelDiameterMm, kCountsPerRevolution, kWheel
 // na roda mais rápida, a outra abaixo de 20% dela está parada. Rodas 25% diferentes ficam em 80%.
 inline constexpr WheelStallConfig kWheelStall{120, 0.20};
 
-// Centralização pelas paredes laterais (RF-44), só com a opção RATO_CENTRALIZAR_PAREDES do Kconfig
-// (desligada por padrão). Ver docs/rf44-centralizacao.md:
+// Centralização pelas paredes laterais (RF-44), com a opção RATO_CENTRALIZAR_PAREDES do Kconfig.
+// Ver docs/rf44-centralizacao.md:
 // - centro de 33,6 mm: média dos ToF laterais com o robô centrado, medida em 07/11 (B1 do roteiro,
 //   E=31 e D=36,5 mm, conferidos com régua); a estimativa de projeto era ~34-35 mm;
-// - só a parede da própria célula (abaixo do limiar de 90 mm);
-// - ganhos NÃO calibrados: o termo sai em pulsos equivalentes e o adaptador o converte em mm de
-//   diferença entre as rodas (controller::StraightMove). 10 mm fora do centro = 2,5 pulsos (~0,9 mm);
-//   termo máximo de 7,5 pulsos (~2,8 mm), pequeno perto da sincronia das rodas.
-inline constexpr WallCenteringConfig kWallCentering{33.6, 90.0, 0.25, 7.5};
+// - 09/11: só paredes a menos de 70 mm (a da própria célula; antes 90) e ganho maior. O termo sai
+//   em pulsos e o adaptador o converte em mm de diferença entre as rodas (controller::StraightMove):
+//   10 mm fora do centro = 8 pulsos (~3 mm, ~2 graus de rumo); no máximo 16 pulsos (~6 mm). Com o
+//   ganho antigo (0,25 pulso/mm, ~0,9 mm por 10 mm) o robô saía de A4 encostado na parede.
+inline constexpr WallCenteringConfig kWallCentering{33.6, 70.0, 0.8, 16.0};
 
 }  // namespace micromouse::domain::robot

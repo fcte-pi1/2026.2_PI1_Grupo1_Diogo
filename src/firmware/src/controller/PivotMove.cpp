@@ -5,10 +5,6 @@
 
 namespace micromouse::controller {
 
-namespace {
-constexpr double kPi = 3.14159265358979323846;
-}
-
 PivotMove::PivotMove(double targetDeg, Direction direction, const PivotMoveConfig& config) noexcept
     : targetDeg_(std::fabs(targetDeg)),
       direction_(direction),
@@ -16,7 +12,8 @@ PivotMove::PivotMove(double targetDeg, Direction direction, const PivotMoveConfi
       profile_(std::fabs(targetDeg), config.limits),
       left_(config.wheel),
       right_(config.wheel),
-      arcPerDeg_(config.wheelTrackMm * kPi / 360.0) {}
+      outerRadius_(config.turnRadiusMm + config.wheelTrackMm / 2.0),
+      innerRadius_(config.turnRadiusMm - config.wheelTrackMm / 2.0) {}
 
 PivotMove::Output PivotMove::step(double dtSeconds, double gyroDegPerS, double leftMm,
                                   double rightMm, double leftMmPerS,
@@ -44,19 +41,32 @@ PivotMove::Output PivotMove::step(double dtSeconds, double gyroDegPerS, double l
         referenceDegPerS = extra < config_.maxCreepDeg ? config_.creepDegPerS : 0.0;
     }
 
-    // Arco de cada roda em módulo; na curva à direita a esquerda vai para a frente.
-    const double leftSign = direction_ == Direction::Right ? 1.0 : -1.0;
-    const double rightSign = -leftSign;
-    const double leftArc = leftSign * leftMm;
-    const double rightArc = rightSign * rightMm;
-    const double shift = 0.5 * config_.syncGain * (leftArc - rightArc);
-    const double arcReference = referenceDeg * arcPerDeg_;
-    const double arcSpeed = referenceDegPerS * arcPerDeg_;
-
-    const double leftVolts =
-        leftSign * left_.update(arcReference - shift, arcSpeed, leftArc, leftSign * leftMmPerS, dt);
-    const double rightVolts = rightSign * right_.update(arcReference + shift, arcSpeed, rightArc,
-                                                        rightSign * rightMmPerS, dt);
+    // Raio de cada roda (com sinal: negativo anda para trás). Na curva à direita, a de fora é a
+    // esquerda.
+    const bool right = direction_ == Direction::Right;
+    const double leftRadius = right ? outerRadius_ : innerRadius_;
+    const double rightRadius = right ? innerRadius_ : outerRadius_;
+    const double radians = referenceDeg * kRadPerDeg;
+    const double radiansPerS = referenceDegPerS * kRadPerDeg;
+    double leftTarget = radians * leftRadius;
+    double rightTarget = radians * rightRadius;
+    // Sincronia: as duas rodas no mesmo ponto da curva. Cada roda vira "ângulo andado" pelo seu
+    // raio; a adiantada espera e a atrasada é puxada. Uma roda com raio ~0 (gira no lugar) não
+    // indica o ângulo e fica de fora.
+    constexpr double kMinRadiusMm = 5.0;
+    if (std::fabs(leftRadius) > kMinRadiusMm && std::fabs(rightRadius) > kMinRadiusMm) {
+        const double shiftRad = 0.5 * config_.syncGain *
+                                (leftMm / leftRadius - rightMm / rightRadius);
+        leftTarget -= shiftRad * leftRadius;
+        rightTarget += shiftRad * rightRadius;
+    }
+    double leftVolts = left_.update(leftTarget, radiansPerS * leftRadius, leftMm, leftMmPerS, dt);
+    double rightVolts =
+        right_.update(rightTarget, radiansPerS * rightRadius, rightMm, rightMmPerS, dt);
+    // Em arco, as duas rodas só andam para a frente: a adiantada só desacelera, nunca é empurrada
+    // para trás (09/11: pedido para não girar com uma roda para trás).
+    if (leftRadius > 0.0) leftVolts = std::max(leftVolts, 0.0);
+    if (rightRadius > 0.0) rightVolts = std::max(rightVolts, 0.0);
     maxVolts_ = std::max({maxVolts_, std::fabs(leftVolts), std::fabs(rightVolts)});
     return {leftVolts, rightVolts, false};
 }

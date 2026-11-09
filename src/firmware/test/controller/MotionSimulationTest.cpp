@@ -117,6 +117,43 @@ TEST(PivotMoveSimulation, TurnAroundReachesOneEighty) {
     EXPECT_NEAR(std::fabs(turn.trueDeg), 180.0, 5.0);
 }
 
+// Curva em arco (09/11): as duas rodas só andam para a frente (nenhuma tensão negativa), a de fora
+// mais rápida, e o giroscópio fecha os 90° nos dois sentidos, mesmo com as rodas patinando um pouco.
+TEST(PivotMoveSimulation, ArcTurnKeepsBothWheelsGoingForward) {
+    constexpr double kDt = 0.002;
+    constexpr double kRadToDeg = 57.29577951308232;
+    for (const PivotMove::Direction direction :
+         {PivotMove::Direction::Right, PivotMove::Direction::Left}) {
+        PivotMove move(90.0, direction, controller::robot::kArcTurn);
+        MotorWheel left = easyWheel();
+        MotorWheel right = stiffWheel();
+        controller::SpeedEstimator leftSpeed;
+        controller::SpeedEstimator rightSpeed;
+        leftSpeed.reset(0.0, 0.0);
+        rightSpeed.reset(0.0, 0.0);
+        double trueDeg = 0.0;
+        double rate = 0.0;
+        double minVolts = 0.0;
+        PivotMove::Output out{};
+        double t = 0.0;
+        while (!out.done && t < 3.0) {
+            t += kDt;
+            const double l = left.encoderMm();
+            const double r = right.encoderMm();
+            out = move.step(kDt, rate, l, r, leftSpeed.update(l, t), rightSpeed.update(r, t));
+            minVolts = std::fmin(minVolts, std::fmin(out.leftVolts, out.rightVolts));
+            left.step(out.leftVolts, kDt);
+            right.step(out.rightVolts, kDt);
+            rate = (left.speed - right.speed) / domain::robot::kWheelTrackMm * kRadToDeg * 0.9;
+            trueDeg += rate * kDt;
+        }
+        ASSERT_TRUE(out.done);
+        EXPECT_NEAR(std::fabs(trueDeg), 90.0, 4.0);
+        EXPECT_GE(minVolts, 0.0);  // nenhuma roda é empurrada para trás
+        EXPECT_LT(t, 2.0);
+    }
+}
+
 // Suspenso: o robô não gira, o giroscópio não chega e a curva não termina sozinha (o tempo limite
 // do adaptador leva ao Erro, como no C2 do roteiro).
 TEST(PivotMoveSimulation, SuspendedRobotNeverFinishesTheTurn) {

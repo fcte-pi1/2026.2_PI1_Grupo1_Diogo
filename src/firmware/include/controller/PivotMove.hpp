@@ -13,10 +13,15 @@ struct PivotMoveConfig {
     double toleranceDeg;    // termina com |giro| >= alvo - tolerância (o freio ainda gira um pouco)
     double creepDegPerS;    // perfil acabou e o giroscópio ainda não chegou: continua a esta taxa
     double maxCreepDeg;     // ...no máximo até alvo + isto (depois, quem para é o tempo limite)
+    // Raio da curva, do centro do arco ao meio do eixo. 0 = no lugar (uma roda para a frente e a
+    // outra para trás). Com raio >= meia bitola, as duas rodas andam para a frente: a de dentro em
+    // raio - bitola/2 e a de fora em raio + bitola/2.
+    double turnRadiusMm{0.0};
 };
 
-// Curva no lugar (pivô). As rodas seguem um perfil trapezoidal de ÂNGULO, convertido em arco pela
-// bitola, com o mesmo controle por roda da reta: elas recebem a tensão de que precisam para girar
+// Curva no lugar (pivô, raio 0) ou em arco (raio > 0). As rodas seguem um perfil trapezoidal de
+// ÂNGULO, convertido no arco de cada roda pelo raio e pela bitola, com o mesmo controle por roda da
+// reta: elas recebem a tensão de que precisam para girar
 // no chão (em 07/11, a potência fixa de 0,60 não girava o robô). Quem decide o FIM é o giroscópio:
 // - chegou ao alvo antes do fim do perfil (girou mais que o previsto pelos encoders): para já;
 // - o perfil acabou e o giroscópio não chegou (rodas patinando): continua devagar até chegar.
@@ -42,7 +47,10 @@ public:
     [[nodiscard]] double elapsed() const noexcept { return time_; }
     [[nodiscard]] bool crept() const noexcept { return crept_; }
     [[nodiscard]] double maxVolts() const noexcept { return maxVolts_; }
-    [[nodiscard]] double expectedArcMm() const noexcept { return targetDeg_ * arcPerDeg_; }
+    // Arco que a roda de FORA anda na curva inteira (mm).
+    [[nodiscard]] double expectedArcMm() const noexcept {
+        return targetDeg_ * kRadPerDeg * outerRadius_;
+    }
 
 private:
     double targetDeg_;
@@ -51,7 +59,9 @@ private:
     TrapezoidProfile profile_;
     WheelLoop left_;
     WheelLoop right_;
-    double arcPerDeg_;
+    static constexpr double kRadPerDeg = 3.14159265358979323846 / 180.0;
+    double outerRadius_;  // raio da roda de fora (mm)
+    double innerRadius_;  // raio da roda de dentro (mm); negativo no pivô (ela anda para trás)
     double angle_{0.0};
     double time_{0.0};
     double maxVolts_{0.0};
