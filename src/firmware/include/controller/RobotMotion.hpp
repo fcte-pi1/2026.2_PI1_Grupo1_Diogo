@@ -70,7 +70,15 @@ inline constexpr double kArcSetbackMm = domain::robot::kCellSizeMm / 2.0;
 // ponto: com a frente perto da parede, o eixo fica atrás do centro e o arco tem espaço no canto
 // (V3b de 09/11: frente encostada na borda de A4, arco de 91,5° sem bater; centralizado, batia a
 // ~55°). O deslocamento lateral que sobra depois da curva é corrigido pelo RF-44 nas retas.
-inline constexpr double kFrontStopMm = 20.0;
+// 35 mm: com 20 mm, entre uma medida e outra do sensor a frente já encostava (em A2 a leitura
+// saltou para 3 mm e o robô foi torcido contra a parede).
+inline constexpr double kFrontStopMm = 35.0;
+
+// Rumo perdido numa reta: o giroscópio é integrado durante a reta, e um giro maior que isto é
+// falha ("rumo perdido"). Em 09/11, com a roda esquerda travada ou o robô torcido numa parede, ele
+// virava 40-180 graus sem perceber, confundia a parede lateral com a da frente e chegou a declarar
+// sucesso no lugar errado.
+inline constexpr double kMaxHeadingErrorDeg = 30.0;
 inline constexpr PivotMoveConfig kArcTurn{{120.0, 600.0}, kWheelLoop, domain::robot::kWheelTrackMm,
                                           0.5, 2.0, 40.0, 30.0, kArcSetbackMm};
 

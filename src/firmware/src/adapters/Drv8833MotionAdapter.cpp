@@ -177,6 +177,7 @@ void Drv8833MotionAdapter::straight(double distanceMm, const char* name, bool ce
     lastShortMm_ = 0.0;
     double lastFrontPoll = -kWallPollS;
     int frontMm = -1;  // última leitura válida do frontal nesta reta (-1 = nenhuma)
+    double headingDeg = 0.0;  // giro do robô durante a reta, pelo giroscópio
 
     LoopClock clock;
     while (true) {
@@ -188,6 +189,12 @@ void Drv8833MotionAdapter::straight(double distanceMm, const char* name, bool ce
         if (now > kMoveTimeoutS) {
             lastMoveOk_ = false;  // as rodas não levaram o robô ao fim no tempo
             lastMoveFailure_ = kTimeoutFailure;
+            break;
+        }
+        headingDeg += imu_.gyroZDegPerSec() * dt;
+        if (std::fabs(headingDeg) > controller::robot::kMaxHeadingErrorDeg) {
+            lastMoveOk_ = false;
+            lastMoveFailure_ = "rumo perdido";
             break;
         }
         const long left = static_cast<long>(sign) * encoders_.left();
@@ -253,12 +260,12 @@ void Drv8833MotionAdapter::straight(double distanceMm, const char* name, bool ce
     ESP_LOGI("reta",
              "%s %.0f mm: enc E=%ld D=%ld (%.1f / %.1f mm) dif max=%.1f fim=%.1f mm V max E=%.1f "
              "D=%.1f satur=%d/%d tempo=%.0f ms perfil=%.0f ms bat=%.2f V parede=%.1f mm "
-             "frente=%d mm parou antes=%.0f mm %s",
+             "frente=%d mm parou antes=%.0f mm giro=%.1f %s",
              name, distanceMm, endLeftCount_, endRightCount_, mmFromPulses(endLeftCount_),
              mmFromPulses(endRightCount_), move.maxDifferenceMm(), move.lastDifferenceMm(),
              move.maxLeftVolts(), move.maxRightVolts(), move.saturatedSteps(), move.steps(),
              move.elapsed() * 1000.0, move.duration() * 1000.0, batteryVolts_, wallMm, frontMm,
-             lastShortMm_, lastMoveOk_ ? "ok" : lastMoveFailure_);
+             lastShortMm_, headingDeg, lastMoveOk_ ? "ok" : lastMoveFailure_);
 #endif
     vTaskDelay(pdMS_TO_TICKS(kSettleMs));
 }
