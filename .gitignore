@@ -357,3 +357,6 @@ Thumbs.db
 # Python (ponte BLE)
 __pycache__/
 .pytest_cache/
+
+# Metadados do Windows (WSL)
+*:Zone.Identifier
