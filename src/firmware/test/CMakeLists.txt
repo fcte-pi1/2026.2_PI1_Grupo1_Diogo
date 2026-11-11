@@ -19,6 +19,7 @@ add_executable(firmware_tests
     simulation/SimulatedRobot.hpp
     use_cases/NavigatorTest.cpp
     use_cases/TrackMaze0911Test.cpp
+    use_cases/TrackMazeCornersTest.cpp
     spy/SpySignalPort.hpp
     spy/SpyTelemetryPort.hpp
     use_cases/SessionManagerTest.cpp

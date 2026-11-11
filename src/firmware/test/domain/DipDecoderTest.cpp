@@ -66,6 +66,29 @@ TEST(DipDecoder, GoalIsAlwaysOppositeDiagonal) {
     }
 }
 
+// Conferência do canto de largada: a borda fica à esquerda do robô com a via 3 aberta, e à direita
+// com ela fechada. Sem parede desse lado, a DIP não corresponde ao canto.
+TEST(DipDecoder, StartCornerCheckFollowsTheThirdSwitch) {
+    const DipDecoder decoder;
+    for (const bool dip1 : {false, true}) {
+        const MazeSetup left = decoder.decode(dip1, false, false);
+        const MazeSetup right = decoder.decode(dip1, false, true);
+        EXPECT_TRUE(startBorderIsOnTheLeft(left));
+        EXPECT_FALSE(startBorderIsOnTheLeft(right));
+        // Beco de largada (parede dos dois lados): serve para as duas posições da via 3.
+        EXPECT_EQ(checkStartCorner(left, true, false, true, false), StartCheck::Ok);
+        EXPECT_EQ(checkStartCorner(right, true, false, true, false), StartCheck::Ok);
+        // Parede só à direita: certo para a via 3 fechada, errado para a aberta.
+        EXPECT_EQ(checkStartCorner(left, false, false, true, false), StartCheck::BorderSideOpen);
+        EXPECT_EQ(checkStartCorner(right, false, false, true, false), StartCheck::Ok);
+        // Parede só à esquerda: o contrário.
+        EXPECT_EQ(checkStartCorner(left, true, false, false, false), StartCheck::Ok);
+        EXPECT_EQ(checkStartCorner(right, true, false, false, false), StartCheck::BorderSideOpen);
+        // Sensor do lado da borda sem leitura: não recusa a largada por isso.
+        EXPECT_EQ(checkStartCorner(left, true, true, true, false), StartCheck::Ok);
+    }
+}
+
 }  // namespace
 
 }  // namespace micromouse::domain

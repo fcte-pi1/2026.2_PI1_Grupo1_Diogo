@@ -19,7 +19,10 @@ public:
     void begin(i2c_master_bus_handle_t bus);
     // WHO_AM_I da família compatível: 0x68, 0x70, 0x71, 0x72 ou 0x73 (RF-29, #391)
     [[nodiscard]] bool present() const;
-    [[nodiscard]] double gyroZDegPerSec() const;  // eixo vertical (yaw)
+    [[nodiscard]] double gyroZDegPerSec() const;  // eixo vertical (yaw); 0 se a leitura falhar
+    // O mesmo, mas vazio se a transação I²C falhar: o movimento conta as leituras perdidas e para,
+    // em vez de tratar "sem leitura" como "parado" (10/11).
+    [[nodiscard]] std::optional<double> readGyroZDegPerSec() const;
     // Faixa do giroscópio em uso (°/s), para o log e o diagnóstico.
     [[nodiscard]] double gyroFullScaleDegPerSec() const noexcept { return 32768.0 / gyroScale_; }
     // Valor lido do WHO_AM_I; vazio se a transação I²C falhar. Clones costumam

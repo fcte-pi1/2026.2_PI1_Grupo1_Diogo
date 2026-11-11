@@ -167,6 +167,7 @@ public:
     void turnLeft() override { robot_.turnLeft(); }
     void turnRight() override { robot_.turnRight(); }
     void turnAround() override { robot_.turnAround(); }
+    void reverseCell() override { robot_.reverseCell(); }
     [[nodiscard]] const SimulatedRobot& robot() const { return robot_; }
 };
 
@@ -257,6 +258,7 @@ public:
     void turnLeft() override { robot_.turnLeft(); }
     void turnRight() override { robot_.turnRight(); }
     void turnAround() override { robot_.turnAround(); }
+    void reverseCell() override { robot_.reverseCell(); }
     [[nodiscard]] int collisions() const { return collisions_; }
 };
 
@@ -313,6 +315,154 @@ TEST(Navigator, GivesUpWhenSensorsCloseEveryPath) {
     EXPECT_TRUE(navigator.stuck());
     EXPECT_EQ(robot.advances(), 0);
     EXPECT_EQ(robot.turns(), 0);
+}
+
+// Beco: o robô NÃO dá meia-volta no lugar (com o eixo na traseira e a frente longa, ele não cabe
+// girando no corredor; travou assim no beco A1, relato de 10/11). Sai de ré, virado para o mesmo lado, e
+// na célula de trás faz a curva normal para o lado aberto.
+TEST(Navigator, BacksOutOfADeadEndInsteadOfTurningAround) {
+    MazeMap known(4, 4);
+    MazeMap truth(4, 4);
+    truth.initKnownPerimeter();
+    known.initKnownPerimeter();
+    // Corredor de baixo para cima na coluna 0, fechado à direita em (2,0), (1,0) e (0,0): só a
+    // largada (3,0) tem saída para o leste. O objetivo fica no alto, e o robô entra no beco (0,0).
+    truth.setWall({2, 0}, Direction::East, Wall::Present);
+    truth.setWall({1, 0}, Direction::East, Wall::Present);
+    truth.setWall({0, 0}, Direction::East, Wall::Present);
+
+    SimulatedRobot robot(truth, {3, 0}, Direction::North);
+    Navigator navigator(known, robot, robot, {3, 0}, Direction::North, {{0, 3}});
+
+    // Sobe até o beco (0,0).
+    navigator.step();
+    navigator.step();
+    navigator.step();
+    ASSERT_EQ(navigator.getPosition(), (Position{0, 0}));
+
+    // No beco: uma célula de ré, ainda virado para o norte.
+    navigator.step();
+    EXPECT_EQ(navigator.getPosition(), (Position{1, 0}));
+    EXPECT_EQ(navigator.getHeading(), Direction::North);
+    EXPECT_EQ(robot.heading(), Direction::North);
+    EXPECT_EQ(robot.reverses(), 1);
+    EXPECT_EQ(robot.halfTurns(), 0);
+
+    // Segue de ré até a largada, vira à direita ali e chega ao objetivo sem bater.
+    EXPECT_TRUE(navigator.run(50));
+    EXPECT_EQ(navigator.getPosition(), (Position{0, 3}));
+    EXPECT_EQ(robot.reverses(), 3);
+    EXPECT_EQ(robot.halfTurns(), 0);
+    EXPECT_EQ(robot.wallHits(), 0);
+}
+
+// De ré não há sensor. Se o mapa não sabe se o lado de trás está aberto (o robô entrou na célula
+// por um lado), o navegador prefere um caminho que os sensores enxergam, em vez de dar ré às cegas.
+TEST(Navigator, DoesNotReverseBlindlyWhenAVisibleWayExists) {
+    MazeMap known(4, 4);
+    MazeMap truth(4, 4);
+    truth.initKnownPerimeter();
+    known.initKnownPerimeter();
+    // O robô está em (2,1) virado para o norte, e o objetivo é (3,1), logo atrás dele. Entre os
+    // dois há uma parede que ele nunca viu. O caminho de verdade é pelo lado: (2,0) -> (3,0) -> (3,1).
+    truth.setWall({2, 1}, Direction::South, Wall::Present);
+
+    SimulatedRobot robot(truth, {2, 1}, Direction::North);
+    Navigator navigator(known, robot, robot, {2, 1}, Direction::North, {{3, 1}});
+
+    EXPECT_TRUE(navigator.run(50));
+    EXPECT_EQ(navigator.getPosition(), (Position{3, 1}));
+    EXPECT_EQ(robot.wallHits(), 0);
+    EXPECT_EQ(robot.halfTurns(), 0);
+}
+
+// Sem nenhum outro caminho, a ré às cegas é o que resta (uma parede ali leva ao Erro pela falha da
+// reta, no adaptador dos motores).
+TEST(Navigator, ReversesThroughAnUnseenBackWhenItIsTheOnlyWay) {
+    MazeMap known(4, 4);
+    MazeMap truth(4, 4);
+    truth.initKnownPerimeter();
+    known.initKnownPerimeter();
+    // (2,1) fechada à frente e dos dois lados; atrás, aberta, mas nunca vista.
+    truth.setWall({2, 1}, Direction::North, Wall::Present);
+    truth.setWall({2, 1}, Direction::East, Wall::Present);
+    truth.setWall({2, 1}, Direction::West, Wall::Present);
+
+    SimulatedRobot robot(truth, {2, 1}, Direction::North);
+    Navigator navigator(known, robot, robot, {2, 1}, Direction::North, {{3, 1}});
+
+    EXPECT_TRUE(navigator.run(50));
+    EXPECT_EQ(robot.reverses(), 1);
+    EXPECT_EQ(robot.wallHits(), 0);
+}
+
+// Um lado que dá para fora do mapa lido como aberto não abre a borda, mas fica contado: é o sinal
+// de que a via 3 da DIP não corresponde ao canto de largada.
+TEST(Navigator, CountsOpeningsSeenOutsideTheMap) {
+    MazeMap known(4, 4);
+    known.initKnownPerimeter();
+    // "Verdade" maior que o mapa: à esquerda da largada há uma passagem que o mapa não tem.
+    MazeMap truth(4, 5);
+    truth.initKnownPerimeter();
+
+    SimulatedRobot robot(truth, {3, 1}, Direction::North);
+    Navigator navigator(known, robot, robot, {3, 0}, Direction::North, {{0, 3}});
+
+    navigator.step();
+    EXPECT_EQ(navigator.outsideOpenings(), 1);
+    EXPECT_TRUE(known.isBlocked({3, 0}, Direction::West));  // a borda continua parede
+}
+
+// O relatório de cada passo, que vira a linha "nav" do log da corrida.
+TEST(Navigator, ReportsWhatEachStepSensedAndDecided) {
+    MazeMap known(4, 4);
+    MazeMap truth(4, 4);
+    truth.initKnownPerimeter();
+    known.initKnownPerimeter();
+    truth.setWall({2, 0}, Direction::North, Wall::Present);  // parede à frente na 2ª célula
+
+    SimulatedRobot robot(truth, {3, 0}, Direction::North);
+    Navigator navigator(known, robot, robot, {3, 0}, Direction::North, {{0, 3}});
+    EXPECT_EQ(navigator.lastStep().action, StepAction::None);
+
+    navigator.step();
+    const StepReport first = navigator.lastStep();
+    EXPECT_EQ(first.cell, (Position{3, 0}));
+    EXPECT_EQ(first.heading, Direction::North);
+    EXPECT_EQ(first.action, StepAction::Forward);
+    EXPECT_FALSE(first.sense.front);
+    EXPECT_TRUE(first.sense.left);  // borda
+    EXPECT_GT(first.distance, 0);
+    EXPECT_STREQ(stepActionName(first.action), "frente");
+
+    navigator.step();
+    const StepReport second = navigator.lastStep();
+    EXPECT_EQ(second.cell, (Position{2, 0}));
+    EXPECT_TRUE(second.sense.front);
+    EXPECT_EQ(second.action, StepAction::TurnRight);
+    EXPECT_EQ(navigator.getPosition(), (Position{2, 1}));
+}
+
+// Chegada conferida: no canto do objetivo, os sensores têm de ver a borda.
+TEST(Navigator, ConfirmsArrivalOnlyWhenTheBorderIsThere) {
+    MazeMap truth(4, 4);
+    truth.initKnownPerimeter();
+    {
+        // Chegada de verdade: o robô está em (0,3), virado para o leste (a borda à frente).
+        MazeMap known(4, 4);
+        known.initKnownPerimeter();
+        SimulatedRobot robot(truth, {0, 3}, Direction::East);
+        Navigator navigator(known, robot, robot, {0, 3}, Direction::East, {{0, 3}});
+        EXPECT_TRUE(navigator.confirmArrival());
+    }
+    {
+        // O mapa diz (0,3), mas o robô está de fato em (1,1), no meio da pista (09/11, C3k).
+        MazeMap known(4, 4);
+        known.initKnownPerimeter();
+        SimulatedRobot robot(truth, {1, 1}, Direction::East);
+        Navigator navigator(known, robot, robot, {0, 3}, Direction::East, {{0, 3}});
+        EXPECT_FALSE(navigator.confirmArrival());
+    }
 }
 
 }  // namespace

@@ -31,6 +31,16 @@ Dimensions decodeType(bool dip1, bool dip2) {
 
 }  // namespace
 
+bool startBorderIsOnTheLeft(const MazeSetup& setup) noexcept { return setup.start.column == 0; }
+
+StartCheck checkStartCorner(const MazeSetup& setup, bool leftWall, bool leftUnknown,
+                            bool rightWall, bool rightUnknown) noexcept {
+    const bool onLeft = startBorderIsOnTheLeft(setup);
+    const bool wall = onLeft ? leftWall : rightWall;
+    const bool unknown = onLeft ? leftUnknown : rightUnknown;
+    return (!unknown && !wall) ? StartCheck::BorderSideOpen : StartCheck::Ok;
+}
+
 MazeSetup DipDecoder::decode(bool dip1, bool dip2, bool dip3) const {
     const Dimensions dimensions = decodeType(dip1, dip2);
     const Position start{dimensions.rows - 1, dip3 ? dimensions.columns - 1 : 0};

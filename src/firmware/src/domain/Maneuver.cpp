@@ -26,6 +26,43 @@ double pulsesForTurn(const TurnConfig& config, double degrees) {
            (180.0 * config.wheelDiameterMm);
 };
 
+ArcStart arcStart(bool frontValid, double frontMm, const ArcStartConfig& config) noexcept {
+    if (frontValid && frontMm >= 0.0 && frontMm < config.frontWallMaxMm) {
+        return {config.frontTargetMm - frontMm, true};
+    }
+    return {config.fixedSetbackMm, false};
+}
+
+double arcStartCorrection(bool frontValid, double frontMm, const ArcStartConfig& config) noexcept {
+    if (!frontValid || frontMm < 0.0 || frontMm >= config.frontWallMaxMm) {
+        return 0.0;
+    }
+    const double error = config.frontTargetMm - frontMm;
+    if (std::fabs(error) <= config.toleranceMm) {
+        return 0.0;
+    }
+    return std::fmax(-config.maxCorrectionMm, std::fmin(error, config.maxCorrectionMm));
+}
+
+bool TurnStallDetector::update(double timeS, double angleDeg) noexcept {
+    if (timeS < config_.graceS) {
+        return false;
+    }
+    if (!started_) {
+        started_ = true;
+        windowStartS_ = timeS;
+        windowStartDeg_ = angleDeg;
+        return false;
+    }
+    if (timeS - windowStartS_ < config_.windowS) {
+        return false;
+    }
+    const bool stalled = std::fabs(angleDeg - windowStartDeg_) < config_.minDeg;
+    windowStartS_ = timeS;
+    windowStartDeg_ = angleDeg;
+    return stalled;
+}
+
 GyroTurnController::GyroTurnController(double targetDeg, double toleranceDeg)
     : targetDeg_(targetDeg), toleranceDeg_(toleranceDeg) {}
 

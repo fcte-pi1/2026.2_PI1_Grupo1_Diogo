@@ -38,7 +38,8 @@ private:
         Reading last{};
     };
 
-    double thresholdMm_;
+    double thresholdMm_;       // laterais
+    double frontThresholdMm_;  // frontal
     mutable IdfRegisterBus regBus_;
     mutable std::array<Slot, 3> slots_;
     mutable bool healthy_{true};
@@ -49,7 +50,18 @@ private:
     [[nodiscard]] int rangeMm(Side side) const;
 
 public:
-    explicit Vl53l1xSensorAdapter(double wallThresholdMm = 90.0);
+    // Limiar de parede. Laterais: 90 mm (no centro leem ~34 mm; sem parede, mais de 200). Frontal:
+    // 140 mm (10/11). Com o robô no centro, a parede da própria célula leu 38-87 mm e a do fim da
+    // célula seguinte 208-250 mm (09/11): com os 90 mm de antes, uma parada 1 cm antes do centro já
+    // fazia a parede da frente "sumir". 140 fica no meio das duas faixas. A CALIBRAR na pista.
+    explicit Vl53l1xSensorAdapter(double wallThresholdMm = 90.0, double frontThresholdMm = 140.0);
+    [[nodiscard]] double sideThresholdMm() const noexcept { return thresholdMm_; }
+    [[nodiscard]] double frontThresholdMm() const noexcept { return frontThresholdMm_; }
+    // Nome curto do estado da última medida de um lado ("ok", "sigma", "wrap", "nenhum"...).
+    [[nodiscard]] const char* statusText(Side side) const;
+    // Medida NOVA dos três sensores com o robô parado (descarta as prontas e espera as seguintes,
+    // até 150 ms). Para o log: não mexe em healthy() nem no mapa. Ordem: esquerdo, frontal, direito.
+    [[nodiscard]] std::array<Reading, 3> settledReadings() const;
     void begin(i2c_master_bus_handle_t bus);  // reendereça os sensores (RF-28)
     [[nodiscard]] ports::WallsAhead sense() const override;
 

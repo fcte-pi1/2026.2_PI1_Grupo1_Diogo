@@ -48,8 +48,9 @@ const char* statusName(drivers::Vl53l1x::RangeStatus status) {
 
 }  // namespace
 
-Vl53l1xSensorAdapter::Vl53l1xSensorAdapter(double wallThresholdMm)
+Vl53l1xSensorAdapter::Vl53l1xSensorAdapter(double wallThresholdMm, double frontThresholdMm)
     : thresholdMm_(wallThresholdMm),
+      frontThresholdMm_(frontThresholdMm),
       // Endereços do "4.3 - Projeto conceitual de hardware", Seção 5.2.
       slots_{{Slot{"esquerdo", pins::kTofLeftXshut, 0x30},
               Slot{"frontal", pins::kTofFrontXshut, 0x31},
@@ -200,6 +201,36 @@ std::optional<Vl53l1xSensorAdapter::Reading> Vl53l1xSensorAdapter::freshReading(
     return poll(slot, false);
 }
 
+const char* Vl53l1xSensorAdapter::statusText(Side side) const {
+    return statusName(slots_[static_cast<size_t>(side)].last.status);
+}
+
+std::array<Vl53l1xSensorAdapter::Reading, 3> Vl53l1xSensorAdapter::settledReadings() const {
+    for (Slot& slot : slots_) {
+        if (slot.sensor && slot.sensor->dataReady()) {
+            (void)slot.sensor->read(false);
+        }
+    }
+    const uint32_t start = regBus_.millis();
+    for (;;) {
+        bool allReadyNow = true;
+        for (Slot& slot : slots_) {
+            if (slot.sensor && !slot.sensor->dataReady()) {
+                allReadyNow = false;
+            }
+        }
+        if (allReadyNow || regBus_.millis() - start >= kFreshTimeoutMs) {
+            break;
+        }
+        regBus_.delayMs(1);
+    }
+    // requireFresh: um sensor que não mediu no prazo aparece como falha (-1), e não com a medida
+    // antiga.
+    return {poll(slots_[static_cast<size_t>(Side::Left)], true),
+            poll(slots_[static_cast<size_t>(Side::Front)], true),
+            poll(slots_[static_cast<size_t>(Side::Right)], true)};
+}
+
 ports::WallsAhead Vl53l1xSensorAdapter::sense() const {
     // Parede presente quando a distância medida fica abaixo do limiar
     // calibrado (RNF-31). O limiar vem do construtor (thresholdMm_).
@@ -235,7 +266,7 @@ ports::WallsAhead Vl53l1xSensorAdapter::sense() const {
     const drivers::SideJudgement l =
         drivers::judgeSide(left.kind, left.status, left.mm, thresholdMm_);
     const drivers::SideJudgement f =
-        drivers::judgeSide(front.kind, front.status, front.mm, thresholdMm_);
+        drivers::judgeSide(front.kind, front.status, front.mm, frontThresholdMm_);
     const drivers::SideJudgement r =
         drivers::judgeSide(right.kind, right.status, right.mm, thresholdMm_);
     healthy_ = !l.fault && !f.fault && !r.fault;

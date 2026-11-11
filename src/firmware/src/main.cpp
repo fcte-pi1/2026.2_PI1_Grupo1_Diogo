@@ -53,6 +53,11 @@ using namespace micromouse;
 namespace {
 
 constexpr char kTag[] = "main";
+#if CONFIG_RATO_CENTRALIZAR_PAREDES
+[[maybe_unused]] constexpr char kWallCenteringState[] = "ligado";
+#else
+[[maybe_unused]] constexpr char kWallCenteringState[] = "desligado";
+#endif
 
 adapters::I2cBus gI2c;
 adapters::Vl53l1xSensorAdapter gSensor;
@@ -86,10 +91,36 @@ QueueHandle_t gEventQueue = nullptr;
 
 long nowMs() { return static_cast<long>(esp_timer_get_time() / 1000); }
 
+// Mensagens que não couberam nas filas (a telemetria atrasou): antes sumiam sem aviso. O total sai
+// no resumo do fim da corrida.
+std::atomic<int> gDroppedEvents{0};
+std::atomic<int> gDroppedLogLines{0};
+
 void postEvent(const TeleEvent& event) {
-    if (gEventQueue != nullptr) {
-        xQueueSend(gEventQueue, &event, 0);
+    if (gEventQueue != nullptr && xQueueSend(gEventQueue, &event, 0) != pdTRUE) {
+        ++gDroppedEvents;
     }
+}
+
+char directionLetter(domain::Direction direction) {
+    switch (direction) {
+        case domain::Direction::North: return 'N';
+        case domain::Direction::East: return 'L';
+        case domain::Direction::South: return 'S';
+        case domain::Direction::West: return 'O';
+    }
+    return '?';
+}
+
+// Uma parede do mapa numa letra: P = parede, A = aberto, ? = ainda não visto.
+char wallLetter(const domain::MazeMap& maze, const domain::Position& cell,
+                domain::Direction direction) {
+    switch (maze.getWall(cell, direction)) {
+        case domain::Wall::Present: return 'P';
+        case domain::Wall::Open: return 'A';
+        case domain::Wall::Unknown: return '?';
+    }
+    return '?';
 }
 
 #if CONFIG_RATO_LOG_RETA
@@ -113,8 +144,12 @@ int mirrorLogToBle(const char* format, va_list args) {
         if (std::strstr(line.text, " reta: ") != nullptr ||
             std::strstr(line.text, " curva: ") != nullptr ||
             std::strstr(line.text, " main: ") != nullptr ||
+            std::strstr(line.text, " nav: ") != nullptr ||
+            std::strstr(line.text, " tof: ") != nullptr ||
             std::strstr(line.text, " teste: ") != nullptr) {
-            xQueueSend(gDebugQueue, &line, 0);
+            if (xQueueSend(gDebugQueue, &line, 0) != pdTRUE) {
+                ++gDroppedLogLines;
+            }
         }
     }
     va_end(copy);
@@ -131,6 +166,10 @@ std::atomic<int> gTestPermille{0};
 std::atomic<int> gTestMs{0};
 // Manobra avulsa pedida pelo BLE (Drv8833MotionAdapter::Maneuver), executada esperando a largada.
 std::atomic<int> gTestManeuver{0};
+// "tof": 5 leituras dos três ToF com o robô parado, para calibrar fora do labirinto.
+std::atomic<bool> gTestTof{false};
+// "giro": deriva do giroscópio em repouso.
+std::atomic<bool> gTestGyro{false};
 
 void onBleCommand(const std::string& command) {
     if (command == "largar") {
@@ -140,14 +179,19 @@ void onBleCommand(const std::string& command) {
         gRemoteStop = true;
     } else if (command == "virar d" || command == "virar e" || command == "arco d" ||
                command == "arco e" || command == "pivo d" || command == "pivo e" ||
-               command == "andar") {
+               command == "andar" || command == "re") {
         using M = adapters::Drv8833MotionAdapter::Maneuver;
         const bool right = command.back() == 'd';
         M maneuver = M::Advance;
         if (command.rfind("virar", 0) == 0) maneuver = right ? M::TurnRight : M::TurnLeft;
         if (command.rfind("arco", 0) == 0) maneuver = right ? M::ArcRight : M::ArcLeft;
         if (command.rfind("pivo", 0) == 0) maneuver = right ? M::PivotRight : M::PivotLeft;
+        if (command == "re") maneuver = M::Reverse;  // uma célula de ré (saída de beco)
         gTestManeuver = static_cast<int>(maneuver);
+    } else if (command == "tof") {
+        gTestTof = true;
+    } else if (command == "giro") {
+        gTestGyro = true;
     } else if (command == "reiniciar") {
         esp_restart();  // como o botão RST: depois de um Erro, a placa só larga de novo reiniciando
     } else if (command.rfind("frente ", 0) == 0) {
@@ -261,6 +305,20 @@ void navigationTask(void*) {
                 gMotion.testManeuver(
                     static_cast<adapters::Drv8833MotionAdapter::Maneuver>(maneuver));
             }
+            if (gTestTof.exchange(false)) {
+                using Side = adapters::Vl53l1xSensorAdapter::Side;
+                for (int i = 0; i < 5; ++i) {
+                    const auto tof = gSensor.settledReadings();
+                    ESP_LOGI("teste", "tof %d/5: E=%d (%s) F=%d (%s) D=%d (%s)", i + 1, tof[0].mm,
+                             gSensor.statusText(Side::Left), tof[1].mm,
+                             gSensor.statusText(Side::Front), tof[2].mm,
+                             gSensor.statusText(Side::Right));
+                }
+            }
+            if (gTestGyro.exchange(false)) {
+                ESP_LOGI("teste", "giroscopio em repouso: %.3f graus/s (media de 250 leituras)",
+                         gMotion.gyroRestRate(250));
+            }
 #endif
             vTaskDelay(pdMS_TO_TICKS(10));
         }
@@ -326,8 +384,74 @@ void navigationTask(void*) {
         domain::SensorHealthMonitor sensorHealth;
         char failure[190] = "";  // motivo, se a corrida terminar em falha
         int cells = 0;
+        [[maybe_unused]] int steps = 0;
         domain::Position last = setup.start;
         int guard = setup.rows * setup.columns * 4;
+        [[maybe_unused]] const int droppedEventsBefore = gDroppedEvents.load();
+        [[maybe_unused]] const int droppedLinesBefore = gDroppedLogLines.load();
+
+        // A posição de largada vai para o painel já agora: antes, até o primeiro passo terminar, a
+        // telemetria mandava (0,0), o canto errado.
+        {
+            telemetry::Snapshot startState{};
+            startState.phase = session.getCurrentPhase();
+            startState.position = setup.start;
+            startState.heading = domain::Direction::North;
+            writeState(startState);
+        }
+
+#if !CONFIG_RATO_BANCADA
+        gMotion.resetRunCounters();
+        // Retrato da configuração a cada largada (10/11): com ele, um log de corrida basta para
+        // saber com que labirinto, canto, opções e parâmetros o robô correu. O "DIP lido no boot"
+        // sai antes de a ponte BLE conectar e se perdia.
+        ESP_LOGI(kTag,
+                 "largada %d: labirinto %dx%d, via 3 %s (borda a %s do robo), largada (l%d,c%d) "
+                 "virado N, objetivo (l%d,c%d), bat=%.2f V",
+                 runIndex, setup.columns, setup.rows,
+                 domain::startBorderIsOnTheLeft(setup) ? "ABERTA" : "FECHADA",
+                 domain::startBorderIsOnTheLeft(setup) ? "ESQUERDA" : "DIREITA", setup.start.row,
+                 setup.start.column, setup.goal.row, setup.goal.column, gPower.busVoltageV());
+        ESP_LOGI(kTag,
+                 "parametros: %s, RF-44 %s, parede lateral<%.0f frontal<%.0f mm, arco comeca a "
+                 "%.0f mm (folga %.0f, corpo %.0f/%.0f/%.0f), parada frontal<%.0f mm, teto %.1f V",
+                 adapters::kMotorDecayName, kWallCenteringState, gSensor.sideThresholdMm(), gSensor.frontThresholdMm(),
+                 controller::robot::kArcStartFrontMm, controller::robot::kArcFrontClearanceMm,
+                 domain::robot::kBody.axleToFrontMm, domain::robot::kBody.halfWidthMm,
+                 domain::robot::kBody.axleToFrontTofMm, controller::robot::kFrontStopMm,
+                 controller::robot::kMotorMaxVolts);
+        ESP_LOGI(kTag, "giroscopio em repouso: %.3f graus/s", gMotion.gyroRestRate(100));
+
+        // Conferência do canto (10/11): duas leituras (a primeira depois do boot vem com lixo). Se
+        // nas duas o lado da borda está ABERTO, a via 3 não corresponde ao canto, e o robô não
+        // larga: com o mapa espelhado ele andaria até o limite de passos sem chegar.
+        {
+            using Side = adapters::Vl53l1xSensorAdapter::Side;
+            (void)gSensor.sense();
+            const ports::WallsAhead first = gSensor.sense();
+            const ports::WallsAhead second = gSensor.sense();
+            ESP_LOGI(kTag, "largada: tof E=%d (%s) F=%d (%s) D=%d (%s)",
+                     gSensor.reading(Side::Left).mm, gSensor.statusText(Side::Left),
+                     gSensor.reading(Side::Front).mm, gSensor.statusText(Side::Front),
+                     gSensor.reading(Side::Right).mm, gSensor.statusText(Side::Right));
+            auto wrong = [&setup](const ports::WallsAhead& w) {
+                return domain::checkStartCorner(setup, w.left, w.leftUnknown, w.right,
+                                                w.rightUnknown) ==
+                       domain::StartCheck::BorderSideOpen;
+            };
+            if (wrong(first) && wrong(second)) {
+                const bool onLeft = domain::startBorderIsOnTheLeft(setup);
+                std::snprintf(failure, sizeof failure,
+                              "largada recusada: sem parede a %s do robo, onde a via 3 (%s) diz "
+                              "haver borda. tof E=%d F=%d D=%d. Troque a via 3 e reinicie",
+                              onLeft ? "esquerda" : "direita", onLeft ? "aberta" : "fechada",
+                              gSensor.reading(Side::Left).mm, gSensor.reading(Side::Front).mm,
+                              gSensor.reading(Side::Right).mm);
+                ESP_LOGE(kTag, "%s", failure);
+                guard = 0;  // não entra no laço da corrida
+            }
+        }
+#endif
         while (!navigator.reachedGoal() && guard-- > 0) {
 #if !CONFIG_RATO_BANCADA
             // RF-55: a cada passo confere os sensores e a bateria. Uma falha confirmada (várias
@@ -356,6 +480,34 @@ void navigationTask(void*) {
             gMotion.clearLastMove();
 #endif
             navigator.step();
+            ++steps;
+#if CONFIG_RATO_LOG_RETA && !CONFIG_RATO_BANCADA
+            {
+                // Uma linha por passo: onde estava, o que os sensores leram (mm e estado), o que
+                // ficou no mapa daquela célula (P parede, A aberto, ? não visto, na ordem N L S O),
+                // a distância até o objetivo, o que decidiu e onde acha que está agora.
+                using Side = adapters::Vl53l1xSensorAdapter::Side;
+                const use_cases::StepReport& r = navigator.lastStep();
+                const domain::Position now = navigator.getPosition();
+                ESP_LOGI("nav",
+                         "passo %d: cel (l%d,c%d) rumo %c | tof E=%d (%s) F=%d (%s) D=%d (%s) | "
+                         "mapa NLSO=%c%c%c%c | dist=%d | acao=%s%s%s -> (l%d,c%d) rumo %c | "
+                         "fora=%d bat=%.2f",
+                         steps, r.cell.row, r.cell.column, directionLetter(r.heading),
+                         gSensor.reading(Side::Left).mm, gSensor.statusText(Side::Left),
+                         gSensor.reading(Side::Front).mm, gSensor.statusText(Side::Front),
+                         gSensor.reading(Side::Right).mm, gSensor.statusText(Side::Right),
+                         wallLetter(maze, r.cell, domain::Direction::North),
+                         wallLetter(maze, r.cell, domain::Direction::East),
+                         wallLetter(maze, r.cell, domain::Direction::South),
+                         wallLetter(maze, r.cell, domain::Direction::West), r.distance,
+                         use_cases::stepActionName(r.action),
+                         r.forgotMap ? " (mapa esquecido)" : "",
+                         r.avoidedBlindReverse ? " (evitou re as cegas)" : "", now.row, now.column,
+                         directionLetter(navigator.getHeading()), r.outsideOpenings,
+                         gMotion.batteryVolts());
+            }
+#endif
             if (navigator.stuck()) {
                 using Side = adapters::Vl53l1xSensorAdapter::Side;
                 std::snprintf(failure, sizeof failure,
@@ -407,7 +559,23 @@ void navigationTask(void*) {
             writeState(state);
         }
 
-        const bool reached = navigator.reachedGoal();
+        bool reached = navigator.reachedGoal();
+#if !CONFIG_RATO_BANCADA
+        // Conferência da chegada (10/11): o objetivo é um canto. Se os sensores veem passagem onde
+        // devia haver borda, o robô não está onde o mapa diz, e a corrida NÃO é sucesso (09/11,
+        // C3k: sucesso declarado depois de o robô girar sem perceber).
+        if (reached && !navigator.confirmArrival()) {
+            using Side = adapters::Vl53l1xSensorAdapter::Side;
+            reached = false;
+            std::snprintf(failure, sizeof failure,
+                          "chegada nao confere: no objetivo (l%d,c%d) rumo %c, um sensor ve "
+                          "passagem onde ha borda. tof E=%d F=%d D=%d",
+                          setup.goal.row, setup.goal.column,
+                          directionLetter(navigator.getHeading()), gSensor.reading(Side::Left).mm,
+                          gSensor.reading(Side::Front).mm, gSensor.reading(Side::Right).mm);
+            ESP_LOGE(kTag, "%s", failure);
+        }
+#endif
         if (reached) {
             session.reachedGoal();
         } else {
@@ -428,9 +596,50 @@ void navigationTask(void*) {
                               "limite de passos sem chegar ao objetivo. %s",
                               gSensor.faultSummary());
             }
+            // Passagem vista para FORA do mapa: o mapa está montado para o lado errado (10/11).
+            if (navigator.outsideOpenings() > 0) {
+                const size_t used = std::strlen(failure);
+                std::snprintf(failure + used, sizeof failure - used,
+                              " | passagem para FORA do mapa lida %dx: confira a via 3 da DIP",
+                              navigator.outsideOpenings());
+                ESP_LOGE(kTag, "%s", failure);
+            }
             std::strncpy(endEvent.detail, failure, sizeof endEvent.detail - 1);
         }
         postEvent(endEvent);
+
+#if CONFIG_RATO_LOG_RETA
+        // Resumo e mapa no fim da corrida: o que o robô acha que viu, célula a célula, para comparar
+        // com a pista sem precisar medir nada com ele lá dentro.
+        ESP_LOGI(kTag,
+                 "fim da corrida %d: %s, %d passos, %d celulas, posicao (l%d,c%d) rumo %c, "
+                 "passagens para fora=%d, eventos perdidos=%d, linhas de log perdidas=%d",
+                 runIndex, reached ? "SUCESSO" : "FALHA", steps, cells,
+                 navigator.getPosition().row, navigator.getPosition().column,
+                 directionLetter(navigator.getHeading()), navigator.outsideOpenings(),
+                 gDroppedEvents.load() - droppedEventsBefore,
+                 gDroppedLogLines.load() - droppedLinesBefore);
+#if !CONFIG_RATO_BANCADA
+        ESP_LOGI(kTag, "movimento: %d arco(s) repetido(s), %d parada(s) pela parede da frente, "
+                       "%d leitura(s) do giroscopio perdida(s)",
+                 gMotion.arcRetriesUsed(), gMotion.frontStops(), gMotion.gyroMissesTotal());
+#endif
+        for (int row = 0; row < setup.rows; ++row) {
+            char line[12 * 6 + 1];
+            size_t used = 0;
+            for (int column = 0; column < setup.columns && used + 6 < sizeof line; ++column) {
+                const domain::Position cell{row, column};
+                line[used++] = wallLetter(maze, cell, domain::Direction::North);
+                line[used++] = wallLetter(maze, cell, domain::Direction::East);
+                line[used++] = wallLetter(maze, cell, domain::Direction::South);
+                line[used++] = wallLetter(maze, cell, domain::Direction::West);
+                line[used++] = ' ';
+            }
+            line[used] = '\0';
+            ESP_LOGI("nav", "mapa l%d (NLSO por celula, c0 em diante): %s", row, line);
+            vTaskDelay(pdMS_TO_TICKS(30));  // deixa a telemetria escoar a fila de log
+        }
+#endif
 
         // RF-56: encerrada a sessão, volta ao Aguardando. O mapa, o contador de células e o
         // cronômetro nascem de novo na próxima largada. Uma falha não se desfaz: é preciso
@@ -541,7 +750,9 @@ extern "C" void app_main() {
     gSerialLog = esp_log_set_vprintf(mirrorLogToBle);
 #endif
 
-    xTaskCreatePinnedToCore(navigationTask, "nav", 8192, nullptr, configMAX_PRIORITIES - 1, nullptr,
+    // 12 kB (eram 8): as linhas de log novas formatam vários números de ponto flutuante, e cada uma
+    // passa por um buffer de 320 bytes na pilha (mirrorLogToBle).
+    xTaskCreatePinnedToCore(navigationTask, "nav", 12288, nullptr, configMAX_PRIORITIES - 1, nullptr,
                             1);
     xTaskCreatePinnedToCore(telemetryTask, "telemetry", 6144, nullptr, 1, nullptr, 0);
 }

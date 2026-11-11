@@ -15,5 +15,6 @@ void BenchMotionAdapter::advanceCell() { vTaskDelay(kCellTime); }
 void BenchMotionAdapter::turnLeft() { vTaskDelay(kTurnTime); }
 void BenchMotionAdapter::turnRight() { vTaskDelay(kTurnTime); }
 void BenchMotionAdapter::turnAround() { vTaskDelay(2 * kTurnTime); }
+void BenchMotionAdapter::reverseCell() { vTaskDelay(kCellTime); }
 
 }  // namespace micromouse::adapters

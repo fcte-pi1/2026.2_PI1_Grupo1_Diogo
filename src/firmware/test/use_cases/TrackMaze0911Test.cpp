@@ -85,6 +85,11 @@ public:
     void turnLeft() override { robot_.turnLeft(); moves.push_back('E'); }
     void turnRight() override { robot_.turnRight(); moves.push_back('D'); }
     void turnAround() override { robot_.turnAround(); moves.push_back('M'); }
+    void reverseCell() override {
+        robot_.reverseCell();
+        path.push_back(toPhoto(robot_.position()));
+        moves.push_back('R');
+    }
     [[nodiscard]] const SimulatedRobot& robot() const { return robot_; }
 
     std::vector<std::string> path;

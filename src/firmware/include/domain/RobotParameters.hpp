@@ -17,6 +17,16 @@ inline constexpr int kCountsPerRevolution = 285;  // medido em 04/11 (esq 284, d
 inline constexpr double kCellSizeMm = 180.0;
 inline constexpr double kWheelTrackMm = 88.0;  // bitola: valor de projeto, a medir (#394)
 
+// Corpo do robô, a partir do MEIO DO EIXO das rodas. *** A MEDIR COM PAQUÍMETRO (10/11) ***: os
+// três valores são estimativas (chassi de projeto de 124,5 x 100 mm, docs/4.1, e a foto de cima).
+// Deles sai onde a curva em arco começa (controller::robot::kArcStartFrontMm): 1 mm de erro aqui é
+// ~1 mm a menos de folga entre a quina do robô e a parede.
+inline constexpr BodyGeometry kBody{
+    87.0,  // axleToFrontMm: do centro do eixo até o ponto mais à frente do chassi
+    50.0,  // halfWidthMm: metade da largura do chassi na parte da frente
+    87.0,  // axleToFrontTofMm: do centro do eixo até a face do ToF frontal
+};
+
 inline constexpr WheelConfig kWheels{kWheelDiameterMm, kCountsPerRevolution, kCellSizeMm};
 inline constexpr TurnConfig kTurn{kWheelDiameterMm, kCountsPerRevolution, kWheelTrackMm};
 

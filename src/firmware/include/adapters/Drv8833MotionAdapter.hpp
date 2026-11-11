@@ -2,6 +2,7 @@
 
 #include <atomic>
 #include <cstddef>
+#include <optional>
 
 #include "adapters/Encoders.hpp"
 #include "adapters/MotorDriver.hpp"
@@ -41,6 +42,13 @@ private:
     double endRightVolts_{0.0};
     bool lastMoveWasTurn_{false};
     double lastTurnDeg_{0.0};  // ângulo da última curva medido pelo giroscópio, depois do freio
+    bool lastTurnJammed_{false};  // a última curva travou ou esgotou o tempo (vale tentar de novo)
+    int gyroMisses_{0};           // leituras seguidas do giroscópio perdidas
+    double lastGyroRate_{0.0};
+    // Contadores da corrida, para o resumo no fim (resetRunCounters() na largada).
+    int arcRetriesUsed_{0};
+    int frontStops_{0};
+    int gyroMissesTotal_{0};
 
     void drive(double leftVolts, double rightVolts);
     void stopAndSettle();
@@ -48,6 +56,19 @@ private:
     void pivot(double degrees, controller::PivotMove::Direction direction,
                const controller::PivotMoveConfig& config);
     void arcTurn(controller::PivotMove::Direction direction);
+    // Posiciona o robô para o arco começar com o frontal em `frontTargetMm` (ou pelo recuo fixo,
+    // sem parede à frente) e confere com uma segunda leitura.
+    void positionForArc(double frontTargetMm);
+    // Depois de um arco travado: volta de ré pelo mesmo arco até o giroscópio marcar ~0. False se
+    // não conseguiu voltar.
+    bool undoArc(controller::PivotMove::Direction direction);
+    // Medida NOVA do ToF frontal com o robô parado (descarta a que já estava pronta e espera a
+    // seguinte). Vazio se não houver distância válida no prazo.
+    [[nodiscard]] std::optional<int> settledFrontMm() const;
+    // Giroscópio com as leituras perdidas contadas: devolve a última taxa válida numa falha.
+    double gyroRate();
+    bool gyroLost();  // leituras demais perdidas em seguida: marca a falha
+    void logTofAfter(const char* what) const;  // linha "tof" com os 3 sensores, robô parado
     // Reta de `distanceMm` (negativa = para trás); `centerOnWalls` usa o RF-44 se estiver ligado.
     void straight(double distanceMm, const char* name, bool centerOnWalls);
 
@@ -73,7 +94,10 @@ public:
     // Manobras avulsas para teste (comandos pelo BLE, builds de teste), com o robô parado esperando a
     // largada: "virar d|e" (curva completa da corrida), "arco d|e" (só o arco), "pivo d|e" (90° no
     // lugar) e "andar" (uma célula). Cada uma loga a linha "curva" ou "reta".
-    enum class Maneuver { None, TurnLeft, TurnRight, ArcLeft, ArcRight, PivotLeft, PivotRight, Advance };
+    // "re" (10/11): uma célula de ré, como na saída de um beco.
+    enum class Maneuver {
+        None, TurnLeft, TurnRight, ArcLeft, ArcRight, PivotLeft, PivotRight, Advance, Reverse
+    };
     void testManeuver(Maneuver maneuver);
     // O laço da corrida chama antes de cada passo do Navigator. Uma falha fica registrada até aqui:
     // num passo, o Navigator faz curva E reta, e a reta não pode apagar a falha da curva (09/11: com
@@ -82,10 +106,21 @@ public:
         lastMoveOk_ = true;
         lastMoveFailure_ = "";
     }
+    void resetRunCounters() noexcept {
+        arcRetriesUsed_ = 0;
+        frontStops_ = 0;
+        gyroMissesTotal_ = 0;
+    }
+    [[nodiscard]] int arcRetriesUsed() const noexcept { return arcRetriesUsed_; }
+    [[nodiscard]] int frontStops() const noexcept { return frontStops_; }
+    [[nodiscard]] int gyroMissesTotal() const noexcept { return gyroMissesTotal_; }
+    // Média do giroscópio com o robô parado (graus/s), em `samples` leituras: a deriva. Só log.
+    [[nodiscard]] double gyroRestRate(int samples);
     void advanceCell() override;
     void turnLeft() override;
     void turnRight() override;
     void turnAround() override;
+    void reverseCell() override;
 
     // False se algum movimento desde o último clearLastMove() falhou: estourou o tempo limite (motor
     // travado, robô suspenso na curva) ou, na reta, uma roda ficou parada ou não chegou ao fim.

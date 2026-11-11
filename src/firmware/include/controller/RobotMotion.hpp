@@ -73,9 +73,38 @@ inline constexpr double kArcStartSetbackMm = 75.0;
 // encostada na borda de A4 + recuo de 90 mm, ~90 mm de frontal no início) a curva saiu perfeita;
 // começando com ~140-165 mm (corridas 15 e 16) o robô terminava a curva deslocado para dentro e a
 // roda traseira de dentro enganchava na quina; com ~150 mm (V3, centralizado) o arco batia a 55°.
-inline constexpr double kArcStartFrontMm = 90.0;
-// Até onde a leitura do frontal vale como "parede à frente" para posicionar o arco.
-inline constexpr double kArcFrontWallMaxMm = 250.0;
+//
+// 10/11: de 90 para 105 mm. No arco, a quina da frente do lado de FORA passa a ~165 mm do centro do
+// arco (raio 90 + meia largura 50, e ~85-90 mm do eixo à frente) e a parede da frente fica a
+// ~175-180 mm dele quando o frontal lê 90: sobra ~1 cm. Em A2 (corridas C3i e C3q de 09/11, e a
+// foto enviada em 10/11) essa quina prendeu na parede A1/A2-B1/B2 a 52-56 graus, com o arco começando
+// exatamente em 90 mm. Do outro lado, a quina de dentro só enganchou com o arco começando em
+// ~150 mm (V3, C3o, C3p). 105 mm dobra a folga para a parede da frente e ainda fica ~45 mm antes do
+// ponto em que a quina de dentro pegou. VALOR A CONFIRMAR NA PISTA com `virar d` em A2 e em A4,
+// variando 95 / 105 / 115 (as dimensões do chassi usadas na conta são as de projeto).
+//
+// O valor sai da geometria do corpo (domain::robot::kBody, A MEDIR) e da folga desejada: com as
+// estimativas atuais dá 104,8 mm. Quando as medidas de verdade entrarem em kBody, este valor se
+// ajusta sozinho; para afastar ou aproximar o arco da parede, mexa só na folga.
+inline constexpr double kArcFrontClearanceMm = 27.0;
+inline constexpr double kArcStartFrontMm =
+    domain::arcStartFrontMm(domain::robot::kBody, kArcSetbackMm, kArcFrontClearanceMm);
+// Até onde a leitura do frontal vale como "parede à frente" para posicionar o arco: só a parede
+// DESTA célula. Com o robô no centro, ela lê 38-87 mm (09/11); a parede do fim da célula SEGUINTE
+// lê 208-250 mm (A3 e B4 em 09/11). Com o limite antigo de 250, uma curva numa célula de frente
+// aberta e parede na célula seguinte (C3 virado para D3, na pista de 09/11) virava um "avanco antes
+// da curva" de ~120 mm para dentro da célula seguinte, e o arco começava no lugar errado.
+inline constexpr double kArcFrontWallMaxMm = 150.0;
+// Depois do recuo (ou avanço), o frontal é lido de novo com o robô parado, e a posição é corrigida
+// uma vez se o erro passar de 5 mm (no máximo 40 mm). A primeira leitura é feita a 27-39 mm da
+// parede (A2 em 09/11), perto do alcance mínimo do sensor, e o recuo é medido só pelos encoders;
+// a folga do arco é de 1 a 3 cm. A segunda leitura, a ~10 cm, confere a posição antes do arco. Em
+// 09/11 (C3j, firmware anterior) o arco começou a ~37 mm da parede e travou a 3 graus.
+inline constexpr double kArcStartToleranceMm = 5.0;
+inline constexpr double kArcStartMaxCorrectionMm = 40.0;
+inline constexpr domain::ArcStartConfig kArcStart{kArcStartFrontMm, kArcFrontWallMaxMm,
+                                                  kArcStartSetbackMm, kArcStartToleranceMm,
+                                                  kArcStartMaxCorrectionMm};
 
 // Parada pela parede da frente (09/11). As rodas ficam na traseira e a frente é longa: com o eixo no
 // centro de uma célula com parede à frente, a frente encosta ou empurra a parede (o robô bateu em A2
@@ -93,6 +122,28 @@ inline constexpr double kFrontStopMm = 35.0;
 // virava 40-180 graus sem perceber, confundia a parede lateral com a da frente e chegou a declarar
 // sucesso no lugar errado.
 inline constexpr double kMaxHeadingErrorDeg = 30.0;
+// Curva travada: depois de 0,3 s, menos de 3 graus em 0,4 s é o robô preso (a curva em arco gira a
+// 120 graus/s, e mesmo "continuando devagar" gira a 40 graus/s, 16 graus em 0,4 s). A curva para na
+// hora, em vez de patinar até o tempo limite, e o arco tem uma segunda tentativa (kArcRetries).
+inline constexpr domain::TurnStallConfig kTurnStall{0.3, 0.4, 3.0};
+// Tempo limite de cada tipo de movimento. O arco em área aberta já levou 2,7 e 3,0 s (V1-2 e V1-1 de
+// 09/11), colado nos 3 s que valiam para tudo; com a detecção de curva travada, o limite maior não
+// custa tempo quando o robô prende.
+inline constexpr double kStraightTimeoutS = 3.0;
+inline constexpr double kPivotTimeoutS = 3.0;
+inline constexpr double kArcTimeoutS = 4.5;
+// Segunda tentativa do arco: se ele travar, o robô volta de ré pelo mesmo arco até o giroscópio
+// voltar a ~0 (tensões fixas, a roda de fora mais forte), reposiciona pelo frontal
+// kArcRetryExtraFrontMm mais longe da parede e tenta de novo. *** NÃO TESTADO NA PISTA ***.
+inline constexpr int kArcRetries = 1;
+inline constexpr double kArcRetryExtraFrontMm = 12.0;
+inline constexpr double kArcUndoOuterVolts = 5.0;
+inline constexpr double kArcUndoInnerVolts = 3.0;
+inline constexpr double kArcUndoDoneDeg = 4.0;
+inline constexpr double kArcUndoTimeoutS = 1.5;
+// Giroscópio sem resposta: tantas leituras seguidas perdidas (2 ms cada) encerram o movimento com
+// falha. Antes, a leitura perdida valia 0 grau/s e a curva seguia girando sem ver.
+inline constexpr int kMaxGyroMisses = 15;
 inline constexpr PivotMoveConfig kArcTurn{{120.0, 600.0}, kWheelLoop, domain::robot::kWheelTrackMm,
                                           0.5, 2.0, 40.0, 30.0, kArcSetbackMm};
 

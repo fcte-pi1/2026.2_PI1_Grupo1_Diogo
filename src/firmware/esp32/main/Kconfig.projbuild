@@ -46,8 +46,11 @@ menu "Rato Borrachudo"
     config RATO_SLOW_DECAY
         bool "PWM dos motores em slow decay"
         depends on !RATO_BANCADA
-        default y
+        default n
         help
+            DESLIGADA por padrão desde 10/11: todos os testes de pista de 09/11 e os
+            parâmetros de movimento (teto de 7,5 V, empurrão de 2,5 V, 200 mm/s) foram
+            feitos em FAST decay. Um build com os padrões tem de ser o build testado.
             No tempo desligado do PWM, o motor fica freado em vez de solto: a
             tensão média no motor fica proporcional ao comando, sem a zona morta
             do fast decay (perto de 50%, quase nada chegava ao motor).

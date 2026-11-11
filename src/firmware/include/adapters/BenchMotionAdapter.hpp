@@ -16,6 +16,7 @@ public:
     void turnLeft() override;
     void turnRight() override;
     void turnAround() override;
+    void reverseCell() override;
     // O movimento simulado sempre termina.
     [[nodiscard]] bool lastMoveOk() const noexcept { return true; }
     [[nodiscard]] const char* lastMoveName() const noexcept { return "movimento simulado"; }

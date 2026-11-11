@@ -90,13 +90,18 @@ bool Mpu6050::present() const {
     return true;
 }
 
-double Mpu6050::gyroZDegPerSec() const {
+std::optional<double> Mpu6050::readGyroZDegPerSec() const {
     uint8_t bytes[2] = {};
     if (!readRegisters(device_, kGyroZoutH, bytes, 2)) {
-        return 0.0;  // como o Ina219: sem leitura, 0 (o auto-teste já reprovou o sensor ausente)
+        return std::nullopt;
     }
     const int16_t raw = static_cast<int16_t>((bytes[0] << 8) | bytes[1]);
     return raw / gyroScale_;
+}
+
+double Mpu6050::gyroZDegPerSec() const {
+    // Como o Ina219: sem leitura, 0 (o auto-teste já reprovou o sensor ausente).
+    return readGyroZDegPerSec().value_or(0.0);
 }
 
 }  // namespace micromouse::adapters

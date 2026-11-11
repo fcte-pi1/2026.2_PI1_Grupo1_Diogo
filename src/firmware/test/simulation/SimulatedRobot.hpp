@@ -19,6 +19,8 @@ private:
     int left_{0};
     int right_{0};
     int around_{0};
+    int reverses_{0};
+    int wallHits_{0};  // movimentos feitos contra uma parede de verdade
 
 public:
     SimulatedRobot(const MazeMap& truth, Position start, Direction heading)
@@ -31,9 +33,19 @@ public:
     }
 
     void advanceCell() override {
+        if (truth_.isBlocked(position_, heading_)) ++wallHits_;
         position_ = {position_.row + domain::rowDelta(heading_),
                      position_.column + domain::colDelta(heading_)};
         ++advances_;
+    }
+
+    // Uma célula de ré: a posição anda para trás e o robô continua virado para o mesmo lado.
+    void reverseCell() override {
+        const Direction back = domain::opposite(heading_);
+        if (truth_.isBlocked(position_, back)) ++wallHits_;
+        position_ = {position_.row + domain::rowDelta(back),
+                     position_.column + domain::colDelta(back)};
+        ++reverses_;
     }
 
     void turnLeft() override {
@@ -57,6 +69,9 @@ public:
     [[nodiscard]] int turns() const { return left_ + right_ + around_; }
     [[nodiscard]] int rights() const { return right_; }
     [[nodiscard]] int lefts() const { return left_; }
+    [[nodiscard]] int halfTurns() const { return around_; }
+    [[nodiscard]] int reverses() const { return reverses_; }
+    [[nodiscard]] int wallHits() const { return wallHits_; }
 };
 
 }  // namespace micromouse::test
