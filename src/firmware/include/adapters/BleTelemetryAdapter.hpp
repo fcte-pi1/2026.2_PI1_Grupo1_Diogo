@@ -23,6 +23,9 @@ public:
     void begin(const std::string& deviceName = "RatoBorrachudo", CommandHandler onCommand = nullptr);
     void publish(const std::string& jsonPayload) override;
     [[nodiscard]] bool isConnected() const override;
+    // Pedaços de mensagem que a pilha BLE recusou até o fim das tentativas (perdidos) desde o boot.
+    // Em 11/11 sumiram linhas de log em 2 manobras e nenhum contador mostrava onde.
+    [[nodiscard]] static unsigned droppedChunks() noexcept;
 };
 
 }  // namespace micromouse::adapters

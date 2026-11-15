@@ -1,5 +1,7 @@
 #include "adapters/BleTelemetryAdapter.hpp"
 
+#include <atomic>
+
 #include "NimBLEDevice.h"  // componente "esp-nimble-cpp"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -14,6 +16,8 @@ constexpr char kNusRxChar[] = "6E400002-B5A3-F393-E0A9-E50E24DCCA9E";  // write 
 // Só vale "conectado" depois que o cliente assina as notificações: o notify enviado
 // antes disso (ex.: o hello logo após a conexão) é descartado pela pilha BLE.
 bool g_connected = false;
+
+std::atomic<unsigned> g_droppedChunks{0};
 
 constexpr int kNotifyAttempts = 20;
 constexpr TickType_t kNotifyRetryDelay = pdMS_TO_TICKS(5);
@@ -90,15 +94,21 @@ void BleTelemetryAdapter::publish(const std::string& jsonPayload) {
         const std::string part = framed.substr(i, chunk);
         // A pilha recusa o notify quando a fila de buffers está cheia (mensagens coladas);
         // tentar de novo evita perder a mensagem, o que abriria lacuna na sequência.
-        for (int attempt = 0; attempt < kNotifyAttempts; ++attempt) {
-            if (txCharacteristic_->notify(reinterpret_cast<const uint8_t*>(part.data()),
-                                          part.size())) {
-                break;
+        bool sent = false;
+        for (int attempt = 0; attempt < kNotifyAttempts && !sent; ++attempt) {
+            sent = txCharacteristic_->notify(reinterpret_cast<const uint8_t*>(part.data()),
+                                             part.size());
+            if (!sent) {
+                vTaskDelay(kNotifyRetryDelay);
             }
-            vTaskDelay(kNotifyRetryDelay);
+        }
+        if (!sent) {
+            ++g_droppedChunks;
         }
     }
 }
+
+unsigned BleTelemetryAdapter::droppedChunks() noexcept { return g_droppedChunks.load(); }
 
 bool BleTelemetryAdapter::isConnected() const { return g_connected; }
 
