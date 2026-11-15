@@ -5,6 +5,7 @@
 #include <optional>
 
 #include "adapters/Encoders.hpp"
+#include "adapters/Ina219.hpp"
 #include "adapters/MotorDriver.hpp"
 #include "adapters/Mpu6050.hpp"
 #include "adapters/Vl53l1xSensorAdapter.hpp"
@@ -45,6 +46,9 @@ private:
     bool lastTurnJammed_{false};  // a última curva travou ou esgotou o tempo (vale tentar de novo)
     int gyroMisses_{0};           // leituras seguidas do giroscópio perdidas
     double lastGyroRate_{0.0};
+    double gyroBias_{0.0};        // desvio em repouso descontado de cada leitura (graus/s)
+    bool gyroBiasMeasured_{false};
+    const Ina219* power_{nullptr};  // corrente e tensão nos testes de motor (setPowerMonitor)
     // Contadores da corrida, para o resumo no fim (resetRunCounters() na largada).
     int arcRetriesUsed_{0};
     int frontStops_{0};
@@ -116,6 +120,38 @@ public:
     [[nodiscard]] int gyroMissesTotal() const noexcept { return gyroMissesTotal_; }
     // Média do giroscópio com o robô parado (graus/s), em `samples` leituras: a deriva. Só log.
     [[nodiscard]] double gyroRestRate(int samples);
+    // O mesmo, com a menor e a maior leitura (BRUTAS, sem descontar o desvio): se variam muito, o
+    // robô não estava parado.
+    struct GyroRest {
+        double mean;
+        double min;
+        double max;
+        int valid;
+        int missed;
+    };
+    [[nodiscard]] GyroRest measureGyroRest(int samples);
+    // Mede o desvio em repouso e passa a descontá-lo (controller::robot::kGyroRest*). Com o robô
+    // PARADO. False se a medida não serviu (o robô se mexeu): continua valendo o desvio anterior.
+    // Com `quiet`, não loga (medida de fundo, enquanto o robô espera a largada).
+    bool calibrateGyro(int samples, bool quiet = false);
+    [[nodiscard]] double gyroBias() const noexcept { return gyroBias_; }
+    [[nodiscard]] bool gyroBiasMeasured() const noexcept { return gyroBiasMeasured_; }
+
+    // ---- Testes de hardware (12/11), builds de teste, robô SUSPENSO com as rodas no ar ----
+    // Corrente e tensão do INA219 nos testes de motor.
+    void setPowerMonitor(const Ina219& power) noexcept { power_ = &power; }
+    // Uma roda (ou as duas) com tensão fixa, sem controle, por `ms`: pulsos a cada 100 ms,
+    // velocidade no fim, corrente e queda da bateria. Comando "motor e|d|ed <volts> <ms>".
+    void wheelTest(bool left, bool right, double volts, uint32_t ms);
+    // Varredura das duas rodas nos dois sentidos: tensão em que a roda parte, velocidade e corrente
+    // a 3 V e a 6 V, sentido do encoder e se a OUTRA roda contou pulsos. Termina com um veredito.
+    // Comando "rodas" (~12 s).
+    void wheelSweep();
+    // Motores soltos por `seconds`: os pulsos de cada encoder a cada segundo, para girar as rodas
+    // à mão (uma volta = 285 pulsos). Comando "enc".
+    void encoderWatch(int seconds);
+    void readEncoders(long& left, long& right) const;
+    void resetEncoders();
     void advanceCell() override;
     void turnLeft() override;
     void turnRight() override;

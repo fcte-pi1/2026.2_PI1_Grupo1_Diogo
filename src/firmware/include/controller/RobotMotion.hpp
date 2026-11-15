@@ -122,6 +122,15 @@ inline constexpr double kFrontStopMm = 35.0;
 // virava 40-180 graus sem perceber, confundia a parede lateral com a da frente e chegou a declarar
 // sucesso no lugar errado.
 inline constexpr double kMaxHeadingErrorDeg = 30.0;
+
+// Desvio do giroscópio em repouso (12/11). O MPU-6050 sai de fábrica com até ±20 graus/s de desvio
+// de zero, e ele muda com a temperatura: em 11/11 leu de -0,1 a +5,0 graus/s parado, e 5 graus/s
+// numa reta de 1,4 s já são 7 graus de rumo falso. O desvio é medido com o robô PARADO (na largada
+// e antes de cada manobra avulsa) e descontado. A medida só vale se o robô estava mesmo parado: as
+// leituras não podem variar mais que kGyroRestMaxSpreadDps nem a média passar de
+// kGyroRestMaxBiasDps. *** Limites iniciais, NÃO calibrados na pista. ***
+inline constexpr double kGyroRestMaxSpreadDps = 3.0;
+inline constexpr double kGyroRestMaxBiasDps = 25.0;
 // Curva travada: depois de 0,3 s, menos de 3 graus em 0,4 s é o robô preso (a curva em arco gira a
 // 120 graus/s, e mesmo "continuando devagar" gira a 40 graus/s, 16 graus em 0,4 s). A curva para na
 // hora, em vez de patinar até o tempo limite, e o arco tem uma segunda tentativa (kArcRetries).

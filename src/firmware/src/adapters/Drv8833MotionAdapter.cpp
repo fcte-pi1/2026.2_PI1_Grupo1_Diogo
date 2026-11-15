@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
+#include <cstdlib>
 
 #include "controller/RobotMotion.hpp"
 #include "domain/MotorVoltage.hpp"
@@ -47,14 +48,19 @@ class LoopClock {
 private:
     int64_t startUs_{esp_timer_get_time()};
     int64_t lastUs_{startUs_};
+    double worstDt_{0.0};
 
 public:
     double tick() {
         const int64_t now = esp_timer_get_time();
         const double dt = static_cast<double>(now - lastUs_) * 1e-6;
         lastUs_ = now;
+        worstDt_ = std::max(worstDt_, dt);
         return std::clamp(dt, kMinDtS, kMaxDtS);
     }
+    // A volta mais demorada do laço, SEM o limite: em 11/11 um ToF sem resposta levou cada volta
+    // da reta de ~2 ms para ~20 ms e nada no log mostrava.
+    [[nodiscard]] double worstMs() const { return worstDt_ * 1000.0; }
     [[nodiscard]] double elapsed() const {
         return static_cast<double>(esp_timer_get_time() - startUs_) * 1e-6;
     }
@@ -92,7 +98,7 @@ bool Drv8833MotionAdapter::aborted() {
 double Drv8833MotionAdapter::gyroRate() {
     if (const std::optional<double> rate = imu_.readGyroZDegPerSec()) {
         gyroMisses_ = 0;
-        lastGyroRate_ = *rate;
+        lastGyroRate_ = *rate - gyroBias_;  // desconta o desvio medido em repouso
     } else {
         ++gyroMisses_;
         ++gyroMissesTotal_;
@@ -109,18 +115,60 @@ bool Drv8833MotionAdapter::gyroLost() {
     return true;
 }
 
-double Drv8833MotionAdapter::gyroRestRate(int samples) {
+double Drv8833MotionAdapter::gyroRestRate(int samples) { return measureGyroRest(samples).mean; }
+
+Drv8833MotionAdapter::GyroRest Drv8833MotionAdapter::measureGyroRest(int samples) {
     double sum = 0.0;
-    int valid = 0;
+    GyroRest rest{0.0, 0.0, 0.0, 0, 0};
     for (int i = 0; i < samples; ++i) {
         if (const std::optional<double> rate = imu_.readGyroZDegPerSec()) {
             sum += *rate;
-            ++valid;
+            rest.min = rest.valid == 0 ? *rate : std::min(rest.min, *rate);
+            rest.max = rest.valid == 0 ? *rate : std::max(rest.max, *rate);
+            ++rest.valid;
+        } else {
+            ++rest.missed;
         }
         vTaskDelay(kControlPeriod);
     }
-    return valid > 0 ? sum / valid : 0.0;
+    rest.mean = rest.valid > 0 ? sum / rest.valid : 0.0;
+    return rest;
 }
+
+bool Drv8833MotionAdapter::calibrateGyro(int samples, bool quiet) {
+    const GyroRest rest = measureGyroRest(samples);
+    const bool still = rest.valid * 2 >= samples &&
+                       rest.max - rest.min <= controller::robot::kGyroRestMaxSpreadDps &&
+                       std::fabs(rest.mean) <= controller::robot::kGyroRestMaxBiasDps;
+    if (still) {
+        gyroBias_ = rest.mean;
+        gyroBiasMeasured_ = true;
+    }
+    if (quiet) {
+        return still;
+    }
+    if (still) {
+        ESP_LOGI("giro",
+                 "giroscopio em repouso: %.3f graus/s (min %.2f max %.2f, %d leituras, %d "
+                 "perdidas): descontado a partir de agora",
+                 rest.mean, rest.min, rest.max, rest.valid, rest.missed);
+    } else {
+        ESP_LOGW("giro",
+                 "giroscopio em repouso: %.3f graus/s (min %.2f max %.2f, %d leituras, %d "
+                 "perdidas): NAO usado, o robo se mexeu ou o valor esta fora do normal; continua "
+                 "valendo %.3f (%s)",
+                 rest.mean, rest.min, rest.max, rest.valid, rest.missed, gyroBias_,
+                 gyroBiasMeasured_ ? "medido antes" : "nunca medido");
+    }
+    return still;
+}
+
+void Drv8833MotionAdapter::readEncoders(long& left, long& right) const {
+    left = encoders_.left();
+    right = encoders_.right();
+}
+
+void Drv8833MotionAdapter::resetEncoders() { encoders_.reset(); }
 
 void Drv8833MotionAdapter::logTofAfter(const char* what) const {
 #if CONFIG_RATO_LOG_RETA
@@ -168,6 +216,287 @@ void Drv8833MotionAdapter::openLoopTest(double command, uint32_t ms) {
              kMotorDecayName);
 }
 
+// ---- Testes de hardware (12/11): só nos builds de teste, com o robô SUSPENSO ----
+namespace {
+// Uma roda sozinha: da tensão em que ela parte até a velocidade em dois patamares.
+constexpr double kSweepFirstVolts = 0.6;
+constexpr double kSweepStepVolts = 0.2;
+constexpr double kSweepLastVolts = 4.0;
+constexpr uint32_t kSweepStepMs = 150;
+constexpr long kSweepMovedPulses = 8;  // pulsos num degrau para dizer que a roda partiu
+constexpr double kSweepPlateauVolts[2] = {3.0, 6.0};
+constexpr uint32_t kSweepPlateauMs = 700;
+constexpr uint32_t kSweepMeasureMs = 400;  // a velocidade é medida no fim do patamar
+// Limites do veredito. *** Referências iniciais, NÃO calibradas: servem para apontar uma roda
+// muito diferente da outra (roda prendendo, motor fraco, fio solto), não para aprovar o robô. ***
+constexpr double kSweepMaxStartVolts = 3.5;      // o controle empurra com 2,5 V para sair do lugar
+constexpr double kSweepMaxStartSpread = 1.0;     // V entre a que parte mais fácil e a mais dura
+constexpr double kSweepMaxSpeedSpread = 0.25;    // diferença entre a mais rápida e a mais lenta
+constexpr long kSweepMaxOtherWheelPulses = 20;   // pulsos da roda que devia estar parada
+}  // namespace
+
+void Drv8833MotionAdapter::wheelTest(bool left, bool right, double volts, uint32_t ms) {
+    clearLastMove();
+    encoders_.reset();
+    const char* which = left && right ? "E+D" : left ? "E" : "D";
+    const int64_t start = esp_timer_get_time();
+    int64_t nextLog = start + 100000;
+    long lastLeft = 0;
+    long lastRight = 0;
+    long stepLeft = 0;
+    long stepRight = 0;
+    double ampsSum = 0.0;
+    double ampsMax = 0.0;
+    int ampsCount = 0;
+    double minBattery = 99.0;
+    bool stopped = false;
+    while (true) {
+        const int64_t now = esp_timer_get_time();
+        const double elapsedMs = static_cast<double>(now - start) / 1000.0;
+        if (elapsedMs >= ms) {
+            break;
+        }
+        if (aborted()) {
+            stopped = true;
+            break;
+        }
+        const double ramp = std::min(elapsedMs / 80.0, 1.0);
+        drive(left ? ramp * volts : 0.0, right ? ramp * volts : 0.0);
+        if (now >= nextLog) {
+            const long leftCount = encoders_.left();
+            const long rightCount = encoders_.right();
+            stepLeft = leftCount - lastLeft;
+            stepRight = rightCount - lastRight;
+            lastLeft = leftCount;
+            lastRight = rightCount;
+            double amps = 0.0;
+            double battery = 0.0;
+            if (power_ != nullptr) {
+                amps = power_->currentA();
+                battery = power_->busVoltageV();
+                ampsSum += amps;
+                ampsMax = std::max(ampsMax, amps);
+                ++ampsCount;
+                if (battery > 1.0) {
+                    minBattery = std::min(minBattery, battery);
+                }
+            }
+            ESP_LOGI("teste",
+                     "motor %s t=%4.0f ms V=%.1f enc E=%ld D=%ld (em 100 ms: E=%ld D=%ld) I=%.2f A "
+                     "bat=%.2f V",
+                     which, elapsedMs, ramp * volts, leftCount, rightCount, stepLeft, stepRight,
+                     amps, battery);
+            nextLog += 100000;
+        }
+        vTaskDelay(kControlPeriod);
+    }
+    motors_.brake();
+    vTaskDelay(pdMS_TO_TICKS(150));
+    // Velocidade pelos últimos 100 ms: 10x os pulsos do intervalo.
+    ESP_LOGI("teste",
+             "motor fim: roda %s a %.1f V por %lu ms%s: enc E=%ld D=%ld, velocidade no fim E=%ld "
+             "D=%ld pulsos/s (%.0f / %.0f mm/s), corrente media %.2f A max %.2f A, bateria minima "
+             "%.2f V (%s)",
+             which, volts, static_cast<unsigned long>(ms), stopped ? " (PARADO pelo operador)" : "",
+             encoders_.left(), encoders_.right(), stepLeft * 10, stepRight * 10,
+             mmFromPulses(stepLeft * 10), mmFromPulses(stepRight * 10),
+             ampsCount > 0 ? ampsSum / ampsCount : 0.0, ampsMax,
+             minBattery < 99.0 ? minBattery : 0.0, kMotorDecayName);
+    clearLastMove();
+}
+
+void Drv8833MotionAdapter::wheelSweep() {
+    clearLastMove();
+    double fastest = 0.0;
+    double slowest = 1e9;
+    double worstStart = 0.0;
+    double bestStart = 1e9;
+    bool problem = false;
+    bool stopped = false;
+    char problems[160] = "";
+    size_t problemsUsed = 0;
+    auto addProblem = [&problems, &problemsUsed, &problem](const char* text) {
+        problem = true;
+        if (problemsUsed < sizeof problems) {
+            const int n = std::snprintf(problems + problemsUsed, sizeof problems - problemsUsed,
+                                        "%s%s", problemsUsed == 0 ? "" : "; ", text);
+            problemsUsed += n > 0 ? static_cast<size_t>(n) : 0;
+        }
+    };
+    // Dirige só a roda em teste e espera `ms`; devolve false se o operador mandou parar.
+    auto run = [this](bool leftWheel, double volts, uint32_t ms) {
+        const int64_t start = esp_timer_get_time();
+        while (esp_timer_get_time() - start < static_cast<int64_t>(ms) * 1000) {
+            if (aborted()) {
+                return false;
+            }
+            drive(leftWheel ? volts : 0.0, leftWheel ? 0.0 : volts);
+            vTaskDelay(kControlPeriod);
+        }
+        return true;
+    };
+
+    for (int wheel = 0; wheel < 2 && !stopped; ++wheel) {
+        const bool leftWheel = wheel == 0;
+        for (int way = 0; way < 2 && !stopped; ++way) {
+            const double sign = way == 0 ? 1.0 : -1.0;
+            auto own = [this, leftWheel]() {
+                return leftWheel ? encoders_.left() : encoders_.right();
+            };
+            auto other = [this, leftWheel]() {
+                return leftWheel ? encoders_.right() : encoders_.left();
+            };
+            encoders_.reset();
+
+            // 1) Tensão de partida: sobe em degraus até a roda andar.
+            double startVolts = -1.0;
+            for (double volts = kSweepFirstVolts; volts <= kSweepLastVolts + 1e-6;
+                 volts += kSweepStepVolts) {
+                const long before = own();
+                if (!run(leftWheel, sign * volts, kSweepStepMs)) {
+                    stopped = true;
+                    break;
+                }
+                if (std::labs(own() - before) >= kSweepMovedPulses) {
+                    startVolts = volts;
+                    break;
+                }
+            }
+
+            // 2) Dois patamares: velocidade e corrente no fim de cada um.
+            double pulsesPerS[2] = {0.0, 0.0};
+            double amps[2] = {0.0, 0.0};
+            for (int level = 0; level < 2 && !stopped; ++level) {
+                const double volts = sign * kSweepPlateauVolts[level];
+                if (!run(leftWheel, volts, kSweepPlateauMs - kSweepMeasureMs)) {
+                    stopped = true;
+                    break;
+                }
+                const long before = own();
+                double ampsSum = 0.0;
+                int ampsCount = 0;
+                const int64_t start = esp_timer_get_time();
+                const int64_t measureUs = static_cast<int64_t>(kSweepMeasureMs) * 1000;
+                while (esp_timer_get_time() - start < measureUs) {
+                    if (!run(leftWheel, volts, 20)) {
+                        stopped = true;
+                        break;
+                    }
+                    if (power_ != nullptr) {
+                        ampsSum += power_->currentA();
+                        ++ampsCount;
+                    }
+                }
+                const double seconds =
+                    static_cast<double>(esp_timer_get_time() - start) * 1e-6;
+                pulsesPerS[level] =
+                    seconds > 0.0 ? static_cast<double>(own() - before) / seconds : 0.0;
+                amps[level] = ampsCount > 0 ? ampsSum / ampsCount : 0.0;
+            }
+            const long ownTotal = own();
+            const long otherTotal = other();
+            motors_.brake();
+            vTaskDelay(pdMS_TO_TICKS(300));
+            if (stopped) {
+                break;
+            }
+
+            const bool signOk = static_cast<double>(ownTotal) * sign > 0.0;
+            const bool otherOk = std::labs(otherTotal) <= kSweepMaxOtherWheelPulses;
+            const double speed = std::fabs(pulsesPerS[1]);
+            fastest = std::max(fastest, speed);
+            slowest = std::min(slowest, speed);
+            if (startVolts > 0.0) {
+                worstStart = std::max(worstStart, startVolts);
+                bestStart = std::min(bestStart, startVolts);
+            }
+            const char* wheelName = leftWheel ? "E" : "D";
+            const char* wayName = way == 0 ? "frente" : "tras";
+            char partText[24];
+            if (startVolts > 0.0) {
+                std::snprintf(partText, sizeof partText, "parte com %.1f V", startVolts);
+            } else {
+                std::snprintf(partText, sizeof partText, "NAO partiu ate %.1f V", kSweepLastVolts);
+            }
+            ESP_LOGI("teste",
+                     "rodas: roda %s para %s: %s | 3 V: %.0f pulsos/s (%.0f mm/s) %.2f A | 6 V: "
+                     "%.0f pulsos/s (%.0f mm/s) %.2f A | encoder: %ld pulsos, sentido %s | outra "
+                     "roda: %ld pulsos%s",
+                     wheelName, wayName, partText, pulsesPerS[0],
+                     pulsesPerS[0] * controller::robot::kMmPerPulse, amps[0], pulsesPerS[1],
+                     pulsesPerS[1] * controller::robot::kMmPerPulse, amps[1], ownTotal,
+                     signOk ? "certo" : "ERRADO", otherTotal, otherOk ? "" : " (DEVIA ser ~0)");
+            char text[48];
+            if (ownTotal == 0) {
+                std::snprintf(text, sizeof text, "roda %s %s: encoder nao contou", wheelName,
+                              wayName);
+                addProblem(text);
+            } else if (!signOk) {
+                std::snprintf(text, sizeof text, "roda %s %s: encoder invertido", wheelName,
+                              wayName);
+                addProblem(text);
+            }
+            if (!otherOk) {
+                std::snprintf(text, sizeof text, "roda %s %s: a outra roda contou", wheelName,
+                              wayName);
+                addProblem(text);
+            }
+            // Com o encoder mudo não dá para saber se a roda partiu: o problema é o encoder.
+            if (ownTotal != 0 && (startVolts < 0.0 || startVolts > kSweepMaxStartVolts)) {
+                std::snprintf(text, sizeof text, "roda %s %s: partida dura", wheelName, wayName);
+                addProblem(text);
+            }
+        }
+    }
+    motors_.brake();
+    if (stopped) {
+        ESP_LOGW("teste", "rodas: resumo: PARADO pelo operador antes do fim");
+        clearLastMove();
+        return;
+    }
+    const double spread = fastest > 0.0 ? (fastest - slowest) / fastest : 1.0;
+    if (spread > kSweepMaxSpeedSpread) {
+        addProblem("velocidades a 6 V muito diferentes");
+    }
+    if (bestStart < 1e8 && worstStart - bestStart > kSweepMaxStartSpread) {
+        addProblem("uma roda parte bem mais dura que a outra");
+    }
+    ESP_LOGI("teste",
+             "rodas: resumo: a 6 V de %.0f a %.0f pulsos/s (dif %.0f%%, limite %.0f%%); partida "
+             "de %.1f a %.1f V (limites %.1f V e dif %.1f V); bat=%.2f V -> %s%s",
+             slowest, fastest, spread * 100.0, kSweepMaxSpeedSpread * 100.0,
+             bestStart < 1e8 ? bestStart : 0.0, worstStart, kSweepMaxStartVolts,
+             kSweepMaxStartSpread, batteryVolts_, problem ? "PROBLEMA: " : "OK",
+             problem ? problems : "");
+    clearLastMove();
+}
+
+void Drv8833MotionAdapter::encoderWatch(int seconds) {
+    clearLastMove();
+    motors_.setNormalized(0.0, 0.0);  // motores soltos, para girar a roda à mão
+    encoders_.reset();
+    for (int second = 1; second <= seconds; ++second) {
+        const int64_t start = esp_timer_get_time();
+        while (esp_timer_get_time() - start < 1000000) {
+            if (aborted()) {
+                second = seconds + 1;
+                break;
+            }
+            vTaskDelay(pdMS_TO_TICKS(10));
+        }
+        if (second <= seconds) {
+            ESP_LOGI("teste", "enc %d/%d s: E=%ld D=%ld", second, seconds, encoders_.left(),
+                     encoders_.right());
+        }
+    }
+    ESP_LOGI("teste",
+             "enc fim: E=%ld D=%ld pulsos (uma volta da roda para a frente = +%d; para tras = -%d)",
+             encoders_.left(), encoders_.right(), domain::robot::kCountsPerRevolution,
+             domain::robot::kCountsPerRevolution);
+    motors_.brake();
+    clearLastMove();
+}
+
 void Drv8833MotionAdapter::testManeuver(Maneuver maneuver) {
     using Direction = controller::PivotMove::Direction;
     clearLastMove();
@@ -177,6 +506,8 @@ void Drv8833MotionAdapter::testManeuver(Maneuver maneuver) {
     if (front_ != nullptr) {
         (void)front_->settledReadings();
     }
+    // O robô está parado esperando a manobra: mede e desconta o desvio do giroscópio (12/11).
+    (void)calibrateGyro(100);
     switch (maneuver) {
         case Maneuver::TurnLeft:
         case Maneuver::TurnRight:
@@ -273,13 +604,29 @@ void Drv8833MotionAdapter::straight(double distanceMm, const char* name, bool ce
     endRightVolts_ = 0.0;
     lastShortMm_ = 0.0;
     double lastFrontPoll = -kWallPollS;
-    int frontMm = -1;  // última leitura válida do frontal nesta reta (-1 = nenhuma)
+    // Última leitura válida do frontal nesta reta (-1 = nenhuma). Só o log usa.
+    [[maybe_unused]] int frontMm = -1;
     double headingDeg = 0.0;  // giro do robô durante a reta, pelo giroscópio
     gyroMisses_ = 0;
     lastGyroRate_ = 0.0;
     // Os ToF laterais são lidos na reta mesmo sem o RF-44, só para o log (a última leitura de cada
     // lado diz se o robô chegou centrado). Com o RF-44, quem lê é ele.
     const Vl53l1xSensorAdapter* sides = walls_ != nullptr ? walls_ : front_;
+#if CONFIG_RATO_LOG_RETA
+    // Erros de I²C e leituras puladas de cada ToF ANTES da reta, para logar só os desta reta.
+    using TofSide = Vl53l1xSensorAdapter::Side;
+    constexpr TofSide kTofSides[3] = {TofSide::Left, TofSide::Front, TofSide::Right};
+    unsigned tofErrorsBefore[3] = {0, 0, 0};
+    unsigned tofSkippedBefore[3] = {0, 0, 0};
+    if (front_ != nullptr) {
+        for (int i = 0; i < 3; ++i) {
+            const Vl53l1xSensorAdapter::Health health = front_->health(kTofSides[i]);
+            tofErrorsBefore[i] = health.i2cErrors;
+            tofSkippedBefore[i] = health.skippedReads;
+        }
+    }
+    const int gyroMissesBefore = gyroMissesTotal_;
+#endif
 
     LoopClock clock;
     while (true) {
@@ -364,6 +711,8 @@ void Drv8833MotionAdapter::straight(double distanceMm, const char* name, bool ce
     }
     stopAndSettle();
 #if CONFIG_RATO_LOG_RETA
+    const double loopMs = clock.elapsed() * 1000.0;
+    const double worstLoopMs = clock.worstMs();
     // Calibração da reta: "dif" é a diferença de caminho entre as rodas (mm; ~0,65 grau de rumo
     // por mm com a bitola de 88 mm), "satur" os passos com uma roda no teto de tensão.
     ESP_LOGI("reta",
@@ -376,6 +725,29 @@ void Drv8833MotionAdapter::straight(double distanceMm, const char* name, bool ce
              move.elapsed() * 1000.0, move.duration() * 1000.0, batteryVolts_, wallMm, frontMm,
              lastShortMm_, headingDeg, leftWall.valid ? leftWall.mm : -1.0,
              rightWall.valid ? rightWall.mm : -1.0, lastMoveOk_ ? "ok" : lastMoveFailure_);
+    // Saúde do laço e dos sensores DURANTE a reta (12/11). O laço normal leva ~2,3 ms por volta;
+    // uma volta de ~20 ms é um sensor I²C sem resposta. "pulou" = leituras não feitas porque o
+    // sensor tinha acabado de falhar (ele fica em silêncio por 0,5 s).
+    {
+        unsigned errors[3] = {0, 0, 0};
+        unsigned skipped[3] = {0, 0, 0};
+        if (front_ != nullptr) {
+            for (int i = 0; i < 3; ++i) {
+                const Vl53l1xSensorAdapter::Health health = front_->health(kTofSides[i]);
+                errors[i] = health.i2cErrors - tofErrorsBefore[i];
+                skipped[i] = health.skippedReads - tofSkippedBefore[i];
+            }
+        }
+        const int steps = move.steps();
+        ESP_LOGI("reta",
+                 "laco: %d voltas, media %.1f ms, pior %.1f ms | tof na reta: erros I2C E=%u F=%u "
+                 "D=%u, pulou E=%u F=%u D=%u | giro: %d leituras perdidas, desvio descontado "
+                 "%.2f graus/s%s",
+                 steps, steps > 0 ? loopMs / steps : 0.0, worstLoopMs,
+                 errors[0], errors[1], errors[2], skipped[0], skipped[1], skipped[2],
+                 gyroMissesTotal_ - gyroMissesBefore, gyroBias_,
+                 gyroBiasMeasured_ ? "" : " (nunca medido)");
+    }
     // Uma reta que falha: onde o robô ficou, pelos três ToF com ele parado.
     if (!lastMoveOk_) {
         logTofAfter("depois da reta que falhou");
@@ -465,6 +837,7 @@ void Drv8833MotionAdapter::pivot(double degrees, controller::PivotMove::Directio
 #if CONFIG_RATO_LOG_RETA
     const double stopDeg = turn.angle();
     const double turnMs = clock.elapsed() * 1000.0;
+    const double worstLoopMs = clock.worstMs();  // só as voltas da curva, sem a pausa do freio
 #endif
     // A pausa com o freio também mede quanto o robô ainda gira depois de frear.
     const int64_t settleStart = esp_timer_get_time();
@@ -494,6 +867,10 @@ void Drv8833MotionAdapter::pivot(double degrees, controller::PivotMove::Directio
     }
     line[used < sizeof line ? used : sizeof line - 1] = '\0';
     ESP_LOGI("curva", "angulo a cada 100 ms: %s", line);
+    ESP_LOGI("curva", "laco: pior volta %.1f ms | giro: %d leituras perdidas no total, desvio "
+                      "descontado %.2f graus/s%s",
+             worstLoopMs, gyroMissesTotal_, gyroBias_,
+             gyroBiasMeasured_ ? "" : " (nunca medido)");
     logTofAfter(lastMoveOk_ ? "depois da curva" : "depois da curva que falhou");
 #endif
 }
