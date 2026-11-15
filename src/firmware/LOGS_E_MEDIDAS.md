@@ -95,6 +95,8 @@ esgotado`, `giroscopio sem leitura`, `parado pelo operador`.
 | `tof: <lado> VOLTOU a responder aos N s` | Voltou sozinho |
 | `tof: <lado> em falha aos N s: 0x3X ..., 0x29 ... -> .... Reiniciando pelo XSHUT` e `tof: <lado>: reinicio pelo XSHUT deu certo/FALHOU (...)` | O robô reiniciou o sensor (na corrida, ao sentir as paredes; ou pelo comando `tofrec`) |
 | `diag: IMU PAROU de responder aos N s`, `diag: INA219 PAROU de ler ...` | O mesmo aviso para a IMU e o medidor de bateria |
+| `teste: N comando(s) recusado(s): desconhecido ou fora da faixa` | Um comando do BLE não foi entendido ou passou do limite (por exemplo, `motor` acima de 7,5 V ou de 3000 ms). Nada foi executado |
+| `teste: comandos recebidos durante a corrida foram descartados` | Um comando de teste chegou com o robô correndo. Ele não roda depois da corrida: mande de novo |
 
 ## 2. Comandos pelo BLE (robô parado, esperando a largada)
 
@@ -113,7 +115,7 @@ esgotado`, `giroscopio sem leitura`, `parado pelo operador`.
 | `tofmon [s]` | Os três ToF lidos sem parar por `s` segundos (padrão 10, máximo 120): uma linha por segundo e a média, o mínimo e o máximo de cada um. Para ver se um sensor falha parado ou mexendo no cabo, e para calibrar |
 | `tofrec` | Reinicia pelo XSHUT os ToF que não respondem, sem reiniciar a placa |
 | `motor e\|d\|ed <volts> <ms>` | Roda esquerda, direita ou as duas com tensão fixa (negativa = para trás), até 7,5 V e 3000 ms: pulsos a cada 100 ms, velocidade, corrente e bateria. **Robô suspenso** |
-| `rodas` | Varredura das duas rodas nos dois sentidos (~15 s): tensão em que cada uma parte, velocidade e corrente a 3 V e a 6 V, sentido do encoder e se a outra roda contou. Termina em `rodas: resumo: ... -> OK` ou `PROBLEMA: ...`. **Robô suspenso** |
+| `rodas` | Varredura das duas rodas nos dois sentidos (~15 s): tensão em que cada uma parte, velocidade e corrente a 3 V e a 6 V, sentido do encoder e se a outra roda contou. Termina em `rodas: resumo: ... -> OK` ou `-> PROBLEMA`, com a lista na linha `rodas: problemas: ...` logo acima. **Robô suspenso** |
 | `enc [s]` | Motores soltos por `s` segundos (padrão 10): os pulsos de cada encoder, para girar as rodas à mão. Uma volta para a frente = +285 |
 
 Depois de um Erro (corrida que falhou, auto-teste reprovado), os comandos de leitura (`tof`,
