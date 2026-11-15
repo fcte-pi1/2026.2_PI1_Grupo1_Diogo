@@ -1,6 +1,7 @@
 # Logs da corrida e medidas do robô
 
-Criado em 10/11. Duas coisas que andam juntas:
+Criado em 10/11; diagnóstico de hardware acrescentado em 12/11 (seção 5). Duas coisas que andam
+juntas:
 
 1. **O que o robô registra sozinho** numa corrida, para o erro ser achado pelo log, sem medir nada
    com ele dentro do labirinto.
@@ -18,7 +19,8 @@ arquivo da ponte (`bridge/ble_ws_bridge.py --log-robo`).
 |:--|:--|
 | `main: largada N: labirinto CxL, via 3 ABERTA/FECHADA (borda a ESQUERDA/DIREITA do robo), largada (lR,cC) virado N, objetivo (lR,cC), bat=` | A configuração lida da DIP. Se a borda não está do lado indicado, a via 3 está errada |
 | `main: parametros: fast/slow decay, RF-44, parede lateral< frontal< mm, arco comeca a X mm (folga, corpo a/b/c), parada frontal<, teto V` | As opções do build e os parâmetros que decidem as manobras |
-| `main: giroscopio em repouso: X graus/s` | A deriva. Acima de ~0,5 grau/s, o robô se mexeu na largada ou o sensor está ruim |
+| `giro: giroscopio em repouso: X graus/s (min A max B, N leituras, M perdidas): descontado a partir de agora` | O desvio do giroscópio medido com o robô parado. Desde 12/11 ele é **descontado** de todas as leituras (o MPU-6050 pode ter vários graus/s de desvio; isso é normal) |
+| `giro: giroscopio em repouso: ... NAO usado, o robo se mexeu ...; continua valendo Y` | As leituras variaram mais de 3 graus/s (o robô não estava parado) ou a média passou de 25 graus/s. Vale a última medida boa |
 | `main: largada: tof E= F= D=` | O que os sensores veem antes de andar |
 | `main: largada recusada: sem parede a ... do robo ...` | A via 3 não corresponde ao canto. O robô não larga |
 
@@ -51,6 +53,15 @@ coluna**. Exemplo: `(l0,c2)` é A2.
   `ajuste antes da curva`.
 - Robô centrado: `lat` perto de 34 mm de cada lado. `giro` perto de 0.
 
+Logo depois vem (12/11):
+
+`reta: laco: N voltas, media X ms, pior Y ms | tof na reta: erros I2C E= F= D=, pulou E= F= D= | giro: N leituras perdidas, desvio descontado Z graus/s`
+
+- `media`: o laço de controle leva ~2,3 ms por volta. Em 11/11, com o ToF direito sem responder,
+  foi a ~20 ms (78 voltas numa ré em vez de ~600) e 4 de 5 rés falharam.
+- `erros I2C` e `pulou`: leituras de ToF que falharam nesta reta e as que deixaram de ser feitas
+  porque o sensor tinha acabado de falhar (ele fica 0,5 s em silêncio). Tudo zero = sensores bons.
+
 ### A cada curva
 
 | Linha | O que diz |
@@ -59,6 +70,7 @@ coluna**. Exemplo: `(l0,c2)` é A2.
 | `curva: inicio do arco: sem parede a frente (...), recuo fixo 75 mm` | Curva numa célula de frente aberta |
 | `curva: alvo=90 parou= final= tempo= enc E= D= (esperado) V max= V fim E= D= bat= continuou= giro perdido= <ok ou motivo>` | O resultado. Pulsos muito acima do esperado = rodas patinando |
 | `curva: angulo a cada 100 ms: 3 11 22 34 ...` | Onde a curva perdeu velocidade ou parou |
+| `curva: laco: pior volta X ms \| giro: N leituras perdidas no total, desvio descontado Z graus/s` | Saúde do laço e do giroscópio na curva (12/11). Pior volta acima de ~10 ms = um sensor I²C sem resposta |
 | `tof: depois da curva: E= F= D=` | A pose com que o robô saiu da curva |
 | `curva: desfez o arco: de X para Y graus ...` e `curva: tentativa 2 do arco (...)` | O arco travou e foi tentado de novo |
 
@@ -72,7 +84,17 @@ esgotado`, `giroscopio sem leitura`, `parado pelo operador`.
 | `main: chegada nao confere: ...` | No objetivo, um sensor viu passagem onde há borda: o robô se perdeu. A corrida é falha |
 | `main: fim da corrida N: SUCESSO/FALHA, passos, celulas, posicao, passagens para fora, eventos perdidos, linhas de log perdidas` | Resumo |
 | `main: movimento: N arco(s) repetido(s), N parada(s) pela parede da frente, N leitura(s) do giroscopio perdida(s)` | Contadores |
+| `diag: saude 1/2: ...` e `diag: saude 2/2: ...` | Contadores desde o boot (12/11): erros de I²C por sensor, quedas e reinícios dos ToF, linhas perdidas. Ver a seção 5 |
 | `nav: mapa lR (NLSO por celula, c0 em diante): PA?P ...` | O mapa inteiro que o robô montou, uma linha por linha do labirinto |
+
+### A qualquer momento, com o robô parado (12/11)
+
+| Linha | O que diz |
+|:--|:--|
+| `tof: <lado> PAROU de responder aos N s (queda K): 0x29 responde/nao responde -> ...` | Um ToF deixou de responder. O robô confere uma vez por segundo enquanto espera a largada. A causa provável vem na linha (seção 5) |
+| `tof: <lado> VOLTOU a responder aos N s` | Voltou sozinho |
+| `tof: <lado> em falha aos N s: 0x3X ..., 0x29 ... -> .... Reiniciando pelo XSHUT` e `tof: <lado>: reinicio pelo XSHUT deu certo/FALHOU (...)` | O robô reiniciou o sensor (na corrida, ao sentir as paredes; ou pelo comando `tofrec`) |
+| `diag: IMU PAROU de responder aos N s`, `diag: INA219 PAROU de ler ...` | O mesmo aviso para a IMU e o medidor de bateria |
 
 ## 2. Comandos pelo BLE (robô parado, esperando a largada)
 
@@ -83,9 +105,21 @@ esgotado`, `giroscopio sem leitura`, `parado pelo operador`.
 | `re` | Uma célula de ré (novo) |
 | `virar d`, `virar e` | A curva completa da corrida (recuo, arco, volta ao centro) |
 | `arco d`, `arco e`, `pivo d`, `pivo e` | Só o arco, ou 90 graus no lugar |
-| `tof` | 5 leituras dos três ToF com o robô parado (novo) |
-| `giro` | Deriva do giroscópio em repouso (novo) |
+| `tof` | 5 leituras dos três ToF com o robô parado. A 1ª linha costuma sair com lixo: ignore |
+| `giro` | Desvio do giroscópio em repouso: média, mínimo e máximo de 250 leituras, temperatura, tempo ligado e o desvio em uso |
 | `frente <potência> <ms>` | Teste sem controle |
+| `diag` | **Relatório do hardware** (12/11, ~6 s, robô parado): firmware gravado, quem responde no I²C, 20 medidas de cada ToF, IMU, bateria, botão, DIP, encoders parados e contadores. Termina em `diag: fim: OK` ou na lista dos problemas |
+| `saude` | Só os contadores desde o boot (2 linhas) |
+| `tofmon [s]` | Os três ToF lidos sem parar por `s` segundos (padrão 10, máximo 120): uma linha por segundo e a média, o mínimo e o máximo de cada um. Para ver se um sensor falha parado ou mexendo no cabo, e para calibrar |
+| `tofrec` | Reinicia pelo XSHUT os ToF que não respondem, sem reiniciar a placa |
+| `motor e\|d\|ed <volts> <ms>` | Roda esquerda, direita ou as duas com tensão fixa (negativa = para trás), até 7,5 V e 3000 ms: pulsos a cada 100 ms, velocidade, corrente e bateria. **Robô suspenso** |
+| `rodas` | Varredura das duas rodas nos dois sentidos (~15 s): tensão em que cada uma parte, velocidade e corrente a 3 V e a 6 V, sentido do encoder e se a outra roda contou. Termina em `rodas: resumo: ... -> OK` ou `PROBLEMA: ...`. **Robô suspenso** |
+| `enc [s]` | Motores soltos por `s` segundos (padrão 10): os pulsos de cada encoder, para girar as rodas à mão. Uma volta para a frente = +285 |
+
+Depois de um Erro (corrida que falhou, auto-teste reprovado), os comandos de leitura (`tof`,
+`tofmon`, `tofrec`, `giro`, `diag`, `saude`, `enc`) continuam valendo: dá para ver onde o robô
+parou sem tirá-lo da pista. Os que mexem os motores respondem `comando ... IGNORADO` até
+`reiniciar`.
 
 ## 3. Medidas para pedir à equipe de estrutura (robô FORA do labirinto)
 
@@ -99,7 +133,7 @@ Todas a partir do **meio do eixo das rodas** (o ponto no chão entre as duas rod
 | M4 | Raio do arredondamento das quinas da frente | não usado | Reduz a folga pedida (`kArcFrontClearanceMm`) |
 | M5 | Do eixo até o ponto mais atrás do robô (chassi ou roda) | não está no código | Limite do recuo e da ré |
 | M6 | Largura total com as rodas | não está no código | Folga lateral no corredor |
-| M7 | Diâmetro de cada roda com o pneu | 34 mm (projeto) | `kWheelDiameterMm` |
+| M7 | Diâmetro de cada roda com o pneu | 32 mm (medido em 11/11; o projeto dizia 34) | `kWheelDiameterMm` |
 | M8 | Bitola: do centro de um pneu ao centro do outro | 88 mm (projeto) | `kWheelTrackMm` |
 | M9 | Cada ToF lateral: da face do sensor à linha central do robô, e quanto à frente do eixo | não está no código | Confere o centro de 33,6 mm do RF-44 |
 
@@ -117,7 +151,7 @@ Do labirinto, parado e com régua (não precisa do robô):
 |:--|:--|:--|:--|
 | C1 | `andar` 5 vezes seguidas, num chão igual ao da pista | A distância real andada (esperado 900 mm) e o desvio lateral | `kWheelDiameterMm` (mm por pulso) |
 | C2 | Uma caixa a 50, 100, 150 e 200 mm da FACE de cada ToF; `tof` em cada distância | A leitura contra a distância real | Limiares (90 e 140 mm), `kArcStartFrontMm`, `kFrontStopMm` |
-| C3 | `giro`, com o robô imóvel | A deriva | Se passar de 0,5 grau/s, corrigir a deriva no código |
+| C3 | `giro`, com o robô imóvel e APOIADO (não na mão) | Média, mínimo e máximo | Desde 12/11 o desvio é descontado. `max - min` acima de 3 graus/s = o robô não estava parado |
 | C4 | `pivo d` e `pivo e` em área aberta, sobre uma folha com um ângulo reto desenhado | O ângulo real contra o `final=` do log | Escala do giroscópio |
 | C5 | `virar d` e `virar e` em área aberta, marcando no chão onde as rodas começaram | Onde o meio do eixo terminou. Esperado: 15 mm à frente do ponto de partida, sem desvio lateral, girado 90 graus | Patinação no arco, `kArcSetbackMm` |
 | C6 | `re` 3 vezes | Distância real (esperado 180 mm) e desvio lateral | Confirma a ré |
@@ -125,3 +159,65 @@ Do labirinto, parado e com régua (não precisa do robô):
 Com M1, M2 e M3 medidos, troque os três números de `kBody` em
 `include/domain/RobotParameters.hpp`: o ponto de início do arco se recalcula sozinho, e a linha
 `main: parametros` de cada largada mostra o valor em uso.
+
+## 5. Diagnóstico de hardware pelo BLE (12/11)
+
+No teste de 11/11 o ToF direito parava de responder no meio da bateria, o giroscópio lia de -0,1 a
++5 graus/s parado e linhas de log sumiam, sem nada no log dizer por quê. Agora o robô conta.
+
+### O comando `diag`
+
+Robô parado, apoiado e imóvel. Sai uma linha por assunto, todas com a tag `diag`:
+
+| Linha | O que conferir |
+|:--|:--|
+| `firmware: versao V, compilado em D H, IDF ... \| motores: ... \| RF-44 ... \| reset=R, ligado ha N s` | `V` tem de ser o commit que você compilou (`git log -1 --format=%h`; com `-dirty` se havia mudança sem commit). `reset`: `LIGOU` ou `reinicio por comando` são normais; `BROWNOUT`, `PANICO` e `WATCHDOG` não |
+| `i2c (respostas em 10 chamadas): ToF E 0x30=10, ToF F 0x31=10, ToF D 0x32=10, IMU 0x68=10, INA219 0x40=10 \| 0x29 (...)=0` | Tudo 10, e 0 no `0x29`. Um ToF respondendo em `0x29` reiniciou sozinho |
+| `tof <lado> (0x3X): configurado=sim id=0xEACC \| 20 medidas: ok= falha= sem alvo= incerto= \| media= min= max= mm` | `falha=0`. `sem alvo` é normal sem nada à frente |
+| `imu: WHO_AM_I=0x68 PWR_MGMT_1= temp= \| acel X= Y= Z= g \| giro X= Y= \| giro Z em repouso: media min max (...), desvio em uso` | Aceleração total perto de 1 g; `max - min` do giro Z abaixo de 3 graus/s |
+| `energia: bateria= V corrente= A potencia= W, INA219 ok` | Bateria acima de 7,0 V |
+| `entradas: botao START=solto \| DIP agora via1= via2= via3= \| DIP valendo (lido no boot): ...` | Botão solto; a via 3 de agora igual à que vale (se você mexeu, reinicie) |
+| `encoders: em 1 s parado contaram E=0 D=0` | Zero. Contando sozinho = ruído no encoder |
+| `saude 1/2` e `saude 2/2` | Contadores desde o boot (abaixo) |
+| `fim: OK, nenhum problema encontrado` ou `fim: N PROBLEMA(S): ...` | O veredito |
+
+### Os contadores (`saude`)
+
+- `i2c erros tof E= F= D= imu= ina=`: transações que falharam em cada dispositivo. `lentas` são
+  as que esperaram o tempo limite de 20 ms (sem resposta nenhuma), e `pior` a mais demorada.
+- `tof quedas`: vezes em que o sensor parou de responder com o robô esperando a largada.
+- `reinicios XSHUT` e `falhos`: vezes em que o robô reiniciou o sensor, e quantas não adiantou.
+- `ble perdidos: linhas= eventos= pedacos=`: linhas de log e eventos que não couberam na fila, e
+  pedaços de mensagem que a pilha BLE recusou. Zero = nada se perdeu no robô (se ainda assim faltar
+  linha no arquivo, a perda é do lado do computador).
+- `giro desvio em uso`: o que está sendo descontado do giroscópio.
+
+Num robô bom, tudo fica em zero do começo ao fim da bateria de testes.
+
+### Quando um ToF para: o que a linha diz e onde olhar
+
+| O que o log diz | Causa provável | Onde olhar |
+|:--|:--|:--|
+| `0x29 responde -> o sensor REINICIOU sozinho (alimentacao ou XSHUT)` | O sensor perdeu a alimentação por um instante, ou o XSHUT dele caiu a 0, e ele voltou ao endereço de fábrica | Fios de 3V3, GND e XSHUT desse sensor; mau contato que abre com vibração |
+| `0x29 nao responde -> mudo (fio SDA/SCL/alimentacao, ou sensor travado)` | O sensor não responde em endereço nenhum | Fios de SDA, SCL, 3V3 e GND desse sensor. Se o `tofrec` o traz de volta, estava travado ou sem alimentação |
+| `responde mas nao mede` | Responde ao endereço mas parou de medir | Sensor travado; o reinício pelo XSHUT resolve. Se repetir, trocar o sensor |
+| `reinicio pelo XSHUT FALHOU` | Nem reiniciando ele volta | Fio solto de vez, ou sensor queimado. Troque de lugar com outro ToF: se a falha for junto, é o sensor; se ficar no lugar, é a fiação |
+
+Na corrida, um sensor em falha é reiniciado sozinho quando o robô para para sentir as paredes
+(~0,6 s); depois de 3 reinícios seguidos sem sucesso o robô desiste dele e a corrida termina em
+`falha de sensor por 3 passos`. **O reinício automático não conserta o defeito**: cada um fica
+contado em `saude`, e a meta é zero.
+
+### O comando `rodas` (robô suspenso)
+
+Quatro linhas (roda E e D, para frente e para trás) e o resumo:
+
+`rodas: roda E para frente: parte com 1.4 V | 3 V: N pulsos/s (mm/s) I A | 6 V: N pulsos/s (mm/s) I A | encoder: N pulsos, sentido certo | outra roda: 0 pulsos`
+
+- `parte com`: a menor tensão em que a roda girou. Uma roda que precisa de bem mais que a outra
+  está prendendo (em 11/11 uma roda prendia na estrutura).
+- `sentido ERRADO`: fios do encoder (A e B) ou do motor invertidos. `encoder: 0 pulsos`: encoder
+  desligado. `outra roda` contando: fios dos encoders trocados entre as rodas, ou ruído.
+- O resumo compara as quatro: velocidades a 6 V a menos de 25% uma da outra, partida abaixo de
+  3,5 V e a menos de 1,0 V uma da outra. **São referências iniciais, não calibradas**: valem para
+  apontar uma roda muito diferente da outra.
