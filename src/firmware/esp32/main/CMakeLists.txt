@@ -44,7 +44,8 @@ idf_component_register(
         # Composition root
         "${CORE_ROOT}/src/main.cpp"
     INCLUDE_DIRS "${CORE_ROOT}/include"
+    # esp_app_format: versão e data do firmware no comando "diag" (esp_app_desc.h).
     REQUIRES driver esp_driver_i2c esp_driver_pcnt esp_driver_ledc esp_rom esp_timer
-             esp-nimble-cpp)
+             esp_app_format esp-nimble-cpp)
 
 target_compile_features(${COMPONENT_LIB} PUBLIC cxx_std_17)

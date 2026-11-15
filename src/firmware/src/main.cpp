@@ -3,6 +3,7 @@
 // apenas no alvo ESP32; o build de host usa src/main.cpp (stub).
 
 #include <atomic>
+#include <cmath>
 #include <cstdarg>
 #include <cstdio>
 #include <cstring>
@@ -29,6 +30,9 @@
 #include "domain/Pid.hpp"
 #include "domain/RobotParameters.hpp"
 #include "domain/SensorHealthMonitor.hpp"
+#include "driver/gpio.h"
+#include "esp_app_desc.h"
+#include "esp_err.h"
 #include "esp_log.h"
 #include "esp_random.h"
 #include "esp_system.h"
@@ -146,6 +150,8 @@ int mirrorLogToBle(const char* format, va_list args) {
             std::strstr(line.text, " main: ") != nullptr ||
             std::strstr(line.text, " nav: ") != nullptr ||
             std::strstr(line.text, " tof: ") != nullptr ||
+            std::strstr(line.text, " giro: ") != nullptr ||
+            std::strstr(line.text, " diag: ") != nullptr ||
             std::strstr(line.text, " teste: ") != nullptr) {
             if (xQueueSend(gDebugQueue, &line, 0) != pdTRUE) {
                 ++gDroppedLogLines;
@@ -170,6 +176,22 @@ std::atomic<int> gTestManeuver{0};
 std::atomic<bool> gTestTof{false};
 // "giro": deriva do giroscópio em repouso.
 std::atomic<bool> gTestGyro{false};
+// Diagnóstico de hardware (12/11), ver LOGS_E_MEDIDAS.md:
+// "diag": relatório completo de sensores, entradas e erros, com veredito; "saude": os contadores.
+std::atomic<bool> gTestDiag{false};
+std::atomic<bool> gTestHealth{false};
+// "tofmon [s]": os três ToF lidos sem parar por alguns segundos (estabilidade, cabo, calibração).
+std::atomic<int> gTestTofMonSeconds{0};
+// "tofrec": reinicia pelo XSHUT os ToF que não respondem.
+std::atomic<bool> gTestTofRecover{false};
+// "motor e|d|ed <volts> <ms>": roda(s) em tensão fixa. Bit 0 = esquerda, bit 1 = direita.
+std::atomic<int> gTestWheelMask{0};
+std::atomic<int> gTestWheelMillivolts{0};
+std::atomic<int> gTestWheelMs{0};
+// "rodas": varredura das duas rodas nos dois sentidos.
+std::atomic<bool> gTestWheelSweep{false};
+// "enc [s]": pulsos dos encoders com os motores soltos, para girar as rodas à mão.
+std::atomic<int> gTestEncoderSeconds{0};
 
 void onBleCommand(const std::string& command) {
     if (command == "largar") {
@@ -192,6 +214,44 @@ void onBleCommand(const std::string& command) {
         gTestTof = true;
     } else if (command == "giro") {
         gTestGyro = true;
+    } else if (command == "diag") {
+        gTestDiag = true;
+    } else if (command == "saude") {
+        gTestHealth = true;
+    } else if (command == "tofrec") {
+        gTestTofRecover = true;
+    } else if (command == "rodas") {
+        gTestWheelSweep = true;
+    } else if (command == "tofmon" || command.rfind("tofmon ", 0) == 0) {
+        int seconds = 10;
+        if (command.size() > 7) {
+            (void)std::sscanf(command.c_str() + 7, "%d", &seconds);
+        }
+        gTestTofMonSeconds = seconds < 1 ? 1 : seconds > 120 ? 120 : seconds;
+    } else if (command == "enc" || command.rfind("enc ", 0) == 0) {
+        int seconds = 10;
+        if (command.size() > 4) {
+            (void)std::sscanf(command.c_str() + 4, "%d", &seconds);
+        }
+        gTestEncoderSeconds = seconds < 1 ? 1 : seconds > 60 ? 60 : seconds;
+    } else if (command.rfind("motor ", 0) == 0) {
+        // "motor e 3.0 1000": roda esquerda a 3 V por 1 s (negativo = para trás). "d" = direita,
+        // "ed" = as duas. No máximo o teto de tensão do controle e 3 s.
+        char which[4] = "";
+        float volts = 0.0F;
+        int ms = 0;
+        if (std::sscanf(command.c_str() + 6, "%3s %f %d", which, &volts, &ms) == 3 && ms > 0 &&
+            ms <= 3000 && volts >= -static_cast<float>(controller::robot::kMotorMaxVolts) &&
+            volts <= static_cast<float>(controller::robot::kMotorMaxVolts)) {
+            int mask = 0;
+            if (std::strchr(which, 'e') != nullptr) mask |= 1;
+            if (std::strchr(which, 'd') != nullptr) mask |= 2;
+            if (mask != 0) {
+                gTestWheelMillivolts = static_cast<int>(volts * 1000.0F);
+                gTestWheelMs = ms;
+                gTestWheelMask = mask;
+            }
+        }
     } else if (command == "reiniciar") {
         esp_restart();  // como o botão RST: depois de um Erro, a placa só larga de novo reiniciando
     } else if (command.rfind("frente ", 0) == 0) {
@@ -218,6 +278,430 @@ std::string plainLogLine(const char* text) {
     }
     return out;
 }
+
+#if !CONFIG_RATO_BANCADA
+// ===================== Diagnóstico de hardware pelo BLE (12/11) =====================
+// Em 11/11 o ToF direito parava no meio do teste, o giroscópio lia de -0,1 a +5 graus/s parado e
+// linhas de log sumiam, e nada no log dizia por quê. Estes comandos fazem o robô contar o que vê,
+// para separar defeito de hardware de defeito de firmware sem abrir o robô. Ver LOGS_E_MEDIDAS.md.
+
+unsigned long uptimeSeconds() { return static_cast<unsigned long>(esp_timer_get_time() / 1000000); }
+
+const char* resetReasonText() {
+    switch (esp_reset_reason()) {
+        case ESP_RST_POWERON: return "LIGOU (poweron)";
+        case ESP_RST_EXT: return "botao RST";
+        case ESP_RST_SW: return "reinicio por comando (sw)";
+        case ESP_RST_PANIC: return "PANICO (erro do firmware)";
+        case ESP_RST_INT_WDT:
+        case ESP_RST_TASK_WDT:
+        case ESP_RST_WDT: return "WATCHDOG (firmware travou)";
+        case ESP_RST_BROWNOUT: return "BROWNOUT (a tensao caiu)";
+        case ESP_RST_DEEPSLEEP: return "deep sleep";
+        case ESP_RST_SDIO: return "sdio";
+        default: return "outro";
+    }
+}
+
+// Medidas de um ToF acumuladas, por tipo.
+struct TofStats {
+    int ok{0};
+    int noTarget{0};
+    int uncertain{0};
+    int fault{0};
+    long sum{0};
+    int min{99999};
+    int max{-1};
+
+    void add(const adapters::Vl53l1xSensorAdapter::Reading& reading) {
+        switch (reading.kind) {
+            case drivers::ReadingKind::Distance:
+                ++ok;
+                sum += reading.mm;
+                min = reading.mm < min ? reading.mm : min;
+                max = reading.mm > max ? reading.mm : max;
+                break;
+            case drivers::ReadingKind::NoTarget: ++noTarget; break;
+            case drivers::ReadingKind::Uncertain: ++uncertain; break;
+            case drivers::ReadingKind::Fault: ++fault; break;
+        }
+    }
+    [[nodiscard]] int total() const { return ok + noTarget + uncertain + fault; }
+    [[nodiscard]] double mean() const { return ok > 0 ? static_cast<double>(sum) / ok : -1.0; }
+    [[nodiscard]] int low() const { return ok > 0 ? min : -1; }
+    [[nodiscard]] int high() const { return ok > 0 ? max : -1; }
+};
+
+constexpr adapters::Vl53l1xSensorAdapter::Side kTofSides[3] = {
+    adapters::Vl53l1xSensorAdapter::Side::Left, adapters::Vl53l1xSensorAdapter::Side::Front,
+    adapters::Vl53l1xSensorAdapter::Side::Right};
+constexpr char kTofLetters[3] = {'E', 'F', 'D'};
+
+// Pausa curta depois de cada linha, para a tarefa da telemetria escoar a fila do BLE.
+void drainLog() { vTaskDelay(pdMS_TO_TICKS(40)); }
+
+// Contadores desde o boot. Tudo zero = nenhum sensor falhou e nenhuma linha se perdeu.
+void logHealth() {
+    adapters::Vl53l1xSensorAdapter::Health tof[3];
+    for (int i = 0; i < 3; ++i) {
+        tof[i] = gSensor.health(kTofSides[i]);
+    }
+    ESP_LOGI("diag",
+             "saude 1/2: ligado ha %lu s, reset=%s, bat=%.2f V, heap livre=%u min=%u, giro desvio "
+             "em uso=%.3f graus/s (%s), ble perdidos: linhas=%d eventos=%d pedacos=%u",
+             uptimeSeconds(), resetReasonText(), gPower.busVoltageV(),
+             static_cast<unsigned>(esp_get_free_heap_size()),
+             static_cast<unsigned>(esp_get_minimum_free_heap_size()), gMotion.gyroBias(),
+             gMotion.gyroBiasMeasured() ? "medido" : "nunca medido", gDroppedLogLines.load(),
+             gDroppedEvents.load(), adapters::BleTelemetryAdapter::droppedChunks());
+    drainLog();
+    ESP_LOGI("diag",
+             "saude 2/2: i2c erros tof E=%u F=%u D=%u imu=%u ina=%u | lentas E=%u F=%u D=%u (pior "
+             "%u/%u/%u ms) | tof quedas E=%u F=%u D=%u | reinicios XSHUT E=%u F=%u D=%u (falhos "
+             "%u/%u/%u)",
+             tof[0].i2cErrors, tof[1].i2cErrors, tof[2].i2cErrors, gImu.readErrors(),
+             gPower.readErrors(), tof[0].i2cTimeouts, tof[1].i2cTimeouts, tof[2].i2cTimeouts,
+             tof[0].i2cWorstMs, tof[1].i2cWorstMs, tof[2].i2cWorstMs, tof[0].dropouts,
+             tof[1].dropouts, tof[2].dropouts, tof[0].recoveries, tof[1].recoveries,
+             tof[2].recoveries, tof[0].failedRecoveries, tof[1].failedRecoveries,
+             tof[2].failedRecoveries);
+    drainLog();
+}
+
+// Uma vez por segundo, com o robô parado: loga quando um sensor para de responder e quando volta
+// (com o tempo desde o boot), em vez de só descobrir no teste seguinte.
+void watchHealth() {
+    static bool imuOk = true;
+    static bool powerOk = true;
+    gSensor.watch();
+    const bool imuNow = gImu.whoAmI().has_value();
+    if (imuNow != imuOk) {
+        imuOk = imuNow;
+        if (imuNow) {
+            ESP_LOGW("diag", "IMU VOLTOU a responder aos %lu s", uptimeSeconds());
+        } else {
+            ESP_LOGE("diag", "IMU PAROU de responder aos %lu s", uptimeSeconds());
+        }
+    }
+    const bool powerNow = gPower.busVoltageV() > 1.0;  // uma leitura que falha devolve 0
+    if (powerNow != powerOk) {
+        powerOk = powerNow;
+        if (powerNow) {
+            ESP_LOGW("diag", "INA219 VOLTOU a ler aos %lu s", uptimeSeconds());
+        } else {
+            ESP_LOGE("diag", "INA219 PAROU de ler (ou a bateria esta abaixo de 1 V) aos %lu s",
+                     uptimeSeconds());
+        }
+    }
+}
+
+// "tofmon": lê os três ToF sem parar por `seconds`. Uma linha por segundo e um resumo por sensor.
+// Serve para ver se um sensor falha parado, mexendo no cabo dele, e para calibrar com uma parede a
+// uma distância conhecida (a média de dezenas de medidas).
+void runTofMonitor(int seconds) {
+    TofStats total[3];
+    TofStats second[3];
+    unsigned errorsBefore[3];
+    for (int i = 0; i < 3; ++i) {
+        errorsBefore[i] = gSensor.health(kTofSides[i]).i2cErrors;
+    }
+    (void)gSensor.settledReadings();  // a primeira medida depois de um tempo parado sai com lixo
+    const int64_t start = esp_timer_get_time();
+    int64_t last = start;
+    long worstGapMs = 0;
+    int rounds = 0;
+    int reported = 0;
+    while (reported < seconds && !gRemoteStop.load()) {
+        const auto readings = gSensor.settledReadings();
+        const int64_t now = esp_timer_get_time();
+        const long gapMs = static_cast<long>((now - last) / 1000);
+        worstGapMs = gapMs > worstGapMs ? gapMs : worstGapMs;
+        last = now;
+        ++rounds;
+        for (int i = 0; i < 3; ++i) {
+            total[i].add(readings[static_cast<size_t>(i)]);
+            second[i].add(readings[static_cast<size_t>(i)]);
+        }
+        if ((now - start) / 1000000 > reported) {
+            ++reported;
+            ESP_LOGI("teste",
+                     "tofmon %d/%d s: E=%d..%d (%d ok, %d falha) F=%d..%d (%d ok, %d falha) "
+                     "D=%d..%d (%d ok, %d falha)",
+                     reported, seconds, second[0].low(), second[0].high(), second[0].ok,
+                     second[0].fault, second[1].low(), second[1].high(), second[1].ok,
+                     second[1].fault, second[2].low(), second[2].high(), second[2].ok,
+                     second[2].fault);
+            for (TofStats& stats : second) {
+                stats = TofStats{};
+            }
+        }
+    }
+    const long elapsedMs = static_cast<long>((esp_timer_get_time() - start) / 1000);
+    bool problem = false;
+    for (int i = 0; i < 3; ++i) {
+        const unsigned errors = gSensor.health(kTofSides[i]).i2cErrors - errorsBefore[i];
+        problem = problem || total[i].fault > 0 || errors > 0;
+        ESP_LOGI("teste",
+                 "tofmon fim %c: %d medidas: ok=%d falha=%d sem alvo=%d incerto=%d | media=%.1f "
+                 "min=%d max=%d mm | erros I2C=%u",
+                 kTofLetters[i], total[i].total(), total[i].ok, total[i].fault, total[i].noTarget,
+                 total[i].uncertain, total[i].mean(), total[i].low(), total[i].high(), errors);
+        drainLog();
+    }
+    ESP_LOGI("teste", "tofmon fim: %d rodadas em %ld ms (media %ld ms, pior %ld ms) -> %s", rounds,
+             elapsedMs, rounds > 0 ? elapsedMs / rounds : 0L, worstGapMs,
+             problem ? "PROBLEMA: houve falha de leitura" : "OK: nenhuma falha");
+}
+
+// "diag": relatório do hardware com o robô PARADO e imóvel. Cada linha começa com "diag"; a última
+// é o veredito ("diag fim: OK" ou a lista dos problemas).
+void runDiagnostics(const domain::MazeSetup& setup) {
+    char problems[220] = "";
+    size_t used = 0;
+    int problemCount = 0;
+    auto problem = [&problems, &used, &problemCount](const char* text) {
+        ++problemCount;
+        if (used < sizeof problems) {
+            const int n = std::snprintf(problems + used, sizeof problems - used, "%s%s",
+                                        used == 0 ? "" : "; ", text);
+            used += n > 0 ? static_cast<size_t>(n) : 0;
+        }
+    };
+
+    // 1) Que firmware é este e por que a placa ligou.
+    const esp_app_desc_t* app = esp_app_get_description();
+    ESP_LOGI("diag",
+             "firmware: versao %s, compilado em %s %s, IDF %s | motores: %s, %s | RF-44 %s | "
+             "reset=%s, ligado ha %lu s",
+             app->version, app->date, app->time, app->idf_ver, adapters::pins::kMotorWiringName,
+             adapters::kMotorDecayName, kWallCenteringState, resetReasonText(), uptimeSeconds());
+    drainLog();
+    switch (esp_reset_reason()) {
+        case ESP_RST_PANIC:
+        case ESP_RST_INT_WDT:
+        case ESP_RST_TASK_WDT:
+        case ESP_RST_WDT:
+        case ESP_RST_BROWNOUT:
+            problem("a placa reiniciou sozinha (ver reset)");
+            break;
+        default:
+            break;
+    }
+
+    // 2) Quem responde no barramento I²C, 10 chamadas por endereço.
+    constexpr int kProbes = 10;
+    constexpr uint8_t kAddresses[6] = {0x30, 0x31, 0x32, 0x68, 0x40, 0x29};
+    int answers[6] = {0, 0, 0, 0, 0, 0};
+    for (int round = 0; round < kProbes; ++round) {
+        for (int i = 0; i < 6; ++i) {
+            answers[i] += gSensor.probe(kAddresses[i]) ? 1 : 0;
+        }
+    }
+    ESP_LOGI("diag",
+             "i2c (respostas em %d chamadas): ToF E 0x30=%d, ToF F 0x31=%d, ToF D 0x32=%d, IMU "
+             "0x68=%d, INA219 0x40=%d | 0x29 (ToF fora do endereco, esperado 0)=%d",
+             kProbes, answers[0], answers[1], answers[2], answers[3], answers[4], answers[5]);
+    drainLog();
+    if (answers[0] < kProbes) problem("ToF esquerdo nao responde sempre");
+    if (answers[1] < kProbes) problem("ToF frontal nao responde sempre");
+    if (answers[2] < kProbes) problem("ToF direito nao responde sempre");
+    if (answers[3] < kProbes) problem("IMU nao responde sempre");
+    if (answers[4] < kProbes) problem("INA219 nao responde sempre");
+    if (answers[5] > 0) problem("um ToF voltou ao endereco 0x29 (reiniciou sozinho)");
+
+    // 3) Cada ToF: identificação e 20 medidas (a primeira, descartada, costuma sair com lixo).
+    TofStats stats[3];
+    (void)gSensor.settledReadings();
+    constexpr int kTofRounds = 20;
+    for (int round = 0; round < kTofRounds; ++round) {
+        const auto readings = gSensor.settledReadings();
+        for (int i = 0; i < 3; ++i) {
+            stats[i].add(readings[static_cast<size_t>(i)]);
+        }
+    }
+    for (int i = 0; i < 3; ++i) {
+        const bool ready = gSensor.ready(kTofSides[i]);
+        const unsigned model = gSensor.modelId(kTofSides[i]);
+        ESP_LOGI("diag",
+                 "tof %s (0x%02X): configurado=%s id=0x%04X (esperado 0xEACC) | %d medidas: ok=%d "
+                 "falha=%d sem alvo=%d incerto=%d | media=%.1f min=%d max=%d mm",
+                 adapters::Vl53l1xSensorAdapter::sideName(kTofSides[i]),
+                 static_cast<unsigned>(gSensor.address(kTofSides[i])), ready ? "sim" : "NAO", model,
+                 kTofRounds, stats[i].ok, stats[i].fault, stats[i].noTarget, stats[i].uncertain,
+                 stats[i].mean(), stats[i].low(), stats[i].high());
+        drainLog();
+        if (!ready || model != 0xEACC || stats[i].fault > 0) {
+            char text[40];
+            std::snprintf(text, sizeof text, "ToF %s com falha",
+                          adapters::Vl53l1xSensorAdapter::sideName(kTofSides[i]));
+            problem(text);
+        }
+    }
+
+    // 4) IMU: identificação, temperatura, gravidade e o giroscópio parado.
+    const std::optional<uint8_t> who = gImu.whoAmI();
+    const std::optional<uint8_t> clock = gImu.powerManagement();
+    const std::optional<adapters::Mpu6050::Sample> imu = gImu.readAll();
+    const adapters::Drv8833MotionAdapter::GyroRest rest = gMotion.measureGyroRest(250);
+    if (who && imu) {
+        ESP_LOGI("diag",
+                 "imu: WHO_AM_I=0x%02X PWR_MGMT_1=0x%02X temp=%.1f C | acel X=%.2f Y=%.2f Z=%.2f g "
+                 "| giro X=%.2f Y=%.2f graus/s | giro Z em repouso: media %.3f min %.2f max %.2f "
+                 "(%d leituras, %d perdidas), desvio em uso %.3f",
+                 static_cast<unsigned>(*who), static_cast<unsigned>(clock.value_or(0xFF)),
+                 imu->temperatureC, imu->accelG[0], imu->accelG[1], imu->accelG[2],
+                 imu->gyroDps[0], imu->gyroDps[1], rest.mean, rest.min, rest.max, rest.valid,
+                 rest.missed, gMotion.gyroBias());
+        const double gravity = std::sqrt(imu->accelG[0] * imu->accelG[0] +
+                                         imu->accelG[1] * imu->accelG[1] +
+                                         imu->accelG[2] * imu->accelG[2]);
+        if (gravity < 0.8 || gravity > 1.2) problem("acelerometro nao le 1 g");
+    } else {
+        ESP_LOGE("diag", "imu: NAO respondeu (WHO_AM_I %s, leitura %s)", who ? "ok" : "falhou",
+                 imu ? "ok" : "falhou");
+        problem("IMU sem leitura");
+    }
+    drainLog();
+    if (rest.missed > 0) problem("leituras do giroscopio perdidas");
+    if (rest.max - rest.min > controller::robot::kGyroRestMaxSpreadDps) {
+        problem("giroscopio variou: o robo estava mesmo parado?");
+    }
+    if (std::fabs(rest.mean) > controller::robot::kGyroRestMaxBiasDps) {
+        problem("desvio do giroscopio acima do normal");
+    }
+
+    // 5) Energia.
+    const bool powerPresent = gPower.present();
+    const double volts = gPower.busVoltageV();
+    ESP_LOGI("diag", "energia: bateria=%.2f V corrente=%.2f A potencia=%.2f W, INA219 %s", volts,
+             gPower.currentA(), gPower.powerW(), powerPresent ? "ok" : "NAO respondeu");
+    drainLog();
+    if (!powerPresent) problem("INA219 sem resposta");
+    if (volts < 7.0) problem("bateria abaixo de 7,0 V");
+
+    // 6) Entradas: botão e DIP agora, e o que o DIP valeu no boot.
+    const int button = gpio_get_level(adapters::pins::kButton);
+    const int dip1 = gpio_get_level(adapters::pins::kDip1);
+    const int dip2 = gpio_get_level(adapters::pins::kDip2);
+    const int dip3 = gpio_get_level(adapters::pins::kDip3);
+    ESP_LOGI("diag",
+             "entradas: botao START=%s | DIP agora via1=%s via2=%s via3=%s | DIP valendo (lido no "
+             "boot): labirinto %dx%d, via 3 %s = borda a %s do robo",
+             button == 0 ? "APERTADO" : "solto", dip1 == 0 ? "fechada" : "aberta",
+             dip2 == 0 ? "fechada" : "aberta", dip3 == 0 ? "fechada" : "aberta", setup.columns,
+             setup.rows, domain::startBorderIsOnTheLeft(setup) ? "aberta" : "fechada",
+             domain::startBorderIsOnTheLeft(setup) ? "ESQUERDA" : "DIREITA");
+    drainLog();
+    if (button == 0) problem("botao START em nivel de apertado");
+    if ((dip3 != 0) != domain::startBorderIsOnTheLeft(setup)) {
+        problem("via 3 mexida depois do boot (reinicie)");
+    }
+
+    // 7) Encoders parados: não podem contar sozinhos.
+    long left = 0;
+    long right = 0;
+    gMotion.resetEncoders();
+    vTaskDelay(pdMS_TO_TICKS(1000));
+    gMotion.readEncoders(left, right);
+    ESP_LOGI("diag", "encoders: em 1 s parado contaram E=%ld D=%ld (esperado 0)", left, right);
+    drainLog();
+    if (left > 2 || left < -2 || right > 2 || right < -2) {
+        problem("encoder contou com a roda parada");
+    }
+
+    // 8) Contadores desde o boot.
+    logHealth();
+    unsigned i2cErrors = gImu.readErrors() + gPower.readErrors();
+    unsigned dropouts = 0;
+    for (int i = 0; i < 3; ++i) {
+        const adapters::Vl53l1xSensorAdapter::Health health = gSensor.health(kTofSides[i]);
+        i2cErrors += health.i2cErrors;
+        dropouts += health.dropouts + health.recoveries + health.failedRecoveries;
+    }
+    // Um erro isolado de I²C não é defeito; vários são (o número fica nas linhas "saude").
+    if (i2cErrors > 5) problem("houve erros de I2C desde o boot (ver saude)");
+    if (dropouts > 0) problem("um ToF caiu desde o boot (ver saude)");
+
+    if (problemCount == 0) {
+        ESP_LOGI("diag", "fim: OK, nenhum problema encontrado");
+    } else {
+        ESP_LOGE("diag", "fim: %d PROBLEMA(S): %s", problemCount, problems);
+    }
+}
+
+// Atende os comandos de teste pendentes. Com `allowMotion` falso (robô em Erro), os que mexem os
+// motores são recusados; os de leitura continuam valendo, para ver onde o robô ficou e por quê.
+void serviceTestCommands(const domain::MazeSetup& setup, bool allowMotion) {
+    auto refused = [allowMotion](const char* name) {
+        if (!allowMotion) {
+            ESP_LOGW("teste", "comando '%s' IGNORADO: o robo esta em Erro e nao mexe os motores. "
+                              "Mande reiniciar", name);
+        }
+        return !allowMotion;
+    };
+    if (const int ms = gTestMs.exchange(0); ms > 0 && !refused("frente")) {
+        gRemoteStop = false;
+        gMotion.setBatteryVolts(gPower.busVoltageV());
+        gMotion.openLoopTest(gTestPermille.load() / 1000.0, static_cast<uint32_t>(ms));
+    }
+    if (const int maneuver = gTestManeuver.exchange(0); maneuver != 0 && !refused("manobra")) {
+        gRemoteStop = false;
+        gMotion.setBatteryVolts(gPower.busVoltageV());
+        gMotion.testManeuver(static_cast<adapters::Drv8833MotionAdapter::Maneuver>(maneuver));
+    }
+    if (const int mask = gTestWheelMask.exchange(0); mask != 0 && !refused("motor")) {
+        gRemoteStop = false;
+        gMotion.setBatteryVolts(gPower.busVoltageV());
+        gMotion.wheelTest((mask & 1) != 0, (mask & 2) != 0, gTestWheelMillivolts.load() / 1000.0,
+                          static_cast<uint32_t>(gTestWheelMs.load()));
+    }
+    if (gTestWheelSweep.exchange(false) && !refused("rodas")) {
+        gRemoteStop = false;
+        gMotion.setBatteryVolts(gPower.busVoltageV());
+        gMotion.wheelSweep();
+    }
+    if (const int seconds = gTestEncoderSeconds.exchange(0); seconds > 0) {
+        gRemoteStop = false;
+        gMotion.encoderWatch(seconds);
+    }
+    if (gTestTof.exchange(false)) {
+        using Side = adapters::Vl53l1xSensorAdapter::Side;
+        for (int i = 0; i < 5; ++i) {
+            const auto tof = gSensor.settledReadings();
+            ESP_LOGI("teste", "tof %d/5: E=%d (%s) F=%d (%s) D=%d (%s)", i + 1, tof[0].mm,
+                     gSensor.statusText(Side::Left), tof[1].mm, gSensor.statusText(Side::Front),
+                     tof[2].mm, gSensor.statusText(Side::Right));
+        }
+    }
+    if (const int seconds = gTestTofMonSeconds.exchange(0); seconds > 0) {
+        gRemoteStop = false;
+        runTofMonitor(seconds);
+    }
+    if (gTestTofRecover.exchange(false)) {
+        (void)gSensor.settledReadings();  // atualiza quem está em falha
+        const int recovered = gSensor.recoverFailed();
+        ESP_LOGI("teste", "tofrec: %d sensor(es) reiniciado(s) pelo XSHUT%s", recovered,
+                 recovered == 0 ? " (nenhum estava em falha, ou o reinicio nao deu certo: veja as "
+                                  "linhas tof acima)"
+                                : "");
+    }
+    if (gTestGyro.exchange(false)) {
+        const adapters::Drv8833MotionAdapter::GyroRest rest = gMotion.measureGyroRest(250);
+        const std::optional<adapters::Mpu6050::Sample> imu = gImu.readAll();
+        ESP_LOGI("teste",
+                 "giroscopio em repouso: %.3f graus/s (media de %d leituras) min %.2f max %.2f, %d "
+                 "perdidas, temp %.1f C, ligado ha %lu s, desvio em uso %.3f",
+                 rest.mean, rest.valid, rest.min, rest.max, rest.missed,
+                 imu ? imu->temperatureC : -99.0, uptimeSeconds(), gMotion.gyroBias());
+    }
+    if (gTestDiag.exchange(false)) {
+        runDiagnostics(setup);
+    }
+    if (gTestHealth.exchange(false)) {
+        logHealth();
+    }
+}
+#endif  // !CONFIG_RATO_BANCADA
 #endif
 
 void writeState(const telemetry::Snapshot& state) {
@@ -250,6 +734,7 @@ void navigationTask(void*) {
              adapters::kMotorDecayName, controller::robot::kMotorMaxVolts);
 #if !CONFIG_RATO_BANCADA
     gMotion.enableFrontStop(gSensor);
+    gMotion.setPowerMonitor(gPower);
 #endif
 #if CONFIG_RATO_LOG_RETA && !CONFIG_RATO_BANCADA
     gMotion.setAbortFlag(gRemoteStop);
@@ -294,37 +779,29 @@ void navigationTask(void*) {
         }
 #if CONFIG_RATO_LOG_RETA
         gRemoteStart = false;
+        [[maybe_unused]] int idleTicks = 0;
         while (!gLocal.buttonPressed() && !gRemoteStart.exchange(false)) {
 #if !CONFIG_RATO_BANCADA
-            if (const int ms = gTestMs.exchange(0); ms > 0) {
-                gMotion.setBatteryVolts(gPower.busVoltageV());
-                gMotion.openLoopTest(gTestPermille.load() / 1000.0, static_cast<uint32_t>(ms));
-            }
-            if (const int maneuver = gTestManeuver.exchange(0); maneuver != 0) {
-                gMotion.setBatteryVolts(gPower.busVoltageV());
-                gMotion.testManeuver(
-                    static_cast<adapters::Drv8833MotionAdapter::Maneuver>(maneuver));
-            }
-            if (gTestTof.exchange(false)) {
-                using Side = adapters::Vl53l1xSensorAdapter::Side;
-                for (int i = 0; i < 5; ++i) {
-                    const auto tof = gSensor.settledReadings();
-                    ESP_LOGI("teste", "tof %d/5: E=%d (%s) F=%d (%s) D=%d (%s)", i + 1, tof[0].mm,
-                             gSensor.statusText(Side::Left), tof[1].mm,
-                             gSensor.statusText(Side::Front), tof[2].mm,
-                             gSensor.statusText(Side::Right));
-                }
-            }
-            if (gTestGyro.exchange(false)) {
-                ESP_LOGI("teste", "giroscopio em repouso: %.3f graus/s (media de 250 leituras)",
-                         gMotion.gyroRestRate(250));
+            serviceTestCommands(setup, true);
+            if (++idleTicks >= 100) {  // ~1 s: avisa se um sensor parou de responder (ou voltou)
+                idleTicks = 0;
+                watchHealth();
+                // Mantém o desvio do giroscópio em dia enquanto espera (sem logar).
+                (void)gMotion.calibrateGyro(50, true);
             }
 #endif
             vTaskDelay(pdMS_TO_TICKS(10));
         }
         gRemoteStop = false;
 #else
+        [[maybe_unused]] int idleTicks = 0;
         while (!gLocal.buttonPressed()) {
+#if !CONFIG_RATO_BANCADA
+            if (++idleTicks >= 200) {  // ~2 s: mantém o desvio do giroscópio em dia (sem logar)
+                idleTicks = 0;
+                (void)gMotion.calibrateGyro(50, true);
+            }
+#endif
             vTaskDelay(pdMS_TO_TICKS(10));
         }
 #endif
@@ -364,6 +841,11 @@ void navigationTask(void*) {
             state.phase = session.getCurrentPhase();
             writeState(state);
             while (true) {
+#if CONFIG_RATO_LOG_RETA && !CONFIG_RATO_BANCADA
+                // Em Erro, os comandos de leitura (diag, saude, tof, tofmon, giro) continuam
+                // valendo: é o diag que diz qual sensor reprovou o auto-teste.
+                serviceTestCommands(setup, false);
+#endif
                 vTaskDelay(pdMS_TO_TICKS(200));
             }
         }
@@ -420,7 +902,6 @@ void navigationTask(void*) {
                  domain::robot::kBody.axleToFrontMm, domain::robot::kBody.halfWidthMm,
                  domain::robot::kBody.axleToFrontTofMm, controller::robot::kFrontStopMm,
                  controller::robot::kMotorMaxVolts);
-        ESP_LOGI(kTag, "giroscopio em repouso: %.3f graus/s", gMotion.gyroRestRate(100));
 
         // Conferência do canto (10/11): duas leituras (a primeira depois do boot vem com lixo). Se
         // nas duas o lado da borda está ABERTO, a via 3 não corresponde ao canto, e o robô não
@@ -451,6 +932,10 @@ void navigationTask(void*) {
                 guard = 0;  // não entra no laço da corrida
             }
         }
+        // Desvio do giroscópio (12/11): medido aqui, ~0,5 s depois do botão (o dedo de quem apertou
+        // já saiu), e descontado em toda a corrida. Se o robô ainda se mexia, vale a medida feita
+        // enquanto ele esperava a largada. A linha "giro" diz o valor e se foi aceito.
+        (void)gMotion.calibrateGyro(100);
 #endif
         while (!navigator.reachedGoal() && guard-- > 0) {
 #if !CONFIG_RATO_BANCADA
@@ -623,6 +1108,7 @@ void navigationTask(void*) {
         ESP_LOGI(kTag, "movimento: %d arco(s) repetido(s), %d parada(s) pela parede da frente, "
                        "%d leitura(s) do giroscopio perdida(s)",
                  gMotion.arcRetriesUsed(), gMotion.frontStops(), gMotion.gyroMissesTotal());
+        logHealth();  // erros de I2C, quedas e reinícios dos ToF, linhas perdidas (desde o boot)
 #endif
         for (int row = 0; row < setup.rows; ++row) {
             char line[12 * 6 + 1];
@@ -646,6 +1132,11 @@ void navigationTask(void*) {
         // reiniciar o robô.
         if (session.getCurrentPhase() == use_cases::SessionPhase::Fault) {
             while (true) {
+#if CONFIG_RATO_LOG_RETA && !CONFIG_RATO_BANCADA
+                // Em Erro, o robô fica onde parou: os comandos de leitura (tof, tofmon, diag,
+                // saude, giro) continuam valendo, para ver onde ele está sem tirá-lo da pista.
+                serviceTestCommands(setup, false);
+#endif
                 vTaskDelay(pdMS_TO_TICKS(200));
             }
         }
@@ -746,7 +1237,8 @@ extern "C" void app_main() {
     gStateMutex = xSemaphoreCreateMutex();
     gEventQueue = xQueueCreate(64, sizeof(TeleEvent));
 #if CONFIG_RATO_LOG_RETA
-    gDebugQueue = xQueueCreate(32, sizeof(DebugLine));
+    // 64 linhas (eram 32): o diagnóstico e as manobras de teste soltam várias linhas seguidas.
+    gDebugQueue = xQueueCreate(64, sizeof(DebugLine));
     gSerialLog = esp_log_set_vprintf(mirrorLogToBle);
 #endif
 
