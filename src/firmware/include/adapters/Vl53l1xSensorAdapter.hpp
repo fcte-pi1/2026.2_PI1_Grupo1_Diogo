@@ -36,6 +36,18 @@ private:
         uint8_t address;
         std::optional<drivers::Vl53l1x> sensor{};
         Reading last{};
+        // Saúde do sensor (12/11). Depois de uma transação que falha, o sensor fica "em silêncio"
+        // por kMuteMs: quem lê durante o movimento (freshReading) não toca nele, para não esperar
+        // o tempo limite do I²C a cada volta do laço de controle.
+        uint32_t mutedUntilMs{0};
+        bool muted{false};
+        bool pollFault{false};     // a última leitura pedida terminou em falha
+        bool answering{true};      // estado visto pelo watch(), para logar só as mudanças
+        unsigned dropouts{0};      // vezes em que parou de responder (visto pelo watch())
+        unsigned recoveries{0};    // reinícios pelo XSHUT que deram certo
+        unsigned failedRecoveries{0};
+        unsigned failedStreak{0};  // reinícios seguidos que falharam (zera quando um dá certo)
+        unsigned skippedReads{0};  // leituras puladas por estar em silêncio
     };
 
     double thresholdMm_;       // laterais
@@ -45,8 +57,10 @@ private:
     mutable bool healthy_{true};
     mutable char faultSummary_[80]{};  // pior caso: ~76 caracteres
 
-    bool bringUp(Slot& slot);
+    bool bringUp(Slot& slot) const;
     Reading poll(Slot& slot, bool requireFresh) const;
+    Reading take(Slot& slot) const;  // lê a medida que o sensor já tem pronta
+    void mute(Slot& slot) const;
     [[nodiscard]] int rangeMm(Side side) const;
 
 public:
@@ -78,6 +92,38 @@ public:
     // Medida nova de um lado, se o sensor tiver uma pronta (não espera, e consome a medida). Para a
     // centralização pelas paredes durante o movimento (RF-44). Não mexe em healthy().
     [[nodiscard]] std::optional<Reading> freshReading(Side side) const;
+
+    // ---- Diagnóstico e recuperação (12/11) ----
+    struct Health {
+        bool ready;                 // configurado (no boot ou numa recuperação)
+        unsigned i2cErrors;         // transações que falharam no endereço dele desde o boot
+        unsigned i2cTimeouts;       // dessas, quantas esperaram o tempo limite do I²C
+        unsigned i2cWorstMs;
+        int i2cLastError;           // esp_err_t (0 = nunca falhou)
+        unsigned dropouts;
+        unsigned recoveries;
+        unsigned failedRecoveries;
+        unsigned skippedReads;
+    };
+    [[nodiscard]] Health health(Side side) const;
+    [[nodiscard]] static const char* sideName(Side side) noexcept;
+    [[nodiscard]] uint8_t address(Side side) const noexcept;
+    // Uma transação curta: o sensor responde no endereço dele? Não consome a medida.
+    [[nodiscard]] bool ping(Side side) const;
+    // Algum dispositivo responde no endereço (para o diagnóstico: 0x29 respondendo quer dizer que
+    // um ToF reiniciou sozinho e voltou ao endereço de fábrica).
+    [[nodiscard]] bool probe(uint8_t address) const { return regBus_.probe(address); }
+    // Identificação do sensor (0xEACC num VL53L1X); 0 se não respondeu.
+    [[nodiscard]] unsigned modelId(Side side) const;
+    // Reinicia pelo XSHUT e reconfigura os sensores que não respondem ou cuja última medida foi
+    // falha. Só com o robô PARADO (leva ~0,3 s por sensor). Devolve quantos voltaram. Com
+    // `automatic` (chamado pelo sense()), desiste de um sensor depois de 3 reinícios seguidos sem
+    // sucesso, para não gastar ~0,3 s por passo com um sensor desligado; o comando "tofrec" tenta
+    // sempre.
+    int recoverFailed(bool automatic = false) const;
+    // Chamar ~1x por segundo com o robô parado: loga quando um sensor para de responder e quando
+    // volta, com o tempo desde o boot. Não consome medidas.
+    void watch() const;
 
     // Distâncias em mm. Públicas para o firmware de diagnóstico (esp32-diagnostico/).
     [[nodiscard]] int rangeFrontMm() const;
