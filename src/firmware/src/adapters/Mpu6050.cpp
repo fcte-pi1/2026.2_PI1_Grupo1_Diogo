@@ -13,6 +13,7 @@ constexpr uint8_t kAddress = 0x68;
 constexpr uint8_t kWhoAmI = 0x75;
 constexpr uint8_t kPwrMgmt1 = 0x6B;
 constexpr uint8_t kGyroZoutH = 0x47;
+constexpr uint8_t kAccelXoutH = 0x3B;  // 14 bytes: acel X Y Z, temperatura, giro X Y Z
 constexpr int kTimeoutMs = 100;
 
 // Devolve false quando a transação I²C falha (sem ACK, timeout), como no Ina219 (#357):
@@ -93,10 +94,38 @@ bool Mpu6050::present() const {
 std::optional<double> Mpu6050::readGyroZDegPerSec() const {
     uint8_t bytes[2] = {};
     if (!readRegisters(device_, kGyroZoutH, bytes, 2)) {
+        ++readErrors_;
         return std::nullopt;
     }
     const int16_t raw = static_cast<int16_t>((bytes[0] << 8) | bytes[1]);
     return raw / gyroScale_;
+}
+
+std::optional<Mpu6050::Sample> Mpu6050::readAll() const {
+    uint8_t bytes[14] = {};
+    if (!readRegisters(device_, kAccelXoutH, bytes, sizeof bytes)) {
+        ++readErrors_;
+        return std::nullopt;
+    }
+    auto word = [&bytes](int index) {
+        return static_cast<int16_t>((bytes[2 * index] << 8) | bytes[2 * index + 1]);
+    };
+    constexpr double kAccelLsbPerG = 16384.0;  // ±2 g (ACCEL_CONFIG no valor do reset)
+    Sample sample{};
+    for (int axis = 0; axis < 3; ++axis) {
+        sample.accelG[axis] = word(axis) / kAccelLsbPerG;
+        sample.gyroDps[axis] = word(4 + axis) / gyroScale_;
+    }
+    sample.temperatureC = word(3) / 340.0 + 36.53;  // fórmula do MPU-6050 (clones: aproximado)
+    return sample;
+}
+
+std::optional<uint8_t> Mpu6050::powerManagement() const {
+    uint8_t value = 0;
+    if (!readRegisters(device_, kPwrMgmt1, &value, 1)) {
+        return std::nullopt;
+    }
+    return value;
 }
 
 double Mpu6050::gyroZDegPerSec() const {

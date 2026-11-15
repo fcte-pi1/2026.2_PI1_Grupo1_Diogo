@@ -14,8 +14,21 @@ private:
     // LSB por °/s da faixa em uso, calculada do GYRO_CONFIG lido de volta no begin(). Começa na do
     // reset (±250 °/s), para nunca usar uma escala diferente da do sensor.
     double gyroScale_{131.0};
+    mutable unsigned readErrors_{0};  // leituras do giroscópio que falharam desde o boot
 
 public:
+    // Retrato completo para o diagnóstico (12/11): acelerômetro (g, faixa de ±2 g do reset),
+    // temperatura do chip e os três eixos do giroscópio (graus/s).
+    struct Sample {
+        double accelG[3];
+        double temperatureC;
+        double gyroDps[3];
+    };
+    [[nodiscard]] std::optional<Sample> readAll() const;
+    [[nodiscard]] unsigned readErrors() const noexcept { return readErrors_; }
+    // Registrador PWR_MGMT_1 lido de volta (fonte do relógio do chip); vazio se a leitura falhar.
+    [[nodiscard]] std::optional<uint8_t> powerManagement() const;
+
     void begin(i2c_master_bus_handle_t bus);
     // WHO_AM_I da família compatível: 0x68, 0x70, 0x71, 0x72 ou 0x73 (RF-29, #391)
     [[nodiscard]] bool present() const;
