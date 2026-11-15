@@ -360,3 +360,8 @@ __pycache__/
 
 # Metadados do Windows (WSL)
 *:Zone.Identifier
+
+# Resultados dos testes do robô e builds da auditoria (gerados)
+teste-v3/resultados/
+auditoria/*
+!auditoria/AUDITORIA-*.md
