@@ -43,12 +43,17 @@ bool readRegister(i2c_master_dev_handle_t device, uint8_t reg, uint16_t& value) 
     return true;
 }
 
-// Leitura para as medidas: se falhar, devolve 0 (o backend recusa a tensão fora da faixa).
-uint16_t readOrZero(i2c_master_dev_handle_t device, uint8_t reg) {
-    uint16_t value = 0;
-    return readRegister(device, reg, value) ? value : 0;
-}
 }  // namespace
+
+// Leitura para as medidas: se falhar, devolve 0 (o backend recusa a tensão fora da faixa) e conta.
+uint16_t Ina219::readOrZero(uint8_t reg) const {
+    uint16_t value = 0;
+    if (readRegister(device_, reg, value)) {
+        return value;
+    }
+    ++readErrors_;
+    return 0;
+}
 
 void Ina219::begin(i2c_master_bus_handle_t bus) {
     i2c_device_config_t config{};
@@ -84,17 +89,17 @@ bool Ina219::present() const {
 }
 
 double Ina219::busVoltageV() const {
-    const uint16_t raw = readOrZero(device_, kRegBusVoltage);
+    const uint16_t raw = readOrZero(kRegBusVoltage);
     return static_cast<double>(raw >> 3) * 0.004;  // LSB = 4 mV
 }
 
 double Ina219::currentA() const {
-    const int16_t raw = static_cast<int16_t>(readOrZero(device_, kRegCurrent));
+    const int16_t raw = static_cast<int16_t>(readOrZero(kRegCurrent));
     return raw * kCurrentLsb;
 }
 
 double Ina219::powerW() const {
-    const uint16_t raw = readOrZero(device_, kRegPower);
+    const uint16_t raw = readOrZero(kRegPower);
     return raw * kPowerLsb;
 }
 
