@@ -117,8 +117,8 @@ char directionLetter(domain::Direction direction) {
 }
 
 // Uma parede do mapa numa letra: P = parede, A = aberto, ? = ainda não visto.
-char wallLetter(const domain::MazeMap& maze, const domain::Position& cell,
-                domain::Direction direction) {
+[[maybe_unused]] char wallLetter(const domain::MazeMap& maze, const domain::Position& cell,
+                                 domain::Direction direction) {
     switch (maze.getWall(cell, direction)) {
         case domain::Wall::Present: return 'P';
         case domain::Wall::Open: return 'A';
@@ -192,6 +192,28 @@ std::atomic<int> gTestWheelMs{0};
 std::atomic<bool> gTestWheelSweep{false};
 // "enc [s]": pulsos dos encoders com os motores soltos, para girar as rodas à mão.
 std::atomic<int> gTestEncoderSeconds{0};
+// Comandos recusados (desconhecidos ou fora da faixa). O callback do BLE só conta; quem loga é a
+// tarefa de navegação (a pilha da tarefa do NimBLE é pequena para formatar uma linha de log).
+std::atomic<int> gRejectedCommands{0};
+
+// Descarta os comandos de teste pendentes. Um comando recebido DURANTE a corrida não pode rodar
+// sozinho quando ela termina: o operador não deu o ok para ele naquele lugar.
+void discardTestCommands() {
+    bool any = gTestMs.exchange(0) != 0;
+    any = (gTestManeuver.exchange(0) != 0) || any;
+    any = (gTestWheelMask.exchange(0) != 0) || any;
+    any = gTestWheelSweep.exchange(false) || any;
+    any = (gTestEncoderSeconds.exchange(0) != 0) || any;
+    any = (gTestTofMonSeconds.exchange(0) != 0) || any;
+    any = gTestTof.exchange(false) || any;
+    any = gTestGyro.exchange(false) || any;
+    any = gTestDiag.exchange(false) || any;
+    any = gTestHealth.exchange(false) || any;
+    any = gTestTofRecover.exchange(false) || any;
+    if (any) {
+        ESP_LOGW("teste", "comandos recebidos durante a corrida foram descartados");
+    }
+}
 
 void onBleCommand(const std::string& command) {
     if (command == "largar") {
@@ -209,6 +231,7 @@ void onBleCommand(const std::string& command) {
         if (command.rfind("arco", 0) == 0) maneuver = right ? M::ArcRight : M::ArcLeft;
         if (command.rfind("pivo", 0) == 0) maneuver = right ? M::PivotRight : M::PivotLeft;
         if (command == "re") maneuver = M::Reverse;  // uma célula de ré (saída de beco)
+        gRemoteStop = false;  // zera aqui, e não ao começar: um "parar" que chegue depois vale
         gTestManeuver = static_cast<int>(maneuver);
     } else if (command == "tof") {
         gTestTof = true;
@@ -221,18 +244,21 @@ void onBleCommand(const std::string& command) {
     } else if (command == "tofrec") {
         gTestTofRecover = true;
     } else if (command == "rodas") {
+        gRemoteStop = false;
         gTestWheelSweep = true;
     } else if (command == "tofmon" || command.rfind("tofmon ", 0) == 0) {
         int seconds = 10;
         if (command.size() > 7) {
             (void)std::sscanf(command.c_str() + 7, "%d", &seconds);
         }
+        gRemoteStop = false;
         gTestTofMonSeconds = seconds < 1 ? 1 : seconds > 120 ? 120 : seconds;
     } else if (command == "enc" || command.rfind("enc ", 0) == 0) {
         int seconds = 10;
         if (command.size() > 4) {
             (void)std::sscanf(command.c_str() + 4, "%d", &seconds);
         }
+        gRemoteStop = false;
         gTestEncoderSeconds = seconds < 1 ? 1 : seconds > 60 ? 60 : seconds;
     } else if (command.rfind("motor ", 0) == 0) {
         // "motor e 3.0 1000": roda esquerda a 3 V por 1 s (negativo = para trás). "d" = direita,
@@ -240,6 +266,7 @@ void onBleCommand(const std::string& command) {
         char which[4] = "";
         float volts = 0.0F;
         int ms = 0;
+        bool accepted = false;
         if (std::sscanf(command.c_str() + 6, "%3s %f %d", which, &volts, &ms) == 3 && ms > 0 &&
             ms <= 3000 && volts >= -static_cast<float>(controller::robot::kMotorMaxVolts) &&
             volts <= static_cast<float>(controller::robot::kMotorMaxVolts)) {
@@ -247,10 +274,15 @@ void onBleCommand(const std::string& command) {
             if (std::strchr(which, 'e') != nullptr) mask |= 1;
             if (std::strchr(which, 'd') != nullptr) mask |= 2;
             if (mask != 0) {
+                gRemoteStop = false;
                 gTestWheelMillivolts = static_cast<int>(volts * 1000.0F);
                 gTestWheelMs = ms;
                 gTestWheelMask = mask;
+                accepted = true;
             }
+        }
+        if (!accepted) {
+            ++gRejectedCommands;
         }
     } else if (command == "reiniciar") {
         esp_restart();  // como o botão RST: depois de um Erro, a placa só larga de novo reiniciando
@@ -259,9 +291,14 @@ void onBleCommand(const std::string& command) {
         int ms = 0;
         if (std::sscanf(command.c_str() + 7, "%f %d", &power, &ms) == 2 && ms > 0 && ms <= 3000 &&
             power >= -1.0F && power <= 1.0F) {
+            gRemoteStop = false;
             gTestPermille = static_cast<int>(power * 1000.0F);
             gTestMs = ms;
+        } else {
+            ++gRejectedCommands;
         }
+    } else {
+        ++gRejectedCommands;
     }
 }
 
@@ -424,6 +461,7 @@ void runTofMonitor(int seconds) {
         }
         if ((now - start) / 1000000 > reported) {
             ++reported;
+            gSensor.watch();  // loga na hora "tof: <lado> PAROU/VOLTOU a responder"
             ESP_LOGI("teste",
                      "tofmon %d/%d s: E=%d..%d (%d ok, %d falha) F=%d..%d (%d ok, %d falha) "
                      "D=%d..%d (%d ok, %d falha)",
@@ -639,29 +677,27 @@ void serviceTestCommands(const domain::MazeSetup& setup, bool allowMotion) {
         }
         return !allowMotion;
     };
+    if (const int rejected = gRejectedCommands.exchange(0); rejected > 0) {
+        ESP_LOGW("teste", "%d comando(s) recusado(s): desconhecido ou fora da faixa", rejected);
+    }
     if (const int ms = gTestMs.exchange(0); ms > 0 && !refused("frente")) {
-        gRemoteStop = false;
         gMotion.setBatteryVolts(gPower.busVoltageV());
         gMotion.openLoopTest(gTestPermille.load() / 1000.0, static_cast<uint32_t>(ms));
     }
     if (const int maneuver = gTestManeuver.exchange(0); maneuver != 0 && !refused("manobra")) {
-        gRemoteStop = false;
         gMotion.setBatteryVolts(gPower.busVoltageV());
         gMotion.testManeuver(static_cast<adapters::Drv8833MotionAdapter::Maneuver>(maneuver));
     }
     if (const int mask = gTestWheelMask.exchange(0); mask != 0 && !refused("motor")) {
-        gRemoteStop = false;
         gMotion.setBatteryVolts(gPower.busVoltageV());
         gMotion.wheelTest((mask & 1) != 0, (mask & 2) != 0, gTestWheelMillivolts.load() / 1000.0,
                           static_cast<uint32_t>(gTestWheelMs.load()));
     }
     if (gTestWheelSweep.exchange(false) && !refused("rodas")) {
-        gRemoteStop = false;
         gMotion.setBatteryVolts(gPower.busVoltageV());
         gMotion.wheelSweep();
     }
     if (const int seconds = gTestEncoderSeconds.exchange(0); seconds > 0) {
-        gRemoteStop = false;
         gMotion.encoderWatch(seconds);
     }
     if (gTestTof.exchange(false)) {
@@ -674,7 +710,6 @@ void serviceTestCommands(const domain::MazeSetup& setup, bool allowMotion) {
         }
     }
     if (const int seconds = gTestTofMonSeconds.exchange(0); seconds > 0) {
-        gRemoteStop = false;
         runTofMonitor(seconds);
     }
     if (gTestTofRecover.exchange(false)) {
@@ -1140,6 +1175,9 @@ void navigationTask(void*) {
                 vTaskDelay(pdMS_TO_TICKS(200));
             }
         }
+#if CONFIG_RATO_LOG_RETA
+        discardTestCommands();
+#endif
         session.rearm();
         telemetry::Snapshot idleState{};
         idleState.phase = session.getCurrentPhase();
