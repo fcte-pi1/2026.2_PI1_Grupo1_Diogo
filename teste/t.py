@@ -386,7 +386,7 @@ def check_run(lines, success=True, steps=None, sequence=None, via3=None):
         out.append(verdict(seen == via3, f"via 3 lida pelo robô: {seen} (o teste pede {via3})",
                            f"VIA 3 ERRADA: o robô leu {seen} e o teste pede {via3}. Ajuste a chave, rode "
                            "'python t.py reiniciar' e repita. Este resultado NÃO vale"))
-    end = grep(lines, r"fim da corrida \d+: (\w+), (\d+) passos, (\d+) celulas, posicao \(l(\d),c(\d)\) rumo (\w), "
+    end = grep(lines, r"fim da corrida \d+: (\w+), (\d+) passos, (\d+) celulas, posicao \(l(\d+),c(\d+)\) rumo (\w), "
                       r"passagens para fora=(\d+), eventos perdidos=(\d+), linhas de log perdidas=(\d+)")
     if not end:
         return out + [(FALHOU, "a corrida não terminou no log (sem 'fim da corrida')")]
@@ -401,7 +401,7 @@ def check_run(lines, success=True, steps=None, sequence=None, via3=None):
         out.append(verdict(int(last.group(2)) == steps, f"{last.group(2)} passos (esperado {steps})"))
     if sequence:
         seen = [(f"l{m.group(1)},c{m.group(2)}", m.group(3).strip())
-                for m in grep(lines, r"nav: passo \d+: cel \(l(\d),c(\d)\) .* acao=([a-z ]+?)(?: \(|-> | ->)")]
+                for m in grep(lines, r"nav: passo \d+: cel \(l(\d+),c(\d+)\) .* acao=([a-z ]+?)(?: \(|-> | ->)")]
         seen = [(cell, action.strip()) for cell, action in seen if action.strip() != "chegou"]
         wrong = [f"passo {i + 1}: esperado {exp}, veio {got}"
                  for i, (exp, got) in enumerate(zip(sequence, seen)) if exp != got]
