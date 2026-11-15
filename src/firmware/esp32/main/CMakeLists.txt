@@ -44,6 +44,7 @@ idf_component_register(
         # Composition root
         "${CORE_ROOT}/src/main.cpp"
     INCLUDE_DIRS "${CORE_ROOT}/include"
-    REQUIRES driver esp_driver_i2c esp_driver_pcnt esp_driver_ledc esp_rom esp-nimble-cpp)
+    REQUIRES driver esp_driver_i2c esp_driver_pcnt esp_driver_ledc esp_rom esp_timer
+             esp-nimble-cpp)
 
 target_compile_features(${COMPONENT_LIB} PUBLIC cxx_std_17)
