@@ -201,6 +201,9 @@ void Drv8833MotionAdapter::openLoopTest(double command, uint32_t ms) {
         if (elapsedMs >= ms) {
             break;
         }
+        if (aborted()) {
+            break;
+        }
         const double ramp = std::min(elapsedMs / 80.0, 1.0);  // a rampa do firmware do hardware
         motors_.setNormalized(ramp * command, ramp * command);
         if (now >= nextLog) {
@@ -214,6 +217,7 @@ void Drv8833MotionAdapter::openLoopTest(double command, uint32_t ms) {
     ESP_LOGI("teste", "fim: pot=%.2f por %lu ms enc E=%ld D=%ld bat=%.2f V (%s)", command,
              static_cast<unsigned long>(ms), encoders_.left(), encoders_.right(), batteryVolts_,
              kMotorDecayName);
+    clearLastMove();
 }
 
 // ---- Testes de hardware (12/11): só nos builds de teste, com o robô SUSPENSO ----
@@ -461,19 +465,24 @@ void Drv8833MotionAdapter::wheelSweep() {
     if (bestStart < 1e8 && worstStart - bestStart > kSweepMaxStartSpread) {
         addProblem("uma roda parte bem mais dura que a outra");
     }
+    // A lista vai numa linha própria, ANTES do resumo: junto com ele, a linha passava dos 320
+    // caracteres da fila do BLE e saía cortada.
+    if (problem) {
+        ESP_LOGW("teste", "rodas: problemas: %s", problems);
+    }
     ESP_LOGI("teste",
              "rodas: resumo: a 6 V de %.0f a %.0f pulsos/s (dif %.0f%%, limite %.0f%%); partida "
-             "de %.1f a %.1f V (limites %.1f V e dif %.1f V); bat=%.2f V -> %s%s",
+             "de %.1f a %.1f V (limites %.1f V e dif %.1f V); bat=%.2f V -> %s",
              slowest, fastest, spread * 100.0, kSweepMaxSpeedSpread * 100.0,
              bestStart < 1e8 ? bestStart : 0.0, worstStart, kSweepMaxStartVolts,
-             kSweepMaxStartSpread, batteryVolts_, problem ? "PROBLEMA: " : "OK",
-             problem ? problems : "");
+             kSweepMaxStartSpread, batteryVolts_,
+             problem ? "PROBLEMA (ver a linha 'rodas: problemas' acima)" : "OK");
     clearLastMove();
 }
 
 void Drv8833MotionAdapter::encoderWatch(int seconds) {
     clearLastMove();
-    motors_.setNormalized(0.0, 0.0);  // motores soltos, para girar a roda à mão
+    motors_.coast();  // motores soltos, para girar a roda à mão (em qualquer modo de decay)
     encoders_.reset();
     for (int second = 1; second <= seconds; ++second) {
         const int64_t start = esp_timer_get_time();

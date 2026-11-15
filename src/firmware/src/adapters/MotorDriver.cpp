@@ -65,4 +65,11 @@ void MotorDriver::brake() {
     apply(kRightIn1, kRightIn2, domain::kBridgeBrake);
 }
 
+// Motor solto (as duas entradas em 0). O comando zero do setNormalized só solta em fast decay: em
+// slow decay ele é freio, e o teste "enc" (girar a roda à mão) ficava com as rodas presas.
+void MotorDriver::coast() {
+    apply(kLeftIn1, kLeftIn2, domain::BridgeDuty{0.0, 0.0});
+    apply(kRightIn1, kRightIn2, domain::BridgeDuty{0.0, 0.0});
+}
+
 }  // namespace micromouse::adapters

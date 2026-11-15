@@ -27,6 +27,7 @@ public:
     // Positivo = roda para a frente, nos dois lados (o esquerdo é invertido internamente).
     void setNormalized(double left, double right);
     void brake();  // freio ativo: as duas entradas de cada ponte em nível alto
+    void coast();  // motor solto: as duas entradas em nível baixo, em qualquer modo de decay
     // Só para o firmware de diagnóstico: inverte o lado esquerdo até reiniciar.
     void setLeftInverted(bool inverted) { invertLeft_ = inverted; }
     [[nodiscard]] bool leftInverted() const { return invertLeft_; }
