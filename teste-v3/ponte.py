@@ -24,6 +24,7 @@ import os
 import sys
 import time
 from pathlib import Path
+from typing import Any
 
 HERE = Path(__file__).resolve().parent
 RESULTS = HERE / "resultados"
@@ -140,15 +141,14 @@ def main():
     sys.path.insert(0, str(bridge))
     try:
         # A pasta do bridge só entra no sys.path agora, então o import é feito por nome.
-        ble_ws_bridge = importlib.import_module("ble_ws_bridge")
+        ble_ws_bridge: Any = importlib.import_module("ble_ws_bridge")  # Any: módulo carregado por nome
     except ImportError as error:
         sys.exit(
             f"Falta uma biblioteca do Python ({error}). Rode:\n"
             f"    python -m pip install -r \"{bridge / 'requirements.txt'}\""
         )
 
-    # setattr: o módulo é carregado por nome e o verificador de tipos não conhece este atributo.
-    setattr(ble_ws_bridge, "_read_command_lines", tail_new_lines)
+    ble_ws_bridge._read_command_lines = tail_new_lines
     sys.stdout = Tee(sys.stdout)
     print(f"[ponte] bridge: {bridge}")
     print(f"[ponte] resultados em: {RESULTS}")
