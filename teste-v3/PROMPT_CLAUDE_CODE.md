@@ -12,14 +12,15 @@ Você vai conduzir a bateria de testes de um robô micromouse comigo. Você faz 
   - `teste-v3/t.py`: roda UM teste por vez. É a fonte única dos testes: preparo físico, comando, critério e conferência automática estão nele. Leia o arquivo inteiro antes de começar.
 - A versão 3 NUNCA foi compilada com o ESP-IDF nem rodou na placa. Só passou nos testes de host e numa simulação em PC. Um erro de compilação é possível.
 - Histórico que você precisa saber (teste de 11/11): o ToF direito parava de responder no meio dos testes; o giroscópio tem desvio em repouso; o robô girava na mão do operador nos testes "suspensos"; a bateria de testes parou no C3 e as curvas no labirinto (C4 a C8) e as corridas (bloco D) nunca foram testadas.
-- Antes de qualquer coisa, leia: `teste-v3/t.py`, `teste-v3/ponte.py`, `teste-v3/LEIA-ME.txt`, `src/firmware/LOGS_E_MEDIDAS.md` (formato de cada linha de log, comandos BLE e a seção 5, de diagnóstico), `src/firmware/README.md`, `src/firmware/GUIA_DESENVOLVIMENTO.md`, `src/firmware/ROTEIRO_TESTE_ROBO.md` (seção 1, como gravar), `src/firmware/bridge/README.md` e `src/firmware/esp32/main/Kconfig.projbuild`. Não suponha: o que não estiver nos arquivos, pergunte.
+- **Calibração sem regravar (`calib`, desde 16/11).** O que depende do robô montado e do piso (medidas do corpo, escala do giroscópio, freio das curvas, parada pela parede da frente, centralização, rumo pelo giroscópio) fica na memória do robô e é trocado pelo comando `calib` do BLE. Os padrões são os valores de 16/11, e as novidades vêm DESLIGADAS (`parada_frente=35`, `autoajuste_freio=0`, `ganho_rumo=0`, `centralizar=0`). No PC: `python t.py calib-ver` (mostra), `python t.py calib "nome=valor ..."` (grava), `python t.py medidas` (pergunta as medidas do corpo e grava), `python t.py calib-giro` (o robô mede a escala do giroscópio) e `python t.py calib "padrao"` (volta aos de 16/11). Fora da faixa, o robô recusa e nada muda. Como medir cada valor: `teste-v3/MEDICOES.md`.
+- Antes de qualquer coisa, leia: `teste-v3/t.py`, `teste-v3/ponte.py`, `teste-v3/LEIA-ME.txt`, `teste-v3/MEDICOES.md`, `teste-v3/resultados/MUDANCAS.md` (se existir), `src/firmware/LOGS_E_MEDIDAS.md` (formato de cada linha de log, comandos BLE, a seção 5, de diagnóstico, e a seção 6, do `calib`), `src/firmware/README.md`, `src/firmware/GUIA_DESENVOLVIMENTO.md`, `src/firmware/ROTEIRO_TESTE_ROBO.md` (seção 1, como gravar), `src/firmware/bridge/README.md` e `src/firmware/esp32/main/Kconfig.projbuild`. Não suponha: o que não estiver nos arquivos, pergunte.
 
 ## Regras de segurança (valem sempre)
 
 1. **Bateria e USB nunca ligados ao mesmo tempo.** O USB serve só para gravar, com a bateria desligada. Os testes rodam na bateria, sem cabo, pelo Bluetooth. Em cada troca, me dê os passos um a um (regra 8) e espere eu confirmar cada troca.
 2. **Nenhum comando que mexe os motores sem o meu `ok`.** Para cada teste: mostre o preparo, espere eu responder `ok`, e só então rode o teste. Se eu responder `pular`, registre como pulado. `repetir`: refaça. `parar`: rode `python t.py parar` NA HORA, antes de qualquer outra coisa.
 3. **Fique sempre em condição de frear.** Rode os testes que mexem os motores em segundo plano (background) e acompanhe a saída; assim, se eu escrever `parar`, você consegue rodar `python t.py parar` imediatamente. Antes do primeiro teste de motor, me diga o plano B: levantar o robô e desligar a bateria.
-4. **Não altere código nem parâmetros por conta própria.** Se um teste falhar, analise, proponha a mudança com arquivo e linha, e espere eu aprovar (regra 9).
+4. **Não altere código nem parâmetros por conta própria.** Se um teste falhar, analise, proponha a mudança e espere eu aprovar (regra 9). **Primeiro veja se um valor do `calib` resolve** (sem regravar): proponha o `python t.py calib "nome=valor"` com o valor antigo, o novo e o motivo. Só se o `calib` não resolver, proponha mudança de código com arquivo e linha. Os únicos `calib` que você pode mandar sem me perguntar são os de VOLTAR ao valor anterior quando uma novidade piorou o robô.
    **Nunca rode `git commit`, `git add`, `git stash`, `git reset`, `git checkout` de arquivo, `git am` nem `git push`.** Os commits são meus. Você só usa o git para LER (`status`, `diff`, `log`).
 5. **Siga a ordem dos blocos (H, A, B, C, D) e as regras de parada** da Etapa 4. Antes de cada bloco, rode `python t.py portao`.
 6. **A chave DIP só é lida quando o robô liga.** Depois de eu mexer nela, rode `python t.py reiniciar`.
@@ -38,7 +39,7 @@ Você vai conduzir a bateria de testes de um robô micromouse comigo. Você faz 
    ```
 
    Os itens de "Faça agora" são TODOS os itens do PREPARO que o `python t.py preparo <ID>` imprime, na mesma ordem, sem resumir. Acrescente o que faltar para alguém leigo (onde fica a frente do robô, qual é a roda esquerda, como é "apoiado"), usando o glossário abaixo. Depois do teste, diga o resultado em uma ou duas frases simples ("passou", "falhou porque o sensor da direita parou de responder") e só mostre números se eu pedir.
-9. **Mudança de código só com a minha aprovação, e sem commit.** Quando eu aprovar uma mudança: aplique só ela, rode os testes de host, e me mostre o `git diff` dos arquivos que você mexeu. Não commite. Anote cada mudança aprovada em `teste-v3/resultados/MUDANCAS.md`: o teste que falhou (ID), o valor medido no log e o critério, os arquivos e linhas alterados, o valor antigo e o novo de cada parâmetro. É por esse arquivo que eu vou montar os commits depois.
+9. **Mudança de código ou de `calib` só com a minha aprovação, e sem commit.** Cada `calib` aprovado também vai para o `MUDANCAS.md` (teste que motivou, valor medido, critério, nome, valor antigo e novo) e para o `RESULTADOS.md` com `python t.py nota`. Quando eu aprovar uma mudança: aplique só ela, rode os testes de host, e me mostre o `git diff` dos arquivos que você mexeu. Não commite. Anote cada mudança aprovada em `teste-v3/resultados/MUDANCAS.md`: o teste que falhou (ID), o valor medido no log e o critério, os arquivos e linhas alterados, o valor antigo e o novo de cada parâmetro. É por esse arquivo que eu vou montar os commits depois.
 
 ## Glossário para as instruções físicas
 
@@ -77,7 +78,7 @@ Descubra e me diga em poucas linhas, antes de fazer qualquer coisa:
 
 1. **Conferir que a versão 3 está na pasta.** Rode `git status --short` e `git log --oneline -3` e me mostre. Confira que existem no código: o comando `"tofrec"` em `src/firmware/src/main.cpp`, a função `recoverFailed` em `src/firmware/src/adapters/Vl53l1xSensorAdapter.cpp` e `calibrateGyro` em `src/firmware/src/adapters/Drv8833MotionAdapter.cpp`. Se faltar algum, o código copiado não é a versão 3: pare e me avise. Não desfaça nem "limpe" mudanças sem commit: elas são a versão 3.
    A versão que o robô vai mostrar no H1 vem do git na hora da compilação e pode terminar em `-dirty` (mudanças sem commit): é normal. A prova de que o robô está com o firmware certo é a **data e hora de compilação** que o H1 mostra: anote a hora em que você compilar.
-2. **Testes de host** de `src/firmware` (CMake + GoogleTest, com avisos como erro). Esperado: 237 passando. Se falhar, pare e me mostre.
+2. **Testes de host** de `src/firmware` (CMake + GoogleTest, com avisos como erro). Esperado: 252 passando (237 até 15/11; 252 com o `calib` e os testes de exploração de 16-17/11). Se falhar, pare e me mostre.
 3. **Compilar** `src/firmware/esp32` para o ESP32-S3 com exatamente: `CONFIG_RATO_LOG_RETA=y`, `CONFIG_RATO_FIOS_MOTORES_TROCADOS=y`, e `RATO_BANCADA`, `RATO_CENTRALIZAR_PAREDES` e `RATO_SLOW_DECAY` desligados. Use um diretório de build e um `sdkconfig` próprios deste teste, para não herdar opções antigas, e confira as cinco linhas `RATO` no `sdkconfig` gerado antes de compilar. Guarde o log da compilação em `teste-v3/resultados/build.log`.
 4. **Se a compilação der erro ou aviso novo:** é a primeira vez que este código passa pelo ESP-IDF. Corrija só o necessário para compilar, me mostre o diff, espere a aprovação e anote em `MUDANCAS.md` (regra 9). Não commite. Rode os testes de host de novo.
 5. **Gravar.** Dê-me estes passos, um por mensagem, esperando o meu `ok` em cada um:
@@ -92,7 +93,8 @@ Descubra e me diga em poucas linhas, antes de fazer qualquer coisa:
 
 1. Suba `python ponte.py` (de dentro de `teste-v3/`, com o Python que tem o `bleak`) em segundo plano e deixe rodando até o fim. Espere `teste-v3/resultados/estado.txt` dizer `"conectado": true` (até 40 s). Se não conectar, me peça para conferir: bateria ligada, Bluetooth do computador ligado, robô a menos de 3 m.
 2. `python t.py cmd "saude"`: têm de vir as linhas `diag: saude 1/2` e `2/2`. Sem resposta, o firmware gravado não é o da versão 3 com `RATO_LOG_RETA`: volte à Etapa 1.
-3. Grave `teste-v3/resultados/versao-firmware.txt`: branch, `git log -5 --oneline`, `git status --short`, a data e hora da compilação e as opções `CONFIG_RATO_*` do build.
+2b. `python t.py calib-ver`: têm de vir as 13 linhas `calib:` e a linha `calib: fim:`. Sem resposta, o firmware gravado é anterior a 16/11: volte à Etapa 1. Se algum valor vier `ALTERADO` (gravado num dia anterior), me mostre e pergunte se mantenho ou se volto ao padrão com `python t.py calib "padrao"`. Se eu tiver as medidas do corpo, rode `python t.py medidas` agora (Etapa 6.2).
+3. Grave `teste-v3/resultados/versao-firmware.txt`: branch, `git log -5 --oneline`, `git status --short`, a data e hora da compilação, as opções `CONFIG_RATO_*` do build e a saída do `calib-ver`. Atualize esse arquivo sempre que um `calib` mudar.
 
 ## Etapa 3: como rodar cada teste
 
@@ -146,13 +148,24 @@ Pontos de atenção por bloco:
 1. Junte as evidências: o `.log` do teste, as linhas `saude`, a linha `laco` (laço acima de 4 ms ou `erros I2C`/`pulou` diferentes de zero = um sensor falhou durante o movimento) e os avisos `tof: ... PAROU`.
 2. Classifique: **hardware** (sensor que cai, roda que prende, encoder, bateria, reinício sozinho), **preparo** (erro meu) ou **firmware** (o robô fez errado com tudo respondendo).
 3. Hardware: diga-me exatamente o que olhar no robô (qual sensor, qual fio, qual roda) e pare o bloco. Não tente contornar por software.
-4. Firmware: proponha a mudança com arquivo e linha, o valor antigo e o novo, e o teste que deve passar depois. Espere a aprovação. Aplicada: testes de host, anotação em `MUDANCAS.md` (regra 9, sem commit), compilar, gravar (com a troca bateria/USB da Etapa 1), `python t.py reiniciar`, portão, e repita o teste que falhou e os anteriores do mesmo bloco.
+4. Firmware: primeiro, se um valor do `calib` resolver, proponha-o (nome, valor antigo e novo, como foi medido segundo o `MEDICOES.md`, e o teste que deve passar depois). Aprovado: `python t.py calib "nome=valor"`, anotação em `MUDANCAS.md`, e repita o teste que falhou e os anteriores do mesmo bloco, sem regravar. Se o `calib` não resolver: proponha a mudança de código com arquivo e linha, o valor antigo e o novo. Espere a aprovação. Aplicada: testes de host, anotação em `MUDANCAS.md` (regra 9, sem commit), compilar, gravar (com a troca bateria/USB da Etapa 1), `python t.py reiniciar`, portão, e repita o teste que falhou e os anteriores do mesmo bloco.
+
+Referência de qual `calib` mexe em quê (como medir cada um: `teste-v3/MEDICOES.md`):
+
+| Sintoma no log | `calib` a considerar |
+|:--|:--|
+| Curvas com `final` fora de 88 a 92 graus, sempre para o mesmo lado | `freio_arco` / `freio_pivo` (ou `autoajuste_freio=1`) |
+| Uma volta de 4 curvas não volta à direção inicial | `escala_giro` (`python t.py calib-giro`) |
+| `frontal X mm na parada` abaixo de 40 e "ajuste antes da curva" | `parada_frente` (meta: o nariz parar a 40-50 mm da parede) |
+| Arco começa perto demais ou longe demais da parede da frente | as medidas do corpo (`eixo_ate_frente`, `largura_frente`, `eixo_ate_tof_frente`) |
+| `lat E`/`lat D` muito diferentes no fim das retas, raspadas laterais | `centralizar=1` (ganhos não calibrados) |
+| `giro=` grande nas retas, desvio lateral no B1 | `ganho_rumo` (0 a 3; se entortar mais, volte a 0) |
 
 ## Etapa 6: fechamento
 
 1. Rode `python t.py` e acrescente ao fim do `teste-v3/resultados/RESULTADOS.md`: resumo por bloco (passou, falhou, conferir, pulado), cada falha com a causa provável e a mudança proposta, a tabela do B3, os números do H4 (desvio do giroscópio ao longo dos 3 minutos) e do H6 (as quatro linhas `rodas:`), os contadores do último `saude` e o que falta testar (labirintos 8x4 e 12x4).
-2. Pergunte-me se tenho as medidas M1, M2, M3, M5, M6, M8 e M9 do `LOGS_E_MEDIDAS.md` e registre-as. Não mude `kBody` nem a bitola sem a minha aprovação.
-3. Confirme que `teste-v3/resultados/` tem: `RESULTADOS.md`, `log_robo.txt`, `ponte.out`, `telemetria.jsonl`, `comandos.txt`, os `<ID>_t<N>.log`, `build.log`, `flash.log`, `boot.log`, `versao-firmware.txt` e, se houve mudança de código, o `MUDANCAS.md`. Compacte a pasta em `teste-v3/resultados-AAAA-MM-DD.zip` e me diga o caminho.
+2. Medidas do robô, seguindo o `teste-v3/MEDICOES.md`. Se eu ainda não tiver gravado: rode `python t.py medidas` e me faça as perguntas UMA de cada vez (eixo até a frente, largura da frente, eixo até o ToF da frente, largura com as rodas, ToF lateral ao centro, ToF lateral à frente do eixo); se o `MEDICOES.md` tiver uma conferência com o robô para aquela medida, faça-a e compare. Pergunte também as medidas que ainda não entram pelo `calib` (eixo até a traseira, diâmetro da roda, bitola) e registre-as no `RESULTADOS.md`, sem mexer no código (`kWheelDiameterMm`, `kWheelTrackMm`) sem a minha aprovação. Por fim, `python t.py calib-ver` e anote no `RESULTADOS.md` a combinação de valores com que o robô terminou o dia.
+3. Confirme que `teste-v3/resultados/` tem: `RESULTADOS.md`, `log_robo.txt`, `ponte.out`, `telemetria.jsonl`, `comandos.txt`, os `<ID>_t<N>.log`, `build.log`, `flash.log`, `boot.log`, `versao-firmware.txt` e, se houve mudança de código ou de `calib`, o `MUDANCAS.md`. Compacte a pasta em `teste-v3/resultados-AAAA-MM-DD.zip` e me diga o caminho.
 4. Encerre a ponte.
 
 Comece pela Etapa 0 e me diga, em poucas linhas, o que encontrou nesta máquina e o que precisa que eu instale ou confirme antes da Etapa 1.

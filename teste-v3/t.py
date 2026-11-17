@@ -15,12 +15,28 @@ A ponte tem de estar aberta em OUTRA janela (python ponte.py). Depois:
     python t.py responder C4 encostou=n virado_para=B2
                                 registra as respostas do operador a um teste rodado com --auto
 
+Calibração sem regravar o firmware (comando `calib` do robô, gravado na memória dele):
+
+    python t.py calib-ver       mostra os valores em uso no robô
+    python t.py medidas         pergunta as medidas do robô (paquímetro) e grava no robô
+    python t.py calib-giro      o robô mede sozinho a escala do giroscópio (4 curvas ao lado de uma
+                                parede) e propõe o valor
+    python t.py calib "parada_frente=65 autoajuste_freio=1"
+                                grava um ou mais valores (nome=valor); "padrao" volta aos de fábrica
+
+Corrida em qualquer labirinto (oficial ou montado), sem sequência esperada:
+
+    python t.py corrida OF-4x4-A "4x4 oficial, layout A, largada D4 pela esquerda"
+                                manda "largar", espera o fim, salva o log em resultados/<rotulo>_t<N>.log,
+                                imprime as métricas e acrescenta uma linha em resultados/corridas.csv
+
 Com --auto o teste roda sem perguntar nada (para um programa conduzir): o preparo é só impresso,
 e as perguntas ao operador saem como "PERGUNTAR:" para quem conduz responder com "nota".
 
 Durante um teste, Ctrl+C manda "parar" ao robô na hora.
 """
 
+import io
 import json
 import re
 import subprocess
@@ -1043,6 +1059,381 @@ def gate():
     return result
 
 
+# ----------------------------------------------------------------------------------------------
+# Calibração pelo comando `calib` do robô (16/11)
+# ----------------------------------------------------------------------------------------------
+# (nome no robô, pergunta ao operador, mínimo, máximo)
+MEASURES = [
+    ("eixo_ate_frente", "Do MEIO DO EIXO das rodas até o ponto MAIS À FRENTE do robô (chassi ou sensor)",
+     60, 115),
+    ("largura_frente", "LARGURA do robô na parte da frente, no ponto mais largo, contando os suportes "
+                       "dos sensores laterais", 80, 130),
+    ("eixo_ate_tof_frente", "Do MEIO DO EIXO das rodas até a FACE (janela) do sensor de distância da "
+                            "frente", 60, 115),
+    ("largura_com_rodas", "LARGURA TOTAL com as rodas: de fora de um pneu até fora do outro", 80, 150),
+    ("tof_lado_ao_centro", "Da FACE de um sensor lateral até a LINHA DO MEIO do robô (metade da "
+                           "distância entre as faces dos dois sensores laterais)", 20, 75),
+    ("tof_lado_a_frente_do_eixo", "Quanto os sensores laterais ficam À FRENTE do eixo das rodas", 0, 115),
+]
+
+
+def calib_send(arguments, wait=8.0):
+    """Manda `calib ...` e devolve as linhas "calib:" que o robô respondeu."""
+    require_bridge()
+    mark(f"CALIB | {time.strftime('%H:%M:%S')} | {arguments or '(ver)'}")
+    offset = log_size()
+    send(("calib " + arguments).strip())
+    lines, _ = wait_for(offset, r"calib: (fim:|RECUSADO)", wait)
+    return [line for line in lines if line.startswith("calib: ")]
+
+
+def calib_show(lines):
+    for line in lines:
+        print("   ", line)
+    if not lines:
+        print("O robô não respondeu ao `calib`. O firmware gravado é o de 16/11 ou mais novo, com "
+              "RATO_LOG_RETA?")
+        return False
+    if any("RECUSADO" in line for line in lines):
+        print("\nO robô RECUSOU: nada mudou. Veja o nome e a faixa na linha acima.")
+        return False
+    return True
+
+
+def calib_note(text):
+    with open(REPORT, "a", encoding="utf-8", newline="\n") as out:
+        out.write(f"- calibração ({time.strftime('%d/%m %H:%M:%S')}): {text}\n\n")
+
+
+def calib_values(lines):
+    """{nome: valor} das linhas "calib: nome = valor ..."."""
+    values = {}
+    for match in grep(lines, r"calib: (\w+) = (-?[\d.]+) "):
+        values[match.group(1)] = float(match.group(2))
+    return values
+
+
+def ask_measures():
+    """`medidas`: pergunta cada medida pelo nome, confere a faixa e grava no robô."""
+    current = calib_values(calib_send(""))
+    print("Medidas do robô, em milímetros, com PAQUÍMETRO. ENTER sem número = não mudar.")
+    print("O 'meio do eixo' é o ponto no meio entre as duas rodas, na linha dos eixos dos motores.\n")
+    chosen = []
+    for name, text, low, high in MEASURES:
+        now = current.get(name)
+        shown = "não medido" if not now else f"{now:g} mm"
+        while True:
+            answer = input(f"  {text}\n    ({name}; valor no robô: {shown}; aceito {low} a {high}): ").strip()
+            if not answer:
+                break
+            try:
+                value = float(answer.replace(",", "."))
+            except ValueError:
+                print("    Digite só o número, em mm.")
+                continue
+            if not low <= value <= high:
+                print(f"    {value:g} mm está fora do esperado ({low} a {high}). Confira a medida.")
+                continue
+            chosen.append(f"{name}={value:g}")
+            break
+    if not chosen:
+        print("Nada a gravar.")
+        return
+    command = " ".join(chosen)
+    print(f"\nGravando no robô: calib {command}")
+    if calib_show(calib_send(command)):
+        calib_note(f"medidas gravadas no robô: {command}")
+        print("\nGravado. As medidas valem também depois de reiniciar o robô.")
+
+
+def heading_from_wall(start_mm, end_mm, travelled_mm, left_wall):
+    """Ângulo do robô em relação à parede (graus, positivo = virado para a esquerda), pela
+    distância lateral no começo e no fim de uma reta."""
+    import math
+    change = end_mm - start_mm  # afastou-se da parede: positivo
+    angle = math.degrees(math.atan2(change, travelled_mm))
+    return -angle if left_wall else angle  # afastar-se da parede ESQUERDA é virar à direita
+
+
+def gyro_scale_from_runs(before_deg, after_deg, gyro_total_deg, scale_in_use, turns=4, right=True):
+    """Escala nova do giroscópio. `before`/`after`: ângulo em relação à parede antes e depois das
+    curvas; `gyro_total_deg`: o que o giroscópio somou nas curvas (com sinal: direita negativo)."""
+    real_total = (-90.0 if right else 90.0) * turns + (after_deg - before_deg)
+    if abs(gyro_total_deg) < 1.0:
+        return None
+    return scale_in_use * real_total / gyro_total_deg
+
+
+def straight_along_wall(label):
+    """Lê os ToF parados, anda uma célula e devolve (lado, início, fim, andado) pela parede mais
+    perto. None se não houver parede lateral legível."""
+    offset = log_size()
+    send("tof")
+    lines, found = wait_for(offset, r"tof 5/5: ", 15)
+    means = tof_means(lines) if found else None
+    offset = log_size()
+    send("andar")
+    lines, found = wait_for(offset, MANEUVER, 15)
+    end = grep(lines, r"reta: andar 1 celula (-?\d+) mm: enc E=(-?\d+) D=(-?\d+) \((-?[\d.]+) / (-?[\d.]+) mm\)"
+                      r".* lat E=(-?\d+) D=(-?\d+) (.*)$")
+    if means is None or not found or not end or not end[-1].group(8).strip().endswith("ok"):
+        print(f"  !! {label}: a reta ou a leitura dos sensores falhou.")
+        return None
+    travelled = 0.5 * (float(end[-1].group(4)) + float(end[-1].group(5)))
+    left_start, right_start = means[0], means[2]
+    left_end, right_end = int(end[-1].group(6)), int(end[-1].group(7))
+    for left_wall, start, finish in ((True, left_start, left_end), (False, right_start, right_end)):
+        if 15 <= start <= 80 and 15 <= finish <= 80:
+            print(f"  {label}: parede à {'esquerda' if left_wall else 'direita'}, de {start:.0f} para "
+                  f"{finish} mm em {travelled:.0f} mm")
+            return left_wall, start, finish, travelled
+    print(f"  !! {label}: nenhuma parede lateral entre 15 e 80 mm no começo e no fim (E {left_start:.0f}->"
+          f"{left_end}, D {right_start:.0f}->{right_end}).")
+    return None
+
+
+def calibrate_gyro(auto):
+    """`calib-giro`: mede a escala do giroscópio sem régua. O robô anda ao lado de uma parede, faz
+    4 curvas à direita (uma volta) e anda de novo ao lado da mesma parede. A parede diz quanto ele
+    girou DE VERDADE; o log diz quanto o giroscópio achou."""
+    require_bridge()
+    values = calib_values(calib_send(""))
+    if "escala_giro" not in values:
+        sys.exit("O robô não respondeu ao `calib`: não sei a escala em uso.")
+    scale = values["escala_giro"]
+    print("=" * 78)
+    print("CALIBRAÇÃO DA ESCALA DO GIROSCÓPIO")
+    print("\nPREPARO (faça nesta ordem):")
+    print("  1. Um corredor RETO da pista com pelo menos 3 células e parede contínua de UM dos lados")
+    print("     (por exemplo a linha de baixo do labirinto, ao lado da borda).")
+    print("  2. Robô no CHÃO, no MEIO da primeira célula, alinhado com o corredor, com 2 células")
+    print("     livres à frente.")
+    print("  3. O robô anda 1 célula, faz 4 curvas à direita no lugar (uma volta) e anda mais 1 célula.")
+    print("     Leva ~20 s. Não toque nele.")
+    print(f"\nEscala em uso: {scale:.3f}")
+    if not auto and input("\nQuando estiver pronto, digite ok e ENTER: ").strip().lower() != "ok":
+        print("Não executado.")
+        return
+    mark(f"CALIB-GIRO | {time.strftime('%H:%M:%S')} | escala em uso {scale:.3f}")
+    start = log_size()
+    try:
+        first = straight_along_wall("reta 1")
+        if first is None:
+            return
+        turns_offset = log_size()
+        for index in range(4):
+            offset = log_size()
+            send("virar d")
+            lines, found = wait_for(offset, MANEUVER, 25)
+            if not found or not grep(lines, r"teste: manobra .*: ok"):
+                print(f"  !! a curva {index + 1} falhou; calibração interrompida.")
+                return
+            time.sleep(0.6)
+        turn_lines = read_from(turns_offset)
+        second = straight_along_wall("reta 2")
+        if second is None:
+            return
+    except KeyboardInterrupt:
+        send("parar")
+        print("\n  !! Ctrl+C: mandei 'parar' ao robô.")
+        return
+    if first[0] != second[0]:
+        print("  !! a parede usada na 2ª reta não é a do mesmo lado da 1ª. Repita num corredor com "
+              "parede contínua.")
+        return
+    before = heading_from_wall(first[1], first[2], first[3], first[0])
+    after = heading_from_wall(second[1], second[2], second[3], second[0])
+    finals = [float(m.group(1)) for m in grep(turn_lines, r"curva: alvo=90 parou=-?[\d.]+ final=(-?[\d.]+) ")]
+    drifts = [float(m.group(1)) for m in grep(turn_lines, r"reta: .* giro=(-?[\d.]+) ")]
+    gyro_total = sum(finals) + sum(drifts)
+    new_scale = gyro_scale_from_runs(before, after, gyro_total, scale)
+    (RESULTS / f"calib-giro_{time.strftime('%H%M%S')}.log").write_text(
+        "\n".join(read_from(start)) + "\n", encoding="utf-8")
+    print(f"\n  ângulo em relação à parede: antes {before:+.1f}, depois {after:+.1f} graus")
+    print(f"  o giroscópio somou {gyro_total:+.1f} graus em {len(finals)} curvas "
+          f"(giro real: {-360.0 + after - before:+.1f})")
+    if new_scale is None or len(finals) != 4 or not 0.90 <= new_scale <= 1.20:
+        print("  !! resultado fora do esperado; não proponho valor. Repita com o robô bem alinhado.")
+        return
+    error = abs(after - before)
+    print(f"\nESCALA MEDIDA: {new_scale:.3f} (em uso: {scale:.3f}). Erro da volta com a escala em uso: "
+          f"{error:.1f} graus.")
+    calib_note(f"calib-giro: antes {before:+.1f}, depois {after:+.1f} graus em relação à parede; "
+               f"giroscópio {gyro_total:+.1f}; escala em uso {scale:.3f}, medida {new_scale:.3f}")
+    if error < 1.5:
+        print("A escala em uso já está boa (erro menor que 1,5 grau na volta): não mude.")
+        return
+    command = f"escala_giro={new_scale:.3f}"
+    if auto:
+        print(f"PROPOSTA: python t.py calib \"{command}\"   (repita o calib-giro depois para conferir)")
+        return
+    if input(f"Gravar no robô 'calib {command}'? [s/n]: ").strip().lower() == "s":
+        if calib_show(calib_send(command)):
+            calib_note(f"gravado no robô: {command}")
+            print("Gravado. Rode 'python t.py calib-giro' de novo para conferir (erro esperado < 1,5 grau).")
+
+
+# ----------------------------------------------------------------------------------------------
+# Corrida livre (18/11): qualquer labirinto, só coleta e métricas
+# ----------------------------------------------------------------------------------------------
+RAW_LINE = re.compile(r"^[IWE] \((\d+)\) (.*)$")
+
+
+def raw_from(offset):
+    """Linhas do robô depois de `offset`, com o carimbo do robô em ms: [(ms, texto)]."""
+    if not LOG.exists():
+        return []
+    with open(LOG, "rb") as handle:
+        handle.seek(offset)
+        data = handle.read().decode("utf-8", errors="replace")
+    out = []
+    for line in data.splitlines():
+        match = RAW_LINE.match(line.rstrip("\r"))
+        if match:
+            out.append((int(match.group(1)), match.group(2)))
+    return out
+
+
+def run_metrics(raw):
+    """Métricas de uma corrida, para comparar dias, pistas e valores do `calib`."""
+    def first(pattern):
+        regex = re.compile(pattern)
+        for stamp, text in raw:
+            found = regex.search(text)
+            if found:
+                return stamp, found
+        return None, None
+
+    metrics = {}
+    start_ms, start = first(r"main: largada \d+: labirinto (\d+)x(\d+), via 3 (\w+)")
+    end_ms, end = first(r"main: fim da corrida \d+: (\w+), (\d+) passos, (\d+) celulas, posicao \((l\d+,c\d+)\) "
+                        r"rumo (\w), passagens para fora=(\d+)")
+    if start:
+        metrics["labirinto"] = f"{start.group(1)}x{start.group(2)}"
+        metrics["via3"] = start.group(3).lower()
+    if end:
+        metrics.update(resultado=end.group(1), passos=int(end.group(2)), celulas=int(end.group(3)),
+                       posicao_final=end.group(4), fora=int(end.group(6)))
+    steps = [stamp for stamp, text in raw if text.startswith("nav: passo ")]
+    if steps and start_ms is not None:
+        metrics["tempo_s"] = round((steps[-1] - start_ms) / 1000.0, 1)
+        if len(steps) > 1:
+            metrics["s_por_passo"] = round((steps[-1] - steps[0]) / 1000.0 / (len(steps) - 1), 2)
+    texts = [text for _, text in raw]
+    metrics["curvas"] = sum(1 for text in texts if text.startswith("curva: alvo="))
+    metrics["ajustes_antes_da_curva"] = sum(1 for text in texts if text.startswith("reta: ajuste antes da curva"))
+    stops = [int(m.group(1)) for m in (re.search(r"frontal (-?\d+) mm na parada", t) for t in texts) if m]
+    if stops:
+        metrics["frontal_na_parada_min"] = min(stops)
+        metrics["frontal_na_parada_abaixo_40"] = sum(1 for value in stops if value < 40)
+    finals = [abs(float(m.group(1))) for m in (re.search(r"curva: alvo=90 parou=-?[\d.]+ final=(-?[\d.]+)", t)
+                                               for t in texts) if m]
+    if finals:
+        metrics["curva_final_min"] = round(min(finals), 1)
+        metrics["curva_final_max"] = round(max(finals), 1)
+    gyros = [abs(float(m.group(1))) for m in (re.search(r"^reta: (?:andar|re de) .* giro=(-?[\d.]+) ", t)
+                                              for t in texts) if m]
+    if gyros:
+        metrics["reta_giro_max"] = round(max(gyros), 1)
+    sides = []
+    for text in texts:
+        found = re.search(r"tof: depois da curva: E=(-?\d+) .*D=(-?\d+)", text)
+        if found:
+            sides += [int(v) for v in found.groups() if 0 <= int(v) < 9999]
+    if sides:
+        metrics["lateral_pos_curva_min"] = min(sides)
+    metrics["rumo_perdido"] = sum(1 for text in texts if "rumo perdido" in text)
+    metrics["curva_travada"] = sum(1 for text in texts if "curva travada" in text)
+    metrics["tentativa2"] = sum(1 for text in texts if "tentativa 2 do arco" in text)
+    metrics["paradas_pela_frente"] = sum(1 for text in texts if re.search(r"parou antes=[1-9]\d* mm", text))
+    metrics["mapa_esquecido"] = sum(1 for text in texts if "(mapa esquecido)" in text)
+    metrics["espera_lado"] = sum(1 for text in texts if re.search(r"acao=(espera|assumiu parede)", text))
+    metrics["tof_parou"] = sum(1 for text in texts if re.search(r"tof: \w+ PAROU", text))
+    health = [m for m in (re.search(r"saude 2/2: i2c erros tof E=(\d+) F=(\d+) D=(\d+) .*tof quedas E=(\d+) F=(\d+) "
+                                    r"D=(\d+)", t) for t in texts) if m]
+    if health:
+        metrics["i2c_erros_tof"] = sum(int(v) for v in health[-1].groups()[:3])
+        metrics["quedas_tof"] = sum(int(v) for v in health[-1].groups()[3:])
+    calib = [t for t in texts if t.startswith("main: calib em uso:")]
+    if calib:
+        metrics["calib"] = calib[-1].replace("main: calib em uso: ", "")
+    return metrics
+
+
+def free_run(label, description, auto):
+    """`corrida`: larga, espera o fim e guarda o log e as métricas. Não confere caminho esperado."""
+    require_bridge()
+    if not re.fullmatch(r"[A-Za-z0-9_.-]{1,40}", label):
+        sys.exit("Rótulo inválido: use letras, números, ponto, hífen ou sublinhado (até 40), ex.: OF-4x4-A.")
+    attempt = len(done().get(label, [])) + 1
+    print("=" * 78)
+    print(f"CORRIDA {label} (tentativa {attempt}): {description}")
+    print("O robô vai correr sozinho até o canto oposto (até ~2 min). Ctrl+C manda parar.")
+    if not auto and input("\nQuando estiver pronto, digite ok e ENTER (ou 'pular'): ").strip().lower() != "ok":
+        print("Não executado.")
+        return None
+    boot_before = state().get("boot", "")
+    mark(f"CORRIDA {label} tentativa {attempt} | {time.strftime('%H:%M:%S')} | {description}")
+    start = log_size()
+    finished = True
+    try:
+        send("largar")
+        print("  -> largar; esperando o robô (até 180 s)...")
+        _, finished = wait_for(start, RUN_END, 180, settle=2.0)
+    except KeyboardInterrupt:
+        send("parar")
+        finished = False
+        print("\n  !! Ctrl+C: mandei 'parar' ao robô.")
+        time.sleep(1.5)
+    lines = read_from(start)
+    log_name = f"{label}_t{attempt}.log"
+    (RESULTS / log_name).write_text("\n".join(lines) + "\n", encoding="utf-8")
+    metrics = run_metrics(raw_from(start))
+    rebooted = bool(boot_before and state().get("boot") and state().get("boot") != boot_before)
+    print("\nMÉTRICAS:")
+    for key, value in metrics.items():
+        print(f"  {key}: {value}")
+    if not finished:
+        print("  !! a corrida não terminou no log (tempo esgotado ou interrompida)")
+    if rebooted:
+        print("  !! O ROBÔ REINICIOU SOZINHO durante a corrida")
+    result = metrics.get("resultado", "SEM FIM")
+    verdict_text = PASSOU if result == "SUCESSO" and finished and not rebooted else FALHOU
+    history = done()
+    history.setdefault(label, []).append({"hora": time.strftime("%H:%M:%S"), "tentativa": attempt,
+                                          "veredito": verdict_text, "automatico": verdict_text})
+    DONE.write_text(json.dumps(history, indent=1), encoding="utf-8")
+    with open(REPORT, "a", encoding="utf-8", newline="\n") as out:
+        out.write(f"## {label} (tentativa {attempt}) — corrida — {verdict_text} — {time.strftime('%H:%M:%S')}\n\n")
+        out.write(f"{description}. Log: {log_name}.\n\n")
+        for key, value in metrics.items():
+            out.write(f"- {key}: {value}\n")
+        if rebooted:
+            out.write("- O ROBÔ REINICIOU SOZINHO durante a corrida\n")
+        out.write("\n")
+    columns = ["data", "hora", "rotulo", "tentativa", "descricao", "resultado", "labirinto", "via3", "passos",
+               "celulas", "tempo_s", "s_por_passo", "curvas", "ajustes_antes_da_curva", "frontal_na_parada_min",
+               "frontal_na_parada_abaixo_40", "curva_final_min", "curva_final_max", "reta_giro_max",
+               "lateral_pos_curva_min", "rumo_perdido", "curva_travada", "tentativa2", "paradas_pela_frente",
+               "mapa_esquecido", "espera_lado", "tof_parou", "i2c_erros_tof", "quedas_tof", "fora",
+               "posicao_final", "calib", "log"]
+    row = dict(metrics, data=time.strftime("%Y-%m-%d"), hora=time.strftime("%H:%M:%S"), rotulo=label,
+               tentativa=attempt, descricao=description, log=log_name)
+    csv_path = RESULTS / "corridas.csv"
+    new = not csv_path.exists()
+    with open(csv_path, "a", encoding="utf-8", newline="") as out:
+        import csv
+        writer = csv.DictWriter(out, fieldnames=columns, extrasaction="ignore", delimiter=";")
+        if new:
+            writer.writeheader()
+        writer.writerow(row)
+    print(f"\nRESULTADO DA CORRIDA {label}: {verdict_text}   (log: resultados/{log_name})")
+    if "FALHA" in result:
+        print("A corrida terminou em FALHA: o robô está em Erro e NÃO aceita comandos de motor.")
+        print("Antes de tirá-lo do lugar:  python t.py cmd \"tof\"   Depois:  python t.py reiniciar")
+    return verdict_text
+
+
 def list_tests():
     history = done()
     for block, title in BLOCKS.items():
@@ -1059,7 +1450,7 @@ def list_tests():
 
 def main():
     for stream in (sys.stdout, sys.stderr):
-        if hasattr(stream, "reconfigure"):
+        if isinstance(stream, io.TextIOWrapper):
             stream.reconfigure(encoding="utf-8", errors="replace")
     args = [arg for arg in sys.argv[1:] if arg != "--auto"]
     auto = "--auto" in sys.argv
@@ -1091,6 +1482,22 @@ def main():
         with open(REPORT, "a", encoding="utf-8", newline="\n") as out:
             out.write(f"- nota sobre o {args[1]} ({time.strftime('%H:%M:%S')}): {args[2]}\n\n")
         print("Anotado.")
+        return
+    if name == "corrida" and len(args) >= 2:
+        result = free_run(args[1], args[2] if len(args) > 2 else "", auto)
+        sys.exit(0 if result == PASSOU else 1)
+    if name == "calib-ver":
+        calib_show(calib_send(""))
+        return
+    if name == "calib" and len(args) >= 2:
+        if calib_show(calib_send(" ".join(args[1:]))):
+            calib_note(f"gravado no robô: {' '.join(args[1:])}")
+        return
+    if name == "medidas":
+        ask_measures()
+        return
+    if name == "calib-giro":
+        calibrate_gyro(auto)
         return
     if name in ("preparo", "responder") and len(args) >= 2:
         test = BY_ID.get(args[1].upper())

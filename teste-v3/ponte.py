@@ -17,6 +17,7 @@ Para fechar: Ctrl+C.
 """
 
 import argparse
+import io
 import json
 import os
 import sys
@@ -132,7 +133,7 @@ def main():
 
     RESULTS.mkdir(exist_ok=True)
     for stream in (sys.stdout, sys.stderr):
-        if hasattr(stream, "reconfigure"):
+        if isinstance(stream, io.TextIOWrapper):
             stream.reconfigure(encoding="utf-8", errors="replace", line_buffering=True)
     bridge = find_bridge(args.bridge)
     sys.path.insert(0, str(bridge))
