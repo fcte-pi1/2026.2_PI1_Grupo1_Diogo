@@ -132,6 +132,23 @@ TEST(Maneuver, ArcoNaoAvancaParaAParedeDaCelulaSeguinte) {
     }
 }
 
+// Abaixo do alcance mínimo (16/11, C4/C5): com a parede a 36-42 mm, o frontal leu 0, 22 e 23 mm
+// na parada. A leitura vale como kArcStartFrontMinReliableMm: o recuo não passa de alvo - 35 mm, e
+// a parede continua sendo desta célula.
+TEST(Maneuver, ArcoComLeituraAbaixoDoAlcanceMinimoNaoRecuaDemais) {
+    const ArcStartConfig& config = controller::robot::kArcStart;
+    const double maxSetback =
+        controller::robot::kArcStartFrontMm - controller::robot::kArcStartFrontMinReliableMm;
+    for (const double frontMm : {0.0, 22.0, 23.0}) {
+        const ArcStart start = arcStart(true, frontMm, config);
+        EXPECT_TRUE(start.byFrontWall) << frontMm;
+        EXPECT_DOUBLE_EQ(start.setbackMm, maxSetback) << frontMm;
+    }
+    // Acima do limite, nada muda.
+    EXPECT_DOUBLE_EQ(arcStart(true, 46.0, config).setbackMm,
+                     controller::robot::kArcStartFrontMm - 46.0);
+}
+
 TEST(Maneuver, ArcoSemLeituraValidaUsaORecuoFixo) {
     const ArcStartConfig& config = controller::robot::kArcStart;
     const ArcStart start = arcStart(false, -1.0, config);

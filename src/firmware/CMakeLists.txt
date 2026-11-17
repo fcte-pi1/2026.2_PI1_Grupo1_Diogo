@@ -66,6 +66,7 @@ add_library(firmware_logic STATIC
     src/telemetry/TelemetryBuffer.cpp
     src/telemetry/TelemetryEmitter.cpp
     src/domain/Maneuver.cpp
+    src/domain/Calibration.cpp
     src/domain/ImuIdentity.cpp
     src/domain/BatteryMonitor.cpp
     src/domain/SensorHealthMonitor.cpp

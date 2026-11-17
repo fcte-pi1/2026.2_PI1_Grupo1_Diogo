@@ -117,6 +117,8 @@ esgotado`, `giroscopio sem leitura`, `parado pelo operador`.
 | `motor e\|d\|ed <volts> <ms>` | Roda esquerda, direita ou as duas com tensão fixa (negativa = para trás), até 7,5 V e 3000 ms: pulsos a cada 100 ms, velocidade, corrente e bateria. **Robô suspenso** |
 | `rodas` | Varredura das duas rodas nos dois sentidos (~15 s): tensão em que cada uma parte, velocidade e corrente a 3 V e a 6 V, sentido do encoder e se a outra roda contou. Termina em `rodas: resumo: ... -> OK` ou `-> PROBLEMA`, com a lista na linha `rodas: problemas: ...` logo acima. **Robô suspenso** |
 | `enc [s]` | Motores soltos por `s` segundos (padrão 10): os pulsos de cada encoder, para girar as rodas à mão. Uma volta para a frente = +285 |
+| `calib` | **Calibração sem regravar** (16/11): mostra os valores em uso, um por linha (`calib: nome = valor unidade (faixa) padrao/ALTERADO`). Ver a seção 6 |
+| `calib nome=valor ...` | Troca um ou mais valores e grava na memória do robô (vale depois de reiniciar). Fora da faixa ou nome errado: `calib: RECUSADO, nada mudou`. `calib padrao` volta aos de fábrica |
 
 Depois de um Erro (corrida que falhou, auto-teste reprovado), os comandos de leitura (`tof`,
 `tofmon`, `tofrec`, `giro`, `diag`, `saude`, `enc`) continuam valendo: dá para ver onde o robô
@@ -223,3 +225,34 @@ Quatro linhas (roda E e D, para frente e para trás) e o resumo:
 - O resumo compara as quatro: velocidades a 6 V a menos de 25% uma da outra, partida abaixo de
   3,5 V e a menos de 1,0 V uma da outra. **São referências iniciais, não calibradas**: valem para
   apontar uma roda muito diferente da outra.
+
+## 6. Calibração pelo BLE, sem regravar (16/11)
+
+O que depende do robô montado e do piso fica na memória do robô (NVS) e é trocado pelo comando
+`calib`. Sem nenhum `calib`, valem os padrões, que são os valores de 16/11. No PC:
+`python t.py calib-ver`, `python t.py medidas`, `python t.py calib-giro` e
+`python t.py calib "nome=valor ..."`.
+
+| Nome no `calib` | O que é | Padrão | Faixa aceita |
+|:--|:--|:--|:--|
+| `eixo_ate_frente` | Do meio do eixo das rodas até o ponto mais à frente do robô (M1) | 87 mm | 60 a 115 |
+| `largura_frente` | Largura do robô na frente, com tudo que sobressai (M2, inteira) | 100 mm | 80 a 130 |
+| `eixo_ate_tof_frente` | Do meio do eixo até a face do ToF frontal (M3) | 87 mm | 60 a 115 |
+| `largura_com_rodas` | Largura total com as rodas (M6). Só registro | 0 (não medido) | 0 a 150 |
+| `tof_lado_ao_centro` | Da face de um ToF lateral até a linha do meio do robô (M9). Só registro | 0 | 0 a 75 |
+| `tof_lado_a_frente_do_eixo` | Quanto os ToF laterais ficam à frente do eixo (M9). Só registro | 0 | 0 a 115 |
+| `escala_giro` | Multiplica o giro Z. O chip do robô (WHO_AM_I=0x72, clone) lê ~8% a menos | 1,08 | 0,90 a 1,20 |
+| `freio_arco` | A curva em arco freia estes graus antes dos 90 | 7,5 | 0 a 20 |
+| `freio_pivo` | O mesmo no giro no lugar | 13,5 | 0 a 30 |
+| `autoajuste_freio` | 1 = o robô mede quanto gira depois de frear em cada curva e ajusta o freio da seguinte (entre 2 e 15 graus no arco). Recomeça do `freio_*` a cada boot | 0 | 0 ou 1 |
+| `parada_frente` | A reta para quando o ToF frontal lê menos que isto. Com 35 o nariz para a ~1 cm da parede e a curva precisa do "ajuste antes da curva"; o valor calculado para o nariz parar a ~4 cm é 65 | 35 mm | 20 a 90 |
+| `centralizar` | 1 = corrige a reta pelos ToF laterais (RF-44, ganhos não calibrados) | 0 | 0 ou 1 |
+| `ganho_rumo` | mm de correção entre as rodas por grau de rumo medido pelo giroscópio na reta (1,5 = o equivalente geométrico). 0 = só detecta rumo perdido | 0 | 0 a 3 |
+
+As três medidas do corpo decidem onde o arco começa (a linha `calib: fim: arco comeca com o frontal
+a X mm` mostra o resultado). Linhas novas no log:
+
+- `main: calib em uso: giro x..., freio arco ... pivo ... graus (autoajuste ...), ganho de rumo ...`:
+  em cada largada, logo depois de `parametros`.
+- `curva: freio: esta curva freou X graus antes do alvo e girou Y depois; aprendeu (proxima: arco A,
+  pivo P)`: só com o autoajuste ligado, depois de cada curva.

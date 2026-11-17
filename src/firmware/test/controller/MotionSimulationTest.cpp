@@ -149,6 +149,8 @@ TEST(PivotMoveSimulation, ArcTurnKeepsBothWheelsGoingForward) {
             rate = (left.speed - right.speed) / domain::robot::kWheelTrackMm * kRadToDeg * 0.9;
             trueDeg += rate * kDt;
         }
+        // Depois do freio o robô ainda gira (inércia medida no chão).
+        trueDeg += std::copysign(kArcBrakeCoastDeg, trueDeg);
         ASSERT_TRUE(out.done);
         EXPECT_NEAR(std::fabs(trueDeg), 90.0, 4.0);
         const double innerMm = direction == PivotMove::Direction::Right ? right.position : left.position;

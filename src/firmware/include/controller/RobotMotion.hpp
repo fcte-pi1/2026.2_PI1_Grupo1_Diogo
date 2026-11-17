@@ -47,10 +47,12 @@ inline constexpr StraightMoveConfig kStraightMove{
     {200.0, 600.0}, kWheelLoop, 0.5, 1.5, 15.0, 0.3, 10.0};
 
 // Curva no lugar: 300 °/s de cruzeiro e 1500 °/s² (~0,5 s numa curva de 90°; nas rodas, ~230 mm/s).
-// Termina 2° antes do alvo (o robô ainda gira um pouco com o freio). Se o perfil acabar sem o
-// giroscópio chegar, continua a 60 °/s por até 45° a mais.
+// Termina 13,5° antes do alvo (medido em 16/11: com 2° freava aos 88,4° e parava em ~99°; com
+// 10,5° parou em 93,8° à direita e 90,3° à esquerda, na escala antiga do giroscópio; 13,5 já conta
+// a correção kGyroScaleCorrection). Se o perfil acabar sem o giroscópio chegar, continua a 60 °/s
+// por até 45° a mais.
 inline constexpr PivotMoveConfig kPivotMove{
-    {300.0, 1500.0}, kWheelLoop, domain::robot::kWheelTrackMm, 0.5, 2.0, 60.0, 45.0};
+    {300.0, 1500.0}, kWheelLoop, domain::robot::kWheelTrackMm, 0.5, 13.5, 60.0, 45.0};
 
 // Curva de 90° em ARCO (09/11). Girando no lugar, o robô (rodas na traseira, frente longa) batia
 // no canto A4 da pista em 7 de 7 corridas: travava a 68-75° ou saía colado na parede. Agora:
@@ -102,9 +104,13 @@ inline constexpr double kArcFrontWallMaxMm = 150.0;
 // 09/11 (C3j, firmware anterior) o arco começou a ~37 mm da parede e travou a 3 graus.
 inline constexpr double kArcStartToleranceMm = 5.0;
 inline constexpr double kArcStartMaxCorrectionMm = 40.0;
-inline constexpr domain::ArcStartConfig kArcStart{kArcStartFrontMm, kArcFrontWallMaxMm,
-                                                  kArcStartSetbackMm, kArcStartToleranceMm,
-                                                  kArcStartMaxCorrectionMm};
+// Na parada, com a parede a 36-42 mm, o frontal leu 0, 22 e 23 mm em 4 de 6 curvas (16/11, C4/C5):
+// abaixo do alcance mínimo do VL53L1X. Uma leitura abaixo de 35 mm vale como 35 (o recuo fica no
+// máximo 70 mm), e a segunda leitura, a ~10 cm, acerta o resto.
+inline constexpr double kArcStartFrontMinReliableMm = 35.0;
+inline constexpr domain::ArcStartConfig kArcStart{kArcStartFrontMm,         kArcFrontWallMaxMm,
+                                                  kArcStartSetbackMm,       kArcStartToleranceMm,
+                                                  kArcStartMaxCorrectionMm, kArcStartFrontMinReliableMm};
 
 // Parada pela parede da frente (09/11). As rodas ficam na traseira e a frente é longa: com o eixo no
 // centro de uma célula com parede à frente, a frente encosta ou empurra a parede (o robô bateu em A2
@@ -122,6 +128,9 @@ inline constexpr double kFrontStopMm = 35.0;
 // virava 40-180 graus sem perceber, confundia a parede lateral com a da frente e chegou a declarar
 // sucesso no lugar errado.
 inline constexpr double kMaxHeadingErrorDeg = 30.0;
+// Rumo segurado pelo giroscópio na reta (`calib ganho_rumo`, 16/11): a correção, em mm de diferença
+// entre as rodas, nunca passa disto (1 grau de rumo equivale a ~1,5 mm de diferença entre as rodas).
+inline constexpr double kHeadingHoldMaxMm = 6.0;
 
 // Desvio do giroscópio em repouso (12/11). O MPU-6050 sai de fábrica com até ±20 graus/s de desvio
 // de zero, e ele muda com a temperatura: em 11/11 leu de -0,1 a +5,0 graus/s parado, e 5 graus/s
@@ -153,7 +162,15 @@ inline constexpr double kArcUndoTimeoutS = 1.5;
 // Giroscópio sem resposta: tantas leituras seguidas perdidas (2 ms cada) encerram o movimento com
 // falha. Antes, a leitura perdida valia 0 grau/s e a curva seguia girando sem ver.
 inline constexpr int kMaxGyroMisses = 15;
+// Correção da escala do giroscópio (multiplica o giro Z, já sem o desvio). Medida em 16/11 no chão:
+// 4 arcos seguidos somaram 360,9° no giroscópio e o robô girou ~390° de verdade (passou "1 hora"
+// num relógio). O chip responde WHO_AM_I=0x72 (o MPU-6050 original responde 0x68): provável clone,
+// com sensibilidade diferente da do manual. Refinar repetindo os 4 arcos.
+inline constexpr double kGyroScaleCorrection = 1.08;
+// Arco: termina 7,5° antes do alvo. Medido em 16/11 no chão (B5d/B5e, 3 vezes de cada lado): com 2°
+// ele freava aos ~88,2° e parava em 94,7° (direita) e 95,2° (esquerda), ~6,5-7° de inércia na
+// escala antiga do giroscópio (~7,3° com a correção de escala acima).
 inline constexpr PivotMoveConfig kArcTurn{{120.0, 600.0}, kWheelLoop, domain::robot::kWheelTrackMm,
-                                          0.5, 2.0, 40.0, 30.0, kArcSetbackMm};
+                                          0.5, 7.5, 40.0, 30.0, kArcSetbackMm};
 
 }  // namespace micromouse::controller::robot

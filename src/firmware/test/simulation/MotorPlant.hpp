@@ -83,6 +83,11 @@ inline StraightResult simulateStraight(MotorWheel left, MotorWheel right, double
     return result;
 }
 
+// Quanto o robô ainda gira depois que o controle do pivô manda frear (graus), medido no chão.
+inline constexpr double kBrakeCoastDeg = 10.7;
+// O mesmo na curva em arco (kArcTurn), medido em 16/11 (B5d/B5e, 3 vezes de cada lado): ~6,5-7°.
+inline constexpr double kArcBrakeCoastDeg = 6.8;
+
 struct PivotResult {
     double trueDeg{0.0};   // quanto o robô girou de verdade
     double gyroDeg{0.0};   // quanto o giroscópio somou
@@ -118,6 +123,12 @@ inline PivotResult simulatePivot(MotorWheel left, MotorWheel right, double targe
         if (out.done) {
             result.done = true;
             result.seconds = t;
+            // Depois do freio o robô ainda gira: medido em 16/11 no chão, ~10,7° (freou aos 88,4° e
+            // parou em ~99°), nos dois pivôs de 90°. O ângulo do giroscópio (`gyroDeg`) é o de
+            // quando o controle freou; o giro verdadeiro ganha essa inércia, no sentido do giro.
+            if (!suspended) {
+                result.trueDeg += std::copysign(kBrakeCoastDeg, result.trueDeg);
+            }
             break;
         }
         left.step(out.leftVolts, kDt);

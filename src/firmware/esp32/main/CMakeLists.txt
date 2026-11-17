@@ -10,6 +10,7 @@ idf_component_register(
         "${CORE_ROOT}/src/domain/BuzzerPattern.cpp"
         "${CORE_ROOT}/src/domain/Pid.cpp"
         "${CORE_ROOT}/src/domain/Maneuver.cpp"
+        "${CORE_ROOT}/src/domain/Calibration.cpp"
         "${CORE_ROOT}/src/domain/ImuIdentity.cpp"
         "${CORE_ROOT}/src/domain/BatteryMonitor.cpp"
         "${CORE_ROOT}/src/domain/SensorHealthMonitor.cpp"
@@ -45,7 +46,8 @@ idf_component_register(
         "${CORE_ROOT}/src/main.cpp"
     INCLUDE_DIRS "${CORE_ROOT}/include"
     # esp_app_format: versão e data do firmware no comando "diag" (esp_app_desc.h).
+    # nvs_flash: valores do comando "calib" gravados na memória do robô.
     REQUIRES driver esp_driver_i2c esp_driver_pcnt esp_driver_ledc esp_rom esp_timer
-             esp_app_format esp-nimble-cpp)
+             esp_app_format nvs_flash esp-nimble-cpp)
 
 target_compile_features(${COMPONENT_LIB} PUBLIC cxx_std_17)

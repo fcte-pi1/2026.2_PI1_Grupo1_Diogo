@@ -11,6 +11,8 @@
 #include "adapters/Vl53l1xSensorAdapter.hpp"
 #include "controller/PivotMove.hpp"
 #include "controller/StraightMove.hpp"
+#include "domain/BrakeLearner.hpp"
+#include "domain/Calibration.hpp"
 #include "ports/MotionPort.hpp"
 
 namespace micromouse::adapters {
@@ -53,6 +55,16 @@ private:
     int arcRetriesUsed_{0};
     int frontStops_{0};
     int gyroMissesTotal_{0};
+    // Valores trocáveis pelo comando `calib` (16/11) e o autoajuste do freio de cada tipo de curva.
+    domain::Calibration calibration_{};
+    domain::BrakeLearner arcBrake_{calibration_.arcBrakeDeg, 2.0, 15.0};
+    domain::BrakeLearner pivotBrake_{calibration_.pivotBrakeDeg, 2.0, 25.0};
+
+    // kArcTurn e kPivotMove com o freio em uso: o do `calib` ou, com o autoajuste, o aprendido.
+    [[nodiscard]] controller::PivotMoveConfig arcConfig() const noexcept;
+    [[nodiscard]] controller::PivotMoveConfig pivotConfig() const noexcept;
+    // Leitura do frontal com que o arco começa, pela geometria do corpo em uso.
+    [[nodiscard]] double arcStartFrontMm() const noexcept;
 
     void drive(double leftVolts, double rightVolts);
     void stopAndSettle();
@@ -86,6 +98,17 @@ public:
     // RF-44 (opção RATO_CENTRALIZAR_PAREDES, desligada por padrão): na reta, soma à diferença entre
     // as rodas o deslocamento lateral lido pelos ToF laterais (docs/rf44-centralizacao.md).
     void enableWallCentering(const Vl53l1xSensorAdapter& sensor) noexcept { walls_ = &sensor; }
+    // Valores do comando `calib` (domain::Calibration). O autoajuste do freio recomeça deles.
+    void setCalibration(const domain::Calibration& calibration) noexcept;
+    [[nodiscard]] const domain::Calibration& calibration() const noexcept { return calibration_; }
+    // Freio em uso agora em cada tipo de curva (graus antes do alvo) e quantas curvas já ensinaram.
+    [[nodiscard]] double arcBrakeDeg() const noexcept;
+    [[nodiscard]] double pivotBrakeDeg() const noexcept;
+    // Leitura do ToF frontal com que o arco começa, pelas medidas do corpo em uso (só para o log).
+    [[nodiscard]] double arcStartTargetMm() const noexcept { return arcStartFrontMm(); }
+    [[nodiscard]] int brakeTurnsLearned() const noexcept {
+        return arcBrake_.learned() + pivotBrake_.learned();
+    }
     // Com a flag ligada, o movimento em curso freia na hora e falha ("parado pelo operador"); os
     // seguintes falham logo no começo. Só nos builds de teste (comando "parar" pelo BLE).
     void setAbortFlag(const std::atomic<bool>& flag) noexcept { abort_ = &flag; }

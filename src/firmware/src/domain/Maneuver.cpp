@@ -28,7 +28,8 @@ double pulsesForTurn(const TurnConfig& config, double degrees) {
 
 ArcStart arcStart(bool frontValid, double frontMm, const ArcStartConfig& config) noexcept {
     if (frontValid && frontMm >= 0.0 && frontMm < config.frontWallMaxMm) {
-        return {config.frontTargetMm - frontMm, true};
+        const double reliableMm = std::fmax(frontMm, config.minReliableMm);
+        return {config.frontTargetMm - reliableMm, true};
     }
     return {config.fixedSetbackMm, false};
 }

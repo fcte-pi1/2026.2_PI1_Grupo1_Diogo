@@ -98,7 +98,8 @@ bool Drv8833MotionAdapter::aborted() {
 double Drv8833MotionAdapter::gyroRate() {
     if (const std::optional<double> rate = imu_.readGyroZDegPerSec()) {
         gyroMisses_ = 0;
-        lastGyroRate_ = *rate - gyroBias_;  // desconta o desvio medido em repouso
+        // Desconta o desvio medido em repouso e corrige a escala do chip (`calib escala_giro`).
+        lastGyroRate_ = (*rate - gyroBias_) * calibration_.gyroScale;
     } else {
         ++gyroMisses_;
         ++gyroMissesTotal_;
@@ -529,16 +530,16 @@ void Drv8833MotionAdapter::testManeuver(Maneuver maneuver) {
             }
             break;
         case Maneuver::ArcLeft:
-            pivot(90.0, Direction::Left, controller::robot::kArcTurn);
+            pivot(90.0, Direction::Left, arcConfig());
             break;
         case Maneuver::ArcRight:
-            pivot(90.0, Direction::Right, controller::robot::kArcTurn);
+            pivot(90.0, Direction::Right, arcConfig());
             break;
         case Maneuver::PivotLeft:
-            pivot(90.0, Direction::Left, controller::robot::kPivotMove);
+            pivot(90.0, Direction::Left, pivotConfig());
             break;
         case Maneuver::PivotRight:
-            pivot(90.0, Direction::Right, controller::robot::kPivotMove);
+            pivot(90.0, Direction::Right, pivotConfig());
             break;
         case Maneuver::Advance:
             advanceCell();
@@ -553,11 +554,44 @@ void Drv8833MotionAdapter::testManeuver(Maneuver maneuver) {
     clearLastMove();
 }
 
+void Drv8833MotionAdapter::setCalibration(const domain::Calibration& calibration) noexcept {
+    calibration_ = calibration;
+    arcBrake_.reset(calibration_.arcBrakeDeg);
+    pivotBrake_.reset(calibration_.pivotBrakeDeg);
+}
+
+double Drv8833MotionAdapter::arcBrakeDeg() const noexcept {
+    return calibration_.autoBrake >= 0.5 ? arcBrake_.brakeDeg() : calibration_.arcBrakeDeg;
+}
+
+double Drv8833MotionAdapter::pivotBrakeDeg() const noexcept {
+    return calibration_.autoBrake >= 0.5 ? pivotBrake_.brakeDeg() : calibration_.pivotBrakeDeg;
+}
+
+controller::PivotMoveConfig Drv8833MotionAdapter::arcConfig() const noexcept {
+    controller::PivotMoveConfig config = controller::robot::kArcTurn;
+    config.toleranceDeg = arcBrakeDeg();
+    return config;
+}
+
+controller::PivotMoveConfig Drv8833MotionAdapter::pivotConfig() const noexcept {
+    controller::PivotMoveConfig config = controller::robot::kPivotMove;
+    config.toleranceDeg = pivotBrakeDeg();
+    return config;
+}
+
+double Drv8833MotionAdapter::arcStartFrontMm() const noexcept {
+    const domain::BodyGeometry body{calibration_.axleToFrontMm, calibration_.frontWidthMm / 2.0,
+                                    calibration_.axleToFrontTofMm};
+    return domain::arcStartFrontMm(body, controller::robot::kArcSetbackMm,
+                                   controller::robot::kArcFrontClearanceMm);
+}
+
 void Drv8833MotionAdapter::advanceCell() {
     // Depois de uma curva em arco o robô já está na borda de saída da célula: anda só o resto.
     const double distance = domain::robot::kCellSizeMm - aheadMm_;
     aheadMm_ = 0.0;
-    straight(distance, "andar 1 celula", walls_ != nullptr);
+    straight(distance, "andar 1 celula", walls_ != nullptr && calibration_.centerOnWalls >= 0.5);
 }
 
 // Uma célula de ré, sem girar (saída de um beco). Sem o RF-44: os ToF laterais ficam à frente do
@@ -697,7 +731,7 @@ void Drv8833MotionAdapter::straight(double distanceMm, const char* name, bool ce
             if (const auto reading = front_->freshReading(Vl53l1xSensorAdapter::Side::Front);
                 reading && reading->kind == drivers::ReadingKind::Distance) {
                 frontMm = reading->mm;
-                if (reading->mm < controller::robot::kFrontStopMm) {
+                if (reading->mm < calibration_.frontStopMm) {
                     lastShortMm_ = std::max(0.0, std::fabs(distanceMm) - travelled);
                     ++frontStops_;
                     break;
@@ -705,9 +739,17 @@ void Drv8833MotionAdapter::straight(double distanceMm, const char* name, bool ce
             }
         }
 
+        // Rumo pelo giroscópio (`calib ganho_rumo`, 0 = desligado): o robô girado para a esquerda
+        // (ângulo positivo) recebe uma correção para a direita, e vice-versa. Só para a frente; o
+        // limite impede que uma leitura ruim torça o robô.
+        const double headingMm =
+            sign > 0.0 ? std::clamp(-calibration_.headingGain * headingDeg,
+                                    -controller::robot::kHeadingHoldMaxMm,
+                                    controller::robot::kHeadingHoldMaxMm)
+                       : 0.0;
         const controller::StraightMove::Output out =
             move.step(dt, leftMm, rightMm, leftSpeed.update(leftMm, now),
-                      rightSpeed.update(rightMm, now), wallMm);
+                      rightSpeed.update(rightMm, now), wallMm + headingMm);
         if (out.done) {
             if (!move.reachedTarget()) {
                 lastMoveOk_ = false;
@@ -843,8 +885,8 @@ void Drv8833MotionAdapter::pivot(double degrees, controller::PivotMove::Directio
         vTaskDelay(kControlPeriod);
     }
     stopAndSettle();
-#if CONFIG_RATO_LOG_RETA
     const double stopDeg = turn.angle();
+#if CONFIG_RATO_LOG_RETA
     const double turnMs = clock.elapsed() * 1000.0;
     const double worstLoopMs = clock.worstMs();  // só as voltas da curva, sem a pausa do freio
 #endif
@@ -856,7 +898,22 @@ void Drv8833MotionAdapter::pivot(double degrees, controller::PivotMove::Directio
         turn.settle(gyroRate(), clock.tick());
     }
     lastTurnDeg_ = turn.angle();
+    // Autoajuste do freio (`calib autoajuste_freio=1`): só curvas de 90 graus que terminaram bem e
+    // pelo giroscópio (sem "continuar devagar", que chega ao alvo quase parado).
+    bool brakeLearned = false;
+    if (calibration_.autoBrake >= 0.5 && lastMoveOk_ && degrees < 135.0 && !turn.crept()) {
+        domain::BrakeLearner& learner = arc ? arcBrake_ : pivotBrake_;
+        brakeLearned = learner.update(std::fabs(stopDeg), std::fabs(lastTurnDeg_));
+    }
+    (void)brakeLearned;
 #if CONFIG_RATO_LOG_RETA
+    if (calibration_.autoBrake >= 0.5) {
+        ESP_LOGI("curva", "freio: esta curva freou %.1f graus antes do alvo e girou %.1f depois; %s "
+                          "(proxima: arco %.1f, pivo %.1f)",
+                 config.toleranceDeg, std::fabs(lastTurnDeg_) - std::fabs(stopDeg),
+                 brakeLearned ? "aprendeu" : "nao usada no autoajuste", arcBrakeDeg(),
+                 pivotBrakeDeg());
+    }
     // Calibração da curva (E1 do roteiro): "final" é o ângulo depois do freio; os pulsos contra os
     // esperados sem patinar mostram quanto as rodas patinaram, e "continuou" se o perfil acabou sem
     // o giroscópio chegar ao alvo.
@@ -905,8 +962,8 @@ void Drv8833MotionAdapter::arcTurn(controller::PivotMove::Direction direction) {
     // Recua a meia célula inteira, mesmo se a reta anterior parou antes pela parede da frente: com
     // o eixo atrás do centro, o arco tem espaço no canto (V3b de 09/11).
     lastShortMm_ = 0.0;
-    positionForArc(controller::robot::kArcStartFrontMm);
-    pivot(90.0, direction, controller::robot::kArcTurn);
+    positionForArc(arcStartFrontMm());
+    pivot(90.0, direction, arcConfig());
     // Segunda tentativa (10/11): um arco que trava (quina na parede) levava direto ao Erro, e a
     // corrida acabava ali. Agora o robô desfaz o que girou, começa um pouco mais longe da parede
     // da frente e tenta de novo; se travar outra vez, aí sim é Erro.
@@ -925,12 +982,12 @@ void Drv8833MotionAdapter::arcTurn(controller::PivotMove::Direction direction) {
             lastMoveWasTurn_ = true;
             break;
         }
-        positionForArc(controller::robot::kArcStartFrontMm +
+        positionForArc(arcStartFrontMm() +
                        attempt * controller::robot::kArcRetryExtraFrontMm);
 #if CONFIG_RATO_LOG_RETA
         ESP_LOGW("curva", "tentativa %d do arco (a anterior: %s)", attempt + 1, firstFailure);
 #endif
-        pivot(90.0, direction, controller::robot::kArcTurn);
+        pivot(90.0, direction, arcConfig());
     }
     if (lastMoveOk_) {
         // O arco de raio kArcSetbackMm leva o robô meia célula à frente na nova direção.
@@ -1037,7 +1094,7 @@ void Drv8833MotionAdapter::turnRight() { arcTurn(controller::PivotMove::Directio
 // livres para cada lado: o robô trava atravessado (beco A1, relato de 10/11; em 09/11 o giro de 90 graus no
 // lugar já travava a 68-75 graus em A4). Só para área aberta.
 void Drv8833MotionAdapter::turnAround() {
-    pivot(180.0, controller::PivotMove::Direction::Right, controller::robot::kPivotMove);
+    pivot(180.0, controller::PivotMove::Direction::Right, pivotConfig());
 }
 
 }  // namespace micromouse::adapters

@@ -10,6 +10,7 @@
 #include <optional>
 #include <stdexcept>
 #include <string>
+#include <string_view>
 
 #include "adapters/BenchMotionAdapter.hpp"
 #include "adapters/BleTelemetryAdapter.hpp"
@@ -23,6 +24,7 @@
 #include "adapters/Mpu6050.hpp"
 #include "adapters/Vl53l1xSensorAdapter.hpp"
 #include "domain/BatteryMonitor.hpp"
+#include "domain/Calibration.hpp"
 #include "domain/DipDecoder.hpp"
 #include "domain/Maneuver.hpp"
 #include "domain/Maze.hpp"
@@ -37,6 +39,8 @@
 #include "esp_random.h"
 #include "esp_system.h"
 #include "esp_timer.h"
+#include "nvs.h"
+#include "nvs_flash.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
 #include "freertos/semphr.h"
@@ -57,11 +61,6 @@ using namespace micromouse;
 namespace {
 
 constexpr char kTag[] = "main";
-#if CONFIG_RATO_CENTRALIZAR_PAREDES
-[[maybe_unused]] constexpr char kWallCenteringState[] = "ligado";
-#else
-[[maybe_unused]] constexpr char kWallCenteringState[] = "desligado";
-#endif
 
 adapters::I2cBus gI2c;
 adapters::Vl53l1xSensorAdapter gSensor;
@@ -77,6 +76,116 @@ adapters::BenchMotionAdapter gMotion;
 adapters::Drv8833MotionAdapter gMotion{gImu};
 #endif
 adapters::BleTelemetryAdapter gBle;
+
+#if !CONFIG_RATO_BANCADA
+// ---- Calibração trocável pelo BLE (16/11), gravada na NVS ----
+// O que depende do robô montado e do piso (medidas do corpo, escala do giroscópio, freio das
+// curvas, parada pela parede da frente...) fica em domain::Calibration. O comando `calib` troca
+// os valores sem regravar o firmware; eles valem a partir do boot seguinte também.
+constexpr char kCalibNamespace[] = "rato";
+constexpr char kCalibKey[] = "calib1";  // mude o número se a struct mudar de formato
+
+domain::Calibration defaultCalibration() {
+    domain::Calibration calibration;
+#if CONFIG_RATO_CENTRALIZAR_PAREDES
+    calibration.centerOnWalls = 1.0;  // a opção do Kconfig vira só o PADRÃO do `calib centralizar`
+#endif
+    return calibration;
+}
+
+// Lê a calibração gravada. Sem nada gravado (ou com algo ilegível), valem os padrões.
+domain::Calibration loadCalibration() {
+    domain::Calibration calibration = defaultCalibration();
+    esp_err_t err = nvs_flash_init();
+    if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+        (void)nvs_flash_erase();
+        err = nvs_flash_init();
+    }
+    nvs_handle_t handle = 0;
+    if (err == ESP_OK && nvs_open(kCalibNamespace, NVS_READONLY, &handle) == ESP_OK) {
+        domain::Calibration stored;
+        size_t size = sizeof stored;
+        if (nvs_get_blob(handle, kCalibKey, &stored, &size) == ESP_OK && size == sizeof stored) {
+            calibration = stored;
+            if (const int fixed = domain::sanitizeCalibration(calibration); fixed > 0) {
+                ESP_LOGW("calib", "%d valor(es) gravado(s) fora da faixa voltaram ao padrao", fixed);
+            }
+            ESP_LOGI("calib", "valores lidos da memoria do robo");
+        } else {
+            ESP_LOGI("calib", "nada gravado: valores padrao");
+        }
+        nvs_close(handle);
+    } else {
+        ESP_LOGI("calib", "nada gravado: valores padrao");
+    }
+    return calibration;
+}
+
+bool saveCalibration(const domain::Calibration& calibration) {
+    nvs_handle_t handle = 0;
+    if (nvs_open(kCalibNamespace, NVS_READWRITE, &handle) != ESP_OK) {
+        return false;
+    }
+    const bool ok = nvs_set_blob(handle, kCalibKey, &calibration, sizeof calibration) == ESP_OK &&
+                    nvs_commit(handle) == ESP_OK;
+    nvs_close(handle);
+    return ok;
+}
+
+// Os valores em uso, um por linha: "calib: nome = valor unidade (faixa a..b) [padrao|MEDIDO]".
+void logCalibration() {
+    const domain::Calibration& now = gMotion.calibration();
+    const domain::Calibration defaults = defaultCalibration();
+    for (const domain::CalibrationField& field : domain::calibrationFields()) {
+        const double value = now.*(field.member);
+        const bool isDefault = value == defaults.*(field.member);
+        ESP_LOGI("calib", "%.*s = %.3f %.*s (faixa %.2f a %.2f) %s",
+                 static_cast<int>(field.name.size()), field.name.data(), value,
+                 static_cast<int>(field.unit.size()), field.unit.data(), field.min, field.max,
+                 isDefault ? "padrao" : "ALTERADO");
+        vTaskDelay(pdMS_TO_TICKS(25));  // deixa a telemetria escoar a fila de log
+    }
+    ESP_LOGI("calib", "fim: arco comeca com o frontal a %.1f mm; freio em uso arco %.1f pivo %.1f "
+                      "graus (%d curva(s) no autoajuste)",
+             gMotion.arcStartTargetMm(), gMotion.arcBrakeDeg(), gMotion.pivotBrakeDeg(),
+             gMotion.brakeTurnsLearned());
+}
+
+// `text` é o comando inteiro: "calib", "calib padrao" ou "calib nome=valor nome=valor ...".
+[[maybe_unused]] void serviceCalibrationCommand(const char* text) {
+    std::string_view arguments{text};
+    arguments.remove_prefix(arguments.size() >= 5 ? 5 : arguments.size());
+    while (!arguments.empty() && arguments.front() == ' ') {
+        arguments.remove_prefix(1);
+    }
+    if (arguments.empty()) {
+        logCalibration();
+        return;
+    }
+    domain::Calibration calibration = gMotion.calibration();
+    if (arguments == "padrao") {
+        calibration = defaultCalibration();
+    } else {
+        const domain::CalibrationParse parsed = domain::applyCalibration(calibration, arguments);
+        if (parsed.rejected > 0) {
+            const char* reason =
+                parsed.firstReason == domain::CalibrationSet::OutOfRange    ? "fora da faixa"
+                : parsed.firstReason == domain::CalibrationSet::NotANumber ? "nao e numero"
+                                                                            : "nome desconhecido";
+            ESP_LOGE("calib", "RECUSADO, nada mudou: '%.*s' (%s). Mande 'calib' para ver os nomes "
+                              "e as faixas",
+                     static_cast<int>(parsed.firstRejected.size()), parsed.firstRejected.data(),
+                     reason);
+            return;
+        }
+    }
+    gMotion.setCalibration(calibration);
+    const bool saved = saveCalibration(calibration);
+    ESP_LOGI("calib", "%s", saved ? "gravado na memoria do robo (vale tambem depois de reiniciar)"
+                                  : "ATENCAO: vale agora, mas NAO consegui gravar na memoria");
+    logCalibration();
+}
+#endif  // !CONFIG_RATO_BANCADA
 
 telemetry::Snapshot gState{};
 SemaphoreHandle_t gStateMutex = nullptr;
@@ -152,6 +261,7 @@ int mirrorLogToBle(const char* format, va_list args) {
             std::strstr(line.text, " tof: ") != nullptr ||
             std::strstr(line.text, " giro: ") != nullptr ||
             std::strstr(line.text, " diag: ") != nullptr ||
+            std::strstr(line.text, " calib: ") != nullptr ||
             std::strstr(line.text, " teste: ") != nullptr) {
             if (xQueueSend(gDebugQueue, &line, 0) != pdTRUE) {
                 ++gDroppedLogLines;
@@ -195,6 +305,10 @@ std::atomic<int> gTestEncoderSeconds{0};
 // Comandos recusados (desconhecidos ou fora da faixa). O callback do BLE só conta; quem loga é a
 // tarefa de navegação (a pilha da tarefa do NimBLE é pequena para formatar uma linha de log).
 std::atomic<int> gRejectedCommands{0};
+// "calib [nome=valor ...]" (16/11): valores do robô e do piso trocáveis sem regravar. O callback do
+// BLE só guarda o texto; quem interpreta, grava na memória e loga é a tarefa de navegação.
+char gCalibText[232] = "";
+std::atomic<bool> gTestCalib{false};
 
 // Descarta os comandos de teste pendentes. Um comando recebido DURANTE a corrida não pode rodar
 // sozinho quando ela termina: o operador não deu o ok para ele naquele lugar.
@@ -210,6 +324,7 @@ void discardTestCommands() {
     any = gTestDiag.exchange(false) || any;
     any = gTestHealth.exchange(false) || any;
     any = gTestTofRecover.exchange(false) || any;
+    any = gTestCalib.exchange(false) || any;
     if (any) {
         ESP_LOGW("teste", "comandos recebidos durante a corrida foram descartados");
     }
@@ -282,6 +397,14 @@ void onBleCommand(const std::string& command) {
             }
         }
         if (!accepted) {
+            ++gRejectedCommands;
+        }
+    } else if (command == "calib" || command.rfind("calib ", 0) == 0) {
+        // Um de cada vez: o anterior ainda não foi atendido se a flag está ligada.
+        if (command.size() < sizeof gCalibText && !gTestCalib.load()) {
+            std::memcpy(gCalibText, command.c_str(), command.size() + 1);
+            gTestCalib = true;
+        } else {
             ++gRejectedCommands;
         }
     } else if (command == "reiniciar") {
@@ -512,7 +635,9 @@ void runDiagnostics(const domain::MazeSetup& setup) {
              "firmware: versao %s, compilado em %s %s, IDF %s | motores: %s, %s | RF-44 %s | "
              "reset=%s, ligado ha %lu s",
              app->version, app->date, app->time, app->idf_ver, adapters::pins::kMotorWiringName,
-             adapters::kMotorDecayName, kWallCenteringState, resetReasonText(), uptimeSeconds());
+             adapters::kMotorDecayName,
+             gMotion.calibration().centerOnWalls >= 0.5 ? "ligado" : "desligado", resetReasonText(),
+             uptimeSeconds());
     drainLog();
     switch (esp_reset_reason()) {
         case ESP_RST_PANIC:
@@ -735,6 +860,9 @@ void serviceTestCommands(const domain::MazeSetup& setup, bool allowMotion) {
     if (gTestHealth.exchange(false)) {
         logHealth();
     }
+    if (gTestCalib.exchange(false)) {
+        serviceCalibrationCommand(gCalibText);
+    }
 }
 #endif  // !CONFIG_RATO_BANCADA
 #endif
@@ -774,9 +902,15 @@ void navigationTask(void*) {
 #if CONFIG_RATO_LOG_RETA && !CONFIG_RATO_BANCADA
     gMotion.setAbortFlag(gRemoteStop);
 #endif
-#if CONFIG_RATO_CENTRALIZAR_PAREDES && !CONFIG_RATO_BANCADA
+#if !CONFIG_RATO_BANCADA
+    // Os ToF laterais ficam sempre à mão; quem liga a centralização é o `calib centralizar` (a
+    // opção RATO_CENTRALIZAR_PAREDES do Kconfig é só o padrão dele).
     gMotion.enableWallCentering(gSensor);
-    ESP_LOGW(kTag, "centralizacao pelas paredes (RF-44) LIGADA, ganhos nao calibrados");
+    gMotion.setCalibration(loadCalibration());
+    if (gMotion.calibration().centerOnWalls >= 0.5) {
+        ESP_LOGW(kTag, "centralizacao pelas paredes (RF-44) LIGADA, ganhos nao calibrados");
+    }
+    logCalibration();
 #endif
 
     use_cases::SessionManager session(gLocal);
@@ -929,14 +1063,22 @@ void navigationTask(void*) {
                  domain::startBorderIsOnTheLeft(setup) ? "ABERTA" : "FECHADA",
                  domain::startBorderIsOnTheLeft(setup) ? "ESQUERDA" : "DIREITA", setup.start.row,
                  setup.start.column, setup.goal.row, setup.goal.column, gPower.busVoltageV());
-        ESP_LOGI(kTag,
-                 "parametros: %s, RF-44 %s, parede lateral<%.0f frontal<%.0f mm, arco comeca a "
-                 "%.0f mm (folga %.0f, corpo %.0f/%.0f/%.0f), parada frontal<%.0f mm, teto %.1f V",
-                 adapters::kMotorDecayName, kWallCenteringState, gSensor.sideThresholdMm(), gSensor.frontThresholdMm(),
-                 controller::robot::kArcStartFrontMm, controller::robot::kArcFrontClearanceMm,
-                 domain::robot::kBody.axleToFrontMm, domain::robot::kBody.halfWidthMm,
-                 domain::robot::kBody.axleToFrontTofMm, controller::robot::kFrontStopMm,
-                 controller::robot::kMotorMaxVolts);
+        {
+            const domain::Calibration& calib = gMotion.calibration();
+            ESP_LOGI(kTag,
+                     "parametros: %s, RF-44 %s, parede lateral<%.0f frontal<%.0f mm, arco comeca a "
+                     "%.0f mm (folga %.0f, corpo %.0f/%.0f/%.0f), parada frontal<%.0f mm, teto %.1f V",
+                     adapters::kMotorDecayName, calib.centerOnWalls >= 0.5 ? "ligado" : "desligado",
+                     gSensor.sideThresholdMm(), gSensor.frontThresholdMm(),
+                     gMotion.arcStartTargetMm(), controller::robot::kArcFrontClearanceMm,
+                     calib.axleToFrontMm, calib.frontWidthMm / 2.0, calib.axleToFrontTofMm,
+                     calib.frontStopMm, controller::robot::kMotorMaxVolts);
+            ESP_LOGI(kTag,
+                     "calib em uso: giro x%.3f, freio arco %.1f pivo %.1f graus (autoajuste %s), "
+                     "ganho de rumo %.2f mm/grau",
+                     calib.gyroScale, gMotion.arcBrakeDeg(), gMotion.pivotBrakeDeg(),
+                     calib.autoBrake >= 0.5 ? "ligado" : "desligado", calib.headingGain);
+        }
 
         // Conferência do canto (10/11): duas leituras (a primeira depois do boot vem com lixo). Se
         // nas duas o lado da borda está ABERTO, a via 3 não corresponde ao canto, e o robô não

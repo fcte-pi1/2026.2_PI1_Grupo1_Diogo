@@ -20,6 +20,7 @@ add_executable(firmware_tests
     use_cases/NavigatorTest.cpp
     use_cases/TrackMaze0911Test.cpp
     use_cases/TrackMazeCornersTest.cpp
+    use_cases/ExplorationTest.cpp
     spy/SpySignalPort.hpp
     spy/SpyTelemetryPort.hpp
     use_cases/SessionManagerTest.cpp
@@ -34,6 +35,7 @@ add_executable(firmware_tests
     telemetry/TelemetryBufferTest.cpp
     telemetry/TelemetryEmitterTest.cpp
     domain/ManeuverTest.cpp
+    domain/CalibrationTest.cpp
     domain/ImuIdentityTest.cpp
     domain/RobotParametersTest.cpp
     domain/BatteryMonitorTest.cpp

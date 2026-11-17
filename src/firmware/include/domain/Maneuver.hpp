@@ -18,6 +18,10 @@ struct ArcStartConfig {
     double fixedSetbackMm{};  // recuo quando não há parede à frente
     double toleranceMm{};     // erro de posição aceito depois de reposicionar
     double maxCorrectionMm{}; // maior ajuste feito pela segunda leitura
+    // Leituras do frontal abaixo disto valem como este valor: perto do alcance mínimo do VL53L1X o
+    // sensor às vezes lê 0 ou ~22 mm com a parede a 36-42 mm (16/11, C4/C5), e o robô recuava
+    // até 105 mm a mais do que precisava. 0 = sem limite.
+    double minReliableMm{0.0};
 };
 
 struct ArcStart {
