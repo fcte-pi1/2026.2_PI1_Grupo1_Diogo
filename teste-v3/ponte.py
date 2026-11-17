@@ -17,6 +17,7 @@ Para fechar: Ctrl+C.
 """
 
 import argparse
+import importlib
 import io
 import json
 import os
@@ -138,7 +139,8 @@ def main():
     bridge = find_bridge(args.bridge)
     sys.path.insert(0, str(bridge))
     try:
-        import ble_ws_bridge
+        # A pasta do bridge só entra no sys.path agora, então o import é feito por nome.
+        ble_ws_bridge = importlib.import_module("ble_ws_bridge")
     except ImportError as error:
         sys.exit(
             f"Falta uma biblioteca do Python ({error}). Rode:\n"
