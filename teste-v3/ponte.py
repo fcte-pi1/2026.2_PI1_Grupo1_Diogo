@@ -147,7 +147,8 @@ def main():
             f"    python -m pip install -r \"{bridge / 'requirements.txt'}\""
         )
 
-    ble_ws_bridge._read_command_lines = tail_new_lines
+    # setattr: o módulo é carregado por nome e o verificador de tipos não conhece este atributo.
+    setattr(ble_ws_bridge, "_read_command_lines", tail_new_lines)
     sys.stdout = Tee(sys.stdout)
     print(f"[ponte] bridge: {bridge}")
     print(f"[ponte] resultados em: {RESULTS}")
