@@ -100,8 +100,59 @@ No log, largando de D4 ou D1 virado para a coluna C: letra = A + linha do log, n
    - A altura das paredes; a cor e o material das paredes e do piso; se as junções entre módulos têm degrau ou fresta.
 
    Registre tudo no `RESULTADOS.md`. **Se o centro a centro passar de 180 ± 3 mm ou o corredor de 168 ± 3 mm, avise na hora**: as retas andam 180 mm fixos, e o robô vai errar a posição. Mesmo assim siga coletando, e anote em cada corrida.
-2. `python t.py portao` e `python t.py H1` (robô apoiado). Se o ToF direito foi ressoldado, faça também o **H3** (60 s mexendo nos cabos com um palito de plástico). Se aparecer `tof: direito PAROU`, registre (K5) e pergunte se seguimos.
-3. Se eu tiver as medidas do robô, `python t.py medidas`, seguindo o `MEDICOES.md`, uma pergunta por vez. Se não, siga com o padrão.
+2. `python t.py portao` e `python t.py H1` (robô apoiado). Se o ToF direito foi ressoldado, faça também o **H3** (60 s mexendo nos cabos com um palito de plástico). Se aparecer `tof: direito PAROU`, registre (K5) e pergunte se seguimos. O item 3 abaixo traz a comparação com 16/11.
+3. **Regressão pós-ressolda.** Faça a conferência da tabela abaixo (H2, H4, H5, H6, H7 e H8, que somam ~10 min com o robô apoiado), além do H1 e do H3. É a única hora do dia em que o robô fica no suporte. Se a Etapa 2 falhar em algum item crítico (I²C, ToF, `saude`), pare e me diga antes de seguir para o chão.
+
+### Regressão pós-ressolda: nada que já estava bom pode ter piorado
+
+O ToF direito foi ressoldado depois dos testes de 16/11. Mexer num módulo pode afetar o que divide fio com ele (3V3, GND, SDA, SCL) ou ficava ao lado (outros ToF, giroscópio, medidor de bateria, fios dos motores e dos encoders). **Compare cada item com a linha de base de 16/11** (está em `teste-v3/resultados/16-11/RESULTADOS.md` e nos `.log` de lá). Um valor que ainda "passa" mas piorou além da tolerância é regressão: registre com `python t.py nota` e me avise na hora.
+
+Antes de tudo, me pergunte e registre: **o que exatamente foi ressoldado** (quais fios do módulo direito: 3V3, GND, XSHUT, SDA, SCL, GPIO1), se **mais alguma coisa foi mexida** (outros sensores, motores, encoders, conectores, a placa, a bateria), e peça uma **foto de cima e uma de perto** da região mexida. Registre no `RESULTADOS.md`.
+
+| O que conferir | Teste | Linha de base de 16/11 | Regressão se |
+|:--|:--|:--|:--|
+| Os 5 dispositivos do I²C respondem, nada em 0x29 | H1 (`diag: i2c`) | ToF E/F/D, IMU e INA219 = 10/10; 0x29 = 0 | qualquer um abaixo de 10, ou 0x29 acima de 0 |
+| Os 3 ToF medem sem falha, inclusive o direito | H1, H2 (`tofmon 30`) | 20/20 e 327/327 medidas, 0 falhas; direito a 266 mm de uma parede, estável (260 a 273) | qualquer falha, ou variação do direito acima de ±15 mm parado |
+| Erros e quedas desde o boot | H8 (`saude`) | zero erros de I²C, zero quedas, zero reinícios XSHUT | qualquer valor diferente de zero |
+| Giroscópio parado | H1 e H4 (3 min) | desvio -0,15 °/s; variação máxima 0,7 °/s; mudança do desvio em 3 min 0,02 °/s; 0 leituras perdidas | variação acima de 2 °/s, mudança acima de 1 °/s, ou leituras perdidas |
+| Identidade do chip e gravidade | H1 (`diag: imu`) | `WHO_AM_I=0x72`; aceleração Z 1,02 g | outro `WHO_AM_I`, ou Z fora de 0,95 a 1,05 |
+| Medidor de bateria | H1, H8 | lê (8,0 V com a bateria cheia), `INA219 ok` | não lê, ou diferença de mais de 0,3 V para o multímetro |
+| Encoders parados | H1 | E=0 D=0 em 1 s | qualquer pulso |
+| Encoders girando | H5 | esquerda 284 a 294, direita 289 a 291 pulsos por volta | fora de 225 a 345, ou diferença entre as rodas acima de 15% |
+| Rodas e motores | H6, H7 | a 6 V: 2293 a 2312 pulsos/s (diferença 1%), 0,09 A; H7: 6 V por 1,5 s, 3287 e 3276 pulsos, corrente média 0,11 A, bateria mínima 8,02 V | diferença entre as rodas acima de 5%, corrente acima de 0,2 A, ou reinício |
+| Sensores contra parede | B3 (6 distâncias) | erros de 16/11: esquerdo +2,9 a +10,5 mm; frontal +4,4 a +7,2 mm; direito -9,2 a +6,3 mm | erro de qualquer sensor mudou mais de 5 mm em relação a 16/11 |
+| Reta e ré | B1, B2 | 506 a 510 pulsos por reta, giro até 1,3°, régua 895 mm e 540 mm | pulsos fora de 496 a 526, ou giro acima de 3° |
+
+Além da tabela:
+1. **Multímetro no módulo direito**, com a bateria ligada (se eu tiver): a tensão 3V3 do módulo tem de ficar **estável** entre 3,2 e 3,3 V, como a do esquerdo (3,25 V), e a resistência do GND entre os módulos esquerdo e direito tem de ficar **abaixo de 0,3 ohm** (em 16/11 era 1,0 ohm, contra 0,02 ohm do VIN).
+2. **`python t.py cmd "tofmon 120" 130`** com o robô parado e depois com **eu balançando de leve os fios do módulo direito** (H3): zero falhas nos três sensores.
+3. **Uma reta e uma curva no chão** (`andar` x3 e `virar d` x1 e `virar e` x1) logo depois: o ToF direito não pode cair durante o movimento (a linha `reta: laco:` com `erros I2C` e `pulou` iguais a zero).
+
+Se qualquer item da tabela ou da lista regredir: **não siga para o bloco seguinte**. Diga qual sensor ou fio aponta a evidência (sempre classifique como hardware, sem contornar por software) e o que eu devo olhar no robô.
+
+### Se a equipe de eletrônica mexer em MAIS do que o ToF direito
+
+Não se sabe, antes de chegar, quais componentes serão ressoldados. Por isso **não assuma que só o ToF direito foi mexido**: confira o robô inteiro, componente por componente, na tabela abaixo. Pergunte a quem ressoldou **a lista do que foi mexido**, pegue-a por escrito e peça uma foto de cima e outra de perto de cada região, mas **rode as conferências de tudo, mesmo do que "não foi mexido"**: um fio que encosta na vizinhança, ou uma solda quente que solta o pino ao lado, só se descobre medindo.
+
+| Componente | Como conferir | Passa se | Atenção |
+|:--|:--|:--|:--|
+| **ESP32** (placa e pinos) | H1 inteiro; `diag: firmware` | boot sem `BROWNOUT`/`PANICO`/`WATCHDOG`; `reset=LIGOU` | um pino mexido pode trocar um GPIO: confira todos os itens abaixo |
+| **3 ToF** (E, F, D) | H1, H2, H3 | 20/20 medidas sem falha em cada um, endereços 0x30/0x31/0x32, nada em 0x29 | se dois sensores trocarem de lugar, o `diag` mostra E e D com leituras trocadas: ponha um objeto só de um lado e veja qual lê |
+| **Giroscópio (MPU)** | H1, H4 | `WHO_AM_I=0x72`, desvio ~-0,15 °/s, variação até 0,7 °/s | se o `WHO_AM_I` mudar, o chip foi trocado: a escala `escala_giro` (1,08) não vale mais, refaça o `calib-giro` |
+| **Medidor de bateria (INA219)** | H1 `energia:`; H7 | lê a tensão, a corrente e a potência, e a tensão difere do multímetro em menos de 0,3 V | se o INA219 for refeito, os dois fios de medição podem ficar invertidos: a corrente dá negativa |
+| **Motores** | H6, H7 | as duas rodas giram nos 4 casos (frente e trás de cada uma), velocidades a 6 V iguais (diferença abaixo de 5%) | **fios de motor trocados mudam a opção `RATO_FIOS_MOTORES_TROCADOS`**: se a roda esquerda girar quando o teste manda a direita, ou a roda for para trás quando devia ir para a frente, é troca de fios. NÃO mude o build hoje: registre e me avise |
+| **Encoders** | H5, H6 | cada roda conta ~285 pulsos por volta, no sentido certo, e a outra roda não conta | fios A e B de um encoder trocados dão sentido ERRADO; fios entre as rodas trocados dão "outra roda contando" |
+| **Driver dos motores (ponte H)** | H6, H7 | os mesmos de motores e encoders; bateria mínima acima de 7,5 V em H7 | aquece: se o chip estiver muito quente ao toque depois do H7, avise |
+| **Regulador de tensão** | multímetro: 3V3 da placa e dos 3 módulos ToF, com a bateria ligada | 3,2 a 3,3 V estável nos quatro pontos (em 16/11, esquerdo 3,25 V) | oscilação ou queda abaixo de 3,0 V: solda do regulador ou de um módulo |
+| **Chave DIP (3 vias)** | `python t.py cmd "diag" 12` e a linha `entradas:`. Eu mexo **uma via de cada vez** (diga qual, e o lado), e você repete o `diag` | cada via muda sozinha e volta; as três leem aberta e fechada | uma via que não responde ou mexe outra: pino ou solda |
+| **Botão START** | `diag`, linha `entradas: botao START=`; peça para eu apertar e segurar, e leia de novo | `solto` e depois `pressionado` | se travar em `pressionado`, o robô larga sozinho no boot: avise antes de qualquer teste |
+| **LEDs e buzzer** | peça-me para olhar e ouvir ao ligar a bateria e ao mandar `largar` (o LED azul acende quando o robô está pronto; o buzzer toca ao largar e ao falhar) | LED azul aceso pronto; buzzer toca | se o buzzer ou o LED de erro ficarem ligados direto, é curto num transistor ou resistor |
+| **Conector e chave da bateria** | H7 (bateria não cai abaixo de 7,5 V) e o robô mexido de leve com a bateria ligada | nenhum reinício (`reset=LIGOU (poweron)` aparece só quando eu ligo) | em 16/11 o robô reiniciou uma vez, e o motivo foi um corte de energia (provável mau contato): se acontecer de novo, é prioridade |
+| **Fios soltos** | olhar o robô de cima e de lado, com a lanterna | nenhum fio ou terminal sai do contorno do chassi (um fio solto encostou na parede no C7 em 16/11) | prenda com fita |
+
+Se mais de um componente mudou, **repita a regressão completa** (H1 a H8) depois de **cada** grupo de soldas, e não só no fim: assim fica claro qual mexida causou o problema.
+
+4. Se eu tiver as medidas do robô, `python t.py medidas`, seguindo o `MEDICOES.md`, uma pergunta por vez. Se não, siga com o padrão.
 
 ## Etapa 3: caracterizar parede e piso oficiais (coleta, ~20 min)
 
