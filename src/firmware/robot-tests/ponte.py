@@ -32,12 +32,12 @@ RESULTS = HERE / "resultados"
 
 def find_bridge(explicit):
     candidates = [Path(explicit)] if explicit else []
-    candidates += [HERE.parent / "src" / "firmware" / "bridge", HERE / "bridge", Path.cwd()]
+    candidates += [HERE.parent / "bridge", HERE / "bridge", Path.cwd()]
     for folder in candidates:
         if (folder / "ble_ws_bridge.py").exists():
             return folder
     sys.exit(
-        "Não achei o ble_ws_bridge.py. A pasta teste-v3 tem de ficar na RAIZ do repositório "
+        "Não achei o ble_ws_bridge.py. A pasta robot-tests tem de ficar dentro de src/firmware/ "
         "(ao lado de src/), ou passe --bridge <pasta do bridge>."
     )
 
