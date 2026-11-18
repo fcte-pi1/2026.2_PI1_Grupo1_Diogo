@@ -746,6 +746,19 @@ TESTS = [
          + check_maneuver_ok(lines),
          questions=[question("encostou", "Na 2ª tentativa, encostou em alguma parede (inclusive a de trás)?", expect=NO)],
          moves=True),
+    Test("C9", "Curva para a esquerda em B2, só a esquerda livre (faça 3 vezes)",
+         [CENTRADO, "Célula B2, com a FRENTE virada para B1 (parede logo à frente, o fundo de B1) e parede à "
+                    "DIREITA (entre B2 e C2). O único lado livre é a ESQUERDA, para A2. Atrás (B3) fica livre.",
+          "O robô ajusta a distância à parede da frente, faz a curva para a ESQUERDA e termina virado para A2.",
+          "Olhe se alguma parte do robô encosta numa parede durante o ajuste e a curva."],
+         [Step("virar e", MANEUVER, timeout=25)],
+         "O arco começa com o frontal entre 100 e 110 mm (ajuste feito), a curva termina 'ok' em menos de 1,5 s, "
+         "sem 'tentativa 2', sem encostar, virado para A2.",
+         lambda lines: check_arc_start(lines) + check_turn(lines) + check_maneuver_ok(lines) + [
+             verdict(not has(lines, "tentativa 2 do arco"), "sem tentativa 2 do arco")],
+         questions=[question("encostou", "Encostou em alguma parede?", expect=NO),
+                    question("virado_para", "Terminou virado para qual célula? (ex.: A2)", "txt", expect="A2")],
+         moves=True, repeat=3),
     # ------------------------------ Bloco D: corridas ------------------------------
     Test("D1", "Corrida completa a partir de D4 (faça 3 vezes)",
          ["Chave DIP: via 3 ABERTA (OFF). Se mexeu nela, rode antes 'python t.py reiniciar'.",
