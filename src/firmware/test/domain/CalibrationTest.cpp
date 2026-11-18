@@ -96,7 +96,7 @@ TEST(Calibration, FieldNamesAreUniqueAndShortEnoughForTheLog) {
     }
 }
 
-// Com as medidas do corpo de hoje, o arco começa onde começava (104,8 mm).
+// Com as medidas do corpo de hoje, o arco começa onde está em uso (kArcStartFrontMm).
 TEST(Calibration, ArcStartFromTheDefaultBodyIsTheOneInUse) {
     const Calibration calibration;
     const BodyGeometry body{calibration.axleToFrontMm, calibration.frontWidthMm / 2.0,

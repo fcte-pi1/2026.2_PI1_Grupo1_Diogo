@@ -20,7 +20,7 @@ struct Calibration {
     double sideTofAheadOfAxleMm{0.0};  // tof_lado_a_frente_do_eixo
     // Giroscópio e curvas.
     double gyroScale{1.08};       // escala_giro: multiplica o giro Z (chip clone lê ~8% a menos)
-    double arcBrakeDeg{7.5};      // freio_arco: a curva em arco freia estes graus antes do alvo
+    double arcBrakeDeg{4.2};      // freio_arco: a curva em arco freia estes graus antes do alvo
     double pivotBrakeDeg{13.5};   // freio_pivo: o mesmo no giro no lugar
     double autoBrake{0.0};        // autoajuste_freio: 1 = aprende a inércia das curvas na pista
     // Retas.

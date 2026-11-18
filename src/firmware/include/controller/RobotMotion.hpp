@@ -88,7 +88,11 @@ inline constexpr double kArcStartSetbackMm = 75.0;
 // O valor sai da geometria do corpo (domain::robot::kBody, A MEDIR) e da folga desejada: com as
 // estimativas atuais dá 104,8 mm. Quando as medidas de verdade entrarem em kBody, este valor se
 // ajusta sozinho; para afastar ou aproximar o arco da parede, mexa só na folga.
-inline constexpr double kArcFrontClearanceMm = 27.0;
+// 18/11: de 27 para 20 mm, EXPERIMENTO. Com 27 mm o robô saía do arco ~12-17 mm mais longe da parede
+// da frente que o centro (C9 em B2, 3 de 3 curvas). Com 20 mm o arco começa a ~98 mm. A folga da
+// quina fica menor: se a quina da frente prender na parede (arco travado por volta de 52-56 graus),
+// volte para 27.
+inline constexpr double kArcFrontClearanceMm = 20.0;
 inline constexpr double kArcStartFrontMm =
     domain::arcStartFrontMm(domain::robot::kBody, kArcSetbackMm, kArcFrontClearanceMm);
 // Até onde a leitura do frontal vale como "parede à frente" para posicionar o arco: só a parede
@@ -170,7 +174,12 @@ inline constexpr double kGyroScaleCorrection = 1.08;
 // Arco: termina 7,5° antes do alvo. Medido em 16/11 no chão (B5d/B5e, 3 vezes de cada lado): com 2°
 // ele freava aos ~88,2° e parava em 94,7° (direita) e 95,2° (esquerda), ~6,5-7° de inércia na
 // escala antiga do giroscópio (~7,3° com a correção de escala acima).
-inline constexpr PivotMoveConfig kArcTurn{{120.0, 600.0}, kWheelLoop, domain::robot::kWheelTrackMm,
-                                          0.5, 7.5, 40.0, 30.0, kArcSetbackMm};
+// 18/11, EXPERIMENTO: de 120 para 90 °/s (e de 600 para 450 °/s²), para o arco patinar menos e
+// parar mais perto do alvo. A inércia cai junto com a velocidade, então o freio cai também: 5,6
+// (7,5 x 90/120) ficou curto, o D1 de 18/11 mediu ~4,2 graus de inércia (parou em 84,4, final 88,6),
+// então 4,2. No C9 (B2, 18/11) a roda de fora andou 508 pulsos dos 597 esperados e o robô
+// saiu ~2 cm deslocado. Se o freio ficar errado, ajuste sem regravar: `calib "freio_arco=..."`.
+inline constexpr PivotMoveConfig kArcTurn{{90.0, 450.0}, kWheelLoop, domain::robot::kWheelTrackMm,
+                                          0.5, 4.2, 40.0, 30.0, kArcSetbackMm};
 
 }  // namespace micromouse::controller::robot
