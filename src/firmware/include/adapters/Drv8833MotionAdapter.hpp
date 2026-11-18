@@ -45,6 +45,13 @@ private:
     double endRightVolts_{0.0};
     bool lastMoveWasTurn_{false};
     double lastTurnDeg_{0.0};  // ângulo da última curva medido pelo giroscópio, depois do freio
+    // Erro de rumo acumulado (graus, pelo giroscópio, em relação ao eixo do corredor; positivo = para
+    // a esquerda): o que cada curva deixou de girar (ou girou a mais) em relação aos 90 graus, mais
+    // o que cada reta girou. A reta seguinte parte dele no `calib ganho_rumo`, para o erro não se
+    // acumular de curva em curva (D1 de 18/11: 4 curvas a direita, ~2 graus a menos cada, 8 graus
+    // no passo 7). Zera na largada e quando o robô fica parado e some do caminho (mexido à mão).
+    double headingResidualDeg_{0.0};
+    int64_t lastMoveEndUs_{0};
     bool lastTurnJammed_{false};  // a última curva travou ou esgotou o tempo (vale tentar de novo)
     int gyroMisses_{0};           // leituras seguidas do giroscópio perdidas
     double lastGyroRate_{0.0};
@@ -72,6 +79,8 @@ private:
     void pivot(double degrees, controller::PivotMove::Direction direction,
                const controller::PivotMoveConfig& config);
     void arcTurn(controller::PivotMove::Direction direction);
+    void dropStaleHeading();
+    void trimArc(controller::PivotMove::Direction direction);
     // Posiciona o robô para o arco começar com o frontal em `frontTargetMm` (ou pelo recuo fixo,
     // sem parede à frente) e confere com uma segunda leitura.
     void positionForArc(double frontTargetMm);
@@ -137,6 +146,7 @@ public:
         arcRetriesUsed_ = 0;
         frontStops_ = 0;
         gyroMissesTotal_ = 0;
+        headingResidualDeg_ = 0.0;
     }
     [[nodiscard]] int arcRetriesUsed() const noexcept { return arcRetriesUsed_; }
     [[nodiscard]] int frontStops() const noexcept { return frontStops_; }

@@ -4,6 +4,7 @@
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 
 #include "controller/RobotMotion.hpp"
 #include "domain/MotorVoltage.hpp"
@@ -25,6 +26,7 @@ constexpr char kTimeoutFailure[] = "tempo de 3 s esgotado";
 constexpr char kArcTimeoutFailure[] = "tempo de 4,5 s esgotado";
 constexpr char kStallFailure[] = "curva travada";
 constexpr char kGyroFailure[] = "giroscopio sem leitura";
+constexpr char kShortOfCellFailure[] = "nao chegou ao fim da celula";
 // Laço de controle: 2 ms. O intervalo real é medido a cada volta (I²C do giroscópio, BLE, log).
 constexpr TickType_t kControlPeriod = pdMS_TO_TICKS(2);
 // O intervalo medido é limitado: uma volta muito atrasada não pode virar um salto no integral.
@@ -35,6 +37,16 @@ constexpr double kMaxDtS = 0.02;
 constexpr double kWallPollS = 0.01;
 // Pausa depois de cada movimento, com o freio ligado (mede também o giro depois do freio).
 constexpr uint32_t kSettleMs = 40;
+// Parado por mais que isto, o robô foi mexido à mão: o erro de rumo acumulado não vale mais.
+constexpr int64_t kHeadingStaleUs = 4'000'000;
+// Ajuste fino depois do arco (18/11): o freio é fixo, mas a inércia varia de 0,3 a 4 graus, e o arco
+// terminava 1 a 4 graus curto (D2: 86,1 / -86,2 / 88,9). Se faltar de 1 a 8 graus, gira o resto no
+// lugar, devagar (o canto da frente varre ~7 mm em 4 graus).
+constexpr double kTrimMinDeg = 1.0;
+constexpr double kTrimMaxDeg = 8.0;
+constexpr double kTrimMaxDegPerS = 45.0;
+constexpr double kTrimMaxDegPerS2 = 300.0;
+constexpr double kTrimToleranceDeg = 0.5;
 // Espera por uma medida nova do ToF frontal com o robô parado (ele mede a cada 50 ms, com 50 ms de
 // medida: 150 ms cobre o pior caso, como no sense() do adaptador dos ToF).
 constexpr uint32_t kFrontFreshTimeoutMs = 150;
@@ -622,6 +634,12 @@ std::optional<int> Drv8833MotionAdapter::settledFrontMm() const {
     return std::nullopt;
 }
 
+void Drv8833MotionAdapter::dropStaleHeading() {
+    if (esp_timer_get_time() - lastMoveEndUs_ > kHeadingStaleUs) {
+        headingResidualDeg_ = 0.0;
+    }
+}
+
 void Drv8833MotionAdapter::straight(double distanceMm, const char* name, bool centerOnWalls) {
     if (!lastMoveOk_) {
         return;  // um movimento anterior deste passo falhou: não anda com o robô na pose errada
@@ -650,6 +668,7 @@ void Drv8833MotionAdapter::straight(double distanceMm, const char* name, bool ce
     // Última leitura válida do frontal nesta reta (-1 = nenhuma). Só o log usa.
     [[maybe_unused]] int frontMm = -1;
     double headingDeg = 0.0;  // giro do robô durante a reta, pelo giroscópio
+    dropStaleHeading();
     gyroMisses_ = 0;
     lastGyroRate_ = 0.0;
     // Os ToF laterais são lidos na reta mesmo sem o RF-44, só para o log (a última leitura de cada
@@ -743,7 +762,7 @@ void Drv8833MotionAdapter::straight(double distanceMm, const char* name, bool ce
         // (ângulo positivo) recebe uma correção para a direita, e vice-versa. Só para a frente; o
         // limite impede que uma leitura ruim torça o robô.
         const double headingMm =
-            sign > 0.0 ? std::clamp(-calibration_.headingGain * headingDeg,
+            sign > 0.0 ? std::clamp(-calibration_.headingGain * (headingResidualDeg_ + headingDeg),
                                     -controller::robot::kHeadingHoldMaxMm,
                                     controller::robot::kHeadingHoldMaxMm)
                        : 0.0;
@@ -753,7 +772,7 @@ void Drv8833MotionAdapter::straight(double distanceMm, const char* name, bool ce
         if (out.done) {
             if (!move.reachedTarget()) {
                 lastMoveOk_ = false;
-                lastMoveFailure_ = "nao chegou ao fim da celula";
+                lastMoveFailure_ = kShortOfCellFailure;
             }
             break;
         }
@@ -761,6 +780,10 @@ void Drv8833MotionAdapter::straight(double distanceMm, const char* name, bool ce
         vTaskDelay(kControlPeriod);
     }
     stopAndSettle();
+    if (sign > 0.0 && lastMoveOk_) {
+        headingResidualDeg_ += headingDeg;  // o que a reta girou, com a correção, entra na conta
+    }
+    lastMoveEndUs_ = esp_timer_get_time();
 #if CONFIG_RATO_LOG_RETA
     const double loopMs = clock.elapsed() * 1000.0;
     const double worstLoopMs = clock.worstMs();
@@ -812,6 +835,7 @@ void Drv8833MotionAdapter::pivot(double degrees, controller::PivotMove::Directio
     if (!lastMoveOk_) {
         return;  // um movimento anterior deste passo falhou
     }
+    dropStaleHeading();
     encoders_.reset();
     // Uma curva nova por manobra: o ângulo parte de zero, e o erro da deriva do giroscópio não se
     // propaga entre curvas consecutivas (RNF-34).
@@ -898,6 +922,12 @@ void Drv8833MotionAdapter::pivot(double degrees, controller::PivotMove::Directio
         turn.settle(gyroRate(), clock.tick());
     }
     lastTurnDeg_ = turn.angle();
+    if (lastMoveOk_) {
+        // Esquerda é ângulo positivo. O que faltou (ou passou) dos 90 graus fica como erro de rumo.
+        const double target = direction == controller::PivotMove::Direction::Left ? degrees : -degrees;
+        headingResidualDeg_ += lastTurnDeg_ - target;
+    }
+    lastMoveEndUs_ = esp_timer_get_time();
     // Autoajuste do freio (`calib autoajuste_freio=1`): só curvas de 90 graus que terminaram bem e
     // pelo giroscópio (sem "continuar devagar", que chega ao alvo quase parado).
     bool brakeLearned = false;
@@ -958,11 +988,53 @@ void Drv8833MotionAdapter::describeLastMove(char* out, size_t size) const {
 // virar) anda só o que falta até o centro da célula seguinte. Na corrida 14 de 09/11, o recuo
 // depois da curva fazia o robô passar duas vezes pela ponta da parede B3/B4, e na segunda a roda
 // traseira enganchou nela ("rumo perdido").
+void Drv8833MotionAdapter::trimArc(controller::PivotMove::Direction direction) {
+    if (!lastMoveOk_) {
+        return;
+    }
+    const double target =
+        direction == controller::PivotMove::Direction::Left ? 90.0 : -90.0;
+    const double error = target - lastTurnDeg_;  // > 0: falta girar para a esquerda
+    if (std::fabs(error) < kTrimMinDeg || std::fabs(error) > kTrimMaxDeg) {
+        return;
+    }
+    controller::PivotMoveConfig config = controller::robot::kPivotMove;
+    config.limits = {kTrimMaxDegPerS, kTrimMaxDegPerS2};
+    config.toleranceDeg = kTrimToleranceDeg;
+#if CONFIG_RATO_LOG_RETA
+    ESP_LOGI("curva", "ajuste fino depois do arco: faltaram %.1f graus", error);
+#endif
+    pivot(std::fabs(error),
+          error > 0.0 ? controller::PivotMove::Direction::Left
+                      : controller::PivotMove::Direction::Right,
+          config);
+    // O ajuste é um extra: se ele falhar (travou, tempo), a curva já estava feita e segue valendo.
+    // Só a parada do operador continua cancelando.
+    if (!aborted()) {
+        lastMoveOk_ = true;
+        lastMoveFailure_ = "";
+        lastTurnJammed_ = false;
+    }
+}
+
 void Drv8833MotionAdapter::arcTurn(controller::PivotMove::Direction direction) {
     // Recua a meia célula inteira, mesmo se a reta anterior parou antes pela parede da frente: com
     // o eixo atrás do centro, o arco tem espaço no canto (V3b de 09/11).
     lastShortMm_ = 0.0;
     positionForArc(arcStartFrontMm());
+    // Sem espaço para recuar (a traseira encostou na parede de trás: A1 virado para A2, 18/11), o
+    // arco não cabe. Em vez de falhar, o robô gira no lugar, que não precisa de recuo, e segue.
+    if (!lastMoveOk_ && lastMoveFailure_ != nullptr &&
+        std::strcmp(lastMoveFailure_, kShortOfCellFailure) == 0 && !aborted()) {
+#if CONFIG_RATO_LOG_RETA
+        ESP_LOGW("curva", "sem espaco para recuar antes do arco: gira no lugar");
+#endif
+        lastMoveOk_ = true;
+        lastMoveFailure_ = "";
+        pivot(90.0, direction, pivotConfig());
+        aheadMm_ = 0.0;
+        return;
+    }
     pivot(90.0, direction, arcConfig());
     // Segunda tentativa (10/11): um arco que trava (quina na parede) levava direto ao Erro, e a
     // corrida acabava ali. Agora o robô desfaz o que girou, começa um pouco mais longe da parede
@@ -989,6 +1061,7 @@ void Drv8833MotionAdapter::arcTurn(controller::PivotMove::Direction direction) {
 #endif
         pivot(90.0, direction, arcConfig());
     }
+    trimArc(direction);
     if (lastMoveOk_) {
         // O arco de raio kArcSetbackMm leva o robô meia célula à frente na nova direção.
         aheadMm_ = controller::robot::kArcSetbackMm;
