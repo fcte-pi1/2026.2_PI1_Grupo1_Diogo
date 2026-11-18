@@ -100,7 +100,7 @@ constexpr gpio_num_t kBuzzer = GPIO_NUM_11;    // BUZZER     (pino 17)
 // BC547 NPN em corte-baixo (low-side), como no esquemático: nível alto liga o transistor. O
 // buzzer é passivo e toca por PWM (#392). Com um PNP seria o contrário: troque para false.
 constexpr bool kBuzzerActiveHigh = true;
-constexpr gpio_num_t kButton = GPIO_NUM_4;     // START_BUTTON (pino 4, pull-up externo)
+constexpr gpio_num_t kButton = GPIO_NUM_13;    // START_BUTTON (movido do GPIO 4 para o 13 na ressolda)
 
 // DIP switch de 3 vias: vias 1 e 2 = tipo de labirinto; via 3 = canto de partida
 constexpr gpio_num_t kDip1 = GPIO_NUM_7;   // DIP_SW1 (pino 7)
