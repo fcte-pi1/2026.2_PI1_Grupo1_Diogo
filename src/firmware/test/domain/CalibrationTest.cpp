@@ -47,6 +47,25 @@ TEST(Calibration, TofInStraightDefaultsOnAndAcceptsOnlyZeroOrOne) {
     EXPECT_EQ(setCalibration(calibration, "tof_na_reta", "2"), CalibrationSet::OutOfRange);
 }
 
+// Malhas fechadas novas (19/11). A rampa de tensão vem ligada (ataca o BROWNOUT na partida); as outras
+// três vêm desligadas até serem medidas no robô.
+TEST(Calibration, NewClosedLoopSwitchesHaveSafeDefaultsAndRanges) {
+    Calibration calibration;
+    EXPECT_DOUBLE_EQ(calibration.voltageRampVPerS, 50.0);
+    EXPECT_DOUBLE_EQ(calibration.headingFusion, 0.0);
+    EXPECT_DOUBLE_EQ(calibration.reanchorOnWalls, 0.0);
+    EXPECT_DOUBLE_EQ(calibration.dynamicFrontStop, 0.0);
+    EXPECT_EQ(setCalibration(calibration, "rampa_tensao", "0"), CalibrationSet::Ok);  // sem rampa
+    EXPECT_EQ(setCalibration(calibration, "rampa_tensao", "500"), CalibrationSet::OutOfRange);
+    EXPECT_EQ(setCalibration(calibration, "fusao_rumo", "0,5"), CalibrationSet::Ok);
+    EXPECT_EQ(setCalibration(calibration, "fusao_rumo", "5"), CalibrationSet::OutOfRange);
+    EXPECT_EQ(setCalibration(calibration, "reancorar_parede", "1"), CalibrationSet::Ok);
+    EXPECT_EQ(setCalibration(calibration, "reancorar_parede", "2"), CalibrationSet::OutOfRange);
+    EXPECT_EQ(setCalibration(calibration, "parada_dinamica", "1"), CalibrationSet::Ok);
+    EXPECT_EQ(setCalibration(calibration, "parada_dinamica", "-1"), CalibrationSet::OutOfRange);
+    EXPECT_EQ(calibrationFields().size(), 22u);
+}
+
 TEST(Calibration, EveryDefaultIsInsideItsRange) {
     Calibration calibration;
     EXPECT_EQ(sanitizeCalibration(calibration), 0);

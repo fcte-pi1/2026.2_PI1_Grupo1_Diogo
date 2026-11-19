@@ -27,6 +27,10 @@ constexpr std::array<CalibrationField, kCalibrationFieldCount> kFields{{
     {"ganho_rumo", &Calibration::headingGain, 0.0, 3.0, "mm/grau"},
     {"cabo_frente_mm", &Calibration::cableAheadMm, 0.0, 30.0, "mm"},
     {"preset_cad", &Calibration::presetCad, 0.0, 1.0, "0/1"},
+    {"rampa_tensao", &Calibration::voltageRampVPerS, 0.0, 400.0, "V/s"},
+    {"fusao_rumo", &Calibration::headingFusion, 0.0, 2.0, "1/s"},
+    {"reancorar_parede", &Calibration::reanchorOnWalls, 0.0, 1.0, "0/1"},
+    {"parada_dinamica", &Calibration::dynamicFrontStop, 0.0, 1.0, "0/1"},
 }};
 
 }  // namespace

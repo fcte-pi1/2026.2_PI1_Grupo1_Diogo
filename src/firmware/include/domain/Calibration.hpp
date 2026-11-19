@@ -38,6 +38,11 @@ struct Calibration {
     double centerOnWalls{0.0};    // centralizar: 1 = corrige a reta pelos ToF laterais (RF-44)
     double tofInStraight{1.0};    // tof_na_reta: 1 = lê os ToF durante a reta (padrão); 0 = só nas paradas
     double headingGain{0.0};      // ganho_rumo: mm de correção por grau de rumo na reta (0 = não)
+    // Malhas fechadas novas (19/11). A rampa vem ligada; as outras vêm desligadas até serem medidas.
+    double voltageRampVPerS{50.0};  // rampa_tensao: máx. subida da tensão no motor, V/s (0 = sem rampa)
+    double headingFusion{0.0};      // fusao_rumo: peso do encoder no rumo, 1/s (0 = só o giroscópio)
+    double reanchorOnWalls{0.0};    // reancorar_parede: 1 = corrige a posição pela parede da frente
+    double dynamicFrontStop{0.0};   // parada_dinamica: 1 = a parada da frente conta a velocidade
 };
 
 struct CalibrationField {
@@ -48,7 +53,7 @@ struct CalibrationField {
     std::string_view unit;
 };
 
-inline constexpr std::size_t kCalibrationFieldCount = 18;
+inline constexpr std::size_t kCalibrationFieldCount = 22;
 [[nodiscard]] const std::array<CalibrationField, kCalibrationFieldCount>& calibrationFields() noexcept;
 
 enum class CalibrationSet { Ok, UnknownName, OutOfRange, NotANumber };

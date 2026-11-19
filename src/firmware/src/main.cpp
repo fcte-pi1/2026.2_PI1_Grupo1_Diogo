@@ -87,7 +87,7 @@ adapters::BleTelemetryAdapter gBle;
 // curvas, parada pela parede da frente...) fica em domain::Calibration. O comando `calib` troca
 // os valores sem regravar o firmware; eles valem a partir do boot seguinte também.
 constexpr char kCalibNamespace[] = "rato";
-constexpr char kCalibKey[] = "calib3";  // mude o número se a struct mudar de formato (calib1: 13 campos)
+constexpr char kCalibKey[] = "calib4";  // mude o número se a struct mudar de formato (calib1: 13 campos)
 
 domain::Calibration defaultCalibration() {
     domain::Calibration calibration;
