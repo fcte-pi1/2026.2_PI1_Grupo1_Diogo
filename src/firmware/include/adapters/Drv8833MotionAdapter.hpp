@@ -5,6 +5,7 @@
 #include <optional>
 
 #include "adapters/Encoders.hpp"
+#include "controller/VoltageSlew.hpp"
 #include "adapters/Ina219.hpp"
 #include "adapters/MotorDriver.hpp"
 #include "adapters/Mpu6050.hpp"
@@ -36,6 +37,9 @@ private:
     bool suppressFrontStop_{false};  // só o reposicionamento para girar: o frontal lê abaixo do mínimo
     double aheadMm_{0.0};      // quanto o robô já está à frente do centro (fim de uma curva em arco)
     double batteryVolts_;
+    controller::VoltageSlew leftSlew_;   // rampa de tensão (soft-start): `calib rampa_tensao`
+    controller::VoltageSlew rightSlew_;
+    int64_t lastDriveUs_{0};
     bool lastMoveOk_{true};
     const char* lastMoveName_{"nenhum"};
     const char* lastMoveFailure_{""};  // por que o último movimento falhou (vazio se não falhou)

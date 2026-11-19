@@ -5,6 +5,7 @@
 #include "controller/PivotMove.hpp"
 #include "controller/RobotMotion.hpp"
 #include "controller/StraightMove.hpp"
+#include "controller/VoltageSlew.hpp"
 #include "controller/WheelLoop.hpp"
 
 namespace micromouse::test {
@@ -47,25 +48,40 @@ struct StraightResult {
     double rightMm{0.0};
     double maxDifferenceMm{0.0};
     double maxVolts{0.0};
+    double maxRiseVoltsPerS{0.0};  // maior subida do módulo da tensão entre dois passos (V/s)
     double seconds{0.0};
     bool done{false};
 };
 
 // Anda uma reta com o laço do adaptador (passo de 2 ms, velocidade pela janela dos encoders).
+// `rampVoltsPerS` > 0 liga a rampa de tensão (controller::VoltageSlew) entre o controle e o motor.
 inline StraightResult simulateStraight(MotorWheel left, MotorWheel right, double distanceMm,
-                                       double offsetMm = 0.0, double limitSeconds = 3.0) {
+                                       double offsetMm = 0.0, double limitSeconds = 3.0,
+                                       double rampVoltsPerS = 0.0) {
     constexpr double kDt = 0.002;
     controller::StraightMove move(distanceMm, controller::robot::kStraightMove);
     controller::SpeedEstimator leftSpeed;
     controller::SpeedEstimator rightSpeed;
     leftSpeed.reset(0.0, 0.0);
     rightSpeed.reset(0.0, 0.0);
+    controller::VoltageSlew leftSlew(rampVoltsPerS);
+    controller::VoltageSlew rightSlew(rampVoltsPerS);
     StraightResult result;
+    double previousLeft = 0.0;
+    double previousRight = 0.0;
     for (double t = kDt; t <= limitSeconds; t += kDt) {
         const double l = left.encoderMm();
         const double r = right.encoderMm();
-        const controller::StraightMove::Output out = move.step(
+        controller::StraightMove::Output out = move.step(
             kDt, l, r, leftSpeed.update(l, t), rightSpeed.update(r, t), offsetMm);
+        out.leftVolts = leftSlew.step(out.leftVolts, kDt);
+        out.rightVolts = rightSlew.step(out.rightVolts, kDt);
+        result.maxRiseVoltsPerS = std::fmax(
+            result.maxRiseVoltsPerS,
+            std::fmax((std::fabs(out.leftVolts) - std::fabs(previousLeft)) / kDt,
+                      (std::fabs(out.rightVolts) - std::fabs(previousRight)) / kDt));
+        previousLeft = out.leftVolts;
+        previousRight = out.rightVolts;
         result.maxDifferenceMm = std::fmax(result.maxDifferenceMm, std::fabs(l - r));
         result.maxVolts =
             std::fmax(result.maxVolts, std::fmax(std::fabs(out.leftVolts), std::fabs(out.rightVolts)));

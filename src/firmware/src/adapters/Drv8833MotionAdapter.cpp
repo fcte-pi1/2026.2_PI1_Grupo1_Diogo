@@ -30,6 +30,10 @@ constexpr char kTimeoutFailure[] = "tempo de 3 s esgotado";
 constexpr char kArcTimeoutFailure[] = "tempo de 4,5 s esgotado";
 constexpr char kStallFailure[] = "curva travada";
 constexpr char kGyroFailure[] = "giroscopio sem leitura";
+// Rampa de tensão: depois de mais que isto sem comando o motor recomeça do zero; no 1º comando conta-se um
+// passo de controle (10 ms).
+constexpr double kSlewGapS = 0.1;
+constexpr double kControlDtForRampS = 0.01;
 constexpr char kShortOfCellFailure[] = "nao chegou ao fim da celula";
 // Laço de controle: 2 ms. O intervalo real é medido a cada volta (I²C do giroscópio, BLE, log).
 constexpr TickType_t kControlPeriod = pdMS_TO_TICKS(2);
@@ -96,6 +100,19 @@ void Drv8833MotionAdapter::setBatteryVolts(double volts) noexcept {
 }
 
 void Drv8833MotionAdapter::drive(double leftVolts, double rightVolts) {
+    // Rampa de tensão (soft-start): o degrau do atrito estático nas duas rodas é um pico de corrente que
+    // derrubava a alimentação na partida. Um intervalo longo sem comandos (robô parado) recomeça do zero.
+    const int64_t nowUs = esp_timer_get_time();
+    const double dtS = static_cast<double>(nowUs - lastDriveUs_) / 1e6;
+    lastDriveUs_ = nowUs;
+    leftSlew_.setRamp(calibration_.voltageRampVPerS);
+    rightSlew_.setRamp(calibration_.voltageRampVPerS);
+    if (dtS > kSlewGapS) {
+        leftSlew_.reset();
+        rightSlew_.reset();
+    }
+    leftVolts = leftSlew_.step(leftVolts, dtS > kSlewGapS ? kControlDtForRampS : dtS);
+    rightVolts = rightSlew_.step(rightVolts, dtS > kSlewGapS ? kControlDtForRampS : dtS);
     endLeftVolts_ = leftVolts;
     endRightVolts_ = rightVolts;
     motors_.setNormalized(domain::commandForVolts(leftVolts, batteryVolts_, kMotorDecay),

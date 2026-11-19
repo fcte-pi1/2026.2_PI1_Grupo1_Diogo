@@ -23,6 +23,27 @@ TEST(StraightMoveSimulation, EqualWheelsStopAtTheNextCell) {
     EXPECT_LT(run.seconds, 2.3);  // freio suave (19/11): ~2,0 s de perfil + assentar (era 1,45 s a 200 mm/s)
 }
 
+// Rampa de tensão (soft-start, 19/11): a subida da tensão cai para no máximo 50 V/s e a reta
+// ainda chega ao fim da célula, mesmo com a roda dura (que precisa de mais tensão para sair do lugar).
+TEST(StraightMoveSimulation, VoltageRampSoftensTheStartAndStillReachesTheCell) {
+    const StraightResult hard = simulateStraight(easyWheel(), easyWheel(), kCell);
+    const StraightResult soft = simulateStraight(easyWheel(), easyWheel(), kCell, 0.0, 3.0, 50.0);
+    ASSERT_TRUE(soft.done);
+    EXPECT_GT(hard.maxRiseVoltsPerS, 100.0);  // sem rampa: o empurrão do atrito sobe de uma vez
+    EXPECT_LE(soft.maxRiseVoltsPerS, 50.5);   // com rampa: no máximo 50 V/s
+    EXPECT_NEAR(soft.leftMm, kCell, 2.0);
+    EXPECT_NEAR(soft.rightMm, kCell, 2.0);
+    EXPECT_LT(soft.seconds, hard.seconds + 0.4);  // custa pouco tempo
+}
+
+TEST(StraightMoveSimulation, VoltageRampStillMovesTheStiffWheelAndKeepsTheWheelsTogether) {
+    const StraightResult soft = simulateStraight(easyWheel(), stiffWheel(), kCell, 0.0, 3.0, 50.0);
+    ASSERT_TRUE(soft.done);
+    EXPECT_NEAR(soft.leftMm, kCell, 3.0);
+    EXPECT_NEAR(soft.rightMm, kCell, 3.0);
+    EXPECT_LT(soft.maxDifferenceMm, 3.0);
+}
+
 // O caso de 07/11: uma roda bem mais dura (não sai do lugar com 2 V, mais carga). Cada roda recebe a
 // tensão de que precisa: as duas chegam juntas e o robô não vira.
 TEST(StraightMoveSimulation, StiffWheelGetsMoreVoltageAndKeepsUp) {
