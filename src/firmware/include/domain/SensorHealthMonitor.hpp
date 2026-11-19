@@ -21,4 +21,16 @@ public:
     void reset() noexcept;
 };
 
+
+// O ToF precisa ser reiniciado pelo XSHUT? Sim se não responde ou a última medida foi falha, a não
+// ser no modo automático depois de `kMaxFailedRestarts` reinícios seguidos sem sucesso. Só vale com o
+// robô PARADO (cada reinício leva ~0,3 s).
+inline constexpr unsigned kMaxFailedRestarts = 3;
+[[nodiscard]] bool shouldRestartSensor(bool answers, bool lastReadFailed, unsigned failedStreak,
+                                       bool automatic) noexcept;
+
+// Motivo do Erro por falha de sensor confirmada (RF-55). `tofSummary` vem do adaptador dos ToF.
+void describeSensorFailure(char* out, unsigned long size, bool imuOk, bool powerOk,
+                           const char* tofSummary) noexcept;
+
 }  // namespace micromouse::domain

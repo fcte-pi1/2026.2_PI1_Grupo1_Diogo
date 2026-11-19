@@ -1,5 +1,6 @@
 #include "domain/SensorHealthMonitor.hpp"
 
+#include <cstdio>
 #include <stdexcept>
 
 namespace micromouse::domain {
@@ -20,5 +21,17 @@ bool SensorHealthMonitor::update(bool healthy) noexcept {
 bool SensorHealthMonitor::hasFailed() const noexcept { return failures_ >= requiredFailures_; }
 
 void SensorHealthMonitor::reset() noexcept { failures_ = 0; }
+
+
+bool shouldRestartSensor(bool answers, bool lastReadFailed, unsigned failedStreak,
+                         bool automatic) noexcept {
+    return (!answers || lastReadFailed) && !(automatic && failedStreak >= kMaxFailedRestarts);
+}
+
+void describeSensorFailure(char* out, unsigned long size, bool imuOk, bool powerOk,
+                           const char* tofSummary) noexcept {
+    std::snprintf(out, size, "falha de sensor por 3 passos:%s%s %s", imuOk ? "" : " IMU",
+                  powerOk ? "" : " INA219", tofSummary);
+}
 
 }  // namespace micromouse::domain

@@ -54,4 +54,31 @@ TEST(SensorHealthMonitor, RejectsInvalidConfiguration) {
 
 }  // namespace
 
+
+// ToF direito de 16/11 (3V3 oscilando, 672-732 erros de I2C): o religamento pelo XSHUT só roda com o
+// robô PARADO (no sense(), entre passos, ou no comando tofrec). Automático, desiste depois de 3
+// reinícios seguidos sem sucesso, para não gastar ~0,3 s por passo com um sensor desligado.
+TEST(SensorRecovery, AutomaticRecoveryGivesUpAfterThreeFailedRestarts) {
+    EXPECT_TRUE(shouldRestartSensor(/*answers=*/false, /*pollFault=*/false, 0, true));
+    EXPECT_TRUE(shouldRestartSensor(false, false, 2, true));
+    EXPECT_FALSE(shouldRestartSensor(false, false, 3, true));
+    // O comando tofrec tenta sempre.
+    EXPECT_TRUE(shouldRestartSensor(false, false, 3, false));
+    EXPECT_TRUE(shouldRestartSensor(false, false, 50, false));
+    // Sensor que responde e mediu bem não é reiniciado; com a última medida em falha, é.
+    EXPECT_FALSE(shouldRestartSensor(true, false, 0, true));
+    EXPECT_TRUE(shouldRestartSensor(true, true, 0, true));
+}
+
+// O Erro por sensor diz quem falhou (visto em 16/11: "ToF em falha: direito").
+TEST(SensorFailureMessage, NamesTheFaultySensorsAndTheSteps) {
+    char text[160];
+    describeSensorFailure(text, sizeof text, true, true, "ToF em falha: direito");
+    EXPECT_STREQ(text, "falha de sensor por 3 passos: ToF em falha: direito");
+    describeSensorFailure(text, sizeof text, false, true, "");
+    EXPECT_STREQ(text, "falha de sensor por 3 passos: IMU ");
+    describeSensorFailure(text, sizeof text, true, false, "ToF em falha: esquerdo frontal");
+    EXPECT_STREQ(text, "falha de sensor por 3 passos: INA219 ToF em falha: esquerdo frontal");
+}
+
 }  // namespace micromouse::domain

@@ -3,6 +3,7 @@
 #include <cstdio>
 
 #include "adapters/BoardPins.hpp"
+#include "domain/SensorHealthMonitor.hpp"
 #include "sdkconfig.h"
 
 #include "esp_err.h"
@@ -32,7 +33,6 @@ constexpr uint32_t kFreshTimeoutMs = 150;
 constexpr uint32_t kMuteMs = 500;
 // Reinícios automáticos pelo XSHUT (no sense(), robô parado): depois de tantos SEGUIDOS sem
 // sucesso num sensor, o sense() para de tentar (sensor desligado). Um que dá certo zera a conta.
-constexpr unsigned kMaxFailedStreak = 3;
 
 // Nome curto do estado da medida, para o log e o motivo de falha.
 const char* statusName(drivers::Vl53l1x::RangeStatus status) {
@@ -314,8 +314,7 @@ int Vl53l1xSensorAdapter::recoverFailed(bool automatic) const {
             (void)slot.sensor->dataReady();
             answers = slot.sensor->lastTransferOk();
         }
-        failing[i] = (!answers || slot.pollFault) &&
-                     !(automatic && slot.failedStreak >= kMaxFailedStreak);
+        failing[i] = domain::shouldRestartSensor(answers, slot.pollFault, slot.failedStreak, automatic);
         any = any || failing[i];
     }
     if (!any) {

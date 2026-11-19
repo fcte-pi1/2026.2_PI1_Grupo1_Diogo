@@ -1125,9 +1125,8 @@ void navigationTask(void*) {
             const bool imuOk = gImu.present();
             const bool powerOk = gPower.present();
             if (sensorHealth.update(imuOk && powerOk && gSensor.healthy())) {
-                std::snprintf(failure, sizeof failure, "falha de sensor por 3 passos:%s%s %s",
-                              imuOk ? "" : " IMU", powerOk ? "" : " INA219",
-                              gSensor.faultSummary());
+                domain::describeSensorFailure(failure, sizeof failure, imuOk, powerOk,
+                                              gSensor.faultSummary());
                 ESP_LOGE(kTag, "%s", failure);
                 break;
             }
