@@ -1,5 +1,9 @@
 # Relatório da bateria de testes do robô — 19/11/2026
 
+> **ERRATA (19/11, operador):** o robô **não será mexido em nada até segunda-feira**: nenhuma alteração de estrutura, eletrônica, energia ou fiação.
+> Por isso os pedidos às equipes abaixo valem **a partir de segunda**, e os testes de amanhã usam o robô **exatamente como está** (ToF direito fora do ar,
+> cabo da bateria como está, firmware das 11:01:54 e calibração `ganho_rumo=0.6`, `centralizar=1`, `tof_na_reta=1`).
+
 Robô `rato-01` (micromouse ESP32-S3). Firmware: branch `feat/controle-motores-tensao`, commit 8282d64 + 2 mudanças não commitadas
 (ver `PARA_EQUIPE_FIRMWARE.md`). Gravado às 09:41 e regravado às 11:01. Linha de base: 16/11/2026. Conduzida por um assistente (Claude Code) com
 o operador mexendo no robô. Todos os logs, fotos e o zip estão em `src/firmware/robot-tests/resultados/` e `robot-tests/fotos/`.

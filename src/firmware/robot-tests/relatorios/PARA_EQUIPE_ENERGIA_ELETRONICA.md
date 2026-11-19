@@ -1,5 +1,9 @@
 # Para a equipe de energia e eletrônica — achados de 19/11/2026 (robô `rato-01`)
 
+> **ERRATA (19/11, operador):** o robô **não será mexido em nada até segunda-feira**: nenhuma alteração de estrutura, eletrônica, energia ou fiação.
+> Por isso os pedidos às equipes abaixo valem **a partir de segunda**, e os testes de amanhã usam o robô **exatamente como está** (ToF direito fora do ar,
+> cabo da bateria como está, firmware das 11:01:54 e calibração `ganho_rumo=0.6`, `centralizar=1`, `tof_na_reta=1`).
+
 Bateria 2S LiPo (~8,0 V cheia, 7,8 V ao fim do dia). O operador **só pode mexer em software**: tudo abaixo precisa de mão de vocês.
 
 ## Defeitos observados (todos com o robô PARADO, ou no 1º arranque dos motores)
@@ -14,7 +18,7 @@ Bateria 2S LiPo (~8,0 V cheia, 7,8 V ao fim do dia). O operador **só pode mexer
 ## O que NÃO é
 Não é falta de corrente (0,14 a 0,18 A) nem afundamento da bateria antes do reset. Os motores a 6 V no ar (H6, H7) nunca reiniciaram a placa.
 
-## Pedidos (em ordem de prioridade)
+## Pedidos (em ordem de prioridade) — a partir de segunda-feira; até lá o robô fica como está
 1. **ToF direito:** medir 3V3 e XSHUT do módulo em funcionamento (multímetro) e reencaixar/ressoldar o conector de 6 pinos; se não resolver, trocar o módulo.
 2. **ToF frontal:** mesma medição; prender o cabo/conector do módulo frontal para não ser tocado.
 3. **Conector JST de 2 pinos da bateria e balancim:** trocar/reapertar (contato intermitente). Sugestão: conector de maior corrente (XT30) e balancim mais firme.
