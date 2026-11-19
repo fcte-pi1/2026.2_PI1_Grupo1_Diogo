@@ -67,6 +67,15 @@ TEST(RobotModel, FootprintFitsTheLimitAndTheCorridor) {
     }
 }
 
+// Não há cabo à frente do robô (operador, 19/11): só o cabo vermelho e preto da bateria, que sai pela
+// lateral esquerda e não entra neste modelo. A margem de cabo à frente é 0 e a pegada vai da traseira
+// do chassi (17,25) à frente de campo (87).
+TEST(RobotModel, ThereIsNoCableInFrontByDefault) {
+    const Calibration calibration;
+    EXPECT_DOUBLE_EQ(calibration.cableAheadMm, 0.0);
+    EXPECT_DOUBLE_EQ(robot::footprintLengthMm(calibration), robot::kAxleToRearMm + 87.0);
+}
+
 TEST(RobotModel, CableMarginIsPartOfTheFootprint) {
     Calibration calibration;
     const double before = robot::footprintLengthMm(calibration);

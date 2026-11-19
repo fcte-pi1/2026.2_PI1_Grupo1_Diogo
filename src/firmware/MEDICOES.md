@@ -13,7 +13,7 @@ frente, y para a esquerda; eixo das rodas em x = 17,25 mm. Tudo em mm.
 | largura com as rodas | 108,0 | 108 | `largura_com_rodas` | pegada e folga lateral (30 mm por lado) |
 | ToF lateral até o centro | 50,5 | 50,5 | `tof_lado_ao_centro` | leitura nominal lateral = 84 - 50,5 = 33,5 |
 | ToF lateral à frente do eixo | 59,15 | 59,15 | `tof_lado_a_frente_do_eixo` | pose lateral: 59,15 x tan(rumo) |
-| margem de cabos à frente | não está no CAD | 12 (proposta) | `cabo_frente_mm` | pegada (<= 165 mm) |
+| margem de cabo à frente | não existe cabo à frente | 0 | `cabo_frente_mm` | pegada (<= 165 mm) |
 | bitola | 87,8 | 88 | (constante) | giro no lugar; o arco usa 74,2 (medida em 45 arcos) |
 | diâmetro da roda | 32,0 | 32 | (constante) | pulsos por mm |
 
@@ -32,3 +32,16 @@ a face do ToF frontal e os cabos, e só então trocar o padrão. Atalho: `calib 
 Com 108 mm de largura com as rodas, a folga no corredor de 168 mm é de 30 mm por lado. Aumentar o robô
 reduz essa folga (e a faixa em que a curva com uma roda cabe). O firmware só atualiza o MODELO do
 robô; mudar a estrutura pede conversa.
+
+## Posição dos 3 ToF no CAD (extraída do `assembly.step` em 19/11)
+Origem do CAD na traseira do chassi, x para a frente, y para a esquerda, eixo das rodas em x = 17,25. Posição da ORIGEM de cada módulo VL53L1X
+(`ITEM_DEFINED_TRANSFORMATION` das instâncias VL53l1X:1, :2 e :3), z = 35,25 nos três:
+| Módulo | x (CAD) | y (CAD) | Do eixo | Do centro do robô |
+|:--|--:|--:|--:|--:|
+| ToF esquerdo (:1) | 76,445 | +47,5 | **59,195 à frente** | 47,5 |
+| ToF frontal (:2) | 122,000 | 0 | **104,75 à frente** | 0 |
+| ToF direito (:3) | 76,445 | -47,5 | **59,195 à frente** | 47,5 |
+O firmware usa 50,5 (= 47,5 + 3,0 até a janela do sensor) e 59,15 para os laterais, e 107,75 para a face do frontal (= 104,75 + 3,0): batem com o CAD.
+Os 3 mm até a janela foram assumidos na versão anterior; confirmar com paquímetro se o módulo real tem a janela a 3 mm da origem.
+Lateral: confere com o campo (84 - 50,5 = 33,5 mm; medido 33,6). Frontal: o CAD (107,75) contradiz o campo (~85): ver o conflito acima.
+Não existe cabo à frente do robô (operador, 19/11): `cabo_frente_mm` = 0. O cabo vermelho e preto da bateria sai pela lateral esquerda e não entra no modelo. `preset_cad` é só um registro.

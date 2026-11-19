@@ -254,7 +254,7 @@ O que depende do robô montado e do piso fica na memória do robô (NVS) e é tr
 | `freio_pivo` | O mesmo no giro no lugar. 10,1 = 13,5 x 0,75 (PROPOSTA A CONFIRMAR) | 10,1 | 0 a 30 |
 | `modo_curva` | 0 = curva em arco (padrão); 1 = curva fechada com UMA roda (a de dentro parada). Calcula a faixa de início ao aplicar (~1 s) | 0 | 0 ou 1 |
 | `freio_uma_roda` | O freio da curva com uma roda (PROPOSTA: o do arco; nenhum log tem curva de uma roda) | 3,2 | 0 a 20 |
-| `cabo_frente_mm` | Margem de cabos à frente do ToF frontal (conector Dupont). PROPOSTA A CONFIRMAR com paquímetro: 10 a 14 | 12 mm | 0 a 30 |
+| `cabo_frente_mm` | Margem de cabo à frente do ToF frontal. Não existe cabo à frente (só o da bateria, na lateral esquerda) | 0 mm | 0 a 30 |
 | `preset_cad` | 1 = frente do CAD (107,25 chassi / 107,75 ToF); 0 = frente de campo (87 / 85). Valores dados DEPOIS na mesma linha valem mais | 0 | 0 ou 1 |
 | `autoajuste_freio` | 1 = o robô mede quanto gira depois de frear em cada curva e ajusta o freio da seguinte (entre 2 e 15 graus no arco). Recomeça do `freio_*` a cada boot | 0 | 0 ou 1 |
 | `parada_frente` | A reta para quando o ToF frontal lê menos que isto. Com 35 o nariz para a ~1 cm da parede e a curva precisa do "ajuste antes da curva"; o valor calculado para o nariz parar a ~4 cm é 65 | 35 mm | 20 a 90 |
@@ -317,7 +317,7 @@ pivô com a bitola efetiva. Aguarda medida com transferidor.
 | Item | Como | Aprovado se |
 |:--|:--|:--|
 | **Paquímetro, frente** (decide campo x CAD) | Do meio do eixo das rodas até o ponto mais à frente do chassi, e até a face do ToF frontal; depois `calib eixo_ate_frente=.. eixo_ate_tof_frente=..` | os dois valores medidos; se der perto de 107, `calib preset_cad=1`; some o aviso de boot |
-| **Paquímetro, cabos** | Quanto o conector Dupont do ToF frontal sai à frente da face | `calib cabo_frente_mm=..` gravado; pegada total <= 165 mm |
+| **Cabo da bateria** | Não há cabo à frente. O cabo vermelho e preto da bateria sai ~10 mm para fora da lateral esquerda e prende nas paredes (equipe de energia) | `cabo_frente_mm` = 0 |
 | Pose lateral | `calib centralizar=1`; `andar` 5 células pelo corredor, saindo 10 mm deslocado | no fim, `lat E`/`D` com diferença <= 10 mm; linha `pose lateral` com estimativa; sem raspar |
 | Curva com uma roda | `calib modo_curva=1`; `virar e` e `virar d` em A2 e C1, 3 vezes cada | giro final 90 +- 3 graus; sem encostar; a roda de dentro anda <= 10 mm; anotar o freio aprendido (`autoajuste_freio=1`) e o desvio lateral final (esperado 15 a 33 mm) |
 | Atrito do apoio frontal | Mesma curva, comparar com o arco | registrar o tempo e a inércia; sem referência anterior |

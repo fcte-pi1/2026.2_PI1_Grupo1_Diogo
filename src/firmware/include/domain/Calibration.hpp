@@ -20,9 +20,9 @@ struct Calibration {
     double widthWithWheelsMm{108.0};      // largura_com_rodas: pneus de y=33,8 a 54,0 (108,6 com cubo)
     double sideTofToCenterMm{50.5};       // tof_lado_ao_centro: 84 - 50,5 = 33,5 mm na pista
     double sideTofAheadOfAxleMm{59.15};   // tof_lado_a_frente_do_eixo: centro do módulo, x = 76,4
-    // Margem de cabos à frente do ToF frontal (conector Dupont). PROPOSTA A CONFIRMAR com
-    // paquímetro: 10 a 14 mm; 12 é o meio.
-    double cableAheadMm{12.0};  // cabo_frente_mm
+    // Margem de cabo à frente do ToF frontal. NÃO existe cabo à frente do robô (operador, 19/11): só o
+    // cabo vermelho e preto da bateria, que sai pela lateral esquerda. Padrão 0.
+    double cableAheadMm{0.0};  // cabo_frente_mm
     // 1 = frente do CAD (107,25 / 107,75), 0 = padrão de campo (87 / 85). Só registra a última
     // escolha: quem vale são eixo_ate_frente e eixo_ate_tof_frente.
     double presetCad{0.0};  // preset_cad
