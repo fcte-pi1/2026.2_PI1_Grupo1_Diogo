@@ -140,3 +140,16 @@ def check_lateral_pose(lines: list[str]) -> list[Check]:
         checks.append(Check.passed_or_review(axes[-1] <= axes[0] + 3.0,
                                              f"o erro não cresceu: {axes[0]:.1f} -> {axes[-1]:.1f} mm"))
     return checks
+
+
+def check_log_lines(lines: list[str], pattern: str, description: str, minimum: int = 1) -> list[Check]:
+    """Confere que o log tem pelo menos `minimum` linhas da malha nova (prova de que ela rodou)."""
+    found = find_matches(lines, pattern)
+    return [Check.judge(len(found) >= minimum, f"{len(found)} linha(s) '{description}' (mínimo {minimum})"),
+            *(Check.info(match.group(0)[-110:]) for match in found[:3])]
+
+
+def check_no_power_reset(lines: list[str]) -> list[Check]:
+    """Nenhuma reinicialização de energia durante o teste (BROWNOUT ou queda)."""
+    return [Check.judge(not any("BROWNOUT" in line or "reset=LIGOU" in line for line in lines),
+                        "sem BROWNOUT nem reinício de energia")]

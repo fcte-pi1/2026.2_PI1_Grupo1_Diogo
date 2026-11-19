@@ -260,6 +260,11 @@ O que depende do robô montado e do piso fica na memória do robô (NVS) e é tr
 | `parada_frente` | A reta para quando o ToF frontal lê menos que isto. Com 35 o nariz para a ~1 cm da parede e a curva precisa do "ajuste antes da curva"; o valor calculado para o nariz parar a ~4 cm é 65 | 35 mm | 20 a 90 |
 | `centralizar` | 1 = corrige a reta pelos ToF laterais (RF-44, ganhos não calibrados) | 0 | 0 ou 1 |
 | `ganho_rumo` | mm de correção entre as rodas por grau de rumo medido pelo giroscópio na reta (1,5 = o equivalente geométrico). 0 = só detecta rumo perdido | 0 | 0 a 3 |
+| `rampa_tensao` | Soft-start: a tensão no motor sobe no máximo isto por segundo (o degrau do atrito estático nas duas rodas derrubava a alimentação na partida). 0 = sem rampa. Reduzir a tensão (frear) passa direto | 50 V/s | 0 a 400 |
+| `fusao_rumo` | Peso do encoder no rumo da reta (filtro complementar com o giroscópio): limita o desvio do giroscópio em ~desvio/peso sem perder um giro de verdade. 0 = só o giroscópio | 0 | 0 a 2 |
+| `reancorar_parede` | 1 = parado no centro da célula, a parede 1 ou 2 células à frente (179 ou 359 mm) corrige a próxima reta pela metade do erro, até 15 mm, só acima de 15 mm (ruído do ToF). Custa ~0,15 s por célula | 0 | 0 ou 1 |
+| `parada_dinamica` | 1 = a parada pela frente soma v^2/(2a) ao limiar (a = 1600 mm/s², estimada; teto 20 mm), para parar em `parada_frente` qualquer que seja a velocidade | 0 | 0 ou 1 |
+| `vies_giro` | 1 = depois de cada reta, remede o desvio do giroscópio parado (15 amostras) e anda 30% do caminho; descarta se variar mais de 3 graus/s ou diferir mais de 5 do em uso. Custa ~0,3 s por célula | 0 | 0 ou 1 |
 
 As três medidas do corpo decidem onde o arco começa (a linha `calib: fim: arco comeca com o frontal
 a X mm` mostra o resultado). Linhas novas no log:
