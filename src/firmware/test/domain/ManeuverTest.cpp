@@ -1,5 +1,7 @@
 #include <gtest/gtest.h>
 
+#include <cmath>
+
 #include "controller/RobotMotion.hpp"
 #include "domain/Maneuver.hpp"
 #include "domain/RobotParameters.hpp"
@@ -147,6 +149,22 @@ TEST(Maneuver, ArcoComLeituraAbaixoDoAlcanceMinimoNaoRecuaDemais) {
     // Acima do limite, nada muda.
     EXPECT_DOUBLE_EQ(arcStart(true, 46.0, config).setbackMm,
                      controller::robot::kArcStartFrontMm - 46.0);
+}
+
+// "Muito perto" (ToF abaixo de ~40 mm, parede presente e distância desconhecida): recua só até a
+// leitura garantida (alvo - 40 mm) e mede de novo. A segunda leitura acerta o resto, sem passar do
+// ajuste máximo mesmo com a parede encostada.
+TEST(Maneuver, ArcoComParedeMuitoPertoRecuaOMinimoEMedeDeNovo) {
+    const ArcStartConfig& config = controller::robot::kArcStart;
+    const ArcStart start = arcStartTooClose(config);
+    EXPECT_TRUE(start.byFrontWall);
+    EXPECT_DOUBLE_EQ(start.setbackMm, controller::robot::kArcStartFrontMm - config.tooCloseMm);
+    EXPECT_LT(start.setbackMm,
+              controller::robot::kArcStartFrontMm);  // não recua a distância inteira
+    // Pior caso: a parede estava encostada (0 mm). Depois do recuo, o frontal lê tooCloseMm - 0...
+    // ou seja, falta no máximo kArcStartMaxCorrectionMm.
+    EXPECT_LE(std::fabs(arcStartCorrection(true, start.setbackMm, config)),
+              controller::robot::kArcStartMaxCorrectionMm);
 }
 
 TEST(Maneuver, ArcoSemLeituraValidaUsaORecuoFixo) {

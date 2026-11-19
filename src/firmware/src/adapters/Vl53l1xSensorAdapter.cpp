@@ -172,7 +172,7 @@ Vl53l1xSensorAdapter::Reading Vl53l1xSensorAdapter::take(Slot& slot) const {
     drivers::Vl53l1x& sensor = *slot.sensor;
     const uint16_t mm = sensor.read(false);
     const drivers::Vl53l1x::RangeStatus status = sensor.rangingData().status;
-    const drivers::ReadingKind kind =
+    const drivers::ReadingKind rawKind =
         drivers::classifyReading(sensor.lastTransferOk(), true, status);
     if (!sensor.lastTransferOk()) {
         mute(slot);
@@ -181,14 +181,18 @@ Vl53l1xSensorAdapter::Reading Vl53l1xSensorAdapter::take(Slot& slot) const {
     }
     // Só a falta de resposta pede reinício; um estado ruim de UMA medida (sync, hw) não.
     slot.pollFault = !sensor.lastTransferOk();
+    const int tooCloseMm = &slot == &slots_[static_cast<size_t>(Side::Front)] ? kFrontTooCloseMm
+                                                                              : kSideTooCloseMm;
+    // Alvo colado no sensor (MinRangeFail) lê 0: também é "muito perto".
+    const int rangeMm =
+        status == drivers::Vl53l1x::RangeStatus::MinRangeFail ? 0 : static_cast<int>(mm);
+    const drivers::ReadingKind kind = drivers::classifyNearRange(rawKind, rangeMm, tooCloseMm);
     switch (kind) {
+        case drivers::ReadingKind::TooClose:
+            slot.last = {0, status, kind};
+            break;
         case drivers::ReadingKind::Distance:
-            // Alvo colado no sensor (abaixo do alcance mínimo): a distância lida não vale, mas
-            // há parede ali. Visto na pista em 04/11 com o robô encostado na parede lateral.
-            slot.last = {status == drivers::Vl53l1x::RangeStatus::MinRangeFail
-                             ? 0
-                             : static_cast<int>(mm),
-                         status, kind};
+            slot.last = {rangeMm, status, kind};
             break;
         case drivers::ReadingKind::NoTarget:
             slot.last = {kNoReadingMm, status, kind};
@@ -397,7 +401,8 @@ void Vl53l1xSensorAdapter::watch() const {
 }
 
 const char* Vl53l1xSensorAdapter::statusText(Side side) const {
-    return statusName(slots_[static_cast<size_t>(side)].last.status);
+    const Reading& last = slots_[static_cast<size_t>(side)].last;
+    return last.kind == drivers::ReadingKind::TooClose ? "perto" : statusName(last.status);
 }
 
 std::array<Vl53l1xSensorAdapter::Reading, 3> Vl53l1xSensorAdapter::settledReadings() const {

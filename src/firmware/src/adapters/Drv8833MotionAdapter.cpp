@@ -628,6 +628,9 @@ std::optional<int> Drv8833MotionAdapter::settledFrontMm() const {
             if (reading->kind == drivers::ReadingKind::Distance) {
                 return reading->mm;
             }
+            if (reading->kind == drivers::ReadingKind::TooClose) {
+                return Vl53l1xSensorAdapter::kFrontTooCloseMm;  // a parede está a menos disto
+            }
             return std::nullopt;
         }
     }
@@ -748,9 +751,12 @@ void Drv8833MotionAdapter::straight(double distanceMm, const char* name, bool ce
             travelled > 0.5 * std::fabs(distanceMm)) {
             lastFrontPoll = now;
             if (const auto reading = front_->freshReading(Vl53l1xSensorAdapter::Side::Front);
-                reading && reading->kind == drivers::ReadingKind::Distance) {
+                reading && (reading->kind == drivers::ReadingKind::Distance ||
+                            reading->kind == drivers::ReadingKind::TooClose)) {
                 frontMm = reading->mm;
-                if (reading->mm < calibration_.frontStopMm) {
+                // "Muito perto" (< 40 mm, parede encostada) também para a reta.
+                if (reading->kind == drivers::ReadingKind::TooClose ||
+                    reading->mm < calibration_.frontStopMm) {
                     lastShortMm_ = std::max(0.0, std::fabs(distanceMm) - travelled);
                     ++frontStops_;
                     break;
@@ -1076,13 +1082,16 @@ void Drv8833MotionAdapter::positionForArc(double frontTargetMm) {
     domain::ArcStartConfig config = controller::robot::kArcStart;
     config.frontTargetMm = frontTargetMm;
     bool frontValid = false;
+    bool frontTooClose = false;
     double frontMm = 0.0;
     if (front_ != nullptr) {
         const auto reading = front_->reading(Vl53l1xSensorAdapter::Side::Front);
         frontValid = reading.kind == drivers::ReadingKind::Distance;
+        frontTooClose = reading.kind == drivers::ReadingKind::TooClose;
         frontMm = static_cast<double>(reading.mm);
     }
-    const domain::ArcStart start = domain::arcStart(frontValid, frontMm, config);
+    const domain::ArcStart start = frontTooClose ? domain::arcStartTooClose(config)
+                                                 : domain::arcStart(frontValid, frontMm, config);
     if (std::fabs(start.setbackMm) > 3.0) {
         straight(-start.setbackMm,
                  start.setbackMm > 0.0 ? "recuo antes da curva" : "avanco antes da curva", false);

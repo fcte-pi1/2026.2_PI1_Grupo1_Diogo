@@ -456,4 +456,34 @@ TEST(Vl53l1x, OnlyValidStatusesCountAsDistance) {
 
 }  // namespace
 
+
+// Leitura abaixo do alcance mínimo (16/11): o VL53L1X devolve 0 com estado "ok" quando a parede está
+// perto demais (C1 t1, B3-D50, C4/C5). Não é distância: é "parede presente, a menos de ~40 mm".
+using S = Vl53l1x::RangeStatus;
+
+TEST(Vl53l1x, ReadingAtOrBelowTheMinimumRangeIsTooClose) {
+    // Frontal: 0, 22 e 23 mm lidos com a parede a 36-42 mm (C4/C5 de 16/11) e o próprio limite.
+    for (const int mm : {0, 22, 23, 40}) {
+        EXPECT_EQ(classifyNearRange(ReadingKind::Distance, mm, 40), ReadingKind::TooClose) << mm;
+    }
+    EXPECT_EQ(classifyNearRange(ReadingKind::Distance, 41, 40), ReadingKind::Distance);
+    EXPECT_EQ(classifyNearRange(ReadingKind::Distance, 56, 40), ReadingKind::Distance);
+    // Lateral: leituras de 24 a 34 mm no centro da célula valem (E=24, E=31, D=27 de 16/11); só o 0
+    // é falso.
+    EXPECT_EQ(classifyNearRange(ReadingKind::Distance, 0, 0), ReadingKind::TooClose);
+    EXPECT_EQ(classifyNearRange(ReadingKind::Distance, 24, 0), ReadingKind::Distance);
+    EXPECT_EQ(classifyNearRange(ReadingKind::Distance, 31, 0), ReadingKind::Distance);
+    // Só a distância válida muda: sem alvo, incerto e falha ficam como estão.
+    EXPECT_EQ(classifyNearRange(ReadingKind::NoTarget, 0, 40), ReadingKind::NoTarget);
+    EXPECT_EQ(classifyNearRange(ReadingKind::Uncertain, 10, 40), ReadingKind::Uncertain);
+    EXPECT_EQ(classifyNearRange(ReadingKind::Fault, -1, 40), ReadingKind::Fault);
+}
+
+TEST(Vl53l1x, TooCloseIsAWallWithUnknownDistanceAndNotAFault) {
+    const SideJudgement judged = judgeSide(ReadingKind::TooClose, S::RangeValid, 0, 90.0);
+    EXPECT_TRUE(judged.wall);
+    EXPECT_FALSE(judged.unknown);  // a parede existe; só a distância é desconhecida
+    EXPECT_FALSE(judged.fault);    // o sensor respondeu: não conta para o SensorHealthMonitor
+}
+
 }  // namespace micromouse::drivers

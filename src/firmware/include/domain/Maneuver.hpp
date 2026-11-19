@@ -22,6 +22,9 @@ struct ArcStartConfig {
     // sensor às vezes lê 0 ou ~22 mm com a parede a 36-42 mm (16/11, C4/C5), e o robô recuava
     // até 105 mm a mais do que precisava. 0 = sem limite.
     double minReliableMm{0.0};
+    // Leitura "muito perto" (ReadingKind::TooClose): a parede está a menos disto, distância
+    // desconhecida. O recuo vai só até esta leitura e o robô mede de novo. 0 = não usado.
+    double tooCloseMm{0.0};
 };
 
 struct ArcStart {
@@ -32,6 +35,11 @@ struct ArcStart {
 // `frontValid` é falso se o frontal não tem distância válida (falha, incerto, nada ao alcance).
 [[nodiscard]] ArcStart arcStart(bool frontValid, double frontMm,
                                 const ArcStartConfig& config) noexcept;
+
+// Frontal "muito perto" (parede presente, distância desconhecida, abaixo de config.tooCloseMm):
+// recua o mínimo garantido (alvo - tooCloseMm) e quem chama mede de novo, em vez de recuar a
+// distância inteira até o alvo.
+[[nodiscard]] ArcStart arcStartTooClose(const ArcStartConfig& config) noexcept;
 
 // Depois de reposicionar, com uma medida NOVA do frontal (robô parado): quanto ainda falta recuar
 // (positivo) ou avançar (negativo). Zero se a medida não vale, se o erro está dentro da tolerância

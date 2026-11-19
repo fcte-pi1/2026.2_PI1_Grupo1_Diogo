@@ -34,6 +34,10 @@ ArcStart arcStart(bool frontValid, double frontMm, const ArcStartConfig& config)
     return {config.fixedSetbackMm, false};
 }
 
+ArcStart arcStartTooClose(const ArcStartConfig& config) noexcept {
+    return {config.frontTargetMm - config.tooCloseMm, true};
+}
+
 double arcStartCorrection(bool frontValid, double frontMm, const ArcStartConfig& config) noexcept {
     if (!frontValid || frontMm < 0.0 || frontMm >= config.frontWallMaxMm) {
         return 0.0;

@@ -112,9 +112,14 @@ inline constexpr double kArcStartMaxCorrectionMm = 40.0;
 // abaixo do alcance mínimo do VL53L1X. Uma leitura abaixo de 35 mm vale como 35 (o recuo fica no
 // máximo 70 mm), e a segunda leitura, a ~10 cm, acerta o resto.
 inline constexpr double kArcStartFrontMinReliableMm = 35.0;
+// Frontal "muito perto" (ReadingKind::TooClose, Vl53l1xSensorAdapter::kFrontTooCloseMm): recua só
+// até a leitura garantida e mede de novo. Pior caso (parede encostada): depois do recuo o frontal lê
+// alvo - 40 = 65 mm e o ajuste é de 40 mm, o máximo (kArcStartMaxCorrectionMm).
+inline constexpr double kArcStartFrontTooCloseMm = 40.0;
 inline constexpr domain::ArcStartConfig kArcStart{kArcStartFrontMm,         kArcFrontWallMaxMm,
                                                   kArcStartSetbackMm,       kArcStartToleranceMm,
-                                                  kArcStartMaxCorrectionMm, kArcStartFrontMinReliableMm};
+                                                  kArcStartMaxCorrectionMm, kArcStartFrontMinReliableMm,
+                                                  kArcStartFrontTooCloseMm};
 
 // Parada pela parede da frente (09/11). As rodas ficam na traseira e a frente é longa: com o eixo no
 // centro de uma célula com parede à frente, a frente encosta ou empurra a parede (o robô bateu em A2

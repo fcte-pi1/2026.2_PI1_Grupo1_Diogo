@@ -21,6 +21,12 @@ public:
     // Sensor em falha (não respondeu ou não mediu a tempo): não se sabe se há parede.
     static constexpr int kFaultMm = -1;
 
+    // Abaixo (ou igual) a isto a leitura vale "muito perto" (16/11): o frontal leu 0, 22 e 23 mm com
+    // a parede a 36-42 mm (C4/C5). Nas laterais só o 0 é falso: no centro da célula elas leem
+    // 24-34 mm e a centralização (RF-44) usa esses valores.
+    static constexpr int kFrontTooCloseMm = 40;
+    static constexpr int kSideTooCloseMm = 0;
+
     enum class Side { Left, Front, Right };
 
     struct Reading {

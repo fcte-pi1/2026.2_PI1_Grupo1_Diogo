@@ -111,11 +111,17 @@ ReadingKind classifyReading(bool transferOk, bool fresh, Vl53l1x::RangeStatus st
     }
 }
 
+ReadingKind classifyNearRange(ReadingKind kind, int mm, int minReliableMm) noexcept {
+    return kind == ReadingKind::Distance && mm <= minReliableMm ? ReadingKind::TooClose : kind;
+}
+
 SideJudgement judgeSide(ReadingKind kind, Vl53l1x::RangeStatus status, int mm,
                         double thresholdMm) noexcept {
     switch (kind) {
         case ReadingKind::Distance:
             return {mm < thresholdMm, false, false};
+        case ReadingKind::TooClose:  // parede encostada: existe, só não se sabe a distância
+            return {true, false, false};
         case ReadingKind::NoTarget:
             return {false, false, false};
         case ReadingKind::Uncertain: {

@@ -167,6 +167,8 @@ enum class ReadingKind {
     NoTarget,   // o sensor mediu e não achou alvo ao alcance: corredor aberto, sem parede
     Uncertain,  // o sensor funcionou, mas a medida não é confiável (SigmaFail, WrapTargetFail,
                 // XtalkSignalFail): parede escura, brilhante, inclinada, luz forte ou alvo longe
+    TooClose,   // medida válida abaixo do alcance mínimo (~40 mm): há parede, mas a distância é
+                // desconhecida (o VL53L1X devolve 0 "ok" ou lixo de 22-23 mm, 16/11). Ver classifyNearRange().
     Fault,      // o sensor não respondeu, não mediu a tempo ou reportou defeito: sensor quebrado
 };
 
@@ -174,6 +176,10 @@ enum class ReadingKind {
 // nova no prazo. Sem os dois, é falha, mesmo que o estado pareça válido.
 [[nodiscard]] ReadingKind classifyReading(bool transferOk, bool fresh,
                                           Vl53l1x::RangeStatus status) noexcept;
+
+// Uma distância válida menor ou igual a `minReliableMm` é "muito perto": o sensor não mede abaixo do
+// alcance mínimo, e o número lido (0, 22, 23 mm...) não vale. Só a distância válida muda.
+[[nodiscard]] ReadingKind classifyNearRange(ReadingKind kind, int mm, int minReliableMm) noexcept;
 
 // O que uma leitura diz sobre a parede da célula.
 struct SideJudgement {

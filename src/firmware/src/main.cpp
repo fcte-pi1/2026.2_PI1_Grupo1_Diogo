@@ -467,6 +467,7 @@ const char* resetReasonText() {
 struct TofStats {
     int ok{0};
     int noTarget{0};
+    int tooClose{0};  // abaixo do alcance mínimo (parede encostada, distância desconhecida)
     int uncertain{0};
     int fault{0};
     long sum{0};
@@ -481,12 +482,13 @@ struct TofStats {
                 min = reading.mm < min ? reading.mm : min;
                 max = reading.mm > max ? reading.mm : max;
                 break;
+            case drivers::ReadingKind::TooClose: ++tooClose; break;
             case drivers::ReadingKind::NoTarget: ++noTarget; break;
             case drivers::ReadingKind::Uncertain: ++uncertain; break;
             case drivers::ReadingKind::Fault: ++fault; break;
         }
     }
-    [[nodiscard]] int total() const { return ok + noTarget + uncertain + fault; }
+    [[nodiscard]] int total() const { return ok + noTarget + uncertain + fault + tooClose; }
     [[nodiscard]] double mean() const { return ok > 0 ? static_cast<double>(sum) / ok : -1.0; }
     [[nodiscard]] int low() const { return ok > 0 ? min : -1; }
     [[nodiscard]] int high() const { return ok > 0 ? max : -1; }

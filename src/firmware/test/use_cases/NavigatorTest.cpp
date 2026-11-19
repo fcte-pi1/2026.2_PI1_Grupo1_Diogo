@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 
 #include "domain/Maze.hpp"
+#include "drivers/Vl53l1x.hpp"
 #include "ports/MotionPort.hpp"
 #include "ports/SensorPort.hpp"
 #include "simulation/SimulatedRobot.hpp"
@@ -170,6 +171,45 @@ public:
     void reverseCell() override { robot_.reverseCell(); }
     [[nodiscard]] const SimulatedRobot& robot() const { return robot_; }
 };
+
+// Frontal "muito perto" (abaixo do alcance mínimo do ToF, 16/11): o sensor respondeu e há parede,
+// só não se sabe a distância. O mapa grava a parede, o robô não anda contra ela e não é falha.
+class TooCloseFrontRobot final : public ports::ISensorPort, public ports::IMotionPort {
+private:
+    SimulatedRobot robot_;
+
+public:
+    TooCloseFrontRobot(const MazeMap& truth, Position start, Direction heading)
+        : robot_(truth, start, heading) {}
+    [[nodiscard]] ports::WallsAhead sense() const override {
+        ports::WallsAhead walls = robot_.sense();
+        const drivers::SideJudgement front =
+            drivers::judgeSide(drivers::ReadingKind::TooClose,
+                               drivers::Vl53l1x::RangeStatus::RangeValid, 0, 140.0);
+        walls.front = front.wall;
+        walls.frontUnknown = front.unknown;
+        return walls;
+    }
+    void advanceCell() override { robot_.advanceCell(); }
+    void turnLeft() override { robot_.turnLeft(); }
+    void turnRight() override { robot_.turnRight(); }
+    void turnAround() override { robot_.turnAround(); }
+    void reverseCell() override { robot_.reverseCell(); }
+    [[nodiscard]] const SimulatedRobot& robot() const { return robot_; }
+};
+
+TEST(Navigator, TooCloseFrontIsRecordedAsAWallNotAsUnknown) {
+    MazeMap known(4, 4);
+    MazeMap truth(4, 4);
+    truth.initKnownPerimeter();
+    known.initKnownPerimeter();
+    TooCloseFrontRobot robot(truth, {3, 0}, Direction::North);
+    Navigator navigator(known, robot, robot, {3, 0}, Direction::North, {{0, 0}});
+
+    navigator.step();
+    EXPECT_EQ(known.getWall({3, 0}, Direction::North), Wall::Present);
+    EXPECT_EQ(robot.robot().wallHits(), 0);
+}
 
 // Uma falha passageira do sensor não vira parede no mapa (que ficaria até o fim da corrida) e o
 // robô não avança às cegas: espera a próxima leitura e segue (revisão do #438).
