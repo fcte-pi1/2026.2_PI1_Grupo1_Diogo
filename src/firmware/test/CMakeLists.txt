@@ -27,6 +27,7 @@ add_executable(firmware_tests
     use_cases/SessionManagerTest.cpp
     domain/OdometryTest.cpp
     domain/DipDecoderTest.cpp
+    domain/OrientationTest.cpp
     domain/BuzzerPatternTest.cpp
     domain/PidTest.cpp
     controller/MotionProfileTest.cpp

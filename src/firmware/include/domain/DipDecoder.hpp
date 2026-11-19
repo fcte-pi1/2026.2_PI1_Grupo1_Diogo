@@ -1,13 +1,21 @@
 #pragma once
 
+#include <optional>
+#include <string_view>
+
 #include "domain/Maze.hpp"
 
 namespace micromouse::domain {
 
+// Nomes em COLUNAS x LINHAS, como no protocolo: 8x4 = 4 linhas e 8 colunas ("deitado"); 4x8 = 8 linhas
+// e 4 colunas ("em pé"). O DIP só escolhe os três primeiros; os em pé (19/11) vêm do comando BLE
+// `labirinto`, porque a via 1 + 2 fechadas é combinação proibida (#393).
 enum class MazeType {
     Small4x4,   //
     Medium8x4,  //
-    Large12x4   //
+    Large12x4,  //
+    Tall4x8,    // 8 linhas x 4 colunas
+    Tall4x12    // 12 linhas x 4 colunas
 };
 
 struct MazeSetup {
@@ -17,6 +25,13 @@ struct MazeSetup {
     Position start{};
     Position goal{};
 };
+
+// Dimensões, largada e objetivo de um tipo de labirinto. A largada é num canto de baixo (a esquerda ou
+// a direita) e o objetivo no canto oposto.
+[[nodiscard]] MazeSetup makeMazeSetup(MazeType type, bool startRight);
+
+// "4x4", "8x4", "12x4", "4x8" ou "4x12" (colunas x linhas), do comando BLE `labirinto`.
+[[nodiscard]] std::optional<MazeType> parseMazeType(std::string_view text) noexcept;
 
 // Conferência do canto de largada (10/11). O robô larga num canto de baixo virado para cima: com a
 // partida pela esquerda, a borda fica à ESQUERDA dele; pela direita, à DIREITA. Se o sensor desse

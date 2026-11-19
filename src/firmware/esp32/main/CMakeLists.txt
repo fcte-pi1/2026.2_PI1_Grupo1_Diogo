@@ -13,6 +13,7 @@ idf_component_register(
         "${CORE_ROOT}/src/domain/Calibration.cpp"
         "${CORE_ROOT}/src/domain/ImuIdentity.cpp"
         "${CORE_ROOT}/src/domain/BatteryMonitor.cpp"
+        "${CORE_ROOT}/src/domain/ReportFrame.cpp"
         "${CORE_ROOT}/src/domain/SensorHealthMonitor.cpp"
         "${CORE_ROOT}/src/domain/SweptFootprint.cpp"
         "${CORE_ROOT}/src/domain/SoftStart.cpp"

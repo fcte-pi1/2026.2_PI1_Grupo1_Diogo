@@ -26,7 +26,9 @@
 #include "adapters/Vl53l1xSensorAdapter.hpp"
 #include "domain/BatteryMonitor.hpp"
 #include "domain/Calibration.hpp"
+#include "domain/Calibration.hpp"
 #include "domain/DipDecoder.hpp"
+#include "domain/ReportFrame.hpp"
 #include "domain/Maneuver.hpp"
 #include "domain/Maze.hpp"
 #include "domain/Odometry.hpp"
@@ -306,6 +308,11 @@ std::atomic<int> gTestEncoderSeconds{0};
 // Comandos recusados (desconhecidos ou fora da faixa). O callback do BLE só conta; quem loga é a
 // tarefa de navegação (a pilha da tarefa do NimBLE é pequena para formatar uma linha de log).
 std::atomic<int> gRejectedCommands{0};
+// "labirinto <tipo>" (19/11): troca o tipo de labirinto da PRÓXIMA largada sem mexer no DIP, para o 4x8
+// e o 4x12 (em pé), que o DIP não escolhe (via 1 + 2 fechadas é combinação proibida, #393). O canto
+// de largada continua o da via 3. Vale até o reinício; "labirinto dip" volta ao que o DIP diz.
+// -1 = o do DIP; senão o valor de domain::MazeType. O comando só muda a configuração: nada se move.
+std::atomic<int> gMazeOverride{-1};
 // "calib [nome=valor ...]" (16/11): valores do robô e do piso trocáveis sem regravar. O callback do
 // BLE só guarda o texto; quem interpreta, grava na memória e loga é a tarefa de navegação.
 char gCalibText[232] = "";
@@ -405,6 +412,15 @@ void onBleCommand(const std::string& command) {
         if (command.size() < sizeof gCalibText && !gTestCalib.load()) {
             std::memcpy(gCalibText, command.c_str(), command.size() + 1);
             gTestCalib = true;
+        } else {
+            ++gRejectedCommands;
+        }
+    } else if (command.rfind("labirinto ", 0) == 0) {
+        const std::string name = command.substr(10);
+        if (name == "dip") {
+            gMazeOverride = -1;
+        } else if (const std::optional<domain::MazeType> type = domain::parseMazeType(name)) {
+            gMazeOverride = static_cast<int>(*type);
         } else {
             ++gRejectedCommands;
         }
@@ -870,7 +886,23 @@ void serviceTestCommands(const domain::MazeSetup& setup, bool allowMotion) {
 #endif  // !CONFIG_RATO_BANCADA
 #endif
 
-void writeState(const telemetry::Snapshot& state) {
+// Quadro de relato (19/11): o labirinto em pé sai girado como o deitado correspondente.
+domain::ReportFrame gReport{domain::makeMazeSetup(domain::MazeType::Small4x4, false)};
+
+// O tipo de labirinto desta largada: o do DIP lido no boot, ou o do comando `labirinto`.
+domain::MazeSetup currentSetup(const domain::MazeSetup& boot) {
+    const int forced = gMazeOverride.load();
+    if (forced < 0) {
+        return boot;
+    }
+    return domain::makeMazeSetup(static_cast<domain::MazeType>(forced),
+                                 !domain::startBorderIsOnTheLeft(boot));
+}
+
+void writeState(const telemetry::Snapshot& raw) {
+    telemetry::Snapshot state = raw;
+    state.position = gReport.position(raw.position);
+    state.heading = gReport.direction(raw.heading);
     if (xSemaphoreTake(gStateMutex, portMAX_DELAY) == pdTRUE) {
         gState = state;
         xSemaphoreGive(gStateMutex);
@@ -948,7 +980,8 @@ void navigationTask(void*) {
             vTaskDelay(pdMS_TO_TICKS(200));
         }
     }
-    const domain::MazeSetup setup = *parsedSetup;
+    const domain::MazeSetup bootSetup = *parsedSetup;
+    domain::MazeSetup setup = bootSetup;
     ESP_LOGI(kTag, "DIP lido no boot: labirinto %dx%d, partida pela %s", setup.columns, setup.rows,
              setup.start.column == 0 ? "esquerda" : "direita");
 
@@ -964,6 +997,7 @@ void navigationTask(void*) {
         [[maybe_unused]] int idleTicks = 0;
         while (!gLocal.buttonPressed() && !gRemoteStart.exchange(false)) {
 #if !CONFIG_RATO_BANCADA
+            setup = currentSetup(bootSetup);  // o comando `labirinto` pode ter trocado o tipo
             serviceTestCommands(setup, true);
             if (++idleTicks >= 100) {  // ~1 s: avisa se um sensor parou de responder (ou voltou)
                 idleTicks = 0;
@@ -1039,6 +1073,15 @@ void navigationTask(void*) {
         startEvent.mazeType = static_cast<int>(setup.type);
         postEvent(startEvent);
 
+        // O tipo desta largada: o do DIP, ou o do comando `labirinto` (4x8 e 4x12 em pé). O mapa gira
+        // só na saída da telemetria (domain::ReportFrame); dentro do robô fica no quadro dele.
+        setup = currentSetup(bootSetup);
+        gReport = domain::ReportFrame(setup);
+        if (gMazeOverride.load() >= 0) {
+            ESP_LOGW(kTag, "labirinto trocado por comando BLE (DIP diz %dx%d): %dx%d%s",
+                     bootSetup.columns, bootSetup.rows, setup.columns, setup.rows,
+                     gReport.rotated() ? ", relatado ao painel como o deitado, mapa girado" : "");
+        }
         domain::MazeMap maze(setup.rows, setup.columns);
         maze.initKnownPerimeter();
         use_cases::Navigator navigator(maze, gSensor, gMotion, setup.start,
@@ -1228,11 +1271,16 @@ void navigationTask(void*) {
             cellEvent.time = nowMs();
             // As paredes da célula que o passo SENTIU. Antes ia a célula nova, ainda não lida, e o
             // painel só mostrava o perímetro.
-            cellEvent.position = sensed;
-            cellEvent.north = maze.isBlocked(sensed, domain::Direction::North);
-            cellEvent.east = maze.isBlocked(sensed, domain::Direction::East);
-            cellEvent.south = maze.isBlocked(sensed, domain::Direction::South);
-            cellEvent.west = maze.isBlocked(sensed, domain::Direction::West);
+            cellEvent.position = gReport.position(sensed);
+            const domain::ReportFrame::Walls reported = gReport.walls(
+                maze.isBlocked(sensed, domain::Direction::North),
+                maze.isBlocked(sensed, domain::Direction::East),
+                maze.isBlocked(sensed, domain::Direction::South),
+                maze.isBlocked(sensed, domain::Direction::West));
+            cellEvent.north = reported.north;
+            cellEvent.east = reported.east;
+            cellEvent.south = reported.south;
+            cellEvent.west = reported.west;
             postEvent(cellEvent);
 
             telemetry::Snapshot state{};

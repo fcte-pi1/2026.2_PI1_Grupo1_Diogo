@@ -122,8 +122,10 @@ std::string mazeToString(domain::MazeType maze) {
         case domain::MazeType::Small4x4:
             return "4x4";
         case domain::MazeType::Medium8x4:
+        case domain::MazeType::Tall4x8:  // em pé: relatado como o deitado, com o mapa girado
             return "8x4";
         case domain::MazeType::Large12x4:
+        case domain::MazeType::Tall4x12:
             return "12x4";
         default:
             return "?";
