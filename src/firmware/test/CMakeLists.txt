@@ -16,6 +16,7 @@ FetchContent_MakeAvailable(googletest)
 add_executable(firmware_tests
     domain/MazeTest.cpp
     domain/FloodFillTest.cpp
+    domain/FloodFillPropertyTest.cpp
     simulation/SimulatedRobot.hpp
     use_cases/NavigatorTest.cpp
     use_cases/TrackMaze0911Test.cpp
