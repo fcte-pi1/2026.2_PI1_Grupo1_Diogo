@@ -22,6 +22,8 @@ constexpr std::array<CalibrationField, kCalibrationFieldCount> kFields{{
     {"parada_frente", &Calibration::frontStopMm, 20.0, 90.0, "mm"},
     {"centralizar", &Calibration::centerOnWalls, 0.0, 1.0, "0/1"},
     {"ganho_rumo", &Calibration::headingGain, 0.0, 3.0, "mm/grau"},
+    {"cabo_frente_mm", &Calibration::cableAheadMm, 0.0, 30.0, "mm"},
+    {"preset_cad", &Calibration::presetCad, 0.0, 1.0, "0/1"},
 }};
 
 }  // namespace
@@ -54,6 +56,13 @@ CalibrationSet setCalibration(Calibration& calibration, std::string_view name,
             return CalibrationSet::OutOfRange;
         }
         calibration.*(field.member) = number;
+        if (field.member == &Calibration::presetCad) {
+            // O preset troca os dois valores da frente; o que vier depois, na mesma linha, vale mais.
+            const bool cad = number >= 0.5;
+            calibration.axleToFrontMm = cad ? robot::kCadAxleToFrontMm : robot::kBody.axleToFrontMm;
+            calibration.axleToFrontTofMm =
+                cad ? robot::kCadAxleToFrontTofMm : robot::kBody.axleToFrontTofMm;
+        }
         return CalibrationSet::Ok;
     }
     return CalibrationSet::UnknownName;
@@ -97,6 +106,15 @@ CalibrationParse applyCalibration(Calibration& calibration, std::string_view ass
         result.applied = 0;
     }
     return result;
+}
+
+double bodyVsCadGapMm(const Calibration& calibration) noexcept {
+    return std::fmax(std::fabs(calibration.axleToFrontMm - robot::kCadAxleToFrontMm),
+                     std::fabs(calibration.axleToFrontTofMm - robot::kCadAxleToFrontTofMm));
+}
+
+bool bodyConflictsWithCad(const Calibration& calibration) noexcept {
+    return bodyVsCadGapMm(calibration) > robot::kBodyConflictMm;
 }
 
 int sanitizeCalibration(Calibration& calibration) noexcept {

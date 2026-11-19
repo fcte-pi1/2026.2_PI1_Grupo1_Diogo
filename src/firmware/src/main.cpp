@@ -83,7 +83,7 @@ adapters::BleTelemetryAdapter gBle;
 // curvas, parada pela parede da frente...) fica em domain::Calibration. O comando `calib` troca
 // os valores sem regravar o firmware; eles valem a partir do boot seguinte também.
 constexpr char kCalibNamespace[] = "rato";
-constexpr char kCalibKey[] = "calib1";  // mude o número se a struct mudar de formato
+constexpr char kCalibKey[] = "calib2";  // mude o número se a struct mudar de formato (calib1: 13 campos)
 
 domain::Calibration defaultCalibration() {
     domain::Calibration calibration;
@@ -909,6 +909,16 @@ void navigationTask(void*) {
     // opção RATO_CENTRALIZAR_PAREDES do Kconfig é só o padrão dele).
     gMotion.enableWallCentering(gSensor);
     gMotion.setCalibration(loadCalibration());
+    // CAD x campo na frente do robô: não podem estar certos os dois (19/11). Avisa a cada boot até a
+    // medida de paquímetro decidir (`calib preset_cad=1` usa o CAD).
+    if (domain::bodyConflictsWithCad(gMotion.calibration())) {
+        ESP_LOGW("calib",
+                 "AVISO: a frente em uso (chassi %.1f, ToF %.1f mm do eixo) difere do CAD (%.2f / "
+                 "%.2f) em %.1f mm (> %.0f): meca com paquimetro e grave com `calib`",
+                 gMotion.calibration().axleToFrontMm, gMotion.calibration().axleToFrontTofMm,
+                 domain::robot::kCadAxleToFrontMm, domain::robot::kCadAxleToFrontTofMm,
+                 domain::bodyVsCadGapMm(gMotion.calibration()), domain::robot::kBodyConflictMm);
+    }
     if (gMotion.calibration().centerOnWalls >= 0.5) {
         ESP_LOGW(kTag, "centralizacao pelas paredes (RF-44) LIGADA, ganhos nao calibrados");
     }

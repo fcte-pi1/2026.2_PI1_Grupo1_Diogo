@@ -21,11 +21,24 @@ inline constexpr double kWheelTrackMm = 88.0;  // bitola: valor de projeto, a me
 // três valores são estimativas (chassi de projeto de 124,5 x 100 mm, docs/4.1, e a foto de cima).
 // Deles sai onde a curva em arco começa (controller::robot::kArcStartFrontMm): 1 mm de erro aqui é
 // ~1 mm a menos de folga entre a quina do robô e a parede.
+//
+// 19/11: largura da frente = 101 (faces dos ToF laterais, CAD), metade 50,5. A frente fica no padrão
+// de CAMPO (87 do eixo até o chassi, 85 até a face do ToF; A2: parede-eixo 127 menos F=42) até a medida
+// de paquímetro: o CAD diz 107,25 / 107,75 e o .3mf impresso 102,25 (preset_cad do `calib`).
 inline constexpr BodyGeometry kBody{
     87.0,  // axleToFrontMm: do centro do eixo até o ponto mais à frente do chassi
-    50.0,  // halfWidthMm: metade da largura do chassi na parte da frente
-    87.0,  // axleToFrontTofMm: do centro do eixo até a face do ToF frontal
+    50.5,  // halfWidthMm: metade da largura do chassi na parte da frente
+    85.0,  // axleToFrontTofMm: do centro do eixo até a face do ToF frontal
 };
+
+// Do CAD (assembly.step, 19/11), origem na traseira do chassi, eixo das rodas em x = 17,25 mm.
+inline constexpr double kAxleToRearMm = 17.25;        // eixo até a traseira
+inline constexpr double kCadAxleToFrontMm = 107.25;   // eixo até a frente do chassi
+inline constexpr double kCadAxleToFrontTofMm = 107.75;  // eixo até a face do ToF frontal
+inline constexpr double kCorridorWidthMm = 168.0;     // corredor livre (célula 180 menos parede 12)
+inline constexpr double kRobotLimitMm = 165.0;        // limite do robô em cada dimensão
+// Folga entre o campo e o CAD acima da qual o boot avisa (os dois não podem estar certos).
+inline constexpr double kBodyConflictMm = 10.0;
 
 inline constexpr WheelConfig kWheels{kWheelDiameterMm, kCountsPerRevolution, kCellSizeMm};
 inline constexpr TurnConfig kTurn{kWheelDiameterMm, kCountsPerRevolution, kWheelTrackMm};
