@@ -31,7 +31,9 @@ arquivo da ponte (`bridge/ble_ws_bridge.py --log-robo`).
 - `cel` e `rumo`: onde o robô ACHA que está, no referencial do firmware (linha 0 em cima, coluna 0 à
   esquerda; ele larga na linha de baixo virado para N).
 - `tof`: a leitura que decidiu o passo. `9999` = nada ao alcance, `-1` = falha. Estados: `ok`,
-  `sigma`, `sinal`, `wrap`, `colado`, `nenhum`...
+  `sigma`, `sinal`, `wrap`, `colado`, `nenhum`... Novo (19/11): `perto` = parede a menos do alcance
+  mínimo do ToF (frontal até 40 mm, laterais só a leitura 0): há parede, a distância não vale (o
+  `mm` sai 0). Antes saía `0 (ok)`.
 - `mapa NLSO`: o que ficou gravado da célula, na ordem Norte, Leste, Sul, Oeste: `P` parede,
   `A` aberto, `?` não visto.
 - `dist`: células até o objetivo pelo flood fill (`-1` = sem caminho).
@@ -75,7 +77,11 @@ Logo depois vem (12/11):
 | `curva: desfez o arco: de X para Y graus ...` e `curva: tentativa 2 do arco (...)` | O arco travou e foi tentado de novo |
 
 Motivos de falha de curva: `curva travada` (o giroscópio parou de girar por 0,4 s), `tempo de 4,5 s
-esgotado`, `giroscopio sem leitura`, `parado pelo operador`.
+esgotado`, `giroscopio sem leitura`, `parado pelo operador`, e (19/11) `curva travada e o desfazer
+nao voltou: sem progresso (preso, segurado ou rodas patinando), robo torto em N graus` (o desfazer
+confere o giro e para em ~0,7 s sem progresso; o robô fica parado e a corrida vai ao Erro).
+Numa reta, `rumo perdido: desviou N graus na reta (parede?)` (limite de 10 graus desde 19/11; as
+retas boas giram até 2,1).
 
 ### No fim
 
@@ -256,3 +262,38 @@ a X mm` mostra o resultado). Linhas novas no log:
   em cada largada, logo depois de `parametros`.
 - `curva: freio: esta curva freou X graus antes do alvo e girou Y depois; aprendeu (proxima: arco A,
   pivo P)`: só com o autoajuste ligado, depois de cada curva.
+
+## 7. Achados de 16/11 e o que reconferir no robô (19/11)
+
+### O que mudou no firmware
+- ToF abaixo do alcance mínimo vira `perto` (antes `0 (ok)`); o arco recua só `alvo - 40 mm` e mede
+  de novo.
+- O arco planeja com a bitola efetiva de 74,2 mm (`kArcEffectiveTrackMm`), medida em 45 arcos:
+  antes o caminho fechava com raio ~80,7 mm em vez de 90 mm, ~9 mm para dentro e curto. Vale com a
+  escala do giro de 1,08.
+- Desfazer do arco com conferência de progresso e motivo explícito; limite de rumo da reta de 10 graus.
+
+### Duplicação de comandos de teste (A1 2x, B1 3x, C8 2x): não vem do firmware
+Os 15 `andar` do B1 já estão no `comandos.txt` (escrito pelo `t.py`); `ponte.out` encaminhou 150 dos
+154 comandos e o firmware executou cada linha recebida uma vez. Os marcadores `TESTE ... tentativa N`
+também são do `t.py`. Não há ID de comando no firmware porque ele não distingue repetição legítima
+("andar" 5 vezes) de duplicata; a correção é no runner (trava por `ok`).
+
+### Pivô no lugar (não alterado)
+Termina em ~93,7 graus (inércia ~17 graus a 300 graus/s; ~0,057 s x velocidade). O Navigator usa o
+pivô no fallback sem espaço para recuar (A1 virado para A2). A bitola efetiva do pivô também deu
+68-78 mm (`log_robo.txt`), a mesma causa do arco. Se for corrigir: reduzir o pico ou planejar o
+pivô com a bitola efetiva. Aguarda medida com transferidor.
+
+### Roteiro de reconferência (critério de aprovação)
+| Comando | Critério |
+|:--|:--|
+| `tofmon 5` com a parede a 30, 40, 50 mm do frontal | nenhuma leitura `0 (ok)`: abaixo de 40 mm sai `perto`; a 50 mm, 50 +- 10 mm |
+| `tof` no centro de A2 e C1 | laterais 24-45 mm lidos como distância; frontal `perto` ou >= 40 |
+| `virar d` em A2 (3x) e `virar e` em C1 e B2 (3x) | giro final 90 +- 2 graus; depois da "volta ao centro" o eixo a <= 5 mm do centro (régua/foto); sem encostar |
+| `andar` (5 células) | 506-511 pulsos, giro <= 2 graus (limite de falha: 10) |
+| `re` (3 células) | 504-511 pulsos, giro <= 2 graus |
+| `virar d` segurando o robô, depois soltando | detecta a curva travada; com o robô solto o desfazer volta (<= 4 graus) e a 2ª tentativa funciona; ainda segurado, para em ~0,7 s com o motivo "sem progresso" |
+| Corrida D1 (3x) | 12 passos na ordem, sem `rumo perdido`; depois de cada arco, `tof` lateral sem E=0 |
+| `pivo d` / `pivo e` (se o fallback do A1 importar) | informativo: ~93,7 graus; conferir com transferidor |
+
