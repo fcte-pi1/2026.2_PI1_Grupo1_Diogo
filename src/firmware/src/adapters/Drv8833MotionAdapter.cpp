@@ -3,6 +3,7 @@
 #include "domain/RobotGeometry.hpp"
 #include "domain/SweptFootprint.hpp"
 #include "domain/WallCentering.hpp"
+#include "domain/WallPosition.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -638,9 +639,38 @@ double Drv8833MotionAdapter::arcStartFrontMm() const noexcept {
 
 void Drv8833MotionAdapter::advanceCell() {
     // Depois de uma curva em arco o robô já está na borda de saída da célula: anda só o resto.
-    const double distance = domain::robot::kCellSizeMm - aheadMm_;
+    // `reancorar_parede`: a posição medida pela parede da frente na parada anterior corrige esta reta.
+    const double distance = domain::robot::kCellSizeMm - aheadMm_ + wallFixMm_;
+    const bool fromCenter = aheadMm_ == 0.0;
+    wallFixMm_ = 0.0;
     aheadMm_ = 0.0;
     straight(distance, "andar 1 celula", walls_ != nullptr && calibration_.centerOnWalls >= 0.5);
+    reanchorOnFrontWall(fromCenter);
+}
+
+// Reancorar a posição pela parede da frente (domain::wallPositionFix): parado no centro de uma célula, a
+// parede a 1 ou 2 células à frente diz onde o eixo está; o erro (acima do ruído do ToF) corrige metade na
+// próxima reta. Só com `calib reancorar_parede=1`, depois de uma reta que terminou pelo perfil (não pela
+// parede da frente), e custa uma leitura do frontal parado (~0,15 s por célula).
+void Drv8833MotionAdapter::reanchorOnFrontWall(bool endedAtCellCenter) {
+    wallFixMm_ = 0.0;
+    if (calibration_.reanchorOnWalls < 0.5 || !endedAtCellCenter || !lastMoveOk_ || lastShortMm_ > 0.0 ||
+        aborted()) {
+        return;
+    }
+    const std::optional<int> front = settledFrontMm();
+    if (!front.has_value()) {
+        return;
+    }
+    const domain::WallFix fix = domain::wallPositionFix(calibration_, *front);
+#if CONFIG_RATO_LOG_RETA
+    ESP_LOGI("reta", "reancorar: frontal %d mm, %s, erro %.0f mm, correcao %.0f mm", *front,
+             fix.valid ? (fix.cellsAhead == 1 ? "parede a 1 celula" : "parede a 2 celulas") : "sem parede esperada",
+             fix.errorMm, fix.correctionMm);
+#endif
+    if (fix.valid) {
+        wallFixMm_ = fix.correctionMm;
+    }
 }
 
 // Uma célula de ré, sem girar (saída de um beco). Sem o RF-44: os ToF laterais ficam à frente do
@@ -648,6 +678,7 @@ void Drv8833MotionAdapter::advanceCell() {
 // centro pela parede da frente, o robô já está esse tanto para trás, e a ré desconta.
 void Drv8833MotionAdapter::reverseCell() {
     const double distance = domain::robot::kCellSizeMm + aheadMm_ - lastShortMm_;
+    wallFixMm_ = 0.0;  // a correção valia para a reta para a frente que ia seguir
     aheadMm_ = 0.0;
     straight(-distance, "re de 1 celula", false);
 }
@@ -1185,6 +1216,7 @@ void Drv8833MotionAdapter::pivotInBoxedCell(controller::PivotMove::Direction dir
 }
 
 void Drv8833MotionAdapter::arcTurn(controller::PivotMove::Direction direction) {
+    wallFixMm_ = 0.0;
     if (calibration_.turnMode >= 0.5) {
         oneWheelTurn(direction);
         return;

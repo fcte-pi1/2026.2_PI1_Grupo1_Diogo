@@ -35,6 +35,7 @@ private:
     const Vl53l1xSensorAdapter* front_{nullptr};    // parada pela parede da frente
     double lastShortMm_{0.0};  // quanto a última reta parou antes do fim, pela parede da frente
     bool suppressFrontStop_{false};  // só o reposicionamento para girar: o frontal lê abaixo do mínimo
+    double wallFixMm_{0.0};    // `reancorar_parede`: quanto a próxima reta anda a mais (negativo: a menos)
     double aheadMm_{0.0};      // quanto o robô já está à frente do centro (fim de uma curva em arco)
     double batteryVolts_;
     controller::VoltageSlew leftSlew_;   // rampa de tensão (soft-start): `calib rampa_tensao`
@@ -94,6 +95,7 @@ private:
     void pivot(double degrees, controller::PivotMove::Direction direction,
                const controller::PivotMoveConfig& config);
     void pivotInBoxedCell(controller::PivotMove::Direction direction);
+    void reanchorOnFrontWall(bool endedAtCellCenter);
     void arcTurn(controller::PivotMove::Direction direction);
     void dropStaleHeading();
     void trimArc(controller::PivotMove::Direction direction);

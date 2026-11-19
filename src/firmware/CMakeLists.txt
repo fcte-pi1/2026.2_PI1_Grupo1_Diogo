@@ -57,6 +57,7 @@ add_library(firmware_logic STATIC
     src/domain/Pid.cpp
     src/domain/WallCentering.cpp
     src/domain/PivotClearance.cpp
+    src/domain/WallPosition.cpp
     src/domain/SweptFootprint.cpp
     src/domain/WheelStall.cpp
     src/domain/BridgeDrive.cpp
