@@ -365,3 +365,6 @@ __pycache__/
 teste-v3/resultados/
 auditoria/*
 !auditoria/AUDITORIA-*.md
+
+# Pacotes de resultados: nunca versionar
+*.zip
