@@ -1,5 +1,6 @@
 #include "adapters/Drv8833MotionAdapter.hpp"
 #include "domain/RobotGeometry.hpp"
+#include "domain/SweptFootprint.hpp"
 #include "domain/WallCentering.hpp"
 
 #include <algorithm>
@@ -572,6 +573,11 @@ void Drv8833MotionAdapter::setCalibration(const domain::Calibration& calibration
     calibration_ = calibration;
     arcBrake_.reset(calibration_.arcBrakeDeg);
     pivotBrake_.reset(calibration_.pivotBrakeDeg);
+    oneWheelBrake_.reset(calibration_.oneWheelBrakeDeg);
+    // A faixa de início da curva com uma roda depende do corpo em uso: calcula agora (robô parado,
+    // boot ou `calib`), não no meio da corrida.
+    oneWheelTargetMm_ =
+        calibration_.turnMode >= 0.5 ? domain::oneWheelStartTargetMm(calibration_) : -1.0;
 }
 
 double Drv8833MotionAdapter::arcBrakeDeg() const noexcept {
@@ -585,6 +591,16 @@ double Drv8833MotionAdapter::pivotBrakeDeg() const noexcept {
 controller::PivotMoveConfig Drv8833MotionAdapter::arcConfig() const noexcept {
     controller::PivotMoveConfig config = controller::robot::kArcTurn;
     config.toleranceDeg = arcBrakeDeg();
+    return config;
+}
+
+double Drv8833MotionAdapter::oneWheelBrakeDeg() const noexcept {
+    return calibration_.autoBrake >= 0.5 ? oneWheelBrake_.brakeDeg() : calibration_.oneWheelBrakeDeg;
+}
+
+controller::PivotMoveConfig Drv8833MotionAdapter::oneWheelConfig() const noexcept {
+    controller::PivotMoveConfig config = controller::robot::kOneWheelTurn;
+    config.toleranceDeg = oneWheelBrakeDeg();
     return config;
 }
 
@@ -957,7 +973,7 @@ void Drv8833MotionAdapter::pivot(double degrees, controller::PivotMove::Directio
     // pelo giroscópio (sem "continuar devagar", que chega ao alvo quase parado).
     bool brakeLearned = false;
     if (calibration_.autoBrake >= 0.5 && lastMoveOk_ && degrees < 135.0 && !turn.crept()) {
-        domain::BrakeLearner& learner = arc ? arcBrake_ : pivotBrake_;
+        domain::BrakeLearner& learner = oneWheelActive_ ? oneWheelBrake_ : arc ? arcBrake_ : pivotBrake_;
         brakeLearned = learner.update(std::fabs(stopDeg), std::fabs(lastTurnDeg_));
     }
     (void)brakeLearned;
@@ -1042,7 +1058,73 @@ void Drv8833MotionAdapter::trimArc(controller::PivotMove::Direction direction) {
     }
 }
 
+// Curva fechada com UMA roda (item 1, 19/11): o eixo começa o giro `oneWheelTargetMm_` antes do centro
+// da célula, pela ODOMETRIA (o ToF frontal lê perto do alcance mínimo ali), e o ToF só confirma
+// quando a leitura é válida. A roda de dentro fica parada; o robô termina meia bitola além do centro
+// e deslocado do eixo do corredor de saída (a centralização do item 4 corrige na reta seguinte).
+void Drv8833MotionAdapter::oneWheelTurn(controller::PivotMove::Direction direction) {
+    if (!lastMoveOk_) {
+        return;
+    }
+    if (oneWheelTargetMm_ < 0.0) {
+        lastMoveOk_ = false;
+        lastMoveFailure_ = "curva com uma roda nao cabe com as medidas do corpo";
+        return;
+    }
+    // Onde o eixo está agora em relação ao centro da célula (positivo = à frente): depois de um arco,
+    // já passou do centro; depois de uma reta que parou pela parede da frente, está atrás dele.
+    const double axleAheadMm = aheadMm_ - lastShortMm_;
+    aheadMm_ = 0.0;
+    lastShortMm_ = 0.0;
+    const double backMm = axleAheadMm + oneWheelTargetMm_;
+    if (std::fabs(backMm) > 3.0) {
+        straight(-backMm, backMm > 0.0 ? "recuo antes da curva" : "avanco antes da curva", false);
+    }
+    // Confirmação pelo frontal quando ele tem distância válida: lê (parede - frente do ToF) no ponto
+    // de partida. "Muito perto" vale como a leitura mínima, como no arco.
+    if (lastMoveOk_ && front_ != nullptr) {
+        const double expectedMm = domain::robot::kCorridorWidthMm / 2.0 + oneWheelTargetMm_ -
+                                  calibration_.axleToFrontTofMm;
+        domain::ArcStartConfig config = controller::robot::kArcStart;
+        config.frontTargetMm = expectedMm;
+        const std::optional<int> settled = settledFrontMm();
+        const double fix =
+            domain::arcStartCorrection(settled.has_value(), settled.value_or(0), config);
+#if CONFIG_RATO_LOG_RETA
+        ESP_LOGI("curva",
+                 "uma roda: eixo comeca %.0f mm antes do centro, frontal esperado %.0f mm, lido %d "
+                 "mm, ajuste %.0f mm; termina %.0f mm a frente e a %.0f mm do eixo da saida",
+                 oneWheelTargetMm_, expectedMm, settled.value_or(-1), fix,
+                 domain::oneWheelEnd(oneWheelTargetMm_).aheadOfCenterMm,
+                 domain::oneWheelEnd(oneWheelTargetMm_).inwardOffsetMm);
+#endif
+        if (fix != 0.0) {
+            straight(-fix, "ajuste antes da curva", false);
+        }
+    }
+    if (!lastMoveOk_ && lastMoveFailure_ != nullptr &&
+        std::strcmp(lastMoveFailure_, kShortOfCellFailure) == 0 && !aborted()) {
+        // Sem espaço para recuar: gira no lugar, como o arco faz.
+        lastMoveOk_ = true;
+        lastMoveFailure_ = "";
+        pivot(90.0, direction, pivotConfig());
+        aheadMm_ = 0.0;
+        return;
+    }
+    oneWheelActive_ = true;
+    pivot(90.0, direction, oneWheelConfig());
+    oneWheelActive_ = false;
+    trimArc(direction);
+    if (lastMoveOk_) {
+        aheadMm_ = domain::oneWheelEnd(oneWheelTargetMm_).aheadOfCenterMm;
+    }
+}
+
 void Drv8833MotionAdapter::arcTurn(controller::PivotMove::Direction direction) {
+    if (calibration_.turnMode >= 0.5) {
+        oneWheelTurn(direction);
+        return;
+    }
     // Recua a meia célula inteira, mesmo se a reta anterior parou antes pela parede da frente: com
     // o eixo atrás do centro, o arco tem espaço no canto (V3b de 09/11).
     lastShortMm_ = 0.0;

@@ -69,6 +69,13 @@ private:
     domain::Calibration calibration_{};
     domain::BrakeLearner arcBrake_{calibration_.arcBrakeDeg, 2.0, 15.0};
     domain::BrakeLearner pivotBrake_{calibration_.pivotBrakeDeg, 2.0, 25.0};
+    domain::BrakeLearner oneWheelBrake_{calibration_.oneWheelBrakeDeg, 2.0, 15.0};
+    // Curva com uma roda (item 1): onde o eixo começa o giro, antes do centro da célula (mm), pela
+    // geometria do corpo em uso. Calculado ao aplicar o `calib` (leva ~1 s); negativo = não cabe.
+    double oneWheelTargetMm_{-1.0};
+    bool oneWheelActive_{false};  // a curva em andamento é de uma roda (escolhe o freio aprendido)
+    [[nodiscard]] controller::PivotMoveConfig oneWheelConfig() const noexcept;
+    void oneWheelTurn(controller::PivotMove::Direction direction);
 
     // kArcTurn e kPivotMove com o freio em uso: o do `calib` ou, com o autoajuste, o aprendido.
     [[nodiscard]] controller::PivotMoveConfig arcConfig() const noexcept;
@@ -116,6 +123,7 @@ public:
     // Freio em uso agora em cada tipo de curva (graus antes do alvo) e quantas curvas já ensinaram.
     [[nodiscard]] double arcBrakeDeg() const noexcept;
     [[nodiscard]] double pivotBrakeDeg() const noexcept;
+    [[nodiscard]] double oneWheelBrakeDeg() const noexcept;
     // Leitura do ToF frontal com que o arco começa, pelas medidas do corpo em uso (só para o log).
     [[nodiscard]] double arcStartTargetMm() const noexcept { return arcStartFrontMm(); }
     [[nodiscard]] int brakeTurnsLearned() const noexcept {

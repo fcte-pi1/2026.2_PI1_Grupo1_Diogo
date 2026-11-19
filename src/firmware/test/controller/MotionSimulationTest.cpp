@@ -202,6 +202,51 @@ TEST(PivotMoveSimulation, ArcPathRadiusMatchesThePlanOnTheRealRobot) {
     }
 }
 
+// Curva com UMA roda (item 1, 19/11): a roda de dentro fica parada (raio 0) e a de fora anda um arco de
+// raio = bitola, até o giroscópio fechar os 90 graus. O freio inicial é o do arco (4,2 graus):
+// PROPOSTA A CONFIRMAR, ainda não há medida de uma roda só no robô (os logs de 16/11 não têm).
+TEST(PivotMoveSimulation, OneWheelTurnKeepsTheInnerWheelStillAndClosesNinetyDegrees) {
+    constexpr double kDt = 0.002;
+    constexpr double kRadToDeg = 57.29577951308232;
+    for (const PivotMove::Direction direction :
+         {PivotMove::Direction::Left, PivotMove::Direction::Right}) {
+        PivotMove move(90.0, direction, controller::robot::kOneWheelTurn);
+        MotorWheel left = easyWheel();
+        MotorWheel right = stiffWheel();
+        controller::SpeedEstimator leftSpeed;
+        controller::SpeedEstimator rightSpeed;
+        leftSpeed.reset(0.0, 0.0);
+        rightSpeed.reset(0.0, 0.0);
+        double trueDeg = 0.0;
+        double rate = 0.0;
+        PivotMove::Output out{};
+        double t = 0.0;
+        double innerVoltsMax = 0.0;
+        while (!out.done && t < 3.0) {
+            t += kDt;
+            const double l = left.encoderMm();
+            const double r = right.encoderMm();
+            out = move.step(kDt, rate, l, r, leftSpeed.update(l, t), rightSpeed.update(r, t));
+            const double inner = direction == PivotMove::Direction::Left ? out.leftVolts : out.rightVolts;
+            innerVoltsMax = std::fmax(innerVoltsMax, std::fabs(inner));
+            left.step(out.leftVolts, kDt);
+            right.step(out.rightVolts, kDt);
+            rate = (left.speed - right.speed) / controller::robot::kArcEffectiveTrackMm * kRadToDeg;
+            trueDeg += rate * kDt;
+        }
+        trueDeg += std::copysign(kArcBrakeCoastDeg, trueDeg);
+        ASSERT_TRUE(out.done);
+        EXPECT_NEAR(std::fabs(trueDeg), 90.0, 5.0);
+        const double innerMm = direction == PivotMove::Direction::Left ? left.position : right.position;
+        const double outerMm = direction == PivotMove::Direction::Left ? right.position : left.position;
+        EXPECT_LT(std::fabs(innerMm), 6.0);  // a roda de dentro praticamente não anda
+        EXPECT_GT(outerMm, 0.6 * controller::robot::kArcEffectiveTrackMm * 1.5708);
+        EXPECT_LT(t, 2.0);
+        // Sentido de giro certo (no simulador, positivo = a esquerda anda mais = curva à direita).
+        EXPECT_EQ(trueDeg > 0.0, direction == PivotMove::Direction::Right);
+    }
+}
+
 // Suspenso: o robô não gira, o giroscópio não chega e a curva não termina sozinha (o tempo limite
 // do adaptador leva ao Erro, como no C2 do roteiro).
 TEST(PivotMoveSimulation, SuspendedRobotNeverFinishesTheTurn) {

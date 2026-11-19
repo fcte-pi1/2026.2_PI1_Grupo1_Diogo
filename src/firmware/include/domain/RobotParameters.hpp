@@ -13,6 +13,7 @@ namespace micromouse::domain::robot {
 // projeto dizia 34, e o robô andava ~6% a mais do que contava). A bitola de 88 mm ainda é valor de
 // projeto (#394). Com eles, dá 0,3527 mm por pulso e cerca de 511 pulsos por célula de 180 mm.
 inline constexpr double kWheelDiameterMm = 32.0;  // medido em 11/11 (era 34, de projeto)
+inline constexpr double kWheelWidthMm = 20.2;     // CAD (M7): largura do pneu
 inline constexpr int kCountsPerRevolution = 285;  // medido em 04/11 (esq 284, dir 286), 2x
 inline constexpr double kCellSizeMm = 180.0;
 inline constexpr double kWheelTrackMm = 88.0;  // bitola: valor de projeto, a medir (#394)
@@ -39,6 +40,9 @@ inline constexpr double kCorridorWidthMm = 168.0;     // corredor livre (célula
 inline constexpr double kRobotLimitMm = 165.0;        // limite do robô em cada dimensão
 // Folga entre o campo e o CAD acima da qual o boot avisa (os dois não podem estar certos).
 inline constexpr double kBodyConflictMm = 10.0;
+// A faixa em que a curva com uma roda cabe tem de ter ao menos o dobro disto (folga em cada ponta,
+// para o erro de odometria do recuo: ~4-5 mm no arco em 16/11). PROPOSTA A CONFIRMAR.
+inline constexpr double kOneWheelStartMarginMm = 5.0;
 
 inline constexpr WheelConfig kWheels{kWheelDiameterMm, kCountsPerRevolution, kCellSizeMm};
 inline constexpr TurnConfig kTurn{kWheelDiameterMm, kCountsPerRevolution, kWheelTrackMm};

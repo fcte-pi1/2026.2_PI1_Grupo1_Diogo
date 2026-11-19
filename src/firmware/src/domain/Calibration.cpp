@@ -18,6 +18,8 @@ constexpr std::array<CalibrationField, kCalibrationFieldCount> kFields{{
     {"escala_giro", &Calibration::gyroScale, 0.90, 1.20, "x"},
     {"freio_arco", &Calibration::arcBrakeDeg, 0.0, 20.0, "graus"},
     {"freio_pivo", &Calibration::pivotBrakeDeg, 0.0, 30.0, "graus"},
+    {"modo_curva", &Calibration::turnMode, 0.0, 1.0, "0=arco 1=uma roda"},
+    {"freio_uma_roda", &Calibration::oneWheelBrakeDeg, 0.0, 20.0, "graus"},
     {"autoajuste_freio", &Calibration::autoBrake, 0.0, 1.0, "0/1"},
     {"parada_frente", &Calibration::frontStopMm, 20.0, 90.0, "mm"},
     {"centralizar", &Calibration::centerOnWalls, 0.0, 1.0, "0/1"},

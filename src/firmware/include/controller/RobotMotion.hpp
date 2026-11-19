@@ -196,4 +196,13 @@ inline constexpr double kArcEffectiveTrackMm = 74.2;
 inline constexpr PivotMoveConfig kArcTurn{{90.0, 450.0}, kWheelLoop, kArcEffectiveTrackMm,
                                           0.5, 4.2, 40.0, 30.0, kArcSetbackMm};
 
+
+// Curva fechada com UMA roda (19/11): a roda de dentro fica parada (raio 0) e a de fora anda um arco
+// de raio = bitola efetiva. Mesmo perfil do arco (90 graus/s). O freio inicial (4,2) é o do arco:
+// PROPOSTA A CONFIRMAR, nenhum log tem curva de uma roda só. A curva só cabe se o eixo começar o giro
+// antes do centro da célula (domain::oneWheelStartBand) e termina deslocado do eixo do corredor.
+inline constexpr PivotMoveConfig kOneWheelTurn{
+    {90.0, 450.0}, kWheelLoop, kArcEffectiveTrackMm, 0.5, 4.2, 40.0, 30.0,
+    kArcEffectiveTrackMm / 2.0};
+
 }  // namespace micromouse::controller::robot

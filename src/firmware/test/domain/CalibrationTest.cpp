@@ -25,6 +25,18 @@ TEST(Calibration, DefaultsAreTheValuesInUse) {
     EXPECT_DOUBLE_EQ(calibration.headingGain, 0.0);
 }
 
+// Modo da curva fechada (item 1, 19/11): 0 = arco (o atual), 1 = uma roda.
+TEST(Calibration, TurnModeDefaultsToTheArcAndAcceptsOnlyZeroOrOne) {
+    Calibration calibration;
+    EXPECT_DOUBLE_EQ(calibration.turnMode, 0.0);
+    EXPECT_DOUBLE_EQ(calibration.oneWheelBrakeDeg, controller::robot::kOneWheelTurn.toleranceDeg);
+    EXPECT_EQ(setCalibration(calibration, "modo_curva", "1"), CalibrationSet::Ok);
+    EXPECT_DOUBLE_EQ(calibration.turnMode, 1.0);
+    EXPECT_EQ(setCalibration(calibration, "modo_curva", "2"), CalibrationSet::OutOfRange);
+    EXPECT_EQ(setCalibration(calibration, "freio_uma_roda", "6,5"), CalibrationSet::Ok);
+    EXPECT_DOUBLE_EQ(calibration.oneWheelBrakeDeg, 6.5);
+}
+
 TEST(Calibration, EveryDefaultIsInsideItsRange) {
     Calibration calibration;
     EXPECT_EQ(sanitizeCalibration(calibration), 0);
