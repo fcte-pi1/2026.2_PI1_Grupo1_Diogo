@@ -11,7 +11,8 @@ namespace micromouse::domain {
 // objetivo em cima. Dentro do robô o mapa continua no quadro dele; só a saída é girada.
 //  - largada à esquerda: giro anti-horário, (r, c) -> (C-1-c, r);   N->O, L->N, S->L, O->S
 //  - largada à direita:  giro horário,       (r, c) -> (c, R-1-r);   N->L, L->S, S->O, O->N
-// (R = linhas e C = colunas do quadro do robô). Deitados e o 4x4 passam sem mudança.
+// (R = linhas e C = colunas do quadro do robô). Os deitados passam sem mudança. O 4x4 girado (toque
+// longo) também gira só o relato: o robô navega o mapa normal e o painel recebe o mapa girado.
 class ReportFrame {
 public:
     struct Walls {

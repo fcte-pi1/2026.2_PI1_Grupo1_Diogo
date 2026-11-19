@@ -3,13 +3,13 @@
 namespace micromouse::domain {
 
 ReportFrame::ReportFrame(const MazeSetup& setup) noexcept
-    : rotated_(setup.rows > setup.columns),
+    : rotated_(isPortrait(setup.type)),
       clockwise_(setup.start.column != 0),  // largada à direita: giro horário
       rows_(setup.rows),
       columns_(setup.columns),
       reported_(setup.type) {
     if (rotated_) {
-        reported_ = setup.rows == 8 ? MazeType::Medium8x4 : MazeType::Large12x4;
+        reported_ = landscapeOf(setup.type);
     }
 }
 

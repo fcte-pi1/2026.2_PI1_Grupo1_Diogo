@@ -125,6 +125,7 @@ retas boas giram até 2,1).
 | `enc [s]` | Motores soltos por `s` segundos (padrão 10): os pulsos de cada encoder, para girar as rodas à mão. Uma volta para a frente = +285 |
 | `calib` | **Calibração sem regravar** (16/11): mostra os valores em uso, um por linha (`calib: nome = valor unidade (faixa) padrao/ALTERADO`). Ver a seção 6 |
 | `labirinto 4x8` (ou `4x12`, `8x4`, `12x4`, `4x4`) | **Novo (19/11)**: troca o tipo de labirinto da PRÓXIMA largada, para o 4x8 e o 4x12 em pé, que o DIP não escolhe (a combinação das vias 1 e 2 fechadas é proibida, #393). Nomes em colunas x linhas. O canto é o da via 3. Vale até reiniciar; `labirinto dip` volta ao DIP. Nada se move. O painel recebe o em pé como o deitado (4x8 -> "8x4"), com o mapa girado 90 graus |
+| **Botão de largada** (19/11) | **Toque curto** larga, agora ao SOLTAR (antes era ao apertar). **Toque longo** (segurar ~1 s, proposta a confirmar) NÃO larga: alterna a orientação do labirinto, **sem BLE**: 8x4 <-> 4x8, 12x4 <-> 4x12 e **4x4 <-> "4x4 girado"** (para testar o relato girado com o único labirinto físico: o robô navega o mapa normal e só o relato ao painel gira 90 graus). Som: 3 bips curtos = em pé, 1 bip longo = deitado. Log: `main: toque longo: labirinto 4x4 EM PE (relato ao painel: 4x4, mapa girado 90 graus)`. O comando `labirinto` zera o toque longo |
 | `calib nome=valor ...` | Troca um ou mais valores e grava na memória do robô (vale depois de reiniciar). Fora da faixa ou nome errado: `calib: RECUSADO, nada mudou`. `calib padrao` volta aos de fábrica |
 
 Depois de um Erro (corrida que falhou, auto-teste reprovado), os comandos de leitura (`tof`,
@@ -319,5 +320,7 @@ pivô com a bitola efetiva. Aguarda medida com transferidor.
 | Atrito do apoio frontal | Mesma curva, comparar com o arco | registrar o tempo e a inércia; sem referência anterior |
 | Velocidade -25% | `andar`, `re`, `virar d/e` (arco) e a corrida D1 | reta 506-511 pulsos e giro <= 2 graus; arco 90 +- 2 graus (se passar, `calib freio_arco=..`); D1 12 passos na ordem; tempo da D1 anotado (modelo: ~45 s) |
 | Limite de 10 min | Corrida longa ou `tempo` simulado | termina em Erro com o motivo, motores parados |
-| Labirinto em pé | Com o robô parado: `labirinto 4x8`, depois `largar` no canto da via 3 | o log `labirinto trocado por comando BLE`; o painel mostra "8x4" com o mapa girado; o robô resolve sem bater |
+| Labirinto em pé | Com o robô parado: `labirinto 4x8`, depois `largar` no canto da via 3 | o log `labirinto diferente do DIP ... (comando BLE)`; o painel mostra "8x4" com o mapa girado; o robô resolve sem bater |
+| **Toque longo no 4x4** (sem BLE) | Segurar o botão ~1 s (3 bips), conferir o log, depois um toque curto para largar a corrida D1 | log `toque longo: ... EM PE`; a corrida resolve igual; o painel mostra o mapa 4x4 **girado 90 graus** com a largada embaixo; outro toque longo (1 bip longo) volta ao normal |
+| Toque curto | Apertar e soltar rápido | a corrida larga ao soltar, não ao apertar |
 

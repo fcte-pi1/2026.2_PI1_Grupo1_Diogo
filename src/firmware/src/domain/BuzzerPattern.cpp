@@ -10,6 +10,10 @@ std::vector<Tone> patternTones(BuzzerPattern pattern) {
             return {{1200, 100}, {0, 40}, {1350, 100}, {0, 40}, {1500, 200}};
         case BuzzerPattern::Alarm:
             return {{1800, 150}, {0, 80}, {1800, 150}, {0, 80}, {1800, 150}};
+        case BuzzerPattern::Portrait:
+            return {{1500, 90}, {0, 60}, {1500, 90}, {0, 60}, {1500, 90}};
+        case BuzzerPattern::Landscape:
+            return {{1100, 400}};
     }
     return {};
 }
@@ -30,6 +34,10 @@ const char* patternName(BuzzerPattern pattern) noexcept {
             return "objetivo";
         case BuzzerPattern::Alarm:
             return "alarme";
+        case BuzzerPattern::Portrait:
+            return "em pe";
+        case BuzzerPattern::Landscape:
+            return "deitado";
     }
     return "?";
 }

@@ -120,6 +120,7 @@ std::string phaseToString(SessionPhase phase) {
 std::string mazeToString(domain::MazeType maze) {
     switch (maze) {
         case domain::MazeType::Small4x4:
+        case domain::MazeType::Tall4x4:  // 4x4 com o relato girado (toque longo, teste)
             return "4x4";
         case domain::MazeType::Medium8x4:
         case domain::MazeType::Tall4x8:  // em pé: relatado como o deitado, com o mapa girado

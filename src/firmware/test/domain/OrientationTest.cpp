@@ -24,7 +24,7 @@ struct Shape {
 };
 constexpr Shape kShapes[] = {{MazeType::Small4x4, 4, 4, "4x4"},   {MazeType::Medium8x4, 4, 8, "8x4"},
                              {MazeType::Large12x4, 4, 12, "12x4"}, {MazeType::Tall4x8, 8, 4, "4x8"},
-                             {MazeType::Tall4x12, 12, 4, "4x12"}};
+                             {MazeType::Tall4x12, 12, 4, "4x12"}, {MazeType::Tall4x4, 4, 4, "4x4 girado"}};
 
 TEST(Orientation, EveryTypeHasItsDimensionsAndOppositeCornersForStartAndGoal) {
     for (const Shape& shape : kShapes) {
@@ -56,6 +56,7 @@ TEST(Orientation, TheDipStillDecodesTheOriginalTypesAndKeepsTheForbiddenCombinat
 
 TEST(Orientation, TheBleCommandNamesEveryTypeInColumnsByRows) {
     for (const Shape& shape : kShapes) {
+        if (shape.type == MazeType::Tall4x4) continue;  // o 4x4 girado só vem do toque longo
         const std::optional<MazeType> parsed = parseMazeType(shape.name);
         ASSERT_TRUE(parsed.has_value()) << shape.name;
         EXPECT_EQ(*parsed, shape.type);
@@ -73,6 +74,45 @@ TEST(Orientation, ThePortraitTypesAreReportedAsTheLandscapeOnes) {
     EXPECT_EQ(protocol::mazeToString(MazeType::Tall4x12), "12x4");
     EXPECT_EQ(protocol::mazeToString(MazeType::Medium8x4), "8x4");
     EXPECT_EQ(protocol::mazeToString(MazeType::Small4x4), "4x4");
+}
+
+// Toque longo no botão (19/11): o em pé vira deitado e vice-versa, e o 4x4 passa a ser relatado girado,
+// para testar todo o caminho girado com o único labirinto físico (4x4).
+TEST(Orientation, TheLongPressFlipsBetweenPortraitAndLandscape) {
+    EXPECT_EQ(flipOrientation(MazeType::Small4x4), MazeType::Tall4x4);
+    EXPECT_EQ(flipOrientation(MazeType::Medium8x4), MazeType::Tall4x8);
+    EXPECT_EQ(flipOrientation(MazeType::Large12x4), MazeType::Tall4x12);
+    for (const Shape& shape : kShapes) {
+        EXPECT_EQ(flipOrientation(flipOrientation(shape.type)), shape.type) << shape.name;
+        EXPECT_NE(isPortrait(flipOrientation(shape.type)), isPortrait(shape.type)) << shape.name;
+    }
+    EXPECT_TRUE(isPortrait(MazeType::Tall4x4));
+    EXPECT_FALSE(isPortrait(MazeType::Small4x4));
+    // Girar não muda as dimensões do 4x4; nos outros, troca linhas e colunas.
+    const MazeSetup square = makeMazeSetup(MazeType::Tall4x4, false);
+    EXPECT_EQ(square.rows, 4);
+    EXPECT_EQ(square.columns, 4);
+    const MazeSetup landscape = makeMazeSetup(MazeType::Medium8x4, false);
+    const MazeSetup portrait = makeMazeSetup(flipOrientation(MazeType::Medium8x4), false);
+    EXPECT_EQ(portrait.rows, landscape.columns);
+    EXPECT_EQ(portrait.columns, landscape.rows);
+}
+
+// O 4x4 girado: o robô navega o mapa NORMAL (o labirinto físico é o mesmo) e só o relato gira 90 graus.
+TEST(ReportFrame, ARotatedSquareMazeIsReportedRotatedButKeepsItsType) {
+    for (const bool right : {false, true}) {
+        const MazeSetup setup = makeMazeSetup(MazeType::Tall4x4, right);
+        const ReportFrame frame(setup);
+        ASSERT_TRUE(frame.rotated());
+        EXPECT_EQ(frame.type(), MazeType::Small4x4);
+        EXPECT_EQ(protocol::mazeToString(MazeType::Tall4x4), "4x4");
+        const Position start = frame.position(setup.start);
+        const Position goal = frame.position(setup.goal);
+        EXPECT_EQ(start.row, 3);  // largada embaixo
+        EXPECT_EQ(goal.row, 0);   // objetivo em cima
+        EXPECT_FALSE(frame.position({3, 1}) == (Position{3, 1}));  // de fato girou
+        EXPECT_NE(frame.direction(Direction::North), Direction::North);
+    }
 }
 
 TEST(ReportFrame, LandscapeAndSquareMazesAreReportedAsTheyAre) {

@@ -18,7 +18,7 @@ Testes no PC (rede de segurança - rode sempre):
 ```bash
 cmake --preset debug
 cmake --build --preset debug
-ctest --preset debug          # 308 testes
+ctest --preset debug          # 317 testes
 ```
 
 Firmware na placa (com o ESP-IDF v5.x instalado e ativado):

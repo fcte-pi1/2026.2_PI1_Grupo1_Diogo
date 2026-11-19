@@ -15,8 +15,16 @@ enum class MazeType {
     Medium8x4,  //
     Large12x4,  //
     Tall4x8,    // 8 linhas x 4 colunas
-    Tall4x12    // 12 linhas x 4 colunas
+    Tall4x12,   // 12 linhas x 4 colunas
+    Tall4x4     // o 4x4 com o relato GIRADO: só pelo toque longo, para testar o caminho girado
 };
+
+// "Em pé" = o relato da telemetria sai girado 90 graus (ver ReportFrame). O toque longo do botão
+// alterna: 4x4 <-> 4x4 girado, 8x4 <-> 4x8, 12x4 <-> 4x12.
+[[nodiscard]] bool isPortrait(MazeType type) noexcept;
+[[nodiscard]] MazeType flipOrientation(MazeType type) noexcept;
+// O deitado correspondente (o que o protocolo e o painel conhecem).
+[[nodiscard]] MazeType landscapeOf(MazeType type) noexcept;
 
 struct MazeSetup {
     MazeType type{};

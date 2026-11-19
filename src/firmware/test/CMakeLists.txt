@@ -29,6 +29,7 @@ add_executable(firmware_tests
     domain/DipDecoderTest.cpp
     domain/OrientationTest.cpp
     domain/BuzzerPatternTest.cpp
+    domain/ButtonGestureTest.cpp
     domain/PidTest.cpp
     controller/MotionProfileTest.cpp
     controller/MotionSimulationTest.cpp

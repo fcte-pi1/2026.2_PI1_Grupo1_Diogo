@@ -50,11 +50,32 @@ Dimensions dimensionsOf(MazeType type) {
         case MazeType::Large12x4: return {type, 4, 12};
         case MazeType::Tall4x8: return {type, 8, 4};
         case MazeType::Tall4x12: return {type, 12, 4};
+        case MazeType::Tall4x4: return {type, 4, 4};
     }
     __builtin_unreachable();
 }
 
 }  // namespace
+
+bool isPortrait(MazeType type) noexcept {
+    return type == MazeType::Tall4x4 || type == MazeType::Tall4x8 || type == MazeType::Tall4x12;
+}
+
+MazeType flipOrientation(MazeType type) noexcept {
+    switch (type) {
+        case MazeType::Small4x4: return MazeType::Tall4x4;
+        case MazeType::Tall4x4: return MazeType::Small4x4;
+        case MazeType::Medium8x4: return MazeType::Tall4x8;
+        case MazeType::Tall4x8: return MazeType::Medium8x4;
+        case MazeType::Large12x4: return MazeType::Tall4x12;
+        case MazeType::Tall4x12: return MazeType::Large12x4;
+    }
+    return type;
+}
+
+MazeType landscapeOf(MazeType type) noexcept {
+    return isPortrait(type) ? flipOrientation(type) : type;
+}
 
 MazeSetup makeMazeSetup(MazeType type, bool startRight) {
     const Dimensions dimensions = dimensionsOf(type);

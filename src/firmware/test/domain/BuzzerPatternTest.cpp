@@ -97,3 +97,34 @@ TEST(BuzzerPattern, NamesMatchDiagnosticCommands) {
 }
 
 }  // namespace micromouse::domain
+
+namespace micromouse::domain {
+namespace {
+
+// Toque longo no botão (19/11): um som para "em pé" e outro para "deitado", distintos dos três
+// padrões de sempre, curtos e dentro da faixa do buzzer.
+TEST(BuzzerPattern, OrientationPatternsAreShortAndDistinct) {
+    const std::vector<Tone> portrait = patternTones(BuzzerPattern::Portrait);
+    const std::vector<Tone> landscape = patternTones(BuzzerPattern::Landscape);
+    ASSERT_FALSE(portrait.empty());
+    ASSERT_FALSE(landscape.empty());
+    EXPECT_LT(patternDurationMs(BuzzerPattern::Portrait), 700u);
+    EXPECT_LT(patternDurationMs(BuzzerPattern::Landscape), 700u);
+    for (const BuzzerPattern pattern : {BuzzerPattern::Portrait, BuzzerPattern::Landscape}) {
+        for (const Tone& tone : patternTones(pattern)) {
+            EXPECT_TRUE(tone.frequencyHz == 0 || (tone.frequencyHz >= 500 && tone.frequencyHz <= 4000));
+        }
+    }
+    // Em pé: 3 bips; deitado: 1 bip longo.
+    int portraitBeeps = 0;
+    for (const Tone& tone : portrait) portraitBeeps += tone.frequencyHz > 0 ? 1 : 0;
+    int landscapeBeeps = 0;
+    for (const Tone& tone : landscape) landscapeBeeps += tone.frequencyHz > 0 ? 1 : 0;
+    EXPECT_EQ(portraitBeeps, 3);
+    EXPECT_EQ(landscapeBeeps, 1);
+    EXPECT_STREQ(patternName(BuzzerPattern::Portrait), "em pe");
+    EXPECT_STREQ(patternName(BuzzerPattern::Landscape), "deitado");
+}
+
+}  // namespace
+}  // namespace micromouse::domain

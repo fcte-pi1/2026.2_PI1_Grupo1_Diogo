@@ -15,7 +15,9 @@ struct Tone {
 enum class BuzzerPattern {
     Ready,  // RF-32: prontidão, 2 bips de 1,3 kHz
     Goal,   // RF-8: objetivo cumprido, tom ascendente de 1,2 a 1,5 kHz
-    Alarm   // RF-9 e RF-55: falha ou bateria fraca, 3 bips de 1,8 kHz
+    Alarm,  // RF-9 e RF-55: falha ou bateria fraca, 3 bips de 1,8 kHz
+    Portrait,   // toque longo (19/11): labirinto em pé, 3 bips curtos de 1,5 kHz
+    Landscape   // toque longo: labirinto deitado, 1 bip longo de 1,1 kHz
 };
 
 [[nodiscard]] std::vector<Tone> patternTones(BuzzerPattern pattern);

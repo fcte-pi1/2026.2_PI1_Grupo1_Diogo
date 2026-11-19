@@ -25,6 +25,7 @@
 #include "adapters/Mpu6050.hpp"
 #include "adapters/Vl53l1xSensorAdapter.hpp"
 #include "domain/BatteryMonitor.hpp"
+#include "domain/ButtonGesture.hpp"
 #include "domain/Calibration.hpp"
 #include "domain/Calibration.hpp"
 #include "domain/DipDecoder.hpp"
@@ -313,6 +314,9 @@ std::atomic<int> gRejectedCommands{0};
 // de largada continua o da via 3. Vale até o reinício; "labirinto dip" volta ao que o DIP diz.
 // -1 = o do DIP; senão o valor de domain::MazeType. O comando só muda a configuração: nada se move.
 std::atomic<int> gMazeOverride{-1};
+// Toque longo no botão (19/11): alterna a orientação (em pé <-> deitado; o 4x4 vira "4x4 girado", só
+// para testar o relato girado com o único labirinto físico). O comando `labirinto` zera.
+std::atomic<bool> gOrientationFlip{false};
 // "calib [nome=valor ...]" (16/11): valores do robô e do piso trocáveis sem regravar. O callback do
 // BLE só guarda o texto; quem interpreta, grava na memória e loga é a tarefa de navegação.
 char gCalibText[232] = "";
@@ -419,8 +423,10 @@ void onBleCommand(const std::string& command) {
         const std::string name = command.substr(10);
         if (name == "dip") {
             gMazeOverride = -1;
+            gOrientationFlip = false;
         } else if (const std::optional<domain::MazeType> type = domain::parseMazeType(name)) {
             gMazeOverride = static_cast<int>(*type);
+            gOrientationFlip = false;
         } else {
             ++gRejectedCommands;
         }
@@ -892,11 +898,25 @@ domain::ReportFrame gReport{domain::makeMazeSetup(domain::MazeType::Small4x4, fa
 // O tipo de labirinto desta largada: o do DIP lido no boot, ou o do comando `labirinto`.
 domain::MazeSetup currentSetup(const domain::MazeSetup& boot) {
     const int forced = gMazeOverride.load();
-    if (forced < 0) {
-        return boot;
+    domain::MazeType type = forced < 0 ? boot.type : static_cast<domain::MazeType>(forced);
+    if (gOrientationFlip.load()) {
+        type = domain::flipOrientation(type);
     }
-    return domain::makeMazeSetup(static_cast<domain::MazeType>(forced),
-                                 !domain::startBorderIsOnTheLeft(boot));
+    return domain::makeMazeSetup(type, !domain::startBorderIsOnTheLeft(boot));
+}
+
+// Toque longo: alterna a orientação, loga e toca o som (3 bips = em pé, 1 bip longo = deitado).
+void toggleOrientation(const domain::MazeSetup& boot, domain::MazeSetup& setup) {
+    gOrientationFlip = !gOrientationFlip.load();
+    setup = currentSetup(boot);
+    gReport = domain::ReportFrame(setup);
+    const bool portrait = domain::isPortrait(setup.type);
+    ESP_LOGW(kTag, "toque longo: labirinto %dx%d %s (relato ao painel: %s%s)", setup.columns,
+             setup.rows, portrait ? "EM PE" : "deitado",
+             protocol::mazeToString(setup.type).c_str(),
+             gReport.rotated() ? ", mapa girado 90 graus" : "");
+    gLocal.playPattern(portrait ? domain::BuzzerPattern::Portrait
+                                : domain::BuzzerPattern::Landscape);
 }
 
 void writeState(const telemetry::Snapshot& raw) {
@@ -995,7 +1015,20 @@ void navigationTask(void*) {
 #if CONFIG_RATO_LOG_RETA
         gRemoteStart = false;
         [[maybe_unused]] int idleTicks = 0;
-        while (!gLocal.buttonPressed() && !gRemoteStart.exchange(false)) {
+        // Toque curto larga (ao soltar); toque longo alterna a orientação do labirinto e NÃO larga.
+        domain::ButtonGesture gesture(gLocal.buttonPressed());
+        while (true) {
+            if (gRemoteStart.exchange(false)) {
+                break;
+            }
+            const domain::ButtonEvent touch =
+                gesture.update(gLocal.buttonPressed(), static_cast<uint32_t>(nowMs()));
+            if (touch == domain::ButtonEvent::ShortPress) {
+                break;
+            }
+            if (touch == domain::ButtonEvent::LongPress) {
+                toggleOrientation(bootSetup, setup);
+            }
 #if !CONFIG_RATO_BANCADA
             setup = currentSetup(bootSetup);  // o comando `labirinto` pode ter trocado o tipo
             serviceTestCommands(setup, true);
@@ -1011,7 +1044,16 @@ void navigationTask(void*) {
         gRemoteStop = false;
 #else
         [[maybe_unused]] int idleTicks = 0;
-        while (!gLocal.buttonPressed()) {
+        domain::ButtonGesture gesture(gLocal.buttonPressed());
+        while (true) {
+            const domain::ButtonEvent touch =
+                gesture.update(gLocal.buttonPressed(), static_cast<uint32_t>(nowMs()));
+            if (touch == domain::ButtonEvent::ShortPress) {
+                break;
+            }
+            if (touch == domain::ButtonEvent::LongPress) {
+                toggleOrientation(bootSetup, setup);
+            }
 #if !CONFIG_RATO_BANCADA
             if (++idleTicks >= 200) {  // ~2 s: mantém o desvio do giroscópio em dia (sem logar)
                 idleTicks = 0;
@@ -1077,9 +1119,11 @@ void navigationTask(void*) {
         // só na saída da telemetria (domain::ReportFrame); dentro do robô fica no quadro dele.
         setup = currentSetup(bootSetup);
         gReport = domain::ReportFrame(setup);
-        if (gMazeOverride.load() >= 0) {
-            ESP_LOGW(kTag, "labirinto trocado por comando BLE (DIP diz %dx%d): %dx%d%s",
-                     bootSetup.columns, bootSetup.rows, setup.columns, setup.rows,
+        if (gMazeOverride.load() >= 0 || gOrientationFlip.load()) {
+            ESP_LOGW(kTag,
+                     "labirinto diferente do DIP (%dx%d): %dx%d (%s)%s", bootSetup.columns,
+                     bootSetup.rows, setup.columns, setup.rows,
+                     gMazeOverride.load() >= 0 ? "comando BLE" : "toque longo",
                      gReport.rotated() ? ", relatado ao painel como o deitado, mapa girado" : "");
         }
         domain::MazeMap maze(setup.rows, setup.columns);
