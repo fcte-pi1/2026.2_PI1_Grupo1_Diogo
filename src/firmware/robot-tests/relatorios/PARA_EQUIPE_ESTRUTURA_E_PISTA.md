@@ -1,8 +1,9 @@
 # Para a equipe de estrutura e pista — medidas e achados de 19/11/2026
 
-> **ERRATA (19/11, operador):** o robô **não será mexido em nada até segunda-feira**: nenhuma alteração de estrutura, eletrônica, energia ou fiação.
-> Por isso os pedidos às equipes abaixo valem **a partir de segunda**, e os testes de amanhã usam o robô **exatamente como está** (ToF direito fora do ar,
-> cabo da bateria como está, firmware das 11:01:54 e calibração `ganho_rumo=0.6`, `centralizar=1`, `tof_na_reta=1`).
+> **ERRATA (19/11, operador, versão corrigida):** o **robô físico** (estrutura, eletrônica, energia, fiação) **não será mexido em nada até segunda-feira**.
+> **O firmware PODE ser alterado**: quem opera é da equipe de software. Os pedidos de hardware às equipes valem a partir de segunda; até lá os testes usam o robô
+> **fisicamente como está** (ToF direito fora do ar, cabo da bateria como está). Firmware atual gravado: 11:01:54, com `ganho_rumo=0.6`, `centralizar=1`, `tof_na_reta=1`.
+> Mudanças de firmware continuam exigindo a aprovação do operador antes de aplicar, e a gravação só com a bateria desligada e o USB ligado.
 
 ## Medidas feitas hoje
 - **Largura com as rodas: 108 mm** (trena, roda a roda): confere com o CAD e com `largura_com_rodas=108`. Folga lateral no corredor de 168 mm: **30 mm por lado**.
