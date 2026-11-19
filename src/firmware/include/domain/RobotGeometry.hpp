@@ -22,6 +22,13 @@ namespace micromouse::domain::robot {
     return (kCorridorWidthMm - footprintWidthMm(c)) / 2.0;
 }
 
+// Configuração da estimativa de pose lateral com as medidas em uso: leitura nominal = meio corredor
+// (84) menos o ToF até o centro (50,5) = 33,5 mm, e o ToF 59,15 mm à frente do eixo.
+[[nodiscard]] constexpr LateralPoseConfig lateralPoseConfig(const Calibration& c) noexcept {
+    return {kCorridorWidthMm / 2.0 - c.sideTofToCenterMm, kWallCentering.useBelowMm,
+            c.sideTofAheadOfAxleMm, kLateralPoseMaxHeadingDeg};
+}
+
 // Os padrões e o preset do CAD cabem no limite de 165 x 165 e no corredor.
 static_assert(footprintLengthMm(Calibration{}) <= kRobotLimitMm);
 static_assert(footprintWidthMm(Calibration{}) <= kRobotLimitMm);

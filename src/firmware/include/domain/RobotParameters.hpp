@@ -59,5 +59,9 @@ inline constexpr WheelStallConfig kWheelStall{120, 0.20};
 //   10 mm fora do centro = 8 pulsos (~3 mm, ~2 graus de rumo); no máximo 16 pulsos (~6 mm). Com o
 //   ganho antigo (0,25 pulso/mm, ~0,9 mm por 10 mm) o robô saía de A4 encostado na parede.
 inline constexpr WallCenteringConfig kWallCentering{33.6, 70.0, 0.8, 16.0};
+// Estimativa de pose lateral (19/11): acima deste rumo ela desliga e a reta fica só com os encoders e
+// o giroscópio. PROPOSTA A CONFIRMAR: as retas boas de 16/11 giraram até 2,1 graus (log_robo.txt) e a
+// reta falha com "rumo perdido" a 10; 5 fica no meio.
+inline constexpr double kLateralPoseMaxHeadingDeg = 5.0;
 
 }  // namespace micromouse::domain::robot

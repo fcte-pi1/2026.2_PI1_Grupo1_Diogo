@@ -1,4 +1,6 @@
 #include "adapters/Drv8833MotionAdapter.hpp"
+#include "domain/RobotGeometry.hpp"
+#include "domain/WallCentering.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -660,6 +662,8 @@ void Drv8833MotionAdapter::straight(double distanceMm, const char* name, bool ce
     domain::SideReading leftWall{};
     domain::SideReading rightWall{};
     double wallMm = 0.0;
+    [[maybe_unused]] bool poseValid = false;           // estimativa de pose lateral (item 4)
+    [[maybe_unused]] double poseOffsetMm = 0.0;        // eixo para a direita do centro, mm
     double lastWallPoll = -kWallPollS;
 
     lastMoveName_ = name;
@@ -743,8 +747,14 @@ void Drv8833MotionAdapter::straight(double distanceMm, const char* name, bool ce
             refresh(Side::Left, leftWall);
             refresh(Side::Right, rightWall);
             if (centerOnWalls && walls_ != nullptr) {
-                wallMm = domain::wallCenteringError(leftWall, rightWall,
-                                                    domain::robot::kWallCentering) *
+                // Pose lateral do EIXO (19/11): desconta o rumo (os ToF ficam ~59 mm à frente do eixo)
+                // e desliga se o rumo for grande. Nunca usa leitura inválida nem 0 mm.
+                const domain::LateralPose pose = domain::estimateLateralPose(
+                    leftWall, rightWall, headingResidualDeg_ + headingDeg,
+                    domain::robot::lateralPoseConfig(calibration_));
+                poseValid = pose.valid;
+                poseOffsetMm = pose.rightOffsetMm;
+                wallMm = domain::lateralCorrectionPulses(pose, domain::robot::kWallCentering) *
                          controller::robot::kMmPerPulse;
             }
         }
@@ -809,6 +819,11 @@ void Drv8833MotionAdapter::straight(double distanceMm, const char* name, bool ce
              move.elapsed() * 1000.0, move.duration() * 1000.0, batteryVolts_, wallMm, frontMm,
              lastShortMm_, headingDeg, leftWall.valid ? leftWall.mm : -1.0,
              rightWall.valid ? rightWall.mm : -1.0, lastMoveOk_ ? "ok" : lastMoveFailure_);
+    if (centerOnWalls && walls_ != nullptr) {
+        ESP_LOGI("reta", "pose lateral: eixo %s%.1f mm para a direita do centro, rumo %.1f graus, correcao %.1f mm",
+                 poseValid ? "" : "(sem estimativa) ", poseOffsetMm, headingResidualDeg_ + headingDeg,
+                 wallMm);
+    }
     // Saúde do laço e dos sensores DURANTE a reta (12/11). O laço normal leva ~2,3 ms por volta;
     // uma volta de ~20 ms é um sensor I²C sem resposta. "pulou" = leituras não feitas porque o
     // sensor tinha acabado de falhar (ele fica em silêncio por 0,5 s).

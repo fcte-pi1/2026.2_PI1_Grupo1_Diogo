@@ -26,4 +26,32 @@ struct WallCenteringConfig {
 [[nodiscard]] double wallCenteringError(const SideReading& left, const SideReading& right,
                                         const WallCenteringConfig& config) noexcept;
 
+
+// ---- Estimativa de pose lateral por célula (19/11) ----
+// Os ToF laterais ficam `sensorAheadMm` à frente do eixo: com o robô girado, o sensor se desloca
+// sensorAheadMm x tan(rumo) para o lado e engana a conta. A estimativa devolve o deslocamento do
+// EIXO, descontando o rumo (positivo = eixo para a direita do centro do corredor).
+struct LateralPoseConfig {
+    double centerMm;        // leitura de um ToF lateral com o eixo no centro (meio corredor - ToF até o centro)
+    double useBelowMm;      // só usa uma parede com leitura abaixo disto (a da própria célula)
+    double sensorAheadMm;   // ToF lateral à frente do eixo
+    double maxHeadingDeg;   // acima deste rumo (em módulo) a estimativa desliga: o robô está torto
+};
+
+struct LateralPose {
+    bool valid{false};
+    double rightOffsetMm{0.0};
+    bool usedBoth{false};
+};
+
+// `headingDeg`: rumo do robô em relação ao eixo do corredor, positivo para a ESQUERDA (o do
+// giroscópio). Só vale leitura de distância: nunca uma inválida nem 0 mm (muito perto, P1).
+[[nodiscard]] LateralPose estimateLateralPose(const SideReading& left, const SideReading& right,
+                                              double headingDeg,
+                                              const LateralPoseConfig& config) noexcept;
+
+// O termo de correção em pulsos equivalentes (mesma convenção do wallCenteringError), limitado.
+[[nodiscard]] double lateralCorrectionPulses(const LateralPose& pose,
+                                             const WallCenteringConfig& config) noexcept;
+
 }  // namespace micromouse::domain
