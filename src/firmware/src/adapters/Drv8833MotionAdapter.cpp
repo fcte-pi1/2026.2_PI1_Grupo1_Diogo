@@ -1264,8 +1264,8 @@ bool Drv8833MotionAdapter::undoArc(controller::PivotMove::Direction direction) {
                               ? "sem progresso (preso, segurado ou rodas patinando)"
                               : "tempo esgotado";
         std::snprintf(undoFailure_, sizeof undoFailure_,
-                      "curva travada e o desfazer nao voltou: %s, robo torto em %.0f graus", why,
-                      undo.angle());
+                      "curva travada e o desfazer nao voltou: %s, robo torto em %d graus", why,
+                      static_cast<int>(undo.angle()));
     }
     vTaskDelay(pdMS_TO_TICKS(kSettleMs));
     // Medida nova dos ToF com o robô parado: o reposicionamento para a nova tentativa usa o
