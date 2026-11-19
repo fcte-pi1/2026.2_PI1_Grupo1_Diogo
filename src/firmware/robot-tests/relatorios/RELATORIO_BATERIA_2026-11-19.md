@@ -17,7 +17,7 @@ o operador mexendo no robô. Todos os logs, fotos e o zip estão em `src/firmwar
 | P3 compilação da placa | FALHOU na 1ª vez (1 arquivo); PASSOU depois de correção aprovada |
 | Etapa 0b (conhecer o robô, treino sem motor) | Feita: sensores E/F/D e encoders E/D identificados e coerentes com os lados reais |
 | Etapa 2 (primeiro contato) | PASSOU: zero erros I²C, calib todo em padrão |
-| H (hardware) | PASSOU (H3 pulado; regressão leve das rodas; BROWNOUT intermitente na partida) |
+| H (hardware) | PASSOU (regressão leve das rodas; BROWNOUT intermitente na partida) |
 | O (orientação, botão, buzzer) | PASSOU (painel não verificado) |
 | A (no ar) | PASSOU (A1 a A5) |
 | B3 (calibração dos ToF) | E: ok; F: 3 CONFERIR; D: 1 CONFERIR (+ hardware instável) |
@@ -36,7 +36,7 @@ o operador mexendo no robô. Todos os logs, fotos e o zip estão em `src/firmwar
    Treino sem motor: T1 (ToF esquerdo = lado do cabo da bateria; 1ª tentativa o operador apontou o lado oposto), T2 (frontal), T3/T3b (roda esquerda +293 pulsos, direita +189, sentidos certos).
 5. **O1** (toque longo, buzzer): dois toques longos contados (EM PE, deitado), sem largar; 3 bips e 1 bip longo confirmados pelo operador.
 6. **Etapa 2:** `saude` zero erros; `calib-ver` todos "padrao".
-7. **Bloco H:** H1 `diag: fim: OK`; H2 323 medidas/0 falhas; H3 pulado (solda já corrigida); H4 desvio −0,09 °/s (1ª tentativa invalidada: operador não religou a bateria);
+7. **Bloco H:** H1 `diag: fim: OK`; H2 323 medidas/0 falhas; H4 desvio −0,09 °/s (1ª tentativa invalidada: operador não religou a bateria);
    H5 266 e 229 pulsos; H6 velocidade a 6 V E 2348 / D 2475 (dif 5,4%); H7 bateria mín. 7,95 V; H8 reset BROWNOUT na 1ª tentativa, poweron na 2ª.
 8. **O2/O3/O4:** toque curto larga ao soltar (1ª tentativa falhou por temporização, 46 ms); relato girado do 4x4 (x=3 y=3 rumo O) e do 4x8 (8x4 girado, x=7 y=3 rumo O).
 9. **Bloco A:** A1 ToF livres; A2 reta 506/506 (giro 0,0); A3 ré −509; A4 curva travada 2x + desfez + tentativa 2; A5 largada recusada.

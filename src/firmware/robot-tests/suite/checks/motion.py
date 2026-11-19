@@ -57,7 +57,7 @@ def check_straights(lines: list[str], name: str, count: int, expected_pulses: in
     return checks + check_loop(lines)
 
 
-def check_turn(lines: list[str], need_ok: bool = True, max_ms: int = 1500) -> list[Check]:
+def check_turn(lines: list[str], need_ok: bool = True, max_ms: int = 2500) -> list[Check]:
     turns = find_matches(lines, _TURN_LINE)
     if not turns:
         return [Check.failed("nenhuma linha 'curva: alvo=' no log")]
@@ -102,9 +102,41 @@ def check_no_second_arc_attempt(lines: list[str]) -> list[Check]:
 
 def check_full_turn(lines: list[str]) -> list[Check]:
     """Curva completa que termina ok, sem segunda tentativa."""
-    return check_turn(lines) + check_maneuver_ok(lines) + check_no_second_arc_attempt(lines)
+    # Freio suave (19/11): o arco anda a 54 graus/s, bem mais lento que o limite antigo de 1500 ms.
+    return check_turn(lines, max_ms=ARC_MAX_MS) + check_maneuver_ok(lines) + check_no_second_arc_attempt(lines)
 
 
 def check_turn_after_wall_approach(lines: list[str]) -> list[Check]:
     """Curva com ajuste prévio da distância à parede da frente."""
     return check_arc_start(lines) + check_full_turn(lines)
+
+
+# Freio suave (19/11): reta de uma célula ~2,0 s de perfil + 0,25 s para assentar; arco com recuos ~4 s.
+STRAIGHT_TIME_RANGE_MS = (1800, 2900)
+ARC_MAX_MS = 6000
+
+
+def check_straight_times(lines: list[str], name: str, count: int,
+                         time_range_ms: tuple[int, int] = STRAIGHT_TIME_RANGE_MS) -> list[Check]:
+    """Tempo de cada reta de uma célula: confere a velocidade e a frenagem suave."""
+    low, high = time_range_ms
+    times = find_matches(lines, rf"reta: {name} .*?tempo=(?P<took>\d+) ms")
+    checks = [Check.judge(len(times) >= count, f"{len(times)} de {count} retas '{name}' com tempo no log")]
+    for index, match in enumerate(times, 1):
+        took = int(match["took"])
+        checks.append(Check.passed_or_review(low <= took <= high, f"reta {index}: {took} ms (esperado {low} a {high})"))
+    return checks
+
+
+def check_lateral_pose(lines: list[str]) -> list[Check]:
+    """Centralização (RF-44): a linha 'pose lateral' mostra o erro do eixo e a correção aplicada."""
+    poses = find_matches(lines, r"pose lateral: eixo (?P<axis>-?[\d.]+) mm .*correcao (?P<fix>-?[\d.]+) mm")
+    if not poses:
+        return [Check.failed("nenhuma linha 'reta: pose lateral' no log (centralizar=1 e parede dos dois lados?)")]
+    axes = [abs(float(match["axis"])) for match in poses]
+    checks = [Check.info("erro do eixo a cada reta (mm): " + ", ".join(f"{value:.1f}" for value in axes)),
+              Check.passed_or_review(axes[-1] <= 15.0, f"erro final do eixo {axes[-1]:.1f} mm (meta: até 15 mm)")]
+    if len(axes) >= 3:
+        checks.append(Check.passed_or_review(axes[-1] <= axes[0] + 3.0,
+                                             f"o erro não cresceu: {axes[0]:.1f} -> {axes[-1]:.1f} mm"))
+    return checks

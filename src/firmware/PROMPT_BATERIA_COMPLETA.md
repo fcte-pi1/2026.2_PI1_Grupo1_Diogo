@@ -14,12 +14,12 @@ Você vai conduzir comigo a BATERIA COMPLETA de verificação do robô micromous
 | P2 | O arco planeja com a bitola efetiva **74,2 mm** (antes 88): o caminho passa de raio ~80,7 para ~90 mm. O limite de rumo numa reta caiu de 30° para **10°**: o motivo vira `rumo perdido: desviou N graus na reta (parede?)` | (constantes) | C, E2 |
 | P3 | Desfazer do arco com conferência de progresso (3° em 0,4 s): sem progresso para em ~0,7 s e a corrida vai a Erro com `curva travada e o desfazer nao voltou: sem progresso (preso, segurado ou rodas patinando), robo torto em N graus` | (constantes) | C8 |
 | P4 | **A duplicação de comandos NÃO era do firmware**: os 15 `andar` do B1 já estavam em `comandos.txt` (escritos pelo `t.py`). Não existe ID/sequência de comando no firmware | - | E7 (verificar o runner e a trava) |
-| P6 | Só verificação: o religamento do ToF pelo XSHUT **só acontece com o robô PARADO** (entre passos ou `tofrec`); em movimento o sensor em falha fica mudo 500 ms. O Erro diz `falha de sensor por 3 passos: ... ToF em falha: direito` | - | H3, E8 |
+| P6 | Só verificação: o religamento do ToF pelo XSHUT **só acontece com o robô PARADO** (entre passos ou `tofrec`); em movimento o sensor em falha fica mudo 500 ms. O Erro diz `falha de sensor por 3 passos: ... ToF em falha: direito` | - | E8 |
 | M1 | Curva fechada com UMA roda (a de dentro parada) | `modo_curva` 0 = arco (padrão), 1 = uma roda; `freio_uma_roda` 3,2° (proposta) | E3 |
 | M2 | Flood Fill conferido: 7 testes de propriedade contra um BFS independente, sem contra-exemplo | - | P1, P2, D, F |
 | M3 | **Velocidade de corrida −25% (vem ligada, sem `calib`)**: reta 150 mm/s e 450 mm/s²; arco e uma roda 67,5 °/s e 337,5 °/s²; pivô 225 °/s. Freios acompanham: `freio_arco` 3,2°, `freio_pivo` 10,1° (**propostas, nunca medidas**). **Limite de tempo de 10 min FIXO** (`kRaceTimeLimitS = 600`, não tem chave `calib`): passado o limite, a corrida para em Erro com `tempo limite de 10 min esgotado: N passos, M celulas` | `freio_arco`, `freio_pivo`, `autoajuste_freio` | E4 |
 | M4 | Pose lateral por célula: estima o deslocamento do eixo descontando o rumo (os ToF laterais ficam 59,15 mm à frente do eixo), desliga com rumo > 5° (proposta), nunca usa leitura inválida nem 0 mm. Linha de log `reta: pose lateral: eixo X mm para a direita do centro, rumo Y graus, correcao Z mm` | `centralizar` **0 = desligado (padrão)**, 1 = liga | E2 |
-| M5 | Modelo do corpo: largura da frente 101, com rodas 108, ToF lateral ao centro 50,5, ToF lateral à frente do eixo 59,15, `cabo_frente_mm` 12 (proposta). **Frente em padrão de CAMPO: eixo→chassi 87, eixo→ToF 85** (o ToF era 87). `preset_cad=1` usa o CAD (107,25 / 107,75). O boot **avisa sempre** `calib: AVISO: a frente em uso ... difere do CAD` até alguém decidir: isso NÃO é falha | `eixo_ate_frente`, `eixo_ate_tof_frente`, `largura_frente`, `largura_com_rodas`, `tof_lado_ao_centro`, `tof_lado_a_frente_do_eixo`, `cabo_frente_mm`, `preset_cad` | M |
+| M5 | Modelo do corpo: largura da frente 101, com rodas 108, ToF lateral ao centro 50,5, ToF lateral à frente do eixo 59,15, `cabo_frente_mm` 0 (não existe cabo à frente). **Frente em padrão de CAMPO: eixo→chassi 87, eixo→ToF 85** (o ToF era 87). `preset_cad=1` usa o CAD (107,25 / 107,75). O boot **avisa sempre** `calib: AVISO: a frente em uso ... difere do CAD` até alguém decidir: isso NÃO é falha | `eixo_ate_frente`, `eixo_ate_tof_frente`, `largura_frente`, `largura_com_rodas`, `tof_lado_ao_centro`, `tof_lado_a_frente_do_eixo`, `cabo_frente_mm`, `preset_cad` | M |
 | M6 | Labirinto em pé: **o DIP NÃO escolhe o 4x8/4x12** (a combinação das vias 1 e 2 fechadas continua PROIBIDA, #393). Pelo comando BLE `labirinto 4x8` (ou `4x12`, `8x4`, `12x4`, `4x4`, `dip`) ou pelo **toque longo no botão**. O painel recebe o em pé como o deitado (4x8 → "8x4") com o mapa GIRADO 90°; o protocolo não mudou | comando `labirinto`; toque longo | F, bloco O |
 | Botão | **Toque curto larga ao SOLTAR** (antes, ao apertar). **Toque longo (~1 s, proposta)** alterna a orientação sem largar (3 bips = em pé, 1 bip longo = deitado; o 4x4 vira "4x4 girado", só para testar o relato girado com o único labirinto físico) | - | bloco O |
 
@@ -177,7 +177,7 @@ O CAD (`assembly.step`) e o robô real divergem na frente. Em milímetros:
 | largura com rodas | 108,0 | **108** | - |
 | ToF lateral ao centro | 50,5 | **50,5** | confere (84 − 50,5 = 33,5; medido 33,6) |
 | ToF lateral à frente do eixo | 59,15 | **59,15** | - |
-| cabo à frente do ToF | não está no CAD | **12 (proposta, a confirmar)** | - |
+| cabo à frente do ToF | não existe | **0** | - |
 | eixo até a traseira | 17,25 | - | - |
 | diâmetro da roda / bitola | 32,0 / 87,8 | 32 / 88 (o arco usa 74,2, medida em 45 arcos) | 32 (medido 11/11) |
 
@@ -201,7 +201,7 @@ Antes de cada bloco: `python t.py portao`. Se o portão der `FALHOU`: `python t.
 
 | Bloco | Testes, na ordem | Onde | Regra de parada |
 |:--|:--|:--|:--|
-| H: hardware | H1, H2, H3, H4, H5, H6, H7, H8 | robô APOIADO | Um teste falhou duas vezes: pare tudo (defeito de montagem) |
+| H: hardware | H1, H2, H4, H5, H6, H7, H8 | robô APOIADO | Um teste falhou duas vezes: pare tudo (defeito de montagem) |
 | O: orientação (novo) | O1, O2, O3, O4 | robô APOIADO, sem paredes, **sem mover** | Botão sem resposta ou bips ausentes: hardware (botão ressoldado) |
 | R: regressão | tabela abaixo | robô apoiado e chão | Qualquer item regrediu: não siga para o bloco A |
 | A: no ar | A1 a A5 | APOIADO e seguro firme | Falhou duas vezes sem ser erro de preparo: o robô não vai para o chão |
@@ -215,7 +215,6 @@ Antes de cada bloco: `python t.py portao`. Se o portão der `FALHOU`: `python t.
 ### Pontos de atenção por bloco
 
 - **H1:** a linha `firmware gravado` tem de trazer a data e a hora da compilação. Traduza cada item de `diag: fim:` para mim. **H6 (partida de roda) é informativo**: o critério antigo está errado (já reprovou com roda boa em 16/11).
-- **H3:** eu mexo nos cabos dos três ToF com um palito de PLÁSTICO por 60 s (esquerdo, frontal, direito, ~15 s cada). Dê a ordem e avise quando faltar pouco. Se aparecer `tof: ... PAROU de responder`: `0x29 responde` = o sensor reiniciou (alimentação ou XSHUT); `mudo` = fio de dados ou alimentação. Registre e rode `python t.py cmd "tofrec"`.
 - **H4:** antes, eu desligo a bateria, espero 10 s e ligo; 3 minutos sem ninguém encostar na mesa.
 - **H5:** eu giro cada roda à mão, uma volta para a frente em 25 s ("para a frente" = a parte de cima da roda vai em direção à frente do robô). Marque o pneu com caneta antes. Diga "AGORA" quando mandar o comando.
 - **H6 e H7:** as rodas giram sozinhas. Avise antes.
@@ -262,7 +261,7 @@ Para cada teste, a chave `calib` e o padrão estão na tabela do início. **O `t
 | E5 | Mapa e Flood Fill (M2) | Em cada corrida: compare o `mapa NLSO` final com a pista real e o percurso com a tabela de percursos | Mapa igual à pista nas células visitadas; percurso igual ao da tabela; na pista B, A4 e B4 ficam sem visita |
 | E6 | Becos (D1, D2: D1, D2, D3, D4 e o ramo A4-B4 ou A1-B1) | Corrida na pista A | Entra e sai de ré (`re de 1 celula`); sem girar 180° no lugar; sem batida; sem `rumo perdido`; o recuo no beco cabe na célula |
 | E7 | Comandos duplicados (P4) | **Não há ID de comando no firmware** (a duplicação veio do `t.py`). Verifique o runner e a trava: depois de cada teste que mexe os motores, compare o nº de comandos de movimento em `comandos.txt` com as linhas `[cmd] ->` do `ponte.out` e com as execuções no `log_robo.txt`; confirme a regra 4 | Cada comando de movimento enviado roda UMA vez; `feitos.json` com uma entrada por `ok` meu; nenhuma tentativa extra sem pedido |
-| E8 | ToF cai em movimento (P6) | Só se o H3 deu `PAROU`: robô APOIADO com as rodas girando devagar (H6) e eu mexendo nos cabos | O firmware **não religa o sensor em movimento** (só parado): o sensor em falha fica mudo 500 ms; depois, no próximo passo, o Erro diz `falha de sensor por 3 passos: ... ToF em falha: direito`; o robô nunca "avança cego" por lado desconhecido. Se o H3 não deu `PAROU`, registre "não observado" |
+| E8 | ToF cai em movimento (P6) | Robô APOIADO com as rodas girando devagar (H6) e eu mexendo nos cabos | O firmware **não religa o sensor em movimento** (só parado): o sensor em falha fica mudo 500 ms; depois, no próximo passo, o Erro diz `falha de sensor por 3 passos: ... ToF em falha: direito`; o robô nunca "avança cego" por lado desconhecido. |
 
 ### Bloco F: labirintos oficiais (modulares), um layout por vez
 

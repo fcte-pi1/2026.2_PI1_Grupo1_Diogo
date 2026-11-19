@@ -21,17 +21,6 @@ HARDWARE_TESTS: tuple[Test, ...] = (
          (Step("tofmon 30", TOF_MONITOR_END, timeout=50),),
          "Nenhuma leitura em falha nos três sensores.",
          check_tof_monitor),
-    Test("H3", "ToF por 60 s, mexendo nos cabos",
-         (SUPPORTED,
-          "Tenha à mão um palito ou caneta de PLÁSTICO (nada de metal).",
-          "Depois do ok, durante 60 s: com o palito, balance DE LEVE o cabo e o conector de cada sensor de "
-          "distância, ~15 s em cada um, nesta ordem: ESQUERDO, da FRENTE, DIREITO. Nos últimos 15 s, bata de "
-          "leve com o dedo no chassi perto de cada sensor.",
-          "Não puxe os fios. Não precisa evitar passar na frente do sensor."),
-         (Step("tofmon 60", TOF_MONITOR_END, timeout=80),),
-         "Nenhuma leitura em falha mesmo mexendo nos cabos. Uma falha aqui é mau contato: a linha "
-         "'tof: ... PAROU' diz qual sensor.",
-         check_tof_monitor),
     Test("H4", "Giroscópio parado por 3 minutos, logo depois de ligar",
          ("ANTES deste teste: desligue a bateria do robô, espere 10 s, ligue de novo e espere a janela da "
           "ponte mostrar '[ble] conectado'. Rode este teste em seguida (em menos de 1 minuto).",

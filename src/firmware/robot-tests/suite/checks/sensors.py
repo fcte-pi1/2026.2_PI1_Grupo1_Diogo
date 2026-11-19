@@ -195,3 +195,23 @@ def check_tof_in_cell(lines: list[str], front: MmRange, left: MmRange, right: Mm
         return [Check.failed("menos de 3 linhas válidas do tof")]
     return [Check.judge(low <= value <= high, f"ToF {name}: média {value:.0f} mm (esperado {low} a {high})")
             for name, value, (low, high) in zip(("esquerdo", "frontal", "direito"), means, (left, front, right))]
+
+
+def check_tof_too_close(lines: list[str], sensor_letter: str, sensor_name: str, real_mm: int,
+                        too_close: bool) -> list[Check]:
+    """E1 (P1): colado no sensor, a leitura nunca vira '0 ok'; acima do limite é a distância de verdade."""
+    checks = check_tof_monitor(lines)
+    summary = find_matches(lines, rf"tofmon fim {sensor_letter}: .*ok=(?P<ok>\d+) falha=(?P<bad>\d+) .*"
+                                  rf"media=(?P<mean>-?[\d.]+) min=(?P<low>-?\d+) max=(?P<high>-?\d+)")
+    if not summary:
+        return checks + [Check.failed(f"sem o resumo do ToF {sensor_name}")]
+    ok, low, mean = int(summary[-1]["ok"]), int(summary[-1]["low"]), float(summary[-1]["mean"])
+    if too_close:
+        checks.append(Check.passed_or_review(
+            ok == 0 or low > 0, f"ToF {sensor_name} a {real_mm} mm: ok={ok}, mínimo {low} mm "
+                                "(colado, não pode contar '0 mm ok')"))
+    else:
+        checks.append(Check.passed_or_review(
+            ok > 0 and abs(mean - real_mm) <= 15, f"ToF {sensor_name} a {real_mm} mm: ok={ok}, média {mean:.1f} mm "
+                                                  "(esperado ±15)"))
+    return checks

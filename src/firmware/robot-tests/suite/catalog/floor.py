@@ -2,7 +2,8 @@
 
 from functools import partial
 
-from ..checks.motion import MANEUVER_END, check_full_turn, check_maneuver_ok, check_straights, check_turn
+from ..checks.motion import (MANEUVER_END, check_full_turn, check_maneuver_ok, check_straight_times, check_straights,
+                             check_turn)
 from ..checks.sensors import check_tof_calibration
 from ..model import YES, Step, Test, number, repeated, yes_no
 from ..verdict import Check
@@ -52,6 +53,36 @@ FLOOR_TESTS: tuple[Test, ...] = (
          lambda lines: check_straights(lines, "re de 1 celula", 3, -CELL_PULSES) + check_maneuver_ok(lines, 3),
          questions=(number("distancia_mm", "Distância da fita até o eixo das rodas, em mm", 525, 555),),
          moves=True),
+    Test("B1M", "Retas e rés no corredor de MDF do labirinto (3 retas, 3 rés, 3 retas; 2 vezes)",
+         ("Corredor reto do labirinto (piso de MDF), traseira do robô a ~2 cm da parede de trás, centrado.",
+          "TODOS os sensores ficam ligados (inclusive os que estão com defeito: a falha é anotada, não evitada).",
+          "O corredor tem ~3,7 células: a 3ª reta termina perto da parede do fundo (o frontal tem de parar a "
+          "35 mm ou mais). Fica de olho no balancim. São 9 manobras por rodada, em 2 rodadas (18 no total)."),
+         (Step("andar", MANEUVER_END, timeout=15, gap=0.6),) * 3 + (Step("re", MANEUVER_END, timeout=15, gap=0.6),) * 3
+         + (Step("andar", MANEUVER_END, timeout=15, gap=0.6),) * 3,
+         "9 manobras ok (6 retas e 3 rés) sem reinício; 501 a 512 pulsos; giro menor que 2 graus; tempo da reta ~2 s. "
+         "Rode o teste 2 vezes (18 manobras).",
+         lambda lines: (check_straights(lines, "andar 1 celula", 6, CELL_PULSES, max_gyro_deg=2.0)
+                        + check_straights(lines, "re de 1 celula", 3, -CELL_PULSES, max_gyro_deg=2.0)
+                        + check_straight_times(lines, "andar 1 celula", 6) + check_maneuver_ok(lines, 9)),
+         questions=(yes_no("encostou", "O robô encostou (ou empurrou) a parede do fundo na 3ª reta?", expected=None),
+                    number("parou_mm", "Medida na trena: distância do nariz do robô à parede do fundo, em mm", 0, 120)),
+         moves=True, repeat=2),
+    Test("B1A", "Retas e rés no AZULEJO, sem paredes (1+1, depois 3+3; 3 vezes)",
+         ("Azulejo com rejunte, ~1 m livre à frente do robô, sem paredes. Fita marcando o eixo das rodas.",
+          "TODOS os sensores ficam ligados; sem parede o frontal não tem alvo e não há parada pela frente: o robô "
+          "para só pelos encoders. Mão perto do balancim.",
+          "A placa pode REINICIAR ao partir (aconteceu em ~2 de 3 partidas): se acontecer, o teste registra e "
+          "você religa o balancim se for preciso. Não conserte nada: queremos a taxa de falha."),
+         (Step("andar", MANEUVER_END, timeout=15, gap=0.6), Step("re", MANEUVER_END, timeout=15, gap=0.6))
+         + (Step("andar", MANEUVER_END, timeout=15, gap=0.6),) * 3 + (Step("re", MANEUVER_END, timeout=15, gap=0.6),) * 3,
+         "8 manobras ok sem reinício; 495 a 520 pulsos (o azulejo pode patinar um pouco); giro menor que 3 graus. "
+         "Rode 3 vezes: o relatório mostra a taxa de reinício por manobra.",
+         lambda lines: (check_straights(lines, "andar 1 celula", 4, CELL_PULSES, pulse_tolerance=25)
+                        + check_straights(lines, "re de 1 celula", 4, -CELL_PULSES, pulse_tolerance=25)
+                        + check_maneuver_ok(lines, 8)),
+         questions=(number("distancia_mm", "Distância real das 3 retas seguidas (fita até o eixo), em mm", 500, 580),),
+         moves=True, repeat=3),
     *(tof_calibration_test(letter, name, distance)
       for letter, name in TOF_SENSORS for distance in TOF_CALIBRATION_DISTANCES_MM),
     Test("B4d", "Giro de 90 graus no lugar, para a direita",
