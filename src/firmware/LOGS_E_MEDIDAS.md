@@ -124,6 +124,7 @@ retas boas giram até 2,1).
 | `rodas` | Varredura das duas rodas nos dois sentidos (~15 s): tensão em que cada uma parte, velocidade e corrente a 3 V e a 6 V, sentido do encoder e se a outra roda contou. Termina em `rodas: resumo: ... -> OK` ou `-> PROBLEMA`, com a lista na linha `rodas: problemas: ...` logo acima. **Robô suspenso** |
 | `enc [s]` | Motores soltos por `s` segundos (padrão 10): os pulsos de cada encoder, para girar as rodas à mão. Uma volta para a frente = +285 |
 | `calib` | **Calibração sem regravar** (16/11): mostra os valores em uso, um por linha (`calib: nome = valor unidade (faixa) padrao/ALTERADO`). Ver a seção 6 |
+| `labirinto 4x8` (ou `4x12`, `8x4`, `12x4`, `4x4`) | **Novo (19/11)**: troca o tipo de labirinto da PRÓXIMA largada, para o 4x8 e o 4x12 em pé, que o DIP não escolhe (a combinação das vias 1 e 2 fechadas é proibida, #393). Nomes em colunas x linhas. O canto é o da via 3. Vale até reiniciar; `labirinto dip` volta ao DIP. Nada se move. O painel recebe o em pé como o deitado (4x8 -> "8x4"), com o mapa girado 90 graus |
 | `calib nome=valor ...` | Troca um ou mais valores e grava na memória do robô (vale depois de reiniciar). Fora da faixa ou nome errado: `calib: RECUSADO, nada mudou`. `calib padrao` volta aos de fábrica |
 
 Depois de um Erro (corrida que falhou, auto-teste reprovado), os comandos de leitura (`tof`,
@@ -242,14 +243,18 @@ O que depende do robô montado e do piso fica na memória do robô (NVS) e é tr
 | Nome no `calib` | O que é | Padrão | Faixa aceita |
 |:--|:--|:--|:--|
 | `eixo_ate_frente` | Do meio do eixo das rodas até o ponto mais à frente do robô (M1) | 87 mm | 60 a 115 |
-| `largura_frente` | Largura do robô na frente, com tudo que sobressai (M2, inteira) | 100 mm | 80 a 130 |
-| `eixo_ate_tof_frente` | Do meio do eixo até a face do ToF frontal (M3) | 87 mm | 60 a 115 |
-| `largura_com_rodas` | Largura total com as rodas (M6). Só registro | 0 (não medido) | 0 a 150 |
-| `tof_lado_ao_centro` | Da face de um ToF lateral até a linha do meio do robô (M9). Só registro | 0 | 0 a 75 |
-| `tof_lado_a_frente_do_eixo` | Quanto os ToF laterais ficam à frente do eixo (M9). Só registro | 0 | 0 a 115 |
+| `largura_frente` | Largura do robô na frente, com tudo que sobressai (M2, inteira). CAD: 101 (faces dos ToF laterais) | 101 mm | 80 a 130 |
+| `eixo_ate_tof_frente` | Do meio do eixo até a face do ToF frontal (M3). Campo: 85; CAD: 107,75 (CONFLITO, ver `preset_cad`) | 85 mm | 60 a 115 |
+| `largura_com_rodas` | Largura total com as rodas (M6). CAD: 108 (pneus de y=33,8 a 54,0) | 108 mm | 0 a 150 |
+| `tof_lado_ao_centro` | Da face de um ToF lateral até a linha do meio do robô (M9). CAD 50,5: dá 84 - 50,5 = 33,5 mm de leitura lateral no centro, como na pista | 50,5 mm | 0 a 75 |
+| `tof_lado_a_frente_do_eixo` | Quanto os ToF laterais ficam à frente do eixo (M9). Entra na estimativa de pose lateral: 59,15 x tan(rumo) | 59,15 mm | 0 a 115 |
 | `escala_giro` | Multiplica o giro Z. O chip do robô (WHO_AM_I=0x72, clone) lê ~8% a menos | 1,08 | 0,90 a 1,20 |
-| `freio_arco` | A curva em arco freia estes graus antes dos 90 | 7,5 | 0 a 20 |
-| `freio_pivo` | O mesmo no giro no lugar | 13,5 | 0 a 30 |
+| `freio_arco` | A curva em arco freia estes graus antes dos 90. 3,2 = 4,2 x 0,75 com a velocidade -25% (PROPOSTA A CONFIRMAR) | 3,2 | 0 a 20 |
+| `freio_pivo` | O mesmo no giro no lugar. 10,1 = 13,5 x 0,75 (PROPOSTA A CONFIRMAR) | 10,1 | 0 a 30 |
+| `modo_curva` | 0 = curva em arco (padrão); 1 = curva fechada com UMA roda (a de dentro parada). Calcula a faixa de início ao aplicar (~1 s) | 0 | 0 ou 1 |
+| `freio_uma_roda` | O freio da curva com uma roda (PROPOSTA: o do arco; nenhum log tem curva de uma roda) | 3,2 | 0 a 20 |
+| `cabo_frente_mm` | Margem de cabos à frente do ToF frontal (conector Dupont). PROPOSTA A CONFIRMAR com paquímetro: 10 a 14 | 12 mm | 0 a 30 |
+| `preset_cad` | 1 = frente do CAD (107,25 chassi / 107,75 ToF); 0 = frente de campo (87 / 85). Valores dados DEPOIS na mesma linha valem mais | 0 | 0 ou 1 |
 | `autoajuste_freio` | 1 = o robô mede quanto gira depois de frear em cada curva e ajusta o freio da seguinte (entre 2 e 15 graus no arco). Recomeça do `freio_*` a cada boot | 0 | 0 ou 1 |
 | `parada_frente` | A reta para quando o ToF frontal lê menos que isto. Com 35 o nariz para a ~1 cm da parede e a curva precisa do "ajuste antes da curva"; o valor calculado para o nariz parar a ~4 cm é 65 | 35 mm | 20 a 90 |
 | `centralizar` | 1 = corrige a reta pelos ToF laterais (RF-44, ganhos não calibrados) | 0 | 0 ou 1 |
@@ -296,4 +301,23 @@ pivô com a bitola efetiva. Aguarda medida com transferidor.
 | `virar d` segurando o robô, depois soltando | detecta a curva travada; com o robô solto o desfazer volta (<= 4 graus) e a 2ª tentativa funciona; ainda segurado, para em ~0,7 s com o motivo "sem progresso" |
 | Corrida D1 (3x) | 12 passos na ordem, sem `rumo perdido`; depois de cada arco, `tof` lateral sem E=0 |
 | `pivo d` / `pivo e` (se o fallback do A1 importar) | informativo: ~93,7 graus; conferir com transferidor |
+
+### Novidades de 19/11 (itens 1 a 6)
+- **Pose lateral** (item 4): na reta com `centralizar=1`, a linha `reta: pose lateral: eixo X mm para a direita do centro, rumo Y graus, correcao Z mm` mostra a estimativa (`(sem estimativa)` = sem parede válida ou rumo acima de 5 graus). Os ToF laterais ficam 59,15 mm à frente do eixo e o rumo é descontado; nunca entram leitura inválida nem 0 mm. O padrão de `centralizar` continua o do Kconfig (desligado): **ligue depois da reconferência**.
+- **Curva com uma roda** (`calib modo_curva=1`): a linha `curva: uma roda: eixo comeca N mm antes do centro, frontal esperado ..., termina 44 mm a frente e a K mm do eixo da saida`. O eixo começa o giro antes do centro da célula (faixa que cabe, pelo CAD: 55 a 77 mm; pela frente de campo, 40 a 77), pela odometria; o ToF só confirma. O robô sai 15 a 33 mm fora do eixo da saída: a pose lateral corrige na reta seguinte.
+- **Velocidade -25%**: reta 150 mm/s, arco 67,5 graus/s. Modelo de tempo no pior caso do 12x4 (192 passos, metade curvas): 8,6 min em 16/11, 10,5 min agora. O **limite de tempo de 10 min** para a corrida com `tempo limite de 10 min esgotado: N passos, M celulas`.
+- **Aviso de boot**: `calib: AVISO: a frente em uso (chassi 87.0, ToF 85.0 mm do eixo) difere do CAD ...` enquanto a medida de paquímetro não decidir entre campo e CAD.
+- **Flood Fill**: 7 testes de propriedade contra um BFS independente (4x4, 4x8, 8x4, 4x12, 12x4): nenhum contra-exemplo.
+
+### Roteiro de reconferência (19/11), com critério de aprovação
+| Item | Como | Aprovado se |
+|:--|:--|:--|
+| **Paquímetro, frente** (decide campo x CAD) | Do meio do eixo das rodas até o ponto mais à frente do chassi, e até a face do ToF frontal; depois `calib eixo_ate_frente=.. eixo_ate_tof_frente=..` | os dois valores medidos; se der perto de 107, `calib preset_cad=1`; some o aviso de boot |
+| **Paquímetro, cabos** | Quanto o conector Dupont do ToF frontal sai à frente da face | `calib cabo_frente_mm=..` gravado; pegada total <= 165 mm |
+| Pose lateral | `calib centralizar=1`; `andar` 5 células pelo corredor, saindo 10 mm deslocado | no fim, `lat E`/`D` com diferença <= 10 mm; linha `pose lateral` com estimativa; sem raspar |
+| Curva com uma roda | `calib modo_curva=1`; `virar e` e `virar d` em A2 e C1, 3 vezes cada | giro final 90 +- 3 graus; sem encostar; a roda de dentro anda <= 10 mm; anotar o freio aprendido (`autoajuste_freio=1`) e o desvio lateral final (esperado 15 a 33 mm) |
+| Atrito do apoio frontal | Mesma curva, comparar com o arco | registrar o tempo e a inércia; sem referência anterior |
+| Velocidade -25% | `andar`, `re`, `virar d/e` (arco) e a corrida D1 | reta 506-511 pulsos e giro <= 2 graus; arco 90 +- 2 graus (se passar, `calib freio_arco=..`); D1 12 passos na ordem; tempo da D1 anotado (modelo: ~45 s) |
+| Limite de 10 min | Corrida longa ou `tempo` simulado | termina em Erro com o motivo, motores parados |
+| Labirinto em pé | Com o robô parado: `labirinto 4x8`, depois `largar` no canto da via 3 | o log `labirinto trocado por comando BLE`; o painel mostra "8x4" com o mapa girado; o robô resolve sem bater |
 
