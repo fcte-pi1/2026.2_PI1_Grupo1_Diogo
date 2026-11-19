@@ -53,6 +53,7 @@ add_executable(firmware_tests
     domain/PivotClearanceTest.cpp
     domain/WallPositionTest.cpp
     domain/DynamicFrontStopTest.cpp
+    domain/GyroBiasTrackerTest.cpp
     domain/SweptFootprintTest.cpp
     domain/WheelStallTest.cpp
     domain/BridgeDriveTest.cpp

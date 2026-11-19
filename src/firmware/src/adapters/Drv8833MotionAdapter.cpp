@@ -14,6 +14,7 @@
 #include "controller/HeadingFusion.hpp"
 #include "controller/RobotMotion.hpp"
 #include "domain/DynamicFrontStop.hpp"
+#include "domain/GyroBiasTracker.hpp"
 #include "domain/MotorVoltage.hpp"
 #include "domain/RobotParameters.hpp"
 #include "esp_timer.h"
@@ -646,7 +647,43 @@ void Drv8833MotionAdapter::advanceCell() {
     wallFixMm_ = 0.0;
     aheadMm_ = 0.0;
     straight(distance, "andar 1 celula", walls_ != nullptr && calibration_.centerOnWalls >= 0.5);
+    trackGyroBias();
     reanchorOnFrontWall(fromCenter);
+}
+
+// Recalibra o desvio do giroscópio com o robô parado (domain::updateGyroBias), com `calib vies_giro=1`. Espera
+// o robô assentar depois do freio, lê ~15 amostras brutas (10 ms) e só aceita se a variação for baixa (um robô
+// balançando ou mexido à mão é descartado). Custa ~0,3 s por célula.
+void Drv8833MotionAdapter::trackGyroBias() {
+    if (calibration_.gyroBiasTracking < 0.5 || !lastMoveOk_ || aborted()) {
+        return;
+    }
+    constexpr TickType_t kSettleTicks = pdMS_TO_TICKS(150);
+    constexpr TickType_t kSampleTicks = pdMS_TO_TICKS(10);
+    constexpr int kSamples = 15;
+    vTaskDelay(kSettleTicks);
+    const long leftBefore = encoders_.left();
+    const long rightBefore = encoders_.right();
+    domain::GyroBiasWindow window;
+    for (int i = 0; i < kSamples; ++i) {
+        if (const std::optional<double> rate = imu_.readGyroZDegPerSec()) {
+            window.add(*rate);
+        }
+        vTaskDelay(kSampleTicks);
+    }
+    // As rodas ainda andaram durante a janela: não está parado.
+    if (encoders_.left() != leftBefore || encoders_.right() != rightBefore) {
+        return;
+    }
+    const domain::GyroBiasUpdate update = domain::updateGyroBias(gyroBias_, window);
+#if CONFIG_RATO_LOG_RETA
+    ESP_LOGI("reta", "vies do giro: medido %.2f (variacao %.2f, %d amostras), em uso %.2f -> %.2f %s",
+             window.meanDps(), window.spreadDps(), window.count(), gyroBias_, update.biasDps,
+             update.accepted ? "" : "(descartado)");
+#endif
+    if (update.accepted) {
+        gyroBias_ = update.biasDps;
+    }
 }
 
 // Reancorar a posição pela parede da frente (domain::wallPositionFix): parado no centro de uma célula, a
@@ -682,6 +719,7 @@ void Drv8833MotionAdapter::reverseCell() {
     wallFixMm_ = 0.0;  // a correção valia para a reta para a frente que ia seguir
     aheadMm_ = 0.0;
     straight(-distance, "re de 1 celula", false);
+    trackGyroBias();
 }
 
 std::optional<int> Drv8833MotionAdapter::settledFrontMm() const {

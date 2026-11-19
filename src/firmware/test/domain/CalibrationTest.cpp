@@ -55,6 +55,9 @@ TEST(Calibration, NewClosedLoopSwitchesHaveSafeDefaultsAndRanges) {
     EXPECT_DOUBLE_EQ(calibration.headingFusion, 0.0);
     EXPECT_DOUBLE_EQ(calibration.reanchorOnWalls, 0.0);
     EXPECT_DOUBLE_EQ(calibration.dynamicFrontStop, 0.0);
+    EXPECT_DOUBLE_EQ(calibration.gyroBiasTracking, 0.0);
+    EXPECT_EQ(setCalibration(calibration, "vies_giro", "1"), CalibrationSet::Ok);
+    EXPECT_EQ(setCalibration(calibration, "vies_giro", "2"), CalibrationSet::OutOfRange);
     EXPECT_EQ(setCalibration(calibration, "rampa_tensao", "0"), CalibrationSet::Ok);  // sem rampa
     EXPECT_EQ(setCalibration(calibration, "rampa_tensao", "500"), CalibrationSet::OutOfRange);
     EXPECT_EQ(setCalibration(calibration, "fusao_rumo", "0,5"), CalibrationSet::Ok);
@@ -63,7 +66,7 @@ TEST(Calibration, NewClosedLoopSwitchesHaveSafeDefaultsAndRanges) {
     EXPECT_EQ(setCalibration(calibration, "reancorar_parede", "2"), CalibrationSet::OutOfRange);
     EXPECT_EQ(setCalibration(calibration, "parada_dinamica", "1"), CalibrationSet::Ok);
     EXPECT_EQ(setCalibration(calibration, "parada_dinamica", "-1"), CalibrationSet::OutOfRange);
-    EXPECT_EQ(calibrationFields().size(), 22u);
+    EXPECT_EQ(calibrationFields().size(), 23u);
 }
 
 TEST(Calibration, EveryDefaultIsInsideItsRange) {

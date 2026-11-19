@@ -96,6 +96,7 @@ private:
                const controller::PivotMoveConfig& config);
     void pivotInBoxedCell(controller::PivotMove::Direction direction);
     void reanchorOnFrontWall(bool endedAtCellCenter);
+    void trackGyroBias();
     void arcTurn(controller::PivotMove::Direction direction);
     void dropStaleHeading();
     void trimArc(controller::PivotMove::Direction direction);
