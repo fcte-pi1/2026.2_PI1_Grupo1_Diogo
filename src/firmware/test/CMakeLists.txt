@@ -48,6 +48,7 @@ add_executable(firmware_tests
     domain/SoftStartTest.cpp
     domain/WallCenteringTest.cpp
     domain/LateralPoseTest.cpp
+    domain/PivotClearanceTest.cpp
     domain/SweptFootprintTest.cpp
     domain/WheelStallTest.cpp
     domain/BridgeDriveTest.cpp

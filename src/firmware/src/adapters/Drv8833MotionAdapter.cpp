@@ -1,4 +1,5 @@
 #include "adapters/Drv8833MotionAdapter.hpp"
+#include "domain/PivotClearance.hpp"
 #include "domain/RobotGeometry.hpp"
 #include "domain/SweptFootprint.hpp"
 #include "domain/WallCentering.hpp"
@@ -779,7 +780,8 @@ void Drv8833MotionAdapter::straight(double distanceMm, const char* name, bool ce
 
         // Parada pela parede da frente: só para a frente, depois de meia reta.
         const double travelled = 0.5 * (leftMm + rightMm);
-        if (readTofInStraight && sign > 0.0 && front_ != nullptr && now - lastFrontPoll >= kWallPollS &&
+        if (readTofInStraight && !suppressFrontStop_ && sign > 0.0 && front_ != nullptr &&
+            now - lastFrontPoll >= kWallPollS &&
             travelled > 0.5 * std::fabs(distanceMm)) {
             lastFrontPoll = now;
             if (const auto reading = front_->freshReading(Vl53l1xSensorAdapter::Side::Front);
@@ -1106,10 +1108,10 @@ void Drv8833MotionAdapter::oneWheelTurn(controller::PivotMove::Direction directi
     }
     if (!lastMoveOk_ && lastMoveFailure_ != nullptr &&
         std::strcmp(lastMoveFailure_, kShortOfCellFailure) == 0 && !aborted()) {
-        // Sem espaço para recuar: gira no lugar, como o arco faz.
+        // Sem espaço para recuar: gira no lugar, como o arco faz (andando antes até a faixa em que cabe).
         lastMoveOk_ = true;
         lastMoveFailure_ = "";
-        pivot(90.0, direction, pivotConfig());
+        pivotInBoxedCell(direction);
         aheadMm_ = 0.0;
         return;
     }
@@ -1119,6 +1121,40 @@ void Drv8833MotionAdapter::oneWheelTurn(controller::PivotMove::Direction directi
     trimArc(direction);
     if (lastMoveOk_) {
         aheadMm_ = domain::oneWheelEnd(oneWheelTargetMm_).aheadOfCenterMm;
+    }
+}
+
+// Giro de 90 graus no lugar numa célula fechada (parede atrás e, em geral, na frente): o canto da frente
+// (100 mm do eixo) e o de trás varrem o círculo, e o corredor tem só 84 mm de meio vão. Só cabe com o eixo
+// 17 a 27,5 mm ATRÁS do centro (domain::planPivotInPlace). Onde o eixo está vem do frontal (parede
+// a 84 mm do centro); sem leitura, supõe a traseira encostada na parede de trás. O reposicionamento
+// é só pelos encoders (o frontal lê abaixo do mínimo ali). Se não cabe (frente do CAD), avisa e gira
+// como antes.
+void Drv8833MotionAdapter::pivotInBoxedCell(controller::PivotMove::Direction direction) {
+    constexpr double kHalfCorridorMm = domain::robot::kCorridorWidthMm / 2.0;
+    const std::optional<int> settled = settledFrontMm();
+    const bool frontWall =
+        settled.has_value() && static_cast<double>(*settled) < controller::robot::kArcFrontWallMaxMm;
+    const double axleMm = frontWall ? kHalfCorridorMm - calibration_.axleToFrontTofMm - *settled
+                                    : -(kHalfCorridorMm - domain::robot::kAxleToRearMm);
+    const domain::CellWalls walls{frontWall, true, false, false};
+    const domain::PivotPlan plan = domain::planPivotInPlace(
+        calibration_, direction == controller::PivotMove::Direction::Left, walls, axleMm);
+#if CONFIG_RATO_LOG_RETA
+    const char* planName = plan.action == domain::PivotAction::PivotNow        ? "gira ja"
+                           : plan.action == domain::PivotAction::MoveThenPivot ? "anda e gira"
+                                                                               : "NAO CABE";
+    ESP_LOGI("curva", "giro em celula fechada: eixo a %.0f mm do centro (%s), plano %s, mover %.0f mm, alvo %.0f mm",
+             axleMm, frontWall ? "frontal" : "supondo a traseira na parede", planName, plan.moveMm,
+             plan.targetMm);
+#endif
+    if (plan.action == domain::PivotAction::MoveThenPivot && std::fabs(plan.moveMm) > 2.0) {
+        suppressFrontStop_ = true;
+        straight(plan.moveMm, plan.moveMm > 0.0 ? "avanco para girar" : "recuo para girar", false);
+        suppressFrontStop_ = false;
+    }
+    if (lastMoveOk_ && !aborted()) {
+        pivot(90.0, direction, pivotConfig());
     }
 }
 
@@ -1140,7 +1176,7 @@ void Drv8833MotionAdapter::arcTurn(controller::PivotMove::Direction direction) {
 #endif
         lastMoveOk_ = true;
         lastMoveFailure_ = "";
-        pivot(90.0, direction, pivotConfig());
+        pivotInBoxedCell(direction);
         aheadMm_ = 0.0;
         return;
     }

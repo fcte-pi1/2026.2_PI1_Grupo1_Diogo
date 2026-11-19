@@ -56,6 +56,7 @@ add_library(firmware_logic STATIC
     src/domain/BuzzerPattern.cpp
     src/domain/Pid.cpp
     src/domain/WallCentering.cpp
+    src/domain/PivotClearance.cpp
     src/domain/SweptFootprint.cpp
     src/domain/WheelStall.cpp
     src/domain/BridgeDrive.cpp
