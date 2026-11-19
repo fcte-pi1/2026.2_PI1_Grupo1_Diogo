@@ -10,6 +10,7 @@
 #include <cstdlib>
 #include <cstring>
 
+#include "controller/HeadingFusion.hpp"
 #include "controller/RobotMotion.hpp"
 #include "domain/MotorVoltage.hpp"
 #include "domain/RobotParameters.hpp"
@@ -708,7 +709,9 @@ void Drv8833MotionAdapter::straight(double distanceMm, const char* name, bool ce
     double lastFrontPoll = -kWallPollS;
     // Última leitura válida do frontal nesta reta (-1 = nenhuma). Só o log usa.
     [[maybe_unused]] int frontMm = -1;
-    double headingDeg = 0.0;  // giro do robô durante a reta, pelo giroscópio
+    double headingDeg = 0.0;  // giro do robô durante a reta, pelo giroscópio (e, com `fusao_rumo`, pelas rodas)
+    controller::HeadingFusion headingFusion;  // `calib fusao_rumo`: filtro complementar giroscópio + rodas
+    double wheelDeg = 0.0;                    // rumo pelas rodas na volta anterior do laço
     dropStaleHeading();
     gyroMisses_ = 0;
     lastGyroRate_ = 0.0;
@@ -745,7 +748,12 @@ void Drv8833MotionAdapter::straight(double distanceMm, const char* name, bool ce
             lastMoveFailure_ = kTimeoutFailure;
             break;
         }
-        headingDeg += gyroRate() * dt;
+        {
+            const double rate = gyroRate();
+            headingDeg = calibration_.headingFusion > 0.0
+                             ? headingFusion.step(rate, wheelDeg, dt, calibration_.headingFusion)
+                             : headingDeg + rate * dt;
+        }
         if (gyroLost()) {
             break;
         }
@@ -770,6 +778,7 @@ void Drv8833MotionAdapter::straight(double distanceMm, const char* name, bool ce
         }
         const double leftMm = mmFromPulses(left);
         const double rightMm = mmFromPulses(right);
+        wheelDeg = controller::wheelHeadingDeg(leftMm, rightMm, domain::robot::kWheelTrackMm, sign);
 
         if (sides != nullptr && now - lastWallPoll >= kWallPollS) {
             lastWallPoll = now;
