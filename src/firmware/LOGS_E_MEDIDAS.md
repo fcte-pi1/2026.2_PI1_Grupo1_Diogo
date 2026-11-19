@@ -310,6 +310,9 @@ pivô com a bitola efetiva. Aguarda medida com transferidor.
 - **Aviso de boot**: `calib: AVISO: a frente em uso (chassi 87.0, ToF 85.0 mm do eixo) difere do CAD ...` enquanto a medida de paquímetro não decidir entre campo e CAD.
 - **Flood Fill**: 7 testes de propriedade contra um BFS independente (4x4, 4x8, 8x4, 4x12, 12x4): nenhum contra-exemplo.
 
+### Bloco O do `t.py` (19/11): orientação, robô parado
+`python t.py O1` (toque longo alterna), `O2` (toque curto larga ao soltar), `O3` (4x4 girado: o relato ao painel gira 90 graus) e `O4` (comando `labirinto 4x8`). O firmware loga `labirinto da proxima largada: ...` quando o tipo muda e `relato ao painel: labirinto X, largada x= y= rumo ...` na largada; o roteiro confere a posição girada (largada à esquerda: x=3 y=3 rumo O no 4x4; à direita: x=0 y=3 rumo L).
+
 ### Roteiro de reconferência (19/11), com critério de aprovação
 | Item | Como | Aprovado se |
 |:--|:--|:--|

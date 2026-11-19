@@ -119,4 +119,4 @@ class Test:
 
     @property
     def commands(self) -> str:
-        return ", ".join(dict.fromkeys(step.command for step in self.steps))
+        return ", ".join(dict.fromkeys(step.command for step in self.steps if step.command)) or "(nenhum: o operador age)"

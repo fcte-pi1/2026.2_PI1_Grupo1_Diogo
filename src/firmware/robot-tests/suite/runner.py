@@ -90,7 +90,7 @@ class TestRunner:
 
     @staticmethod
     def _commands(test: Test) -> list[str]:
-        return [step.command for step in test.steps]
+        return [step.command for step in test.steps if step.command]
 
     def _execute(self, test: Test, attempt: int) -> _Execution:
         boot_before = self._link.boot_id()
@@ -101,8 +101,10 @@ class TestRunner:
         try:
             for index, step in enumerate(test.steps):
                 offset = self._link.log_size()
-                self._link.send(step.command)
-                print(f"  -> {step.command} ({index + 1}/{len(test.steps)}); "
+                if step.command:
+                    self._link.send(step.command)
+                label = step.command or "(nada: aguardando você)"
+                print(f"  -> {label} ({index + 1}/{len(test.steps)}); "
                       f"esperando o robô (até {step.timeout} s)...")
                 if not self._link.wait_for(offset, step.end_pattern, step.timeout, step.count, step.settle,
                                            watcher).found:

@@ -1030,7 +1030,15 @@ void navigationTask(void*) {
                 toggleOrientation(bootSetup, setup);
             }
 #if !CONFIG_RATO_BANCADA
-            setup = currentSetup(bootSetup);  // o comando `labirinto` pode ter trocado o tipo
+            {
+                // O comando `labirinto` pode ter trocado o tipo: loga a mudança (o roteiro espera).
+                const domain::MazeSetup before = setup;
+                setup = currentSetup(bootSetup);
+                if (before.type != setup.type) {
+                    ESP_LOGW(kTag, "labirinto da proxima largada: %dx%d%s", setup.columns, setup.rows,
+                             domain::isPortrait(setup.type) ? " (em pe)" : "");
+                }
+            }
             serviceTestCommands(setup, true);
             if (++idleTicks >= 100) {  // ~1 s: avisa se um sensor parou de responder (ou voltou)
                 idleTicks = 0;
@@ -1149,6 +1157,13 @@ void navigationTask(void*) {
             startState.position = setup.start;
             startState.heading = domain::Direction::North;
             writeState(startState);
+            // O que o painel recebe (19/11): com o labirinto em pé o mapa sai girado; x = coluna e
+            // y = linha do quadro relatado. O roteiro (`python t.py O3`) confere esta linha.
+            const domain::Position reportedStart = gReport.position(setup.start);
+            ESP_LOGI(kTag, "relato ao painel: labirinto %s, largada x=%d y=%d rumo %c%s",
+                     protocol::mazeToString(setup.type).c_str(), reportedStart.column,
+                     reportedStart.row, directionLetter(gReport.direction(domain::Direction::North)),
+                     gReport.rotated() ? " (mapa girado)" : "");
         }
 
 #if !CONFIG_RATO_BANCADA
