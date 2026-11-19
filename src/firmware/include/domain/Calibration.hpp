@@ -28,10 +28,10 @@ struct Calibration {
     double presetCad{0.0};  // preset_cad
     // Giroscópio e curvas.
     double gyroScale{1.08};       // escala_giro: multiplica o giro Z (chip clone lê ~8% a menos)
-    double arcBrakeDeg{4.2};      // freio_arco: a curva em arco freia estes graus antes do alvo
-    double pivotBrakeDeg{13.5};   // freio_pivo: o mesmo no giro no lugar
+    double arcBrakeDeg{3.2};      // freio_arco: a curva em arco freia estes graus antes do alvo
+    double pivotBrakeDeg{10.1};   // freio_pivo: o mesmo no giro no lugar
     double turnMode{0.0};         // modo_curva: 0 = arco (padrão), 1 = uma roda (a de dentro parada)
-    double oneWheelBrakeDeg{4.2};  // freio_uma_roda: o mesmo na curva com uma roda (PROPOSTA: o do arco)
+    double oneWheelBrakeDeg{3.2};  // freio_uma_roda: o mesmo na curva com uma roda (PROPOSTA: o do arco)
     double autoBrake{0.0};        // autoajuste_freio: 1 = aprende a inércia das curvas na pista
     // Retas.
     double frontStopMm{35.0};     // parada_frente: a reta para com o ToF frontal abaixo disto

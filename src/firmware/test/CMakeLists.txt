@@ -31,6 +31,7 @@ add_executable(firmware_tests
     controller/MotionProfileTest.cpp
     controller/MotionSimulationTest.cpp
     controller/ArcUndoTest.cpp
+    controller/RaceTimeModelTest.cpp
     simulation/MotorPlant.hpp
     protocol/ProtocolV1Test.cpp
     telemetry/TelemetryBufferTest.cpp

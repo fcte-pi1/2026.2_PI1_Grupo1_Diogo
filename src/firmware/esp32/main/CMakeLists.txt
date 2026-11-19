@@ -26,6 +26,7 @@ idf_component_register(
         "${CORE_ROOT}/src/controller/StraightMove.cpp"
         "${CORE_ROOT}/src/controller/PivotMove.cpp"
         "${CORE_ROOT}/src/controller/ArcUndo.cpp"
+        "${CORE_ROOT}/src/controller/RaceTimeModel.cpp"
         "${CORE_ROOT}/src/use_cases/Navigator.cpp"
         "${CORE_ROOT}/src/use_cases/SessionManager.cpp"
         "${CORE_ROOT}/src/protocol/ProtocolV1.cpp"

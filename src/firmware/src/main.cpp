@@ -17,6 +17,7 @@
 #include "adapters/BoardPins.hpp"
 #include "adapters/DipReaderAdapter.hpp"
 #include "adapters/Drv8833MotionAdapter.hpp"
+#include "controller/RaceTimeModel.hpp"
 #include "controller/RobotMotion.hpp"
 #include "adapters/I2cBus.hpp"
 #include "adapters/Ina219.hpp"
@@ -1126,8 +1127,18 @@ void navigationTask(void*) {
         // enquanto ele esperava a largada. A linha "giro" diz o valor e se foi aceito.
         (void)gMotion.calibrateGyro(100);
 #endif
+        [[maybe_unused]] const controller::RaceDeadline deadline(controller::robot::kRaceTimeLimitS);
+        [[maybe_unused]] const int64_t raceStartUs = esp_timer_get_time();
         while (!navigator.reachedGoal() && guard-- > 0) {
 #if !CONFIG_RATO_BANCADA
+            // Limite de tempo de segurança (19/11): a meta é resolver em até 10 min. Passado o
+            // limite, para com o motivo explícito (antes só havia o limite de passos).
+            if (const double elapsedS = static_cast<double>(esp_timer_get_time() - raceStartUs) / 1e6;
+                deadline.expired(elapsedS)) {
+                deadline.describe(failure, sizeof failure, elapsedS, steps, cells);
+                ESP_LOGE(kTag, "%s", failure);
+                break;
+            }
             // RF-55: a cada passo confere os sensores e a bateria. Uma falha confirmada (várias
             // verificações seguidas) leva ao estado Erro; um NACK isolado no I²C é tolerado. Os
             // ToF contam pelo último sense(): um sensor que parou de ler não pode virar "sem

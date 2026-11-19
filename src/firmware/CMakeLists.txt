@@ -64,6 +64,7 @@ add_library(firmware_logic STATIC
     src/controller/StraightMove.cpp
     src/controller/PivotMove.cpp
     src/controller/ArcUndo.cpp
+    src/controller/RaceTimeModel.cpp
     src/protocol/ProtocolV1.cpp
     src/telemetry/TelemetryBuffer.cpp
     src/telemetry/TelemetryEmitter.cpp

@@ -20,7 +20,7 @@ TEST(StraightMoveSimulation, EqualWheelsStopAtTheNextCell) {
     EXPECT_NEAR(run.rightMm, kCell, 2.0);
     EXPECT_LT(run.maxDifferenceMm, 1.5);
     EXPECT_LE(run.maxVolts, controller::robot::kMotorMaxVolts + 1e-9);
-    EXPECT_LT(run.seconds, 1.45);
+    EXPECT_LT(run.seconds, 1.45 / 0.75);  // limite de 16/11, na proporção da velocidade -25% (19/11)
 }
 
 // O caso de 07/11: uma roda bem mais dura (não sai do lugar com 2 V, mais carga). Cada roda recebe a
@@ -157,7 +157,7 @@ TEST(PivotMoveSimulation, ArcTurnKeepsBothWheelsGoingForward) {
         EXPECT_LT(innerMm, 110.0);
         EXPECT_GT(innerMm, 40.0);
         EXPECT_GE(minVolts, -2.0 - 1e-9);  // a de dentro só freia, até -2 V
-        EXPECT_LT(t, 2.0);
+        EXPECT_LT(t, 2.0 / 0.75);  // limite de 16/11, na proporção da velocidade -25% (19/11)
     }
 }
 

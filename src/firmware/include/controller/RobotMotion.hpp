@@ -43,16 +43,24 @@ inline constexpr WheelLoopGains kWheelLoop{0.0075, 2.5, 0.25, 3.0, 0.004, kMotor
 // divide meia diferença entre as rodas para cada lado; a reta termina com as duas rodas a menos de
 // 1,5 mm do alvo e abaixo de 15 mm/s, ou 0,3 s depois do fim do perfil. Nesse caso, uma roda a mais
 // de 10 mm do alvo é falha ("nao chegou ao fim da celula").
+//
+// 19/11, VELOCIDADE DE CORRIDA -25% (pedido): 150 mm/s e 450 mm/s² (eram 200 e 600; o perfil de uma
+// célula passa de 1,23 s para ~1,53 s). Decisão sua, com a conta de controller/RaceTimeModel.hpp: no
+// pior caso do 12x4 (192 passos, metade curvas) o modelo dá ~10,5 min contra ~8,6 min em 16/11, então o limite de
+// tempo de 10 min (kRaceTimeLimitS) é quem para uma corrida que se arrasta.
 inline constexpr StraightMoveConfig kStraightMove{
-    {200.0, 600.0}, kWheelLoop, 0.5, 1.5, 15.0, 0.3, 10.0};
+    {150.0, 450.0}, kWheelLoop, 0.5, 1.5, 15.0, 0.3, 10.0};
 
 // Curva no lugar: 300 °/s de cruzeiro e 1500 °/s² (~0,5 s numa curva de 90°; nas rodas, ~230 mm/s).
 // Termina 13,5° antes do alvo (medido em 16/11: com 2° freava aos 88,4° e parava em ~99°; com
 // 10,5° parou em 93,8° à direita e 90,3° à esquerda, na escala antiga do giroscópio; 13,5 já conta
 // a correção kGyroScaleCorrection). Se o perfil acabar sem o giroscópio chegar, continua a 60 °/s
 // por até 45° a mais.
+//
+// 19/11, -25%: 225 °/s e 1125 °/s². A inércia cai junto com a velocidade (16/11: ~17° a 300 °/s): o
+// freio vai de 13,5 para 10,1 (13,5 x 0,75). PROPOSTA A CONFIRMAR no robô (`calib freio_pivo`).
 inline constexpr PivotMoveConfig kPivotMove{
-    {300.0, 1500.0}, kWheelLoop, domain::robot::kWheelTrackMm, 0.5, 13.5, 60.0, 45.0};
+    {225.0, 1125.0}, kWheelLoop, domain::robot::kWheelTrackMm, 0.5, 10.1, 60.0, 45.0};
 
 // Curva de 90° em ARCO (09/11). Girando no lugar, o robô (rodas na traseira, frente longa) batia
 // no canto A4 da pista em 7 de 7 corridas: travava a 68-75° ou saía colado na parede. Agora:
@@ -174,6 +182,10 @@ inline constexpr double kArcUndoTimeoutS = 1.5;
 // Giroscópio sem resposta: tantas leituras seguidas perdidas (2 ms cada) encerram o movimento com
 // falha. Antes, a leitura perdida valia 0 grau/s e a curva seguia girando sem ver.
 inline constexpr int kMaxGyroMisses = 15;
+// Limite de tempo de segurança da corrida (19/11): 10 min, a meta do projeto. Passado o limite a
+// corrida para e termina em Erro com o motivo. O guard de passos (linhas x colunas x 4) sozinho pode
+// passar dele no 12x4 (controller/RaceTimeModel.hpp).
+inline constexpr double kRaceTimeLimitS = 600.0;
 // Correção da escala do giroscópio (multiplica o giro Z, já sem o desvio). Medida em 16/11 no chão:
 // 4 arcos seguidos somaram 360,9° no giroscópio e o robô girou ~390° de verdade (passou "1 hora"
 // num relógio). O chip responde WHO_AM_I=0x72 (o MPU-6050 original responde 0x68): provável clone,
@@ -193,8 +205,11 @@ inline constexpr double kGyroScaleCorrection = 1.08;
 // termina ~9 mm para dentro da curva e ~9 mm curto (D1, passo 11: raspou a quina da parede). Vale
 // com a escala do giro de 1,08; se ela mudar (`calib escala_giro`), a bitola efetiva muda junto.
 inline constexpr double kArcEffectiveTrackMm = 74.2;
-inline constexpr PivotMoveConfig kArcTurn{{90.0, 450.0}, kWheelLoop, kArcEffectiveTrackMm,
-                                          0.5, 4.2, 40.0, 30.0, kArcSetbackMm};
+// 19/11, -25%: 67,5 °/s e 337,5 °/s² (eram 90 e 450) e freio de 3,2 (4,2 x 0,75, a inércia cai junto).
+// PROPOSTA A CONFIRMAR: nunca medido; `calib freio_arco` ajusta sem regravar, e `autoajuste_freio=1`
+// aprende na pista.
+inline constexpr PivotMoveConfig kArcTurn{{67.5, 337.5}, kWheelLoop, kArcEffectiveTrackMm,
+                                          0.5, 3.2, 40.0, 30.0, kArcSetbackMm};
 
 
 // Curva fechada com UMA roda (19/11): a roda de dentro fica parada (raio 0) e a de fora anda um arco
@@ -202,7 +217,7 @@ inline constexpr PivotMoveConfig kArcTurn{{90.0, 450.0}, kWheelLoop, kArcEffecti
 // PROPOSTA A CONFIRMAR, nenhum log tem curva de uma roda só. A curva só cabe se o eixo começar o giro
 // antes do centro da célula (domain::oneWheelStartBand) e termina deslocado do eixo do corredor.
 inline constexpr PivotMoveConfig kOneWheelTurn{
-    {90.0, 450.0}, kWheelLoop, kArcEffectiveTrackMm, 0.5, 4.2, 40.0, 30.0,
+    {67.5, 337.5}, kWheelLoop, kArcEffectiveTrackMm, 0.5, 3.2, 40.0, 30.0,
     kArcEffectiveTrackMm / 2.0};
 
 }  // namespace micromouse::controller::robot
