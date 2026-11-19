@@ -13,6 +13,7 @@
 
 #include "controller/HeadingFusion.hpp"
 #include "controller/RobotMotion.hpp"
+#include "domain/DynamicFrontStop.hpp"
 #include "domain/MotorVoltage.hpp"
 #include "domain/RobotParameters.hpp"
 #include "esp_timer.h"
@@ -810,6 +811,8 @@ void Drv8833MotionAdapter::straight(double distanceMm, const char* name, bool ce
         const double leftMm = mmFromPulses(left);
         const double rightMm = mmFromPulses(right);
         wheelDeg = controller::wheelHeadingDeg(leftMm, rightMm, domain::robot::kWheelTrackMm, sign);
+        const double leftSpeedMmS = leftSpeed.update(leftMm, now);
+        const double rightSpeedMmS = rightSpeed.update(rightMm, now);
 
         if (sides != nullptr && now - lastWallPoll >= kWallPollS) {
             lastWallPoll = now;
@@ -846,8 +849,13 @@ void Drv8833MotionAdapter::straight(double distanceMm, const char* name, bool ce
                             reading->kind == drivers::ReadingKind::TooClose)) {
                 frontMm = reading->mm;
                 // "Muito perto" (< 40 mm, parede encostada) também para a reta.
-                if (reading->kind == drivers::ReadingKind::TooClose ||
-                    reading->mm < calibration_.frontStopMm) {
+                // `parada_dinamica=1`: o limiar sobe pela distância que o robô ainda anda ao frear.
+                const double stopMm =
+                    calibration_.dynamicFrontStop >= 0.5
+                        ? domain::dynamicFrontStopMm(calibration_.frontStopMm,
+                                                     0.5 * (leftSpeedMmS + rightSpeedMmS))
+                        : calibration_.frontStopMm;
+                if (reading->kind == drivers::ReadingKind::TooClose || reading->mm < stopMm) {
                     lastShortMm_ = std::max(0.0, std::fabs(distanceMm) - travelled);
                     ++frontStops_;
                     break;
@@ -864,8 +872,7 @@ void Drv8833MotionAdapter::straight(double distanceMm, const char* name, bool ce
                                     controller::robot::kHeadingHoldMaxMm)
                        : 0.0;
         const controller::StraightMove::Output out =
-            move.step(dt, leftMm, rightMm, leftSpeed.update(leftMm, now),
-                      rightSpeed.update(rightMm, now), wallMm + headingMm);
+            move.step(dt, leftMm, rightMm, leftSpeedMmS, rightSpeedMmS, wallMm + headingMm);
         if (out.done) {
             if (!move.reachedTarget()) {
                 lastMoveOk_ = false;

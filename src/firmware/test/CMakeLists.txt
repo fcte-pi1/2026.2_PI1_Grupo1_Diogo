@@ -52,6 +52,7 @@ add_executable(firmware_tests
     domain/LateralPoseTest.cpp
     domain/PivotClearanceTest.cpp
     domain/WallPositionTest.cpp
+    domain/DynamicFrontStopTest.cpp
     domain/SweptFootprintTest.cpp
     domain/WheelStallTest.cpp
     domain/BridgeDriveTest.cpp
