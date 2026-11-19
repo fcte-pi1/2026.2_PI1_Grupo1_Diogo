@@ -47,6 +47,9 @@ struct ArcStart {
 [[nodiscard]] double arcStartCorrection(bool frontValid, double frontMm,
                                         const ArcStartConfig& config) noexcept;
 
+// Rumo perdido numa reta: o giro integrado durante a reta passou do limite (em módulo).
+[[nodiscard]] bool headingLost(double headingDeg, double limitDeg) noexcept;
+
 // Curva travada (10/11): o giroscópio parou de girar no meio da curva, com os motores ligados. Antes
 // a curva só parava pelo tempo limite de 3 s, com as rodas patinando contra a parede.
 struct TurnStallConfig {

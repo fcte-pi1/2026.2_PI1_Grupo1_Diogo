@@ -49,6 +49,10 @@ double arcStartCorrection(bool frontValid, double frontMm, const ArcStartConfig&
     return std::fmax(-config.maxCorrectionMm, std::fmin(error, config.maxCorrectionMm));
 }
 
+bool headingLost(double headingDeg, double limitDeg) noexcept {
+    return std::fabs(headingDeg) > limitDeg;
+}
+
 bool TurnStallDetector::update(double timeS, double angleDeg) noexcept {
     if (timeS < config_.graceS) {
         return false;

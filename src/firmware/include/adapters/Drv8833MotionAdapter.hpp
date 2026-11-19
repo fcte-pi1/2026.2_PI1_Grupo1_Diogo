@@ -37,6 +37,7 @@ private:
     bool lastMoveOk_{true};
     const char* lastMoveName_{"nenhum"};
     const char* lastMoveFailure_{""};  // por que o último movimento falhou (vazio se não falhou)
+    char headingFailure_[64]{};        // texto de "rumo perdido: desviou N graus"
     // Retrato do fim do último movimento, para o motivo de uma falha (corrida na bateria, sem
     // cabo: é o único jeito de saber se as rodas giraram e se os encoders contaram).
     long endLeftCount_{0};

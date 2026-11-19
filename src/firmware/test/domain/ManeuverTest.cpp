@@ -167,6 +167,18 @@ TEST(Maneuver, ArcoComParedeMuitoPertoRecuaOMinimoEMedeDeNovo) {
               controller::robot::kArcStartMaxCorrectionMm);
 }
 
+// Rumo numa reta (16/11): as retas boas giram no máximo 2,1 graus (log_robo.txt); a do D1, passo 11,
+// girou 27,0 graus raspando a quina da parede e continuou, porque o limite era 30. Agora falha.
+TEST(Maneuver, RetaQueGiraDemaisFalhaComoRumoPerdido) {
+    const double limit = controller::robot::kMaxHeadingErrorDeg;
+    for (const double goodDeg : {0.0, 1.1, 2.1, -2.1, -6.9}) {
+        EXPECT_FALSE(headingLost(goodDeg, limit)) << goodDeg;
+    }
+    EXPECT_TRUE(headingLost(27.0, limit));
+    EXPECT_TRUE(headingLost(-27.0, limit));
+    EXPECT_TRUE(headingLost(30.2, limit));
+}
+
 TEST(Maneuver, ArcoSemLeituraValidaUsaORecuoFixo) {
     const ArcStartConfig& config = controller::robot::kArcStart;
     const ArcStart start = arcStart(false, -1.0, config);

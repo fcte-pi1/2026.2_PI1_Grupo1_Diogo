@@ -161,6 +161,47 @@ TEST(PivotMoveSimulation, ArcTurnKeepsBothWheelsGoingForward) {
     }
 }
 
+// Raio do caminho do arco (16/11, log_robo.txt, 45 arcos com a escala 1,08 do giro): a conta
+// (roda de fora - roda de dentro) / ângulo deu bitola efetiva de 74,2 +- 2,3 mm, e a média dos dois
+// caminhos / ângulo deu raio de 80,7 +- 2,3 mm no lugar dos 90 mm planejados. O plano usava a
+// bitola de projeto (88 mm): o robô gira 88/74,2 = 1,19x mais rápido do que o perfil prevê e fecha o
+// arco ~9 mm para dentro e ~9 mm curto (foto do C1: "eixo ~1 cm para dentro da curva").
+constexpr double kMeasuredEffectiveTrackMm = 74.2;
+
+TEST(PivotMoveSimulation, ArcPathRadiusMatchesThePlanOnTheRealRobot) {
+    constexpr double kDt = 0.002;
+    constexpr double kRadToDeg = 57.29577951308232;
+    for (const PivotMove::Direction direction :
+         {PivotMove::Direction::Right, PivotMove::Direction::Left}) {
+        PivotMove move(90.0, direction, controller::robot::kArcTurn);
+        MotorWheel left = easyWheel();
+        MotorWheel right = easyWheel();
+        controller::SpeedEstimator leftSpeed;
+        controller::SpeedEstimator rightSpeed;
+        leftSpeed.reset(0.0, 0.0);
+        rightSpeed.reset(0.0, 0.0);
+        double trueDeg = 0.0;
+        double rate = 0.0;
+        PivotMove::Output out{};
+        double t = 0.0;
+        while (!out.done && t < 3.0) {
+            t += kDt;
+            const double l = left.encoderMm();
+            const double r = right.encoderMm();
+            out = move.step(kDt, rate, l, r, leftSpeed.update(l, t), rightSpeed.update(r, t));
+            left.step(out.leftVolts, kDt);
+            right.step(out.rightVolts, kDt);
+            // O robô gira pela diferença entre as rodas dividida pela bitola EFETIVA.
+            rate = (left.speed - right.speed) / kMeasuredEffectiveTrackMm * kRadToDeg;
+            trueDeg += rate * kDt;
+        }
+        ASSERT_TRUE(out.done);
+        const double radiusMm = 0.5 * (left.position + right.position) /
+                                (std::fabs(trueDeg) / kRadToDeg);
+        EXPECT_NEAR(radiusMm, controller::robot::kArcSetbackMm, 2.0);
+    }
+}
+
 // Suspenso: o robô não gira, o giroscópio não chega e a curva não termina sozinha (o tempo limite
 // do adaptador leva ao Erro, como no C2 do roteiro).
 TEST(PivotMoveSimulation, SuspendedRobotNeverFinishesTheTurn) {

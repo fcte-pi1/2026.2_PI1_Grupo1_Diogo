@@ -709,9 +709,13 @@ void Drv8833MotionAdapter::straight(double distanceMm, const char* name, bool ce
         if (gyroLost()) {
             break;
         }
-        if (std::fabs(headingDeg) > controller::robot::kMaxHeadingErrorDeg) {
+        if (domain::headingLost(headingDeg, controller::robot::kMaxHeadingErrorDeg)) {
             lastMoveOk_ = false;
-            lastMoveFailure_ = "rumo perdido";
+            // Para na hora (sem recentralizar: girar de volta num corredor de ~26 mm de folga
+            // raspa na parede) e leva ao Erro com o desvio no motivo.
+            std::snprintf(headingFailure_, sizeof headingFailure_,
+                          "rumo perdido: desviou %.0f graus na reta (parede?)", headingDeg);
+            lastMoveFailure_ = headingFailure_;
             break;
         }
         const long left = static_cast<long>(sign) * encoders_.left();

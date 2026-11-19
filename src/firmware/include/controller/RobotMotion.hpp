@@ -136,7 +136,10 @@ inline constexpr double kFrontStopMm = 35.0;
 // falha ("rumo perdido"). Em 09/11, com a roda esquerda travada ou o robô torcido numa parede, ele
 // virava 40-180 graus sem perceber, confundia a parede lateral com a da frente e chegou a declarar
 // sucesso no lugar errado.
-inline constexpr double kMaxHeadingErrorDeg = 30.0;
+// 16/11: de 30 para 10 graus. As retas boas giraram no máximo 2,1 graus (e 6,9 numa volta ao centro
+// com a roda saturada, C8 t2); a do D1, passo 11, girou 27,0 raspando a quina da parede, passou do
+// limite antigo e só a ré seguinte (30,2) falhou, já com o robô na diagonal. Parar aqui leva ao Erro.
+inline constexpr double kMaxHeadingErrorDeg = 10.0;
 // Rumo segurado pelo giroscópio na reta (`calib ganho_rumo`, 16/11): a correção, em mm de diferença
 // entre as rodas, nunca passa disto (1 grau de rumo equivale a ~1,5 mm de diferença entre as rodas).
 inline constexpr double kHeadingHoldMaxMm = 6.0;
@@ -184,7 +187,13 @@ inline constexpr double kGyroScaleCorrection = 1.08;
 // (7,5 x 90/120) ficou curto, o D1 de 18/11 mediu ~4,2 graus de inércia (parou em 84,4, final 88,6),
 // então 4,2. No C9 (B2, 18/11) a roda de fora andou 508 pulsos dos 597 esperados e o robô
 // saiu ~2 cm deslocado. Se o freio ficar errado, ajuste sem regravar: `calib "freio_arco=..."`.
-inline constexpr PivotMoveConfig kArcTurn{{90.0, 450.0}, kWheelLoop, domain::robot::kWheelTrackMm,
+// Bitola usada no PLANO do arco (16/11): a medida (roda de fora - roda de dentro) / ângulo do giro
+// em 45 arcos deu 74,2 +- 2,3 mm (log_robo.txt), não os 88 mm de projeto. Com 88, o robô gira 1,19x
+// mais rápido do que o perfil prevê e o caminho fecha com raio ~80,7 mm em vez de 90 mm: o arco
+// termina ~9 mm para dentro da curva e ~9 mm curto (D1, passo 11: raspou a quina da parede). Vale
+// com a escala do giro de 1,08; se ela mudar (`calib escala_giro`), a bitola efetiva muda junto.
+inline constexpr double kArcEffectiveTrackMm = 74.2;
+inline constexpr PivotMoveConfig kArcTurn{{90.0, 450.0}, kWheelLoop, kArcEffectiveTrackMm,
                                           0.5, 4.2, 40.0, 30.0, kArcSetbackMm};
 
 }  // namespace micromouse::controller::robot
