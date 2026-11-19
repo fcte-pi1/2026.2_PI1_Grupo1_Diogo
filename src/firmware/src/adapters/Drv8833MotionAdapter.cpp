@@ -1057,9 +1057,11 @@ void Drv8833MotionAdapter::arcTurn(controller::PivotMove::Direction direction) {
         ++arcRetriesUsed_;
         lastMoveOk_ = true;
         lastMoveFailure_ = "";
+        undoFailure_[0] = '\0';
         if (!undoArc(direction)) {
             lastMoveOk_ = false;
-            lastMoveFailure_ = firstFailure;
+            // Um desfazer que falhou diz por quê; parada do operador ou giroscópio mantêm o motivo.
+            lastMoveFailure_ = undoFailure_[0] != '\0' ? undoFailure_ : firstFailure;
             lastMoveName_ = "curva de 90 graus em arco";
             lastMoveWasTurn_ = true;
             break;
@@ -1126,41 +1128,48 @@ void Drv8833MotionAdapter::positionForArc(double frontTargetMm) {
 }
 
 bool Drv8833MotionAdapter::undoArc(controller::PivotMove::Direction direction) {
-    // O arco travou em `lastTurnDeg_` (com o sinal do giroscópio). Volta de ré pelo mesmo caminho:
-    // a roda de fora mais forte que a de dentro, até o giroscópio marcar ~0. Tensões fixas, sem
-    // perfil: é uma manobra curta de recuperação, e os encoders não servem (as rodas patinaram).
-    double angle = lastTurnDeg_;
-    const double startAngle = angle;
-    const bool right = direction == controller::PivotMove::Direction::Right;
-    const double outer = -controller::robot::kArcUndoOuterVolts;
-    const double inner = -controller::robot::kArcUndoInnerVolts;
+    // O arco travou em `lastTurnDeg_` (com o sinal do giroscópio). Volta de ré pelo mesmo caminho
+    // (controller::ArcUndo) até o giroscópio marcar ~0, acompanhando o progresso medido: sem
+    // progresso (robô preso ou segurado, rodas patinando) para na hora, em vez de girar as rodas
+    // até o tempo limite. Os encoders não servem aqui: as rodas patinaram.
+    const double startAngle = lastTurnDeg_;
+    controller::ArcUndo undo(startAngle, direction == controller::PivotMove::Direction::Right);
+    controller::ArcUndo::State state = controller::ArcUndo::State::Running;
     encoders_.reset();
     gyroMisses_ = 0;
     LoopClock clock;
-    bool back = std::fabs(angle) <= controller::robot::kArcUndoDoneDeg;
-    while (!back) {
+    while (state == controller::ArcUndo::State::Running) {
         const double dt = clock.tick();
-        if (aborted() || clock.elapsed() > controller::robot::kArcUndoTimeoutS) {
+        if (aborted()) {
             break;
         }
-        angle += gyroRate() * dt;
+        const double rate = gyroRate();
         if (gyroLost()) {
             break;
         }
-        // Chegou perto de zero, ou passou para o outro lado.
-        if (std::fabs(angle) <= controller::robot::kArcUndoDoneDeg || angle * startAngle < 0.0) {
-            back = true;
-            break;
+        const controller::ArcUndo::Output out = undo.step(dt, rate);
+        state = out.state;
+        if (state == controller::ArcUndo::State::Running) {
+            drive(out.leftVolts, out.rightVolts);
+            vTaskDelay(kControlPeriod);
         }
-        drive(right ? outer : inner, right ? inner : outer);
-        vTaskDelay(kControlPeriod);
     }
     stopAndSettle();
+    const bool back = state == controller::ArcUndo::State::Done;
 #if CONFIG_RATO_LOG_RETA
     ESP_LOGW("curva", "desfez o arco: de %.1f para %.1f graus em %.0f ms, enc E=%ld D=%ld %s",
-             startAngle, angle, clock.elapsed() * 1000.0, endLeftCount_, endRightCount_,
+             startAngle, undo.angle(), clock.elapsed() * 1000.0, endLeftCount_, endRightCount_,
              back ? "ok" : "NAO voltou");
 #endif
+    if (!back && lastMoveOk_) {
+        // Falha segura e explícita: o robô fica parado e torto, e a corrida vai ao Erro com o motivo.
+        const char* why = state == controller::ArcUndo::State::NoProgress
+                              ? "sem progresso (preso, segurado ou rodas patinando)"
+                              : "tempo esgotado";
+        std::snprintf(undoFailure_, sizeof undoFailure_,
+                      "curva travada e o desfazer nao voltou: %s, robo torto em %.0f graus", why,
+                      undo.angle());
+    }
     vTaskDelay(pdMS_TO_TICKS(kSettleMs));
     // Medida nova dos ToF com o robô parado: o reposicionamento para a nova tentativa usa o
     // frontal, e a última leitura guardada é de antes da curva.

@@ -30,6 +30,7 @@ add_executable(firmware_tests
     domain/PidTest.cpp
     controller/MotionProfileTest.cpp
     controller/MotionSimulationTest.cpp
+    controller/ArcUndoTest.cpp
     simulation/MotorPlant.hpp
     protocol/ProtocolV1Test.cpp
     telemetry/TelemetryBufferTest.cpp

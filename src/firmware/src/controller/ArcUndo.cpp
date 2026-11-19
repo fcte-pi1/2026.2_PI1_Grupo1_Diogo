@@ -1,0 +1,37 @@
+#include "controller/ArcUndo.hpp"
+
+#include <cmath>
+
+#include "controller/RobotMotion.hpp"
+
+namespace micromouse::controller {
+
+ArcUndo::ArcUndo(double startAngleDeg, bool rightArc) noexcept
+    : startAngle_(startAngleDeg),
+      rightArc_(rightArc),
+      angle_(startAngleDeg),
+      progress_(robot::kTurnStall) {}
+
+ArcUndo::Output ArcUndo::step(double dtSeconds, double gyroDegPerS) noexcept {
+    const double outer = -robot::kArcUndoOuterVolts;
+    const double inner = -robot::kArcUndoInnerVolts;
+    const double leftVolts = rightArc_ ? outer : inner;
+    const double rightVolts = rightArc_ ? inner : outer;
+
+    time_ += dtSeconds;
+    angle_ += gyroDegPerS * dtSeconds;
+    // Chegou perto de zero, ou passou para o outro lado.
+    if (std::fabs(angle_) <= robot::kArcUndoDoneDeg || angle_ * startAngle_ < 0.0) {
+        return {0.0, 0.0, State::Done};
+    }
+    if (time_ > robot::kArcUndoTimeoutS) {
+        return {0.0, 0.0, State::Timeout};
+    }
+    // Mesmo critério da curva travada (kTurnStall): menos de 3 graus numa janela de 0,4 s.
+    if (progress_.update(time_, angle_)) {
+        return {0.0, 0.0, State::NoProgress};
+    }
+    return {leftVolts, rightVolts, State::Running};
+}
+
+}  // namespace micromouse::controller
