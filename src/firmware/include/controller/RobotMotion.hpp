@@ -48,8 +48,12 @@ inline constexpr WheelLoopGains kWheelLoop{0.0075, 2.5, 0.25, 3.0, 0.004, kMotor
 // célula passa de 1,23 s para ~1,53 s). Decisão sua, com a conta de controller/RaceTimeModel.hpp: no
 // pior caso do 12x4 (192 passos, metade curvas) o modelo dá ~10,5 min contra ~8,6 min em 16/11, então o limite de
 // tempo de 10 min (kRaceTimeLimitS) é quem para uma corrida que se arrasta.
+//
+// 19/11 (à tarde), FREIO SUAVE (pedido): o robô balançava para a frente e para trás ao parar. A frenagem
+// é a aceleração do perfil, então ela cai mais que a velocidade: 120 mm/s (80%) e 225 mm/s² (50%).
+// O perfil de uma célula (180 mm) passa de ~1,53 s para ~2,03 s. PROPOSTA A CONFIRMAR no robô.
 inline constexpr StraightMoveConfig kStraightMove{
-    {150.0, 450.0}, kWheelLoop, 0.5, 1.5, 15.0, 0.3, 10.0};
+    {120.0, 225.0}, kWheelLoop, 0.5, 1.5, 15.0, 0.3, 10.0};
 
 // Curva no lugar: 300 °/s de cruzeiro e 1500 °/s² (~0,5 s numa curva de 90°; nas rodas, ~230 mm/s).
 // Termina 13,5° antes do alvo (medido em 16/11: com 2° freava aos 88,4° e parava em ~99°; com
@@ -59,8 +63,11 @@ inline constexpr StraightMoveConfig kStraightMove{
 //
 // 19/11, -25%: 225 °/s e 1125 °/s². A inércia cai junto com a velocidade (16/11: ~17° a 300 °/s): o
 // freio vai de 13,5 para 10,1 (13,5 x 0,75). PROPOSTA A CONFIRMAR no robô (`calib freio_pivo`).
+//
+// 19/11 (à tarde), FREIO SUAVE: 180 °/s (80%) e 562,5 °/s² (50%); o freio cai junto com a velocidade:
+// 8,1 (10,1 x 0,8). PROPOSTA A CONFIRMAR (`calib freio_pivo`).
 inline constexpr PivotMoveConfig kPivotMove{
-    {225.0, 1125.0}, kWheelLoop, domain::robot::kWheelTrackMm, 0.5, 10.1, 60.0, 45.0};
+    {180.0, 562.5}, kWheelLoop, domain::robot::kWheelTrackMm, 0.5, 8.1, 60.0, 45.0};
 
 // Curva de 90° em ARCO (09/11). Girando no lugar, o robô (rodas na traseira, frente longa) batia
 // no canto A4 da pista em 7 de 7 corridas: travava a 68-75° ou saía colado na parede. Agora:
@@ -208,8 +215,11 @@ inline constexpr double kArcEffectiveTrackMm = 74.2;
 // 19/11, -25%: 67,5 °/s e 337,5 °/s² (eram 90 e 450) e freio de 3,2 (4,2 x 0,75, a inércia cai junto).
 // PROPOSTA A CONFIRMAR: nunca medido; `calib freio_arco` ajusta sem regravar, e `autoajuste_freio=1`
 // aprende na pista.
-inline constexpr PivotMoveConfig kArcTurn{{67.5, 337.5}, kWheelLoop, kArcEffectiveTrackMm,
-                                          0.5, 3.2, 40.0, 30.0, kArcSetbackMm};
+//
+// 19/11 (à tarde), FREIO SUAVE: 54 °/s (80%) e 168,75 °/s² (50%); freio de 2,6 (3,2 x 0,8).
+// PROPOSTA A CONFIRMAR (`calib freio_arco`, `autoajuste_freio=1`).
+inline constexpr PivotMoveConfig kArcTurn{{54.0, 168.75}, kWheelLoop, kArcEffectiveTrackMm,
+                                          0.5, 2.6, 40.0, 30.0, kArcSetbackMm};
 
 
 // Curva fechada com UMA roda (19/11): a roda de dentro fica parada (raio 0) e a de fora anda um arco
@@ -217,7 +227,7 @@ inline constexpr PivotMoveConfig kArcTurn{{67.5, 337.5}, kWheelLoop, kArcEffecti
 // PROPOSTA A CONFIRMAR, nenhum log tem curva de uma roda só. A curva só cabe se o eixo começar o giro
 // antes do centro da célula (domain::oneWheelStartBand) e termina deslocado do eixo do corredor.
 inline constexpr PivotMoveConfig kOneWheelTurn{
-    {67.5, 337.5}, kWheelLoop, kArcEffectiveTrackMm, 0.5, 3.2, 40.0, 30.0,
+    {54.0, 168.75}, kWheelLoop, kArcEffectiveTrackMm, 0.5, 2.6, 40.0, 30.0,
     kArcEffectiveTrackMm / 2.0};
 
 }  // namespace micromouse::controller::robot

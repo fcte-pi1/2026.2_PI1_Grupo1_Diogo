@@ -20,7 +20,7 @@ TEST(StraightMoveSimulation, EqualWheelsStopAtTheNextCell) {
     EXPECT_NEAR(run.rightMm, kCell, 2.0);
     EXPECT_LT(run.maxDifferenceMm, 1.5);
     EXPECT_LE(run.maxVolts, controller::robot::kMotorMaxVolts + 1e-9);
-    EXPECT_LT(run.seconds, 1.45 / 0.75);  // limite de 16/11, na proporção da velocidade -25% (19/11)
+    EXPECT_LT(run.seconds, 2.3);  // freio suave (19/11): ~2,0 s de perfil + assentar (era 1,45 s a 200 mm/s)
 }
 
 // O caso de 07/11: uma roda bem mais dura (não sai do lugar com 2 V, mais carga). Cada roda recebe a

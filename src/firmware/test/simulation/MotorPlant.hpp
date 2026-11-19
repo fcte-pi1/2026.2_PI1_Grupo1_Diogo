@@ -84,9 +84,17 @@ inline StraightResult simulateStraight(MotorWheel left, MotorWheel right, double
 }
 
 // Quanto o robô ainda gira depois que o controle do pivô manda frear (graus), medido no chão.
-inline constexpr double kBrakeCoastDeg = 10.7;
+// Medido a 300 °/s (pivô de 16/11); a inércia cai junto com a velocidade do perfil atual.
+inline constexpr double kBrakeCoastDeg16Nov = 10.7;
+inline constexpr double kPivotSpeed16Nov = 300.0;
+inline constexpr double kBrakeCoastDeg =
+    kBrakeCoastDeg16Nov * controller::robot::kPivotMove.limits.maxSpeed / kPivotSpeed16Nov;
 // O mesmo na curva em arco (kArcTurn), medido em 16/11 (B5d/B5e, 3 vezes de cada lado): ~6,5-7°.
-inline constexpr double kArcBrakeCoastDeg = 6.8;
+// Medido a 120 °/s; escala com a velocidade do arco atual.
+inline constexpr double kArcBrakeCoastDeg16Nov = 6.8;
+inline constexpr double kArcSpeed16Nov = 120.0;
+inline constexpr double kArcBrakeCoastDeg =
+    kArcBrakeCoastDeg16Nov * controller::robot::kArcTurn.limits.maxSpeed / kArcSpeed16Nov;
 
 struct PivotResult {
     double trueDeg{0.0};   // quanto o robô girou de verdade

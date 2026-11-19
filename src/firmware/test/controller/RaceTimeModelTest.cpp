@@ -32,17 +32,40 @@ TEST(RaceTimeModel, TimeToReachAnAngleFollowsTheTrapezoid) {
     EXPECT_NEAR(timeToReach(90.0, 90.0, limits), TrapezoidProfile(90.0, limits).duration(), 1e-9);
 }
 
-// Velocidade de corrida 25% menor (pedido de 19/11): cada limite cai a 75%.
-TEST(RaceTimeModel, RaceSpeedIsSeventyFivePercentOfTheNovember16thSpeed) {
-    EXPECT_DOUBLE_EQ(robot::kStraightMove.limits.maxSpeed, 0.75 * kStraight1611.limits.maxSpeed);
-    EXPECT_DOUBLE_EQ(robot::kStraightMove.limits.acceleration,
-                     0.75 * kStraight1611.limits.acceleration);
-    // O arco e a curva com uma roda estavam a 90 graus/s no HEAD de 18/11 (nunca medido em 16/11).
-    EXPECT_DOUBLE_EQ(robot::kArcTurn.limits.maxSpeed, 0.75 * 90.0);
-    EXPECT_DOUBLE_EQ(robot::kArcTurn.limits.acceleration, 0.75 * 450.0);
+// Velocidade de corrida 25% menor (pedido de 19/11): cada limite caiu a 75%.
+// Depois (19/11, mesmo dia): o robô balança para a frente e para trás quando freia (a inércia ao parar).
+// A frenagem é a aceleração do perfil, então ela cai MAIS que a velocidade: velocidade a 80% e
+// aceleração a 50% dos valores de -25%. Perfil de uma célula: ~2,0 s (antes ~1,5 s).
+constexpr double kStraightSpeedMinus25 = 150.0, kStraightAccelMinus25 = 450.0;
+constexpr double kPivotSpeedMinus25 = 225.0, kPivotAccelMinus25 = 1125.0;
+constexpr double kArcSpeedMinus25 = 67.5, kArcAccelMinus25 = 337.5;
+
+TEST(RaceTimeModel, SoftBrakingHasEightyPercentSpeedAndHalfTheAcceleration) {
+    EXPECT_DOUBLE_EQ(robot::kStraightMove.limits.maxSpeed, 0.8 * kStraightSpeedMinus25);
+    EXPECT_DOUBLE_EQ(robot::kStraightMove.limits.acceleration, 0.5 * kStraightAccelMinus25);
+    EXPECT_DOUBLE_EQ(robot::kPivotMove.limits.maxSpeed, 0.8 * kPivotSpeedMinus25);
+    EXPECT_DOUBLE_EQ(robot::kPivotMove.limits.acceleration, 0.5 * kPivotAccelMinus25);
+    EXPECT_DOUBLE_EQ(robot::kArcTurn.limits.maxSpeed, 0.8 * kArcSpeedMinus25);
+    EXPECT_DOUBLE_EQ(robot::kArcTurn.limits.acceleration, 0.5 * kArcAccelMinus25);
     EXPECT_DOUBLE_EQ(robot::kOneWheelTurn.limits.maxSpeed, robot::kArcTurn.limits.maxSpeed);
-    EXPECT_DOUBLE_EQ(robot::kPivotMove.limits.maxSpeed, 0.75 * 300.0);
-    EXPECT_DOUBLE_EQ(robot::kPivotMove.limits.acceleration, 0.75 * 1500.0);
+    EXPECT_DOUBLE_EQ(robot::kOneWheelTurn.limits.acceleration, robot::kArcTurn.limits.acceleration);
+}
+
+// A inércia cai junto com a velocidade: o freio (graus antes do alvo) é o de -25% x 0,8.
+TEST(RaceTimeModel, BrakeAnglesScaleWithTheSpeed) {
+    EXPECT_NEAR(robot::kPivotMove.toleranceDeg, 10.1 * 0.8, 0.05);
+    EXPECT_NEAR(robot::kArcTurn.toleranceDeg, 3.2 * 0.8, 0.05);
+    EXPECT_NEAR(robot::kOneWheelTurn.toleranceDeg, 3.2 * 0.8, 0.05);
+}
+
+// Frenagem suave: a reta de uma célula desacelera a no máximo 0,25 g-ish (225 mm/s²) e a velocidade
+// de cruzeiro não passa de 120 mm/s.
+TEST(RaceTimeModel, StraightDecelerationIsGentle) {
+    EXPECT_LE(robot::kStraightMove.limits.acceleration, 225.0);
+    EXPECT_LE(robot::kStraightMove.limits.maxSpeed, 120.0);
+    const double cellS = TrapezoidProfile(180.0, robot::kStraightMove.limits).duration();
+    EXPECT_GT(cellS, 1.9);
+    EXPECT_LT(cellS, 2.2);
 }
 
 // A conta antes de aplicar: com as velocidades atuais, o pior caso do 12x4 (guard = 4 x 12 x 4 = 192
