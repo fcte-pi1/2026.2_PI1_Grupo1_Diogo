@@ -23,6 +23,7 @@ constexpr std::array<CalibrationField, kCalibrationFieldCount> kFields{{
     {"autoajuste_freio", &Calibration::autoBrake, 0.0, 1.0, "0/1"},
     {"parada_frente", &Calibration::frontStopMm, 20.0, 90.0, "mm"},
     {"centralizar", &Calibration::centerOnWalls, 0.0, 1.0, "0/1"},
+    {"tof_na_reta", &Calibration::tofInStraight, 0.0, 1.0, "0/1"},
     {"ganho_rumo", &Calibration::headingGain, 0.0, 3.0, "mm/grau"},
     {"cabo_frente_mm", &Calibration::cableAheadMm, 0.0, 30.0, "mm"},
     {"preset_cad", &Calibration::presetCad, 0.0, 1.0, "0/1"},

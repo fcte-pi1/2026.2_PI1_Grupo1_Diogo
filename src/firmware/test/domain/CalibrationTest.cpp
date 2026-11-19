@@ -37,6 +37,16 @@ TEST(Calibration, TurnModeDefaultsToTheArcAndAcceptsOnlyZeroOrOne) {
     EXPECT_DOUBLE_EQ(calibration.oneWheelBrakeDeg, 6.5);
 }
 
+// 19/11 (aprovado A): na reta, os ToF são lidos a cada 10 ms mesmo sem o RF-44. Com módulo ToF defeituoso isso coincidiu
+// com reinícios da placa; `tof_na_reta=0` desliga essa leitura (só lê nas paradas). Padrão 1 = como antes.
+TEST(Calibration, TofInStraightDefaultsOnAndAcceptsOnlyZeroOrOne) {
+    Calibration calibration;
+    EXPECT_DOUBLE_EQ(calibration.tofInStraight, 1.0);
+    EXPECT_EQ(setCalibration(calibration, "tof_na_reta", "0"), CalibrationSet::Ok);
+    EXPECT_DOUBLE_EQ(calibration.tofInStraight, 0.0);
+    EXPECT_EQ(setCalibration(calibration, "tof_na_reta", "2"), CalibrationSet::OutOfRange);
+}
+
 TEST(Calibration, EveryDefaultIsInsideItsRange) {
     Calibration calibration;
     EXPECT_EQ(sanitizeCalibration(calibration), 0);

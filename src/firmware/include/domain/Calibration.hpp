@@ -36,6 +36,7 @@ struct Calibration {
     // Retas.
     double frontStopMm{35.0};     // parada_frente: a reta para com o ToF frontal abaixo disto
     double centerOnWalls{0.0};    // centralizar: 1 = corrige a reta pelos ToF laterais (RF-44)
+    double tofInStraight{1.0};    // tof_na_reta: 1 = lê os ToF durante a reta (padrão); 0 = só nas paradas
     double headingGain{0.0};      // ganho_rumo: mm de correção por grau de rumo na reta (0 = não)
 };
 
@@ -47,7 +48,7 @@ struct CalibrationField {
     std::string_view unit;
 };
 
-inline constexpr std::size_t kCalibrationFieldCount = 17;
+inline constexpr std::size_t kCalibrationFieldCount = 18;
 [[nodiscard]] const std::array<CalibrationField, kCalibrationFieldCount>& calibrationFields() noexcept;
 
 enum class CalibrationSet { Ok, UnknownName, OutOfRange, NotANumber };

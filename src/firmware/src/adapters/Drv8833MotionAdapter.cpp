@@ -696,7 +696,9 @@ void Drv8833MotionAdapter::straight(double distanceMm, const char* name, bool ce
     lastGyroRate_ = 0.0;
     // Os ToF laterais são lidos na reta mesmo sem o RF-44, só para o log (a última leitura de cada
     // lado diz se o robô chegou centrado). Com o RF-44, quem lê é ele.
-    const Vl53l1xSensorAdapter* sides = walls_ != nullptr ? walls_ : front_;
+    // `tof_na_reta=0`: não lê os ToF durante a reta (nem laterais nem frontal), só nas paradas (19/11).
+    const bool readTofInStraight = calibration_.tofInStraight >= 0.5;
+    const Vl53l1xSensorAdapter* sides = !readTofInStraight ? nullptr : (walls_ != nullptr ? walls_ : front_);
 #if CONFIG_RATO_LOG_RETA
     // Erros de I²C e leituras puladas de cada ToF ANTES da reta, para logar só os desta reta.
     using TofSide = Vl53l1xSensorAdapter::Side;
@@ -777,7 +779,7 @@ void Drv8833MotionAdapter::straight(double distanceMm, const char* name, bool ce
 
         // Parada pela parede da frente: só para a frente, depois de meia reta.
         const double travelled = 0.5 * (leftMm + rightMm);
-        if (sign > 0.0 && front_ != nullptr && now - lastFrontPoll >= kWallPollS &&
+        if (readTofInStraight && sign > 0.0 && front_ != nullptr && now - lastFrontPoll >= kWallPollS &&
             travelled > 0.5 * std::fabs(distanceMm)) {
             lastFrontPoll = now;
             if (const auto reading = front_->freshReading(Vl53l1xSensorAdapter::Side::Front);
