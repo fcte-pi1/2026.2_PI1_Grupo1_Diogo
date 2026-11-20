@@ -14,6 +14,7 @@ public:
         Running,
         Done,        // voltou a ~0 (ou passou para o outro lado)
         NoProgress,  // o giro não andou: robô preso, segurado ou rodas patinando
+        WrongWay,    // o ângulo se AFASTOU do zero (robô calçado nas paredes): para na hora
         Timeout,     // andou, mas não chegou a tempo
     };
     struct Output {

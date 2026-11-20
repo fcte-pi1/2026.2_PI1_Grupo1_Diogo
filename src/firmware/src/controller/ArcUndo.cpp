@@ -27,6 +27,11 @@ ArcUndo::Output ArcUndo::step(double dtSeconds, double gyroDegPerS) noexcept {
     if (time_ > robot::kArcUndoTimeoutS) {
         return {0.0, 0.0, State::Timeout};
     }
+    // O ângulo se afastou do zero além da tolerância: o desfazer não está desfazendo (robô calçado, ou sentido
+    // trocado). Para na hora, em vez de continuar a sacudir as rodas.
+    if (std::fabs(angle_) > std::fabs(startAngle_) + robot::kArcUndoWrongWayDeg) {
+        return {0.0, 0.0, State::WrongWay};
+    }
     // Mesmo critério da curva travada (kTurnStall): menos de 3 graus numa janela de 0,4 s.
     if (progress_.update(time_, angle_)) {
         return {0.0, 0.0, State::NoProgress};

@@ -82,5 +82,34 @@ TEST(ArcUndo, PassingZeroCountsAsBack) {
     EXPECT_EQ(r.state, ArcUndo::State::Done);
 }
 
+
+// Corrida SERPENTINA-2 (20/11): o arco travou a -66,3 graus e o desfazer, em vez de voltar a 0, foi para -97,3
+// (o robô, calçado nas paredes, girou mais 31 graus para o lado ERRADO). Isso contava como "progresso" e as rodas
+// ficaram a 5 V por 1,5 s (E=-1160 D=-468 pulsos, a "ré violenta"). O desfazer tem de parar assim que o ângulo se
+// afasta do zero.
+TEST(ArcUndo, StopsAsSoonAsTheAngleMovesAwayFromZero) {
+    ArcUndo undo(-66.3, true);
+    ArcUndo::Output out{};
+    double seconds = 0.0;
+    // O giroscópio dá taxa NEGATIVA (continua para a direita): o oposto do que o desfazer quer.
+    for (double t = kDt; t < 2.0; t += kDt) {
+        out = undo.step(kDt, -60.0);
+        seconds = t;
+        if (out.state != ArcUndo::State::Running) break;
+    }
+    EXPECT_EQ(out.state, ArcUndo::State::WrongWay);
+    EXPECT_DOUBLE_EQ(out.leftVolts, 0.0);
+    EXPECT_DOUBLE_EQ(out.rightVolts, 0.0);
+    EXPECT_LT(seconds, 0.4);                       // para logo, não depois de 1,5 s
+    EXPECT_LT(std::fabs(undo.angle()), 66.3 + robot::kArcUndoWrongWayDeg + 3.0);  // quase não piora
+}
+
+// A ré do desfazer é mais suave: o robô calçado nas paredes não pode ser sacudido a 5 V.
+TEST(ArcUndo, VoltagesAreGentle) {
+    EXPECT_LE(robot::kArcUndoOuterVolts, 3.5);
+    EXPECT_LE(robot::kArcUndoInnerVolts, 2.0);
+    EXPECT_LE(robot::kArcUndoTimeoutS, 1.2);
+}
+
 }  // namespace
 }  // namespace micromouse::controller

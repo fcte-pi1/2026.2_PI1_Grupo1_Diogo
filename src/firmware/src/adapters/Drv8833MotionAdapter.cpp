@@ -1552,6 +1552,8 @@ bool Drv8833MotionAdapter::undoArc(controller::PivotMove::Direction direction) {
         // Falha segura e explícita: o robô fica parado e torto, e a corrida vai ao Erro com o motivo.
         const char* why = state == controller::ArcUndo::State::NoProgress
                               ? "sem progresso (preso, segurado ou rodas patinando)"
+                          : state == controller::ArcUndo::State::WrongWay
+                              ? "o robo girou para o lado errado (calcado nas paredes)"
                               : "tempo esgotado";
         std::snprintf(undoFailure_, sizeof undoFailure_,
                       "curva travada e o desfazer nao voltou: %s, robo torto em %d graus", why,
