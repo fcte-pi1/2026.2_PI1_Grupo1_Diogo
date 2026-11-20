@@ -62,6 +62,7 @@ constexpr double kRunTurnSteerMaxMm = 30.0;
 // giro parado, em que as rodas arrastam): o rumo quem fecha é o giroscópio.
 constexpr double kRunTurnSpeedMmPerS = 80.0;
 constexpr double kRunTurnTrackMm = 100.0;
+constexpr double kRunTurnGyroBrakeDeg = 4.0;  // o arco para um pouco antes: o robô ainda gira ao frear
 constexpr double kRunTurnJamDeg = 20.0;
 constexpr double kRunTurnMaxStartFixDeg = 10.0;
 constexpr double kDegToRad = 3.14159265358979323846 / 180.0;
@@ -82,7 +83,7 @@ constexpr int64_t kHeadingStaleUs = 4'000'000;
 // terminava 1 a 4 graus curto (D2: 86,1 / -86,2 / 88,9). Se faltar de 1 a 8 graus, gira o resto no
 // lugar, devagar (o canto da frente varre ~7 mm em 4 graus).
 constexpr double kTrimMinDeg = 1.0;
-constexpr double kTrimMaxDeg = 8.0;
+constexpr double kTrimMaxDeg = 15.0;  // E16a de 20/11: a curva contínua terminou 11 graus a mais
 constexpr double kTrimMaxDegPerS = 45.0;
 constexpr double kTrimMaxDegPerS2 = 300.0;
 constexpr double kTrimToleranceDeg = 0.5;
@@ -785,8 +786,11 @@ void Drv8833MotionAdapter::finishRunTurn() {
                                                              : controller::PivotMove::Direction::Left;
     if (lastMoveOk_) {
         lastTurnDeg_ = runTurnStartHeadingDeg_ + runTurnGyroDeg_;  // em relação ao corredor de entrada
+        // A curva parou na borda da célula de saída: o resto até o centro é uma reta normal, com o rumo do giroscópio
+        // e a centralização pelas paredes (corrige o desvio lateral que o arco deixa).
         trimArc(direction);
         aheadMm_ = 0.0;
+        straight(controller::robot::kArcSetbackMm, "saida da curva", walls_ != nullptr && calibration_.centerOnWalls >= 0.5);
         trackGyroBias();
         return;
     }
@@ -1137,6 +1141,11 @@ void Drv8833MotionAdapter::straight(double distanceMm, const char* name, bool ce
                     }
                 }
             }
+            // O giroscópio encerra o arco: chegou a ~90 graus menos o freio, as rodas não decidem mais.
+            if (std::fabs(pathGyroDeg) >= std::fabs(plan.angleDeg) - kRunTurnGyroBrakeDeg &&
+                progress > plan.approachMm + 0.5 * plan.arcLengthMm()) {
+                break;
+            }
             const double steerMm =
                 std::clamp(kRunTurnHeadingGain * errorDeg * plan.trackMm * kDegToRad, -kRunTurnSteerMaxMm,
                            kRunTurnSteerMaxMm);
@@ -1178,7 +1187,7 @@ void Drv8833MotionAdapter::straight(double distanceMm, const char* name, bool ce
                                                     controller::robot::kArcSetbackMm,
                                                     90.0 + (right ? fix : -fix),
                                                     right,
-                                                    controller::robot::kArcSetbackMm,
+                                                    0.0,  // a saída é uma reta normal, com as paredes (finishRunTurn)
                                                     kRunTurnTrackMm};
                     pathEntrySpeed = std::max(0.0, 0.5 * (leftSpeedMmS + rightSpeedMmS));
                     path.emplace(plan, controller::robot::kStraightMove, pathEntrySpeed, kRunTurnSpeedMmPerS);
