@@ -42,6 +42,10 @@ struct MotorWheel {
 // Roda "boa" e roda "dura" (a direita de 07/11, que não saía do lugar a ~50%).
 inline MotorWheel easyWheel() { return {0.0080, 0.6, 1.0}; }
 inline MotorWheel stiffWheel() { return {0.0100, 1.2, 2.5}; }
+// Rodas MEDIDAS em 20/11 (H6, robô no ar): partem com ~1,7 V, a 3 V fazem ~385 mm/s e a 6 V ~796 mm/s, ou seja
+// ~137 mm/s por volt e ~0,2 V de atrito andando. A esquerda é ~4% mais fraca que a direita.
+inline MotorWheel realLeftWheel() { return {0.0075, 0.2, 1.8}; }
+inline MotorWheel realRightWheel() { return {0.0072, 0.2, 1.6}; }
 
 struct StraightResult {
     double leftMm{0.0};
@@ -49,6 +53,9 @@ struct StraightResult {
     double maxDifferenceMm{0.0};
     double maxVolts{0.0};
     double maxRiseVoltsPerS{0.0};  // maior subida do módulo da tensão entre dois passos (V/s)
+    // Velocidade (mm/s) das rodas no meio do trecho (fora dos 80 mm de cada ponta): o movimento é contínuo?
+    double minCruiseSpeed{1e9};
+    double maxCruiseSpeed{0.0};
     double seconds{0.0};
     bool done{false};
 };
@@ -92,6 +99,12 @@ inline StraightResult simulateStraight(MotorWheel left, MotorWheel right, double
         }
         left.step(out.leftVolts, kDt);
         right.step(out.rightVolts, kDt);
+        const double travelled = 0.5 * (left.position + right.position);
+        if (travelled > 80.0 && travelled < distanceMm - 80.0) {
+            const double speed = 0.5 * (left.speed + right.speed);
+            result.minCruiseSpeed = std::fmin(result.minCruiseSpeed, speed);
+            result.maxCruiseSpeed = std::fmax(result.maxCruiseSpeed, speed);
+        }
     }
     // Depois do freio a roda para onde está.
     result.leftMm = left.position;

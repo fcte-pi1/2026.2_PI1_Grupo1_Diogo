@@ -44,6 +44,28 @@ TEST(StraightMoveSimulation, VoltageRampStillMovesTheStiffWheelAndKeepsTheWheels
     EXPECT_LT(soft.maxDifferenceMm, 3.0);
 }
 
+// Movimento limpo (20/11): no E15 o robô andava em ARRANCOS (0 a 270 mm/s e de volta a 0, a cada ~0,4 s) com a
+// referência em 120 mm/s, porque o empurrão do atrito estático (2,5 V) era somado o tempo todo enquanto a roda
+// andava: 3,4 V levariam a roda a ~430 mm/s, o PID derrubava a tensão, a roda parava (parte com 1,7 V) e o empurrão
+// voltava. Com rodas de parâmetros reais, a velocidade no meio da reta tem de ficar perto do cruzeiro.
+TEST(StraightMoveSimulation, CruiseSpeedIsSteadyWithTheMeasuredWheels) {
+    const StraightResult run =
+        simulateStraight(realLeftWheel(), realRightWheel(), 3.0 * kCell, 0.0, 8.0, 50.0);
+    ASSERT_TRUE(run.done);
+    EXPECT_GT(run.minCruiseSpeed, 100.0);  // nenhuma parada: cruzeiro de 120 mm/s
+    EXPECT_LT(run.maxCruiseSpeed, 145.0);  // nenhum arranco
+    EXPECT_NEAR(run.leftMm, 3.0 * kCell, 3.0);
+    EXPECT_NEAR(run.rightMm, 3.0 * kCell, 3.0);
+}
+
+TEST(StraightMoveSimulation, OneCellIsSmoothWithTheMeasuredWheelsToo) {
+    const StraightResult run = simulateStraight(realLeftWheel(), realRightWheel(), kCell, 0.0, 4.0, 50.0);
+    ASSERT_TRUE(run.done);
+    EXPECT_NEAR(run.leftMm, kCell, 3.0);
+    EXPECT_NEAR(run.rightMm, kCell, 3.0);
+    EXPECT_LT(run.maxCruiseSpeed, 150.0);
+}
+
 // Reta contínua (20/11): três células num movimento só chegam a 540 mm sem parar no meio.
 TEST(StraightMoveSimulation, ThreeCellsInOneMoveReachTheEndWithoutStoppingInBetween) {
     const StraightResult run = simulateStraight(easyWheel(), easyWheel(), 3.0 * kCell, 0.0, 6.0, 50.0);

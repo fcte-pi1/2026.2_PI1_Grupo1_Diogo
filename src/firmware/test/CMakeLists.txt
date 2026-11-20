@@ -39,6 +39,7 @@ add_executable(firmware_tests
     controller/VoltageSlewTest.cpp
     controller/HeadingFusionTest.cpp
     controller/RunProfileTest.cpp
+    controller/OffsetFilterTest.cpp
     simulation/MotorPlant.hpp
     protocol/ProtocolV1Test.cpp
     telemetry/TelemetryBufferTest.cpp

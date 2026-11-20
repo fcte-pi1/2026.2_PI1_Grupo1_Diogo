@@ -193,6 +193,11 @@ inline constexpr int kMaxGyroMisses = 15;
 // corrida para e termina em Erro com o motivo. O guard de passos (linhas x colunas x 4) sozinho pode
 // passar dele no 12x4 (controller/RaceTimeModel.hpp).
 inline constexpr double kRaceTimeLimitS = 600.0;
+
+// Termo da parede (RF-44) suavizado antes de entrar na reta (20/11): constante de tempo de 0,3 s e no máximo 20 mm/s de
+// variação. Sem isto, cada leitura ruidosa do ToF era um degrau de posição nas rodas e o robô andava em arrancos.
+inline constexpr double kWallOffsetTauS = 0.3;
+inline constexpr double kWallOffsetMaxRateMmPerS = 20.0;
 // Correção da escala do giroscópio (multiplica o giro Z, já sem o desvio). Medida em 16/11 no chão:
 // 4 arcos seguidos somaram 360,9° no giroscópio e o robô girou ~390° de verdade (passou "1 hora"
 // num relógio). O chip responde WHO_AM_I=0x72 (o MPU-6050 original responde 0x68): provável clone,

@@ -12,6 +12,7 @@
 #include <cstring>
 
 #include "controller/HeadingFusion.hpp"
+#include "controller/OffsetFilter.hpp"
 #include "controller/RobotMotion.hpp"
 #include "domain/DynamicFrontStop.hpp"
 #include "domain/GyroBiasTracker.hpp"
@@ -814,6 +815,10 @@ void Drv8833MotionAdapter::straight(double distanceMm, const char* name, bool ce
     domain::SideReading leftWall{};
     domain::SideReading rightWall{};
     double wallMm = 0.0;
+    // O termo da parede entra suavizado (filtro de 0,3 s e 20 mm/s): leituras ruidosas do ToF não são degraus de
+    // posição nas rodas (E15 de 20/11: a velocidade ia de 0 a 270 mm/s a cada ~0,4 s).
+    controller::OffsetFilter wallFilter(controller::robot::kWallOffsetTauS,
+                                        controller::robot::kWallOffsetMaxRateMmPerS);
     [[maybe_unused]] bool poseValid = false;           // estimativa de pose lateral (item 4)
     [[maybe_unused]] double poseOffsetMm = 0.0;        // eixo para a direita do centro, mm
     double lastWallPoll = -kWallPollS;
@@ -858,6 +863,7 @@ void Drv8833MotionAdapter::straight(double distanceMm, const char* name, bool ce
     // trancos e paradas dentro do perfil (20/11).
     constexpr int kSpeedTraceMax = 200;  // 10 s
     int16_t speedTrace[kSpeedTraceMax];
+    int16_t voltsTrace[kSpeedTraceMax];  // tensão comandada na roda esquerda, em décimos de volt
     int speedTraceCount = 0;
     double nextSpeedTrace = 0.0;
 #endif
@@ -909,6 +915,7 @@ void Drv8833MotionAdapter::straight(double distanceMm, const char* name, bool ce
         const double rightSpeedMmS = rightSpeed.update(rightMm, now);
 #if CONFIG_RATO_LOG_RETA
         if (now >= nextSpeedTrace && speedTraceCount < kSpeedTraceMax) {
+            voltsTrace[speedTraceCount] = static_cast<int16_t>(std::lround(10.0 * endLeftVolts_));
             speedTrace[speedTraceCount++] =
                 static_cast<int16_t>(std::lround(0.5 * (leftSpeedMmS + rightSpeedMmS)));
             nextSpeedTrace += 0.05;
@@ -994,7 +1001,8 @@ void Drv8833MotionAdapter::straight(double distanceMm, const char* name, bool ce
                                     controller::robot::kHeadingHoldMaxMm)
                        : 0.0;
         const controller::StraightMove::Output out =
-            move.step(dt, leftMm, rightMm, leftSpeedMmS, rightSpeedMmS, wallMm + headingMm);
+            move.step(dt, leftMm, rightMm, leftSpeedMmS, rightSpeedMmS,
+                      wallFilter.step(wallMm, dt) + headingMm);
         if (out.done) {
             if (!move.reachedTarget()) {
                 lastMoveOk_ = false;
@@ -1013,6 +1021,14 @@ void Drv8833MotionAdapter::straight(double distanceMm, const char* name, bool ce
         int used = std::snprintf(line, sizeof line, "vel 50ms (mm/s) [%d]:", start);
         for (int i = start; i < speedTraceCount && i < start + 25 && used + 7 < static_cast<int>(sizeof line); ++i) {
             used += std::snprintf(line + used, sizeof line - static_cast<size_t>(used), " %d", speedTrace[i]);
+        }
+        ESP_LOGI("reta", "%s", line);
+    }
+    for (int start = 0; start < speedTraceCount; start += 25) {
+        char line[200];
+        int used = std::snprintf(line, sizeof line, "tensao 50ms (V/10) [%d]:", start);
+        for (int i = start; i < speedTraceCount && i < start + 25 && used + 7 < static_cast<int>(sizeof line); ++i) {
+            used += std::snprintf(line + used, sizeof line - static_cast<size_t>(used), " %d", voltsTrace[i]);
         }
         ESP_LOGI("reta", "%s", line);
     }
