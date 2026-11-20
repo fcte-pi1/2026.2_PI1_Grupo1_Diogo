@@ -13,6 +13,20 @@ using domain::turnLeft;
 using domain::turnRight;
 using domain::Wall;
 
+class Navigator::RunObserver final : public ports::IStraightRunObserver {
+public:
+    RunObserver(Navigator& navigator, Position start, int maxCells)
+        : navigator_(navigator), start_(start), maxCells_(maxCells) {}
+    bool continuePast(int cellIndex, double axleBehindCenterMm) override {
+        return navigator_.continueRunPast(start_, cellIndex, maxCells_, axleBehindCenterMm);
+    }
+
+private:
+    Navigator& navigator_;
+    Position start_;
+    int maxCells_;
+};
+
 Navigator::Navigator(MazeMap& maze, ISensorPort& sensor, IMotionPort& motion, Position start,
                      Direction heading, std::vector<Position> goals)
     : maze_(maze),
@@ -63,8 +77,9 @@ bool Navigator::confirmArrival() {
     return outsideOpenings_ == afterFirst;
 }
 
-void Navigator::senseAndRecord() {
-    const ports::WallsAhead wall = sensor_.sense();
+void Navigator::senseAndRecord() { recordSense(sensor_.sense()); }
+
+void Navigator::recordSense(const ports::WallsAhead& wall) {
     lastSense_ = wall;
     // Um lado em falha (NACK, medida atrasada) não grava nada: uma parede falsa ficaria no mapa
     // até o fim da corrida e podia fechar o único caminho (revisão do #438).
@@ -217,9 +232,48 @@ void Navigator::step() {
                      : *nextDir == turnLeft(heading_) ? StepAction::TurnLeft
                                                       : StepAction::TurnRight;
     applyTurnTo(*nextDir);
+    // Reta contínua: se cabe mais de uma célula à frente, anda o trecho num movimento só.
+    const int maxCells = continuous_ ? runCellsAhead() : 1;
+    if (maxCells > 1) {
+        const Position start = position_;
+        RunObserver observer{*this, start, maxCells};
+        const int moved = motion_.advanceCells(maxCells, observer);
+        position_ = {start.row + rowDelta(heading_) * moved, start.column + colDelta(heading_) * moved};
+        report_.cells = moved;
+        entrySide_ = opposite(heading_);
+        return;
+    }
     motion_.advanceCell();
     position_ = {position_.row + rowDelta(heading_), position_.column + colDelta(heading_)};
     entrySide_ = opposite(heading_);
+}
+
+int Navigator::runCellsAhead() const {
+    int cells = 0;
+    Position cell = position_;
+    while (cells < maxRunCells_ && maze_.getWall(cell, heading_) != Wall::Present) {
+        const Position next{cell.row + rowDelta(heading_), cell.column + colDelta(heading_)};
+        if (!maze_.contains(next)) break;
+        cell = next;
+        ++cells;
+    }
+    return cells;
+}
+
+bool Navigator::continueRunPast(Position start, int cellIndex, int maxCells, double axleBehindCenterMm) {
+    // A célula que está chegando passa a ser a posição do Navigator: as paredes lidas andando são dela.
+    position_ = {start.row + rowDelta(heading_) * cellIndex, start.column + colDelta(heading_) * cellIndex};
+    entrySide_ = opposite(heading_);
+    recordSense(sensor_.senseMoving(axleBehindCenterMm));
+    if (cellIndex >= maxCells || reachedGoal()) {
+        return false;
+    }
+    flood_.computeFloodFill(goals_);
+    const std::optional<Direction> next = flood_.nextDirection(position_);
+    // Só passa sem parar se o caminho segue reto e a frente desta célula foi vista aberta. Qualquer
+    // dúvida (curva, beco, lado não lido) para no centro, e o passo seguinte decide parado.
+    return next && *next == heading_ && !wasUnseen(heading_) &&
+           maze_.getWall(position_, heading_) != Wall::Present;
 }
 
 bool Navigator::run(int maxSteps) {

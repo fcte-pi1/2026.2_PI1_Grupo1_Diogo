@@ -84,6 +84,7 @@ private:
 
 struct Outcome {
     bool reached;
+    int steps{0};
     Position finalCell;
     int halfTurns;
     int reverses;
@@ -93,17 +94,25 @@ struct Outcome {
 };
 
 // `dip3` como na placa: false = partida pela esquerda, true = pela direita (domain::DipDecoder).
-Outcome runFrom(Position physicalStart, Direction physicalHeading, bool dip3) {
+Outcome runFrom(Position physicalStart, Direction physicalHeading, bool dip3, bool continuous = false) {
     const MazeMap truth = photoMaze();
     const domain::MazeSetup setup = domain::DipDecoder().decode(false, false, dip3);
     MazeMap known(setup.rows, setup.columns);
     known.initKnownPerimeter();
     TrackRobot robot(truth, physicalStart, physicalHeading);
     Navigator navigator(known, robot, robot, setup.start, Direction::North, {setup.goal});
-    const bool reached = navigator.run(setup.rows * setup.columns * 4);
+    navigator.setContinuousRuns(continuous);
+    int steps = 0;
+    const int limit = setup.rows * setup.columns * 4;
+    while (steps < limit && !navigator.reachedGoal() && !navigator.stuck()) {
+        navigator.step();
+        ++steps;
+    }
+    const bool reached = navigator.reachedGoal();
     std::cout << "largada " << name(physicalStart) << " dip3=" << dip3 << ": " << robot.log
               << (reached ? "  => chegou" : "  => NAO chegou") << "\n";
     return {reached,
+            steps,
             robot.robot().position(),
             robot.robot().halfTurns(),
             robot.robot().reverses(),
@@ -151,6 +160,29 @@ TEST(TrackMazeCorners, FromA4ReachesD1EitherWay) {
         EXPECT_EQ(run.finalCell, cell(1, 'D'));
         EXPECT_EQ(run.halfTurns, 0);
         EXPECT_EQ(run.wallHits, 0);
+    }
+}
+
+// Reta contínua (20/11): as mesmas corridas chegam aos mesmos cantos, sem bater e sem meia-volta, com
+// menos passos (os trechos retos viram um movimento só). Pelo caminho célula a célula, o log tem as mesmas
+// células e manobras.
+TEST(TrackMazeCorners, ContinuousRunsReachTheSameCornersWithFewerStops) {
+    struct Case {
+        Position start;
+        Direction heading;
+        bool dip3;
+    };
+    for (const Case& c : {Case{cell(4, 'D'), Direction::West, false}, Case{cell(1, 'D'), Direction::West, true},
+                          Case{cell(1, 'A'), Direction::East, false}, Case{cell(4, 'A'), Direction::North, false}}) {
+        const Outcome stop = runFrom(c.start, c.heading, c.dip3, false);
+        const Outcome flow = runFrom(c.start, c.heading, c.dip3, true);
+        EXPECT_TRUE(flow.reached) << flow.log;
+        EXPECT_EQ(flow.finalCell, stop.finalCell);
+        EXPECT_EQ(flow.halfTurns, 0);
+        EXPECT_EQ(flow.wallHits, 0) << flow.log;
+        EXPECT_EQ(flow.log, stop.log);  // mesmo caminho e mesmas manobras
+        EXPECT_LE(flow.steps, stop.steps);
+        std::cout << "reta continua: " << stop.steps << " -> " << flow.steps << " passos\n";
     }
 }
 

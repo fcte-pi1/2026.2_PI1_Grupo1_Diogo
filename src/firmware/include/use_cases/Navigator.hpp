@@ -41,6 +41,7 @@ struct StepReport {
     bool forgotMap{false};       // o mapa fechou e foi esquecido neste passo
     bool avoidedBlindReverse{false};  // trocou uma ré às cegas por outro caminho
     int outsideOpenings{0};      // total de leituras "aberto" para fora do mapa até aqui
+    int cells{1};                // células andadas neste passo (reta contínua: mais de uma)
 };
 
 [[nodiscard]] const char* stepActionName(StepAction action) noexcept;
@@ -50,6 +51,8 @@ public:
     // Leituras seguidas, na mesma célula, de um lado desconhecido pelo qual o caminho passa, antes de
     // assumir parede nele e procurar outro caminho.
     static constexpr int kMaxBlindWaits = 3;
+    // Reta contínua: no máximo tantas células num movimento só (a odometria acumula erro).
+    static constexpr int kDefaultMaxRunCells = 8;
 
 private:
     MazeMap& maze_;
@@ -69,7 +72,16 @@ private:
     std::optional<Direction> entrySide_{};
     int outsideOpenings_{0};  // leituras "sem parede" num lado que dá para FORA do mapa
     StepReport report_{};
+    bool continuous_{false};           // reta contínua (20/11): várias células num movimento só
+    int maxRunCells_{kDefaultMaxRunCells};
     void senseAndRecord();
+    void recordSense(const ports::WallsAhead& wall);
+    // Quantas células à frente o trecho pode ter: até a borda, uma parede conhecida ou o limite.
+    [[nodiscard]] int runCellsAhead() const;
+    // Decide, na célula `cellIndex` à frente de `start`, se o trecho passa dela sem parar.
+    [[nodiscard]] bool continueRunPast(Position start, int cellIndex, int maxCells,
+                                       double axleBehindCenterMm);
+    class RunObserver;
     void applyTurnTo(Direction target);
     [[nodiscard]] bool wasUnseen(Direction direction) const;
     // Próxima direção com o lado `closed` da célula atual contado como parede (o mapa não muda).
@@ -102,6 +114,13 @@ public:
     // a frente longa, ele não cabe girando 180 graus dentro de um corredor (10/11).
     void step();
     bool run(int maxSteps);
+    // Reta contínua (20/11): num trecho reto, anda várias células num movimento só (IMotionPort::
+    // advanceCells) e decide antes de cada centro, com as paredes lidas andando (senseMoving), se
+    // continua. Desligada por padrão; o laço da corrida liga pela chave `reta_continua` do calib.
+    void setContinuousRuns(bool on, int maxCells = kDefaultMaxRunCells) noexcept {
+        continuous_ = on;
+        maxRunCells_ = maxCells > 1 ? maxCells : 1;
+    }
 };
 
 }  // namespace micromouse::use_cases
