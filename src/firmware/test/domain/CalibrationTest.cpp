@@ -56,6 +56,10 @@ TEST(Calibration, NewClosedLoopSwitchesHaveSafeDefaultsAndRanges) {
     EXPECT_DOUBLE_EQ(calibration.reanchorOnWalls, 0.0);
     EXPECT_DOUBLE_EQ(calibration.dynamicFrontStop, 0.0);
     EXPECT_DOUBLE_EQ(calibration.gyroBiasTracking, 0.0);
+    // Reta contínua (20/11): vem LIGADA, a pedido do operador (o para-e-anda dava tranco em cada célula).
+    EXPECT_DOUBLE_EQ(calibration.continuousRun, 1.0);
+    EXPECT_EQ(setCalibration(calibration, "reta_continua", "0"), CalibrationSet::Ok);
+    EXPECT_EQ(setCalibration(calibration, "reta_continua", "2"), CalibrationSet::OutOfRange);
     EXPECT_EQ(setCalibration(calibration, "vies_giro", "1"), CalibrationSet::Ok);
     EXPECT_EQ(setCalibration(calibration, "vies_giro", "2"), CalibrationSet::OutOfRange);
     EXPECT_EQ(setCalibration(calibration, "rampa_tensao", "0"), CalibrationSet::Ok);  // sem rampa
@@ -66,7 +70,7 @@ TEST(Calibration, NewClosedLoopSwitchesHaveSafeDefaultsAndRanges) {
     EXPECT_EQ(setCalibration(calibration, "reancorar_parede", "2"), CalibrationSet::OutOfRange);
     EXPECT_EQ(setCalibration(calibration, "parada_dinamica", "1"), CalibrationSet::Ok);
     EXPECT_EQ(setCalibration(calibration, "parada_dinamica", "-1"), CalibrationSet::OutOfRange);
-    EXPECT_EQ(calibrationFields().size(), 23u);
+    EXPECT_EQ(calibrationFields().size(), 24u);
 }
 
 TEST(Calibration, EveryDefaultIsInsideItsRange) {

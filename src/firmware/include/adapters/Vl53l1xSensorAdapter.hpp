@@ -84,6 +84,7 @@ public:
     [[nodiscard]] std::array<Reading, 3> settledReadings() const;
     void begin(i2c_master_bus_handle_t bus);  // reendereça os sensores (RF-28)
     [[nodiscard]] ports::WallsAhead sense() const override;
+    [[nodiscard]] ports::WallsAhead senseMoving(double axleBehindCenterMm) const override;
 
     // True se os 3 sensores responderam e foram configurados no begin() (auto-teste, RF-27).
     [[nodiscard]] bool allReady() const;

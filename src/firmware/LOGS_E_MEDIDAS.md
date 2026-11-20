@@ -265,6 +265,7 @@ O que depende do robô montado e do piso fica na memória do robô (NVS) e é tr
 | `reancorar_parede` | 1 = parado no centro da célula, a parede 1 ou 2 células à frente (179 ou 359 mm) corrige a próxima reta pela metade do erro, até 15 mm, só acima de 15 mm (ruído do ToF). Custa ~0,15 s por célula | 0 | 0 ou 1 |
 | `parada_dinamica` | 1 = a parada pela frente soma v^2/(2a) ao limiar (a = 1600 mm/s², estimada; teto 20 mm), para parar em `parada_frente` qualquer que seja a velocidade | 0 | 0 ou 1 |
 | `vies_giro` | 1 = depois de cada reta, remede o desvio do giroscópio parado (15 amostras) e anda 30% do caminho; descarta se variar mais de 3 graus/s ou diferir mais de 5 do em uso. Custa ~0,3 s por célula | 0 | 0 ou 1 |
+| `reta_continua` | 1 = num trecho reto a corrida anda várias células num movimento só (uma aceleração, uma frenagem) e decide antes de cada centro, com as paredes lidas andando, se continua; 0 = uma célula por vez, parando em cada uma (como antes). Comando de teste: `andar N` (2 a 8 células) | 1 | 0 ou 1 |
 
 As três medidas do corpo decidem onde o arco começa (a linha `calib: fim: arco comeca com o frontal
 a X mm` mostra o resultado). Linhas novas no log:

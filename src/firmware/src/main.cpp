@@ -3,6 +3,7 @@
 // apenas no alvo ESP32; o build de host usa src/main.cpp (stub).
 
 #include <atomic>
+#include <cstdlib>
 #include <cmath>
 #include <cstdarg>
 #include <cstdio>
@@ -87,7 +88,7 @@ adapters::BleTelemetryAdapter gBle;
 // curvas, parada pela parede da frente...) fica em domain::Calibration. O comando `calib` troca
 // os valores sem regravar o firmware; eles valem a partir do boot seguinte também.
 constexpr char kCalibNamespace[] = "rato";
-constexpr char kCalibKey[] = "calib4";  // mude o número se a struct mudar de formato (calib1: 13 campos)
+constexpr char kCalibKey[] = "calib5";  // mude o número se a struct mudar de formato (calib1: 13 campos)
 
 domain::Calibration defaultCalibration() {
     domain::Calibration calibration;
@@ -286,6 +287,7 @@ std::atomic<int> gTestPermille{0};
 std::atomic<int> gTestMs{0};
 // Manobra avulsa pedida pelo BLE (Drv8833MotionAdapter::Maneuver), executada esperando a largada.
 std::atomic<int> gTestManeuver{0};
+std::atomic<int> gTestRunCells{1};  // `andar N`: células do trecho contínuo
 // "tof": 5 leituras dos três ToF com o robô parado, para calibrar fora do labirinto.
 std::atomic<bool> gTestTof{false};
 // "giro": deriva do giroscópio em repouso.
@@ -360,6 +362,16 @@ void onBleCommand(const std::string& command) {
         if (command == "re") maneuver = M::Reverse;  // uma célula de ré (saída de beco)
         gRemoteStop = false;  // zera aqui, e não ao começar: um "parar" que chegue depois vale
         gTestManeuver = static_cast<int>(maneuver);
+    } else if (command.rfind("andar ", 0) == 0) {
+        // `andar N` (20/11): N células num movimento só (reta contínua), de 2 a 8.
+        const int cells = std::atoi(command.c_str() + 6);
+        if (cells >= 2 && cells <= 8) {
+            gTestRunCells = cells;
+            gRemoteStop = false;
+            gTestManeuver = static_cast<int>(adapters::Drv8833MotionAdapter::Maneuver::AdvanceRun);
+        } else {
+            ESP_LOGW("teste", "andar N: N de 2 a 8 (veio '%s')", command.c_str());
+        }
     } else if (command == "tof") {
         gTestTof = true;
     } else if (command == "giro") {
@@ -836,7 +848,8 @@ void serviceTestCommands(const domain::MazeSetup& setup, bool allowMotion) {
     }
     if (const int maneuver = gTestManeuver.exchange(0); maneuver != 0 && !refused("manobra")) {
         gMotion.setBatteryVolts(gPower.busVoltageV());
-        gMotion.testManeuver(static_cast<adapters::Drv8833MotionAdapter::Maneuver>(maneuver));
+        gMotion.testManeuver(static_cast<adapters::Drv8833MotionAdapter::Maneuver>(maneuver),
+                             gTestRunCells.load());
     }
     if (const int mask = gTestWheelMask.exchange(0); mask != 0 && !refused("motor")) {
         gMotion.setBatteryVolts(gPower.busVoltageV());
@@ -1138,6 +1151,10 @@ void navigationTask(void*) {
         maze.initKnownPerimeter();
         use_cases::Navigator navigator(maze, gSensor, gMotion, setup.start,
                                        domain::Direction::North, {setup.goal});
+#if !CONFIG_RATO_BANCADA
+        // Reta contínua (20/11): trechos retos num movimento só (`calib reta_continua`, padrão 1).
+        navigator.setContinuousRuns(gMotion.calibration().continuousRun >= 0.5);
+#endif
 
         domain::BatteryMonitor battery;
         domain::SensorHealthMonitor sensorHealth;
@@ -1275,9 +1292,13 @@ void navigationTask(void*) {
                 using Side = adapters::Vl53l1xSensorAdapter::Side;
                 const use_cases::StepReport& r = navigator.lastStep();
                 const domain::Position now = navigator.getPosition();
+                char runText[24] = "";
+                if (r.cells > 1) {
+                    std::snprintf(runText, sizeof runText, " (%d celulas)", r.cells);
+                }
                 ESP_LOGI("nav",
                          "passo %d: cel (l%d,c%d) rumo %c | tof E=%d (%s) F=%d (%s) D=%d (%s) | "
-                         "mapa NLSO=%c%c%c%c | dist=%d | acao=%s%s%s -> (l%d,c%d) rumo %c | "
+                         "mapa NLSO=%c%c%c%c | dist=%d | acao=%s%s%s%s -> (l%d,c%d) rumo %c | "
                          "fora=%d bat=%.2f",
                          steps, r.cell.row, r.cell.column, directionLetter(r.heading),
                          gSensor.reading(Side::Left).mm, gSensor.statusText(Side::Left),
@@ -1287,7 +1308,7 @@ void navigationTask(void*) {
                          wallLetter(maze, r.cell, domain::Direction::East),
                          wallLetter(maze, r.cell, domain::Direction::South),
                          wallLetter(maze, r.cell, domain::Direction::West), r.distance,
-                         use_cases::stepActionName(r.action),
+                         use_cases::stepActionName(r.action), runText,
                          r.forgotMap ? " (mapa esquecido)" : "",
                          r.avoidedBlindReverse ? " (evitou re as cegas)" : "", now.row, now.column,
                          directionLetter(navigator.getHeading()), r.outsideOpenings,
@@ -1321,7 +1342,7 @@ void navigationTask(void*) {
             }
             const domain::Position position = navigator.getPosition();
             if (!(position == last)) {
-                ++cells;
+                cells += navigator.lastStep().cells > 1 ? navigator.lastStep().cells : 1;
                 last = position;
             }
 

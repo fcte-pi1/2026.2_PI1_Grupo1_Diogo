@@ -430,6 +430,21 @@ std::array<Vl53l1xSensorAdapter::Reading, 3> Vl53l1xSensorAdapter::settledReadin
             poll(slots_[static_cast<size_t>(Side::Right)], true)};
 }
 
+// Reta contínua (20/11): as paredes da célula cujo centro os ToF laterais estão cruzando, com o robô andando.
+// Usa a última medida de cada sensor (não espera nem reinicia: o robô está em movimento). Com o eixo ~59 mm
+// antes do centro, uma parede na frente dessa célula lê ~58 mm e a ausência dela, 238 mm ou mais: o limiar do
+// frontal parado (140 mm) separa os dois sem ajuste. Laterais: os sensores estão sobre o centro, como parado.
+ports::WallsAhead Vl53l1xSensorAdapter::senseMoving(double axleBehindCenterMm) const {
+    (void)axleBehindCenterMm;
+    const Reading left = reading(Side::Left);
+    const Reading front = reading(Side::Front);
+    const Reading right = reading(Side::Right);
+    const drivers::SideJudgement l = drivers::judgeSide(left.kind, left.status, left.mm, thresholdMm_);
+    const drivers::SideJudgement f = drivers::judgeSide(front.kind, front.status, front.mm, frontThresholdMm_);
+    const drivers::SideJudgement r = drivers::judgeSide(right.kind, right.status, right.mm, thresholdMm_);
+    return {f.wall, l.wall, r.wall, f.unknown, l.unknown, r.unknown};
+}
+
 ports::WallsAhead Vl53l1xSensorAdapter::sense() const {
     // Parede presente quando a distância medida fica abaixo do limiar calibrado (RNF-31). Medida
     // nova dos três com o robô parado (settledReadings: descarta as prontas, que podem ser de

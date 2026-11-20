@@ -34,7 +34,15 @@ private:
     const std::atomic<bool>* abort_{nullptr};       // parada pedida de fora (comando "parar")
     const Vl53l1xSensorAdapter* front_{nullptr};    // parada pela parede da frente
     double lastShortMm_{0.0};  // quanto a última reta parou antes do fim, pela parede da frente
-    bool suppressFrontStop_{false};  // só o reposicionamento para girar: o frontal lê abaixo do mínimo
+    bool suppressFrontStop_{false};
+    // Reta contínua (20/11, advanceCells): quem decide em cada célula, quantas células o trecho pode ter,
+    // até qual já perguntou, em qual vai parar e o deslocamento dos centros em relação ao início da reta.
+    ports::IStraightRunObserver* runObserver_{nullptr};
+    int runCells_{0};
+    int runAsked_{0};
+    int runStopCell_{0};
+    double runOffsetMm_{0.0};
+    char runName_[32]{};  // só o reposicionamento para girar: o frontal lê abaixo do mínimo
     double wallFixMm_{0.0};    // `reancorar_parede`: quanto a próxima reta anda a mais (negativo: a menos)
     double aheadMm_{0.0};      // quanto o robô já está à frente do centro (fim de uma curva em arco)
     double batteryVolts_;
@@ -152,9 +160,10 @@ public:
     // lugar) e "andar" (uma célula). Cada uma loga a linha "curva" ou "reta".
     // "re" (10/11): uma célula de ré, como na saída de um beco.
     enum class Maneuver {
-        None, TurnLeft, TurnRight, ArcLeft, ArcRight, PivotLeft, PivotRight, Advance, Reverse
+        None, TurnLeft, TurnRight, ArcLeft, ArcRight, PivotLeft, PivotRight, Advance, Reverse, AdvanceRun
     };
-    void testManeuver(Maneuver maneuver);
+    // `cells`: só para AdvanceRun (comando `andar N`): N células num trecho contínuo, sempre seguindo.
+    void testManeuver(Maneuver maneuver, int cells = 1);
     // O laço da corrida chama antes de cada passo do Navigator. Uma falha fica registrada até aqui:
     // num passo, o Navigator faz curva E reta, e a reta não pode apagar a falha da curva (09/11: com
     // o robô suspenso, a curva esgotava o tempo e a corrida seguia como se tivesse virado).
@@ -206,6 +215,7 @@ public:
     void readEncoders(long& left, long& right) const;
     void resetEncoders();
     void advanceCell() override;
+    int advanceCells(int maxCells, ports::IStraightRunObserver& observer) override;
     void turnLeft() override;
     void turnRight() override;
     void turnAround() override;

@@ -32,6 +32,7 @@ constexpr std::array<CalibrationField, kCalibrationFieldCount> kFields{{
     {"reancorar_parede", &Calibration::reanchorOnWalls, 0.0, 1.0, "0/1"},
     {"parada_dinamica", &Calibration::dynamicFrontStop, 0.0, 1.0, "0/1"},
     {"vies_giro", &Calibration::gyroBiasTracking, 0.0, 1.0, "0/1"},
+    {"reta_continua", &Calibration::continuousRun, 0.0, 1.0, "0/1"},
 }};
 
 }  // namespace

@@ -37,6 +37,9 @@ constexpr char kGyroFailure[] = "giroscopio sem leitura";
 // Rampa de tensão: depois de mais que isto sem comando o motor recomeça do zero; no 1º comando conta-se um
 // passo de controle (10 ms).
 constexpr double kSlewGapS = 0.1;
+// Reta contínua: o observador mandou parar numa célula, mas não dá para frear a tempo (não deveria acontecer:
+// a decisão sai ~59 mm antes do centro e frear de 120 mm/s pede ~32 mm).
+constexpr char kRunBrakeFailure[] = "reta continua: nao freou a tempo na celula";
 constexpr double kControlDtForRampS = 0.01;
 constexpr char kShortOfCellFailure[] = "nao chegou ao fim da celula";
 // Laço de controle: 2 ms. O intervalo real é medido a cada volta (I²C do giroscópio, BLE, log).
@@ -544,7 +547,7 @@ void Drv8833MotionAdapter::encoderWatch(int seconds) {
     clearLastMove();
 }
 
-void Drv8833MotionAdapter::testManeuver(Maneuver maneuver) {
+void Drv8833MotionAdapter::testManeuver(Maneuver maneuver, int cells) {
     using Direction = controller::PivotMove::Direction;
     clearLastMove();
     lastShortMm_ = 0.0;
@@ -584,6 +587,14 @@ void Drv8833MotionAdapter::testManeuver(Maneuver maneuver) {
         case Maneuver::Reverse:
             reverseCell();
             break;
+        case Maneuver::AdvanceRun: {
+            // `andar N`: o trecho contínuo sem Navigator (o observador sempre segue até a última célula).
+            struct AlwaysContinue final : ports::IStraightRunObserver {
+                bool continuePast(int, double) override { return true; }
+            } always;
+            (void)advanceCells(cells, always);
+            break;
+        }
         case Maneuver::None:
             break;
     }
@@ -649,6 +660,42 @@ void Drv8833MotionAdapter::advanceCell() {
     straight(distance, "andar 1 celula", walls_ != nullptr && calibration_.centerOnWalls >= 0.5);
     trackGyroBias();
     reanchorOnFrontWall(fromCenter);
+}
+
+// Reta contínua (20/11): um trecho de até `maxCells` células num movimento só. Antes de cada centro o
+// observador (o Navigator) decide se passa; o trecho para no centro em que ele disser não, ou na última.
+// Devolve quantas células andou, pelos encoders (uma parada pela parede ou uma falha no meio contam até o
+// centro mais próximo).
+int Drv8833MotionAdapter::advanceCells(int maxCells, ports::IStraightRunObserver& observer) {
+    if (maxCells <= 1) {
+        advanceCell();
+        return 1;
+    }
+    const bool fromCenter = aheadMm_ == 0.0;
+    runOffsetMm_ = -aheadMm_ + wallFixMm_;
+    wallFixMm_ = 0.0;
+    aheadMm_ = 0.0;
+    runObserver_ = &observer;
+    runCells_ = maxCells;
+    runAsked_ = 0;
+    runStopCell_ = maxCells;
+    std::snprintf(runName_, sizeof runName_, "trecho de %d celulas", maxCells);
+    straight(maxCells * domain::robot::kCellSizeMm + runOffsetMm_, runName_,
+             walls_ != nullptr && calibration_.centerOnWalls >= 0.5);
+    runObserver_ = nullptr;
+    const double travelledMm =
+        0.5 * (mmFromPulses(endLeftCount_) + mmFromPulses(endRightCount_));
+    const long nearest = std::lround((travelledMm - runOffsetMm_) / domain::robot::kCellSizeMm);
+    const int moved = static_cast<int>(std::clamp<long>(nearest, 0, runStopCell_));
+    // O quanto parou antes do centro da célula relatada (para a ré seguinte).
+    lastShortMm_ = std::max(0.0, moved * domain::robot::kCellSizeMm + runOffsetMm_ - travelledMm);
+#if CONFIG_RATO_LOG_RETA
+    ESP_LOGI("reta", "trecho continuo: %d de %d celulas (perguntou ate a %d), andou %.0f mm, parou antes %.0f mm",
+             moved, maxCells, runAsked_, travelledMm, lastShortMm_);
+#endif
+    trackGyroBias();
+    reanchorOnFrontWall(fromCenter && moved == runStopCell_);
+    return moved;
 }
 
 // Recalibra o desvio do giroscópio com o robô parado (domain::updateGyroBias), com `calib vies_giro=1`. Espera
@@ -813,7 +860,8 @@ void Drv8833MotionAdapter::straight(double distanceMm, const char* name, bool ce
         if (aborted()) {
             break;
         }
-        if (now > controller::robot::kStraightTimeoutS) {
+        // Tempo-limite: o de uma célula ou a duração do perfil (trecho de várias células) mais 1 s.
+        if (now > std::max(controller::robot::kStraightTimeoutS, move.duration() + 1.0)) {
             lastMoveOk_ = false;  // as rodas não levaram o robô ao fim no tempo
             lastMoveFailure_ = kTimeoutFailure;
             break;
@@ -876,11 +924,32 @@ void Drv8833MotionAdapter::straight(double distanceMm, const char* name, bool ce
             }
         }
 
-        // Parada pela parede da frente: só para a frente, depois de meia reta.
         const double travelled = 0.5 * (leftMm + rightMm);
+        // Reta contínua: quando os ToF laterais passam sobre o centro da próxima célula (o eixo ~59 mm
+        // antes dele), o Navigator lê as paredes dela e decide se passa. Se não, o alvo encurta para
+        // aquele centro: frear de 120 mm/s pede ~32 mm.
+        if (runObserver_ != nullptr && sign > 0.0 && runAsked_ < runCells_ - 1) {
+            const int index = runAsked_ + 1;
+            const double centerMm = index * domain::robot::kCellSizeMm + runOffsetMm_;
+            if (travelled >= centerMm - calibration_.sideTofAheadOfAxleMm) {
+                runAsked_ = index;
+                if (!runObserver_->continuePast(index, calibration_.sideTofAheadOfAxleMm)) {
+                    if (!move.retarget(centerMm)) {
+                        lastMoveOk_ = false;
+                        lastMoveFailure_ = kRunBrakeFailure;
+                        break;
+                    }
+                    runStopCell_ = index;
+                }
+            }
+        }
+
+        // Parada pela parede da frente: só para a frente, e só na última célula do trecho (numa reta de
+        // uma célula, depois de meia reta, como antes).
+        const double planned = move.target();
         if (readTofInStraight && !suppressFrontStop_ && sign > 0.0 && front_ != nullptr &&
             now - lastFrontPoll >= kWallPollS &&
-            travelled > 0.5 * std::fabs(distanceMm)) {
+            travelled > std::max(0.5 * planned, planned - 0.5 * domain::robot::kCellSizeMm)) {
             lastFrontPoll = now;
             if (const auto reading = front_->freshReading(Vl53l1xSensorAdapter::Side::Front);
                 reading && (reading->kind == drivers::ReadingKind::Distance ||
@@ -894,7 +963,7 @@ void Drv8833MotionAdapter::straight(double distanceMm, const char* name, bool ce
                                                      0.5 * (leftSpeedMmS + rightSpeedMmS))
                         : calibration_.frontStopMm;
                 if (reading->kind == drivers::ReadingKind::TooClose || reading->mm < stopMm) {
-                    lastShortMm_ = std::max(0.0, std::fabs(distanceMm) - travelled);
+                    lastShortMm_ = std::max(0.0, planned - travelled);
                     ++frontStops_;
                     break;
                 }

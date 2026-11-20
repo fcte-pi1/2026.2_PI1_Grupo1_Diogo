@@ -44,6 +44,7 @@ struct Calibration {
     double reanchorOnWalls{0.0};    // reancorar_parede: 1 = corrige a posição pela parede da frente
     double dynamicFrontStop{0.0};   // parada_dinamica: 1 = a parada da frente conta a velocidade
     double gyroBiasTracking{0.0};   // vies_giro: 1 = remede o desvio do giroscópio a cada parada
+    double continuousRun{1.0};      // reta_continua: 1 = trecho reto em um movimento só (sem parar em cada célula)
 };
 
 struct CalibrationField {
@@ -54,7 +55,7 @@ struct CalibrationField {
     std::string_view unit;
 };
 
-inline constexpr std::size_t kCalibrationFieldCount = 23;
+inline constexpr std::size_t kCalibrationFieldCount = 24;
 [[nodiscard]] const std::array<CalibrationField, kCalibrationFieldCount>& calibrationFields() noexcept;
 
 enum class CalibrationSet { Ok, UnknownName, OutOfRange, NotANumber };
