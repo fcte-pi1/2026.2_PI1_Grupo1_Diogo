@@ -44,6 +44,48 @@ TEST(StraightMoveSimulation, VoltageRampStillMovesTheStiffWheelAndKeepsTheWheels
     EXPECT_LT(soft.maxDifferenceMm, 3.0);
 }
 
+// Reta contínua (20/11): três células num movimento só chegam a 540 mm sem parar no meio.
+TEST(StraightMoveSimulation, ThreeCellsInOneMoveReachTheEndWithoutStoppingInBetween) {
+    const StraightResult run = simulateStraight(easyWheel(), easyWheel(), 3.0 * kCell, 0.0, 6.0, 50.0);
+    ASSERT_TRUE(run.done);
+    EXPECT_NEAR(run.leftMm, 3.0 * kCell, 2.0);
+    EXPECT_NEAR(run.rightMm, 3.0 * kCell, 2.0);
+    const StraightResult one = simulateStraight(easyWheel(), easyWheel(), kCell, 0.0, 3.0, 50.0);
+    EXPECT_LT(run.seconds, 3.0 * one.seconds - 1.0);  // bem mais rápido que parar em cada célula
+}
+
+// Encurtar o alvo andando (o caminho vira na célula que está chegando): a reta para no centro dela.
+TEST(StraightMoveSimulation, RetargetWhileMovingStopsAtTheNewCellCenter) {
+    constexpr double kDt = 0.002;
+    MotorWheel left = easyWheel();
+    MotorWheel right = easyWheel();
+    controller::StraightMove move(3.0 * kCell, controller::robot::kStraightMove);
+    controller::SpeedEstimator leftSpeed;
+    controller::SpeedEstimator rightSpeed;
+    leftSpeed.reset(0.0, 0.0);
+    rightSpeed.reset(0.0, 0.0);
+    bool retargeted = false;
+    bool done = false;
+    for (double t = kDt; t < 6.0 && !done; t += kDt) {
+        const double l = left.encoderMm();
+        const double r = right.encoderMm();
+        // Os ToF laterais (59 mm à frente do eixo) passam o centro da 2a célula: o caminho vira ali.
+        if (!retargeted && 0.5 * (l + r) >= 2.0 * kCell - 59.0) {
+            ASSERT_TRUE(move.retarget(2.0 * kCell));
+            retargeted = true;
+        }
+        const controller::StraightMove::Output out =
+            move.step(kDt, l, r, leftSpeed.update(l, t), rightSpeed.update(r, t));
+        done = out.done;
+        left.step(out.leftVolts, kDt);
+        right.step(out.rightVolts, kDt);
+    }
+    ASSERT_TRUE(done);
+    EXPECT_TRUE(move.reachedTarget());
+    EXPECT_NEAR(left.position, 2.0 * kCell, 3.0);
+    EXPECT_NEAR(right.position, 2.0 * kCell, 3.0);
+}
+
 // O caso de 07/11: uma roda bem mais dura (não sai do lugar com 2 V, mais carga). Cada roda recebe a
 // tensão de que precisa: as duas chegam juntas e o robô não vira.
 TEST(StraightMoveSimulation, StiffWheelGetsMoreVoltageAndKeepsUp) {

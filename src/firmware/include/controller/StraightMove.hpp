@@ -1,5 +1,6 @@
 #pragma once
 
+#include "controller/RunProfile.hpp"
 #include "controller/TrapezoidProfile.hpp"
 #include "controller/WheelLoop.hpp"
 
@@ -47,10 +48,14 @@ public:
     [[nodiscard]] int saturatedSteps() const noexcept { return saturated_; }
     [[nodiscard]] int steps() const noexcept { return steps_; }
     [[nodiscard]] double duration() const noexcept { return profile_.duration(); }
+    [[nodiscard]] double target() const noexcept { return profile_.target(); }
+    // Reta contínua (20/11): muda o alvo com o robô andando (encurta para parar no centro da célula que
+    // está chegando, ou alonga). False se não dá para frear a tempo; nada muda nesse caso.
+    [[nodiscard]] bool retarget(double newDistanceMm) noexcept { return profile_.retarget(newDistanceMm, time_); }
 
 private:
     StraightMoveConfig config_;
-    TrapezoidProfile profile_;
+    RunProfile profile_;
     WheelLoop left_;
     WheelLoop right_;
     double time_{0.0};

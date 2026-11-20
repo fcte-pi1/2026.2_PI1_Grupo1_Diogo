@@ -62,6 +62,7 @@ add_library(firmware_logic STATIC
     src/domain/WheelStall.cpp
     src/domain/BridgeDrive.cpp
     src/domain/MotorVoltage.cpp
+    src/controller/RunProfile.cpp
     src/controller/TrapezoidProfile.cpp
     src/controller/WheelLoop.cpp
     src/controller/StraightMove.cpp

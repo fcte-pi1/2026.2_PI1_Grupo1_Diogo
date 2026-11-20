@@ -24,6 +24,7 @@ idf_component_register(
         "${CORE_ROOT}/src/domain/BridgeDrive.cpp"
         "${CORE_ROOT}/src/drivers/Vl53l1x.cpp"
         "${CORE_ROOT}/src/domain/MotorVoltage.cpp"
+        "${CORE_ROOT}/src/controller/RunProfile.cpp"
         "${CORE_ROOT}/src/controller/TrapezoidProfile.cpp"
         "${CORE_ROOT}/src/controller/WheelLoop.cpp"
         "${CORE_ROOT}/src/controller/StraightMove.cpp"
