@@ -237,7 +237,7 @@ def check_calibration_in_use(lines: list[str]) -> list[Check]:
     shown = {m["name"]: float(m["value"]) for m in find_matches(
         lines, r"calib: (?P<name>\w+) = (?P<value>-?[\d.]+) .*?(padrao|ALTERADO)")}
     checks = [Check.judge(len(shown) >= len(EXPECTED_CALIBRATION),
-                          f"{len(shown)} chaves do calib no log (esperado {len(EXPECTED_CALIBRATION) + 2})")]
+                          f"{len(shown)} chaves do calib no log (esperado {len(EXPECTED_CALIBRATION)})")]
     for name, expected in EXPECTED_CALIBRATION.items():
         value = shown.get(name)
         checks.append(Check.judge(value is not None and abs(value - expected) < 1e-6,
