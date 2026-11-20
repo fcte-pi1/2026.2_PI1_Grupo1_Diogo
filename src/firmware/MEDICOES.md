@@ -45,3 +45,15 @@ O firmware usa 50,5 (= 47,5 + 3,0 até a janela do sensor) e 59,15 para os later
 Os 3 mm até a janela foram assumidos na versão anterior; confirmar com paquímetro se o módulo real tem a janela a 3 mm da origem.
 Lateral: confere com o campo (84 - 50,5 = 33,5 mm; medido 33,6). Frontal: o CAD (107,75) contradiz o campo (~85): ver o conflito acima.
 Não existe cabo à frente do robô (operador, 19/11): `cabo_frente_mm` = 0. O cabo vermelho e preto da bateria sai pela lateral esquerda e não entra no modelo. `preset_cad` é só um registro.
+
+## Medidas do robô reais (20/11), lidas de fotos com uma fita métrica
+Só havia a fita; as medidas foram lidas das fotos (`robot-tests/fotos/medida_*_20_11.jpg`), com incerteza de ~3 mm.
+| Cota | Valor lido | Antes no `calib` | Como saiu |
+|:--|--:|--:|:--|
+| Comprimento do chassi (traseira até a placa da frente, foto de baixo) | ~120 mm | 17,25 + 87 = 104 | confere com o `.3mf` (119,5), não com o CAD (124,5) nem com o campo |
+| Eixo até a frente do chassi | ~100 mm | 87 | 120 - 17,25 (traseira) ≈ 102; foto de cima ≈ 96-100 |
+| Eixo até a janela do ToF frontal | ~98 mm | 85 | o ToF frontal lê ~13 mm A MAIS perto da parede (B3-F50: +13,1): A2 (eixo a 127 mm da parede, F=42) = janela a 127 - (42 - 13) = 98 mm. O "85" de campo estava contaminado por esse desvio |
+| Distância entre as janelas dos ToF laterais | ~111 mm (±55,5 do centro) | 101 (±50,5) | foto de cima; confere com as leituras: robô centrado lê E=28 e D=27, e 28 + 27 + 111 = 166 mm de corredor (≈ 168) |
+| Largura sobre as rodas | ~106 mm | 108 | foto frontal |
+Conclusões: (1) o corredor de teste NÃO é de 150 mm, é de ~166-168 mm; a "largura de 150" vinha de somar 101 em vez de 111. (2) A frente do robô é ~13 mm mais longa do que o firmware supunha, e os sensores laterais são a parte mais larga (~112-114 mm, contra 108 das rodas). (3) O arco de 19/11 e de hoje (SERPENTINA-2, travou a -66 graus) partiu com a frente 13 mm mais perto da parede do que o modelo achava.
+Aplicado no robô (calib): eixo_ate_frente=100, eixo_ate_tof_frente=98, largura_frente=112, tof_lado_ao_centro=55,5, largura_corredor=168 (volta ao padrão), ganho_parede=3, max_parede=50.
