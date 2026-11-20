@@ -127,3 +127,21 @@ TEST(RunProfileFromState, StartsAtTheGivenSpeedAndStopsAtTheTarget) {
 
 }  // namespace
 }  // namespace micromouse::controller
+
+namespace micromouse::controller {
+namespace {
+
+// Uma correção de rumo positiva (vira mais para a esquerda) adianta a roda direita e atrasa a esquerda.
+TEST(PathMoveSteer, PositiveSteerPushesTheRightWheelAhead) {
+    const PathPlan plan{50.0, 90.0, 90.0, true, 90.0, robot::kArcEffectiveTrackMm};
+    PathMove plain(plan, robot::kStraightMove, 100.0);
+    PathMove steered(plan, robot::kStraightMove, 100.0);
+    const PathMove::Output a = plain.step(0.01, 0.0, 0.0, 100.0, 100.0, 0.0);
+    const PathMove::Output b = steered.step(0.01, 0.0, 0.0, 100.0, 100.0, 10.0);
+    EXPECT_GT(b.rightVolts, a.rightVolts);
+    EXPECT_LT(b.leftVolts, a.leftVolts);
+    EXPECT_NEAR(steered.plannedHeadingDeg(plan.lengthMm()), -90.0, 1e-9);
+}
+
+}  // namespace
+}  // namespace micromouse::controller

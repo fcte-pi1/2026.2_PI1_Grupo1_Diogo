@@ -20,6 +20,7 @@ add_executable(firmware_tests
     simulation/SimulatedRobot.hpp
     use_cases/NavigatorTest.cpp
     use_cases/ContinuousRunTest.cpp
+    use_cases/ContinuousTurnTest.cpp
     use_cases/TrackMaze0911Test.cpp
     use_cases/TrackMazeCornersTest.cpp
     use_cases/ExplorationTest.cpp

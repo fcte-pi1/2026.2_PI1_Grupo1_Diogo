@@ -88,7 +88,7 @@ adapters::BleTelemetryAdapter gBle;
 // curvas, parada pela parede da frente...) fica em domain::Calibration. O comando `calib` troca
 // os valores sem regravar o firmware; eles valem a partir do boot seguinte também.
 constexpr char kCalibNamespace[] = "rato";
-constexpr char kCalibKey[] = "calib7";  // mude o número se a struct mudar de formato (calib1: 13 campos)
+constexpr char kCalibKey[] = "calib8";  // mude o número se a struct mudar de formato (calib1: 13 campos)
 
 domain::Calibration defaultCalibration() {
     domain::Calibration calibration;
@@ -362,6 +362,19 @@ void onBleCommand(const std::string& command) {
         if (command == "re") maneuver = M::Reverse;  // uma célula de ré (saída de beco)
         gRemoteStop = false;  // zera aqui, e não ao começar: um "parar" que chegue depois vale
         gTestManeuver = static_cast<int>(maneuver);
+    } else if (command == "curvac d" || command == "curvac e" || command.rfind("curvac d ", 0) == 0 ||
+               command.rfind("curvac e ", 0) == 0) {
+        // `curvac d|e [N]` (20/11): anda N células (1 a 8, padrão 1) e vira na última SEM parar (curva contínua),
+        // terminando no centro da célula seguinte à curva.
+        const int cells = command.size() > 9 ? std::atoi(command.c_str() + 9) : 1;
+        if (cells >= 1 && cells <= 8) {
+            using M = adapters::Drv8833MotionAdapter::Maneuver;
+            gTestRunCells = cells;
+            gRemoteStop = false;
+            gTestManeuver = static_cast<int>(command[7] == 'd' ? M::RunTurnRight : M::RunTurnLeft);
+        } else {
+            ESP_LOGW("teste", "curvac d|e N: N de 1 a 8 (veio '%s')", command.c_str());
+        }
     } else if (command.rfind("re ", 0) == 0) {
         // `re N` (20/11): N células de ré num movimento só, de 2 a 8.
         const int cells = std::atoi(command.c_str() + 3);
@@ -1164,6 +1177,8 @@ void navigationTask(void*) {
 #if !CONFIG_RATO_BANCADA
         // Reta contínua (20/11): trechos retos num movimento só (`calib reta_continua`, padrão 1).
         navigator.setContinuousRuns(gMotion.calibration().continuousRun >= 0.5);
+        navigator.setContinuousTurns(gMotion.calibration().continuousRun >= 0.5 &&
+                                     gMotion.calibration().continuousTurn >= 0.5);
 #endif
 
         domain::BatteryMonitor battery;
@@ -1302,9 +1317,15 @@ void navigationTask(void*) {
                 using Side = adapters::Vl53l1xSensorAdapter::Side;
                 const use_cases::StepReport& r = navigator.lastStep();
                 const domain::Position now = navigator.getPosition();
-                char runText[24] = "";
+                char runText[64] = "";
+                int runUsed = 0;
                 if (r.cells > 1) {
-                    std::snprintf(runText, sizeof runText, " (%d celulas)", r.cells);
+                    runUsed = std::snprintf(runText, sizeof runText, " (%d celulas)", r.cells);
+                }
+                if (r.runTurn != use_cases::StepAction::None && runUsed >= 0 &&
+                    runUsed < static_cast<int>(sizeof runText)) {
+                    std::snprintf(runText + runUsed, sizeof runText - static_cast<size_t>(runUsed),
+                                  " (curva %s sem parar)", use_cases::stepActionName(r.runTurn));
                 }
                 ESP_LOGI("nav",
                          "passo %d: cel (l%d,c%d) rumo %c | tof E=%d (%s) F=%d (%s) D=%d (%s) | "

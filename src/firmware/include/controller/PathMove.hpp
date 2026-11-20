@@ -42,9 +42,12 @@ public:
 
     PathMove(const PathPlan& plan, const StraightMoveConfig& config, double startSpeedMmPerS = 0.0) noexcept;
 
-    // Posições relativas ao início da trajetória.
+    // Posições relativas ao início da trajetória. `steerMm` > 0 vira mais para a esquerda (a roda direita adianta
+    // steer/2 e a esquerda atrasa steer/2): é por onde entra a correção do rumo pelo giroscópio.
     [[nodiscard]] Output step(double dtSeconds, double leftMm, double rightMm, double leftMmPerS,
-                              double rightMmPerS) noexcept;
+                              double rightMmPerS, double steerMm = 0.0) noexcept;
+    // Rumo planejado (graus, + = esquerda) para o eixo em `axleMm` da trajetória.
+    [[nodiscard]] double plannedHeadingDeg(double axleMm) const noexcept { return plan_.wheelsAt(axleMm).headingDeg; }
     [[nodiscard]] bool reachedTarget() const noexcept { return reached_; }
     [[nodiscard]] double elapsed() const noexcept { return time_; }
     [[nodiscard]] double duration() const noexcept { return profile_.duration(); }

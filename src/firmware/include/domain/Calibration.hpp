@@ -52,6 +52,10 @@ struct Calibration {
     // Folga do canto de fora do arco à parede da frente (mm). O modelo de 20/11 (domain/ArcClearance) mostra que, com o robô real
     // (frente 100, largura 112), 20 mm põe o início do arco colado no limite de trás da janela; 12 mm fica perto do ótimo.
     double arcClearanceMm{12.0};       // folga_arco
+    // Curva contínua (20/11): a reta que chega a uma curva vira sem parar, num arco de raio 90 que começa
+    // `antecipa_arco` mm antes da borda da célula da curva (o modelo de 20/11 dá a maior folga, ~11 mm, em 16).
+    double continuousTurn{1.0};        // curva_continua: 1 = vira sem parar (com reta_continua=1)
+    double continuousArcLeadMm{16.0};  // antecipa_arco
 };
 
 struct CalibrationField {
@@ -62,7 +66,7 @@ struct CalibrationField {
     std::string_view unit;
 };
 
-inline constexpr std::size_t kCalibrationFieldCount = 28;
+inline constexpr std::size_t kCalibrationFieldCount = 30;
 [[nodiscard]] const std::array<CalibrationField, kCalibrationFieldCount>& calibrationFields() noexcept;
 
 enum class CalibrationSet { Ok, UnknownName, OutOfRange, NotANumber };

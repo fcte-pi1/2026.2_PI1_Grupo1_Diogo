@@ -42,6 +42,9 @@ struct StepReport {
     bool avoidedBlindReverse{false};  // trocou uma ré às cegas por outro caminho
     int outsideOpenings{0};      // total de leituras "aberto" para fora do mapa até aqui
     int cells{1};                // células andadas neste passo (reta contínua: mais de uma)
+    // Curva contínua (20/11): o trecho terminou com uma curva sem parar (TurnLeft/TurnRight; None = não).
+    // A última das `cells` é a célula depois da curva.
+    StepAction runTurn{StepAction::None};
 };
 
 [[nodiscard]] const char* stepActionName(StepAction action) noexcept;
@@ -74,6 +77,8 @@ private:
     StepReport report_{};
     bool continuous_{false};           // reta contínua (20/11): várias células num movimento só
     int maxRunCells_{kDefaultMaxRunCells};
+    bool continuousTurns_{false};          // curva contínua (20/11): o trecho reto vira sem parar
+    std::optional<Direction> runTurn_{};   // a curva que o observador pediu no trecho em andamento
     void senseAndRecord();
     void recordSense(const ports::WallsAhead& wall);
     // Quantas células à frente o trecho pode ter: até a borda, uma parede conhecida ou o limite.
@@ -83,6 +88,8 @@ private:
                                        double axleBehindCenterMm);
     // Quantas células de ré o trecho pode ter: as de trás que o mapa sabe abertas e por onde o caminho segue de ré.
     [[nodiscard]] int reverseRunCells() const;
+    // Curva contínua: decide, chegando à célula `cellIndex`, se o trecho termina virando nela sem parar.
+    [[nodiscard]] ports::RunTurn turnInRun(Position start, int cellIndex, double axleBehindCenterMm);
     class RunObserver;
     void applyTurnTo(Direction target);
     [[nodiscard]] bool wasUnseen(Direction direction) const;
@@ -123,6 +130,10 @@ public:
         continuous_ = on;
         maxRunCells_ = maxCells > 1 ? maxCells : 1;
     }
+    // Curva contínua (20/11): com a reta contínua ligada, o trecho reto que chega a uma curva vira sem parar
+    // (IStraightRunObserver::turnIn). Só vira por um lado VISTO aberto andando; qualquer dúvida para no centro
+    // e a curva sai parada, como antes. O laço da corrida liga pela chave `curva_continua` do calib.
+    void setContinuousTurns(bool on) noexcept { continuousTurns_ = on; }
 };
 
 }  // namespace micromouse::use_cases

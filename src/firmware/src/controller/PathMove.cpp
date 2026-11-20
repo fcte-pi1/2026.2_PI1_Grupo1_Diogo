@@ -46,15 +46,15 @@ PathMove::PathMove(const PathPlan& plan, const StraightMoveConfig& config, doubl
       right_(config.wheel) {}
 
 PathMove::Output PathMove::step(double dtSeconds, double leftMm, double rightMm, double leftMmPerS,
-                                double rightMmPerS) noexcept {
+                                double rightMmPerS, double steerMm) noexcept {
     time_ += std::max(dtSeconds, 0.0);
     const RunProfile::Sample reference = profile_.at(time_);
     const PathPlan::Wheels wheels = plan_.wheelsAt(reference.position);
     // Sincronia: a diferença entre as rodas em relação à planejada.
     const double difference = (leftMm - rightMm) - (wheels.leftMm - wheels.rightMm);
     const double shift = 0.5 * config_.syncGain * difference;
-    const double leftTarget = wheels.leftMm - shift;
-    const double rightTarget = wheels.rightMm + shift;
+    const double leftTarget = wheels.leftMm - shift - 0.5 * steerMm;
+    const double rightTarget = wheels.rightMm + shift + 0.5 * steerMm;
     const double leftVolts =
         left_.update(leftTarget, reference.speed * wheels.leftFactor, leftMm, leftMmPerS, dtSeconds);
     const double rightVolts =

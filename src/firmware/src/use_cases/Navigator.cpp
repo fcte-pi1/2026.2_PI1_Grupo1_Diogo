@@ -20,6 +20,9 @@ public:
     bool continuePast(int cellIndex, double axleBehindCenterMm) override {
         return navigator_.continueRunPast(start_, cellIndex, maxCells_, axleBehindCenterMm);
     }
+    ports::RunTurn turnIn(int cellIndex, double axleBehindCenterMm) override {
+        return navigator_.turnInRun(start_, cellIndex, axleBehindCenterMm);
+    }
 
 private:
     Navigator& navigator_;
@@ -237,13 +240,23 @@ void Navigator::step() {
     applyTurnTo(*nextDir);
     // Reta contínua: se cabe mais de uma célula à frente, anda o trecho num movimento só.
     const int maxCells = continuous_ ? runCellsAhead() : 1;
-    if (maxCells > 1) {
+    if (continuous_ && (maxCells > 1 || continuousTurns_)) {
         const Position start = position_;
         RunObserver observer{*this, start, maxCells};
+        runTurn_.reset();
         const int moved = motion_.advanceCells(maxCells, observer);
         position_ = {start.row + rowDelta(heading_) * moved, start.column + colDelta(heading_) * moved};
         report_.cells = moved;
         entrySide_ = opposite(heading_);
+        if (runTurn_) {
+            // O trecho terminou virando na célula `moved`, sem parar: o robô está na célula seguinte, já virado.
+            report_.runTurn = *runTurn_ == turnLeft(heading_) ? StepAction::TurnLeft : StepAction::TurnRight;
+            heading_ = *runTurn_;
+            position_ = {position_.row + rowDelta(heading_), position_.column + colDelta(heading_)};
+            report_.cells = moved + 1;
+            entrySide_ = opposite(heading_);
+            runTurn_.reset();
+        }
         return;
     }
     motion_.advanceCell();
@@ -292,6 +305,31 @@ bool Navigator::continueRunPast(Position start, int cellIndex, int maxCells, dou
     // dúvida (curva, beco, lado não lido) para no centro, e o passo seguinte decide parado.
     return next && *next == heading_ && !wasUnseen(heading_) &&
            maze_.getWall(position_, heading_) != Wall::Present;
+}
+
+ports::RunTurn Navigator::turnInRun(Position start, int cellIndex, double axleBehindCenterMm) {
+    if (!continuousTurns_ || runTurn_) {
+        return ports::RunTurn::None;
+    }
+    // A célula que está chegando passa a ser a posição do Navigator: as paredes lidas andando são dela.
+    position_ = {start.row + rowDelta(heading_) * cellIndex, start.column + colDelta(heading_) * cellIndex};
+    entrySide_ = opposite(heading_);
+    recordSense(sensor_.senseMoving(axleBehindCenterMm));
+    if (reachedGoal()) {
+        return ports::RunTurn::None;  // para no objetivo
+    }
+    flood_.computeFloodFill(goals_);
+    const std::optional<Direction> next = flood_.nextDirection(position_);
+    if (!next || (*next != turnLeft(heading_) && *next != turnRight(heading_))) {
+        return ports::RunTurn::None;
+    }
+    // Só vira por um lado lido ABERTO agora e que leva a uma célula do labirinto.
+    const Position after{position_.row + rowDelta(*next), position_.column + colDelta(*next)};
+    if (wasUnseen(*next) || maze_.getWall(position_, *next) != Wall::Open || !maze_.contains(after)) {
+        return ports::RunTurn::None;
+    }
+    runTurn_ = *next;
+    return *next == turnLeft(heading_) ? ports::RunTurn::Left : ports::RunTurn::Right;
 }
 
 bool Navigator::run(int maxSteps) {

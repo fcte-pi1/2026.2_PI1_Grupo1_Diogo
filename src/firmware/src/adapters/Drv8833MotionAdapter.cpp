@@ -13,6 +13,7 @@
 
 #include "controller/HeadingFusion.hpp"
 #include "controller/OffsetFilter.hpp"
+#include "controller/PathMove.hpp"
 #include "controller/RobotMotion.hpp"
 #include "domain/ArcClearance.hpp"
 #include "domain/DynamicFrontStop.hpp"
@@ -48,6 +49,18 @@ constexpr double kControlDtForRampS = 0.01;
 constexpr char kPivotNoFitFailure[] =
     "giro no lugar nao cabe nesta celula: sem espaco para recuar e a frente do robo nao cabe girando";
 constexpr char kShortOfCellFailure[] = "nao chegou ao fim da celula";
+// Curva contínua (20/11). O trecho pergunta se vira `kRunTurnDecisionMm` antes do ponto em que o arco começa, e só
+// pergunta se ainda não passou dele (mais de `kRunTurnLateMm` atrasado o arco bate: o modelo dá folga negativa).
+// No arco, o giroscópio corrige o rumo (ganho e teto em mm de diferença entre as rodas); um erro maior que
+// `kRunTurnJamDeg` entre o rumo planejado e o medido é o arco preso numa parede.
+constexpr double kRunTurnDecisionMm = 8.0;
+constexpr double kRunTurnLateMm = 3.0;
+constexpr double kRunTurnHeadingGain = 0.5;
+constexpr double kRunTurnSteerMaxMm = 12.0;
+constexpr double kRunTurnJamDeg = 20.0;
+constexpr double kRunTurnMaxStartFixDeg = 10.0;
+constexpr double kDegToRad = 3.14159265358979323846 / 180.0;
+constexpr char kRunTurnJamFailure[] = "curva continua travada (o giroscopio nao acompanhou as rodas)";
 // Laço de controle: 2 ms. O intervalo real é medido a cada volta (I²C do giroscópio, BLE, log).
 constexpr TickType_t kControlPeriod = pdMS_TO_TICKS(2);
 // O intervalo medido é limitado: uma volta muito atrasada não pode virar um salto no integral.
@@ -604,6 +617,23 @@ void Drv8833MotionAdapter::testManeuver(Maneuver maneuver, int cells) {
         case Maneuver::ReverseRun:
             (void)reverseCells(cells);
             break;
+        case Maneuver::RunTurnLeft:
+        case Maneuver::RunTurnRight: {
+            // `curvac d/e`: anda até a célula da frente e vira nela sem parar (curva contínua), terminando no centro
+            // da célula seguinte à curva. Precisa de `curva_continua=1`.
+            struct TurnAtLast final : ports::IStraightRunObserver {
+                ports::RunTurn turn;
+                int last;
+                bool continuePast(int, double) override { return true; }
+                ports::RunTurn turnIn(int index, double) override {
+                    return index == last ? turn : ports::RunTurn::None;
+                }
+            } observer;
+            observer.turn = maneuver == Maneuver::RunTurnLeft ? ports::RunTurn::Left : ports::RunTurn::Right;
+            observer.last = std::max(cells, 1);
+            (void)advanceCells(observer.last, observer);
+            break;
+        }
         case Maneuver::None:
             break;
     }
@@ -691,10 +721,15 @@ int Drv8833MotionAdapter::reverseCells(int cells) {
 // Devolve quantas células andou, pelos encoders (uma parada pela parede ou uma falha no meio contam até o
 // centro mais próximo).
 int Drv8833MotionAdapter::advanceCells(int maxCells, ports::IStraightRunObserver& observer) {
-    if (maxCells <= 1) {
+    // Uma célula só: com a curva contínua ligada, passa pelo trecho (que pode terminar virando).
+    if (maxCells <= 1 && calibration_.continuousTurn < 0.5) {
         advanceCell();
         return 1;
     }
+    maxCells = std::max(maxCells, 1);
+    runTurnAsked_ = 0;
+    runTurn_ = ports::RunTurn::None;
+    runTurnJammed_ = false;
     const bool fromCenter = aheadMm_ == 0.0;
     runOffsetMm_ = -aheadMm_ + wallFixMm_;
     wallFixMm_ = 0.0;
@@ -707,6 +742,10 @@ int Drv8833MotionAdapter::advanceCells(int maxCells, ports::IStraightRunObserver
     straight(maxCells * domain::robot::kCellSizeMm + runOffsetMm_, runName_,
              walls_ != nullptr && calibration_.centerOnWalls >= 0.5);
     runObserver_ = nullptr;
+    if (runTurn_ != ports::RunTurn::None) {
+        finishRunTurn();
+        return runTurnCell_;
+    }
     const double travelledMm =
         0.5 * (mmFromPulses(endLeftCount_) + mmFromPulses(endRightCount_));
     const long nearest = std::lround((travelledMm - runOffsetMm_) / domain::robot::kCellSizeMm);
@@ -720,6 +759,48 @@ int Drv8833MotionAdapter::advanceCells(int maxCells, ports::IStraightRunObserver
     trackGyroBias();
     reanchorOnFrontWall(fromCenter && moved == runStopCell_);
     return moved;
+}
+
+// Curva contínua: o trecho terminou com o arco (e a reta de saída) até o centro da célula seguinte à curva.
+// Deu certo: o ajuste fino pelo giroscópio, como depois do arco parado. O arco travou: desfaz pelo giroscópio, anda
+// até o centro da célula da curva e vira do jeito antigo (parado, posicionado pelo frontal), e anda até a célula
+// seguinte. O Navigator conta a curva feita nos dois casos.
+void Drv8833MotionAdapter::finishRunTurn() {
+    const auto direction = runTurn_ == ports::RunTurn::Right ? controller::PivotMove::Direction::Right
+                                                             : controller::PivotMove::Direction::Left;
+    if (lastMoveOk_) {
+        lastTurnDeg_ = runTurnStartHeadingDeg_ + runTurnGyroDeg_;  // em relação ao corredor de entrada
+        trimArc(direction);
+        aheadMm_ = 0.0;
+        trackGyroBias();
+        return;
+    }
+    if (!runTurnJammed_ || aborted()) {
+        return;  // falhou por outro motivo (tempo, roda, operador): vai ao Erro com o motivo
+    }
+    ++arcRetriesUsed_;
+    lastMoveOk_ = true;
+    lastMoveFailure_ = "";
+    undoFailure_[0] = '\0';
+    lastTurnDeg_ = runTurnGyroDeg_;  // o desfazer volta o que o arco girou
+#if CONFIG_RATO_LOG_RETA
+    ESP_LOGW("curva", "curva continua travou a %.0f graus: desfaz e vira parado", runTurnGyroDeg_);
+#endif
+    if (!undoArc(direction)) {
+        lastMoveOk_ = false;
+        lastMoveFailure_ = undoFailure_[0] != '\0' ? undoFailure_ : kRunTurnJamFailure;
+        lastMoveName_ = "curva continua";
+        lastMoveWasTurn_ = true;
+        return;
+    }
+    headingResidualDeg_ = runTurnStartHeadingDeg_;
+    aheadMm_ = 0.0;
+    // O desfazer deixa o robô perto de onde o arco começou: o centro da célula da curva fica ~1 raio + antecipação
+    // à frente. A parada pela parede da frente vale nesta reta.
+    straight(controller::robot::kArcSetbackMm + calibration_.continuousArcLeadMm, "ate o centro antes da curva",
+             centerBeforeTurn());
+    arcTurn(direction);
+    advanceCell();
 }
 
 // Recalibra o desvio do giroscópio com o robô parado (domain::updateGyroBias), com `calib vies_giro=1`. Espera
@@ -847,6 +928,16 @@ void Drv8833MotionAdapter::straight(double distanceMm, const char* name, bool ce
     [[maybe_unused]] bool poseValid = false;           // estimativa de pose lateral (item 4)
     [[maybe_unused]] double poseOffsetMm = 0.0;        // eixo para a direita do centro, mm
     double lastWallPoll = -kWallPollS;
+    // Curva contínua (20/11): quando o trecho decide virar, o mesmo laço troca a reta pela trajetória do arco
+    // (controller::PathMove), sem parar. Posições do arco relativas ao ponto da troca.
+    std::optional<controller::PathMove> path;
+    double pathLeft0 = 0.0;
+    double pathRight0 = 0.0;
+    double pathStartS = 0.0;
+    double pathGyroDeg = 0.0;
+    [[maybe_unused]] double pathMaxErrorDeg = 0.0;
+    [[maybe_unused]] double pathEntrySpeed = 0.0;
+    [[maybe_unused]] double pathTravelledAtStart = 0.0;
 
     lastMoveName_ = name;
     lastMoveWasTurn_ = false;
@@ -906,22 +997,29 @@ void Drv8833MotionAdapter::straight(double distanceMm, const char* name, bool ce
         if (aborted()) {
             break;
         }
-        // Tempo-limite: o de uma célula ou a duração do perfil (trecho de várias células) mais 1 s.
-        if (now > std::max(controller::robot::kStraightTimeoutS, move.duration() + 1.0)) {
+        // Tempo-limite: o de uma célula ou a duração do perfil (trecho de várias células) mais 1 s; no arco da
+        // curva contínua, a duração da trajetória mais 1,5 s.
+        const double timeLimit = path ? pathStartS + path->duration() + 1.5
+                                      : std::max(controller::robot::kStraightTimeoutS, move.duration() + 1.0);
+        if (now > timeLimit) {
             lastMoveOk_ = false;  // as rodas não levaram o robô ao fim no tempo
             lastMoveFailure_ = kTimeoutFailure;
             break;
         }
         {
             const double rate = gyroRate();
-            headingDeg = calibration_.headingFusion > 0.0
-                             ? headingFusion.step(rate, wheelDeg, dt, calibration_.headingFusion)
-                             : headingDeg + rate * dt;
+            if (path) {
+                pathGyroDeg += rate * dt;  // no arco, só o giroscópio (as rodas patinam e a bitola muda)
+            } else {
+                headingDeg = calibration_.headingFusion > 0.0
+                                 ? headingFusion.step(rate, wheelDeg, dt, calibration_.headingFusion)
+                                 : headingDeg + rate * dt;
+            }
         }
         if (gyroLost()) {
             break;
         }
-        if (domain::headingLost(headingDeg, controller::robot::kMaxHeadingErrorDeg)) {
+        if (!path && domain::headingLost(headingDeg, controller::robot::kMaxHeadingErrorDeg)) {
             lastMoveOk_ = false;
             // Para na hora (sem recentralizar: girar de volta num corredor de ~26 mm de folga
             // raspa na parede) e leva ao Erro com o desvio no motivo.
@@ -958,7 +1056,7 @@ void Drv8833MotionAdapter::straight(double distanceMm, const char* name, bool ce
         }
 #endif
 
-        if (sides != nullptr && now - lastWallPoll >= kWallPollS) {
+        if (!path && sides != nullptr && now - lastWallPoll >= kWallPollS) {
             lastWallPoll = now;
             using Side = Vl53l1xSensorAdapter::Side;
             auto refresh = [sides](Side side, domain::SideReading& out) {
@@ -993,6 +1091,98 @@ void Drv8833MotionAdapter::straight(double distanceMm, const char* name, bool ce
         }
 
         const double travelled = 0.5 * (leftMm + rightMm);
+
+        // Curva contínua em andamento: segue a trajetória do arco, com o rumo corrigido pelo giroscópio.
+        if (path) {
+            const double pathLeft = leftMm - pathLeft0;
+            const double pathRight = rightMm - pathRight0;
+            const double progress = 0.5 * (pathLeft + pathRight);
+            const double errorDeg = path->plannedHeadingDeg(progress) - pathGyroDeg;  // > 0: falta virar à esquerda
+            pathMaxErrorDeg = std::max(pathMaxErrorDeg, std::fabs(errorDeg));
+            if (std::fabs(errorDeg) > kRunTurnJamDeg) {
+                lastMoveOk_ = false;
+                lastMoveFailure_ = kRunTurnJamFailure;
+                lastTurnJammed_ = true;
+                runTurnJammed_ = true;
+                break;
+            }
+            const controller::PathPlan& plan = path->plan();
+            // Na reta de saída (arco já feito), a parede da frente da célula seguinte para o robô, como na reta.
+            if (readTofInStraight && !suppressFrontStop_ && front_ != nullptr &&
+                progress > plan.approachMm + plan.arcLengthMm() && now - lastFrontPoll >= kWallPollS) {
+                lastFrontPoll = now;
+                if (const auto reading = front_->freshReading(Vl53l1xSensorAdapter::Side::Front);
+                    reading && (reading->kind == drivers::ReadingKind::Distance ||
+                                reading->kind == drivers::ReadingKind::TooClose)) {
+                    frontMm = reading->mm;
+                    if (reading->kind == drivers::ReadingKind::TooClose || reading->mm < calibration_.frontStopMm) {
+                        lastShortMm_ = std::max(0.0, plan.lengthMm() - progress);
+                        ++frontStops_;
+                        break;
+                    }
+                }
+            }
+            const double steerMm =
+                std::clamp(kRunTurnHeadingGain * errorDeg * plan.trackMm * kDegToRad, -kRunTurnSteerMaxMm,
+                           kRunTurnSteerMaxMm);
+            const controller::PathMove::Output out =
+                path->step(dt, pathLeft, pathRight, leftSpeedMmS, rightSpeedMmS, steerMm);
+            if (out.done) {
+                if (!path->reachedTarget()) {
+                    lastMoveOk_ = false;
+                    lastMoveFailure_ = kShortOfCellFailure;
+                }
+                break;
+            }
+            drive(out.leftVolts, out.rightVolts);
+            vTaskDelay(kControlPeriod);
+            continue;
+        }
+
+        // Curva contínua: um pouco antes do ponto em que o arco tem de começar (raio + antecipação antes do centro
+        // da célula), os ToF laterais já estão sobre a célula e o Navigator decide se o trecho vira nela. Só
+        // pergunta se o ponto ainda não passou (depois de uma curva parada, o robô parte da borda da célula).
+        if (runObserver_ != nullptr && sign > 0.0 && runTurn_ == ports::RunTurn::None &&
+            runTurnAsked_ < runStopCell_) {
+            const int index = runTurnAsked_ + 1;
+            const double centerMm = index * domain::robot::kCellSizeMm + runOffsetMm_;
+            const double arcStartMm =
+                centerMm - controller::robot::kArcSetbackMm - calibration_.continuousArcLeadMm;
+            if (travelled > arcStartMm + kRunTurnLateMm) {
+                runTurnAsked_ = index;  // tarde demais para esta célula
+            } else if (travelled >= arcStartMm - kRunTurnDecisionMm) {
+                runTurnAsked_ = index;
+                const ports::RunTurn turn = runObserver_->turnIn(index, centerMm - travelled);
+                if (turn != ports::RunTurn::None) {
+                    const bool right = turn == ports::RunTurn::Right;
+                    // O rumo que o robô já tem entra no ângulo: virado 3 graus para a esquerda, vira 93 à direita.
+                    const double startHeading = headingResidualDeg_ + headingDeg;
+                    const double fix =
+                        std::clamp(startHeading, -kRunTurnMaxStartFixDeg, kRunTurnMaxStartFixDeg);
+                    const controller::PathPlan plan{std::max(0.0, arcStartMm - travelled),
+                                                    controller::robot::kArcSetbackMm,
+                                                    90.0 + (right ? fix : -fix),
+                                                    right,
+                                                    controller::robot::kArcSetbackMm,
+                                                    controller::robot::kArcEffectiveTrackMm};
+                    pathEntrySpeed = std::max(0.0, 0.5 * (leftSpeedMmS + rightSpeedMmS));
+                    path.emplace(plan, controller::robot::kStraightMove, pathEntrySpeed);
+                    pathLeft0 = leftMm;
+                    pathRight0 = rightMm;
+                    pathStartS = now;
+                    pathGyroDeg = 0.0;
+                    pathTravelledAtStart = travelled;
+                    runTurn_ = turn;
+                    runTurnCell_ = index;
+                    runTurnStartHeadingDeg_ = startHeading;
+                    lastMoveName_ = "curva continua";
+                    lastMoveWasTurn_ = true;
+                    lastTurnJammed_ = false;
+                    continue;
+                }
+            }
+        }
+
         // Reta contínua: quando os ToF laterais passam sobre o centro da próxima célula (o eixo ~59 mm
         // antes dele), o Navigator lê as paredes dela e decide se passa. Se não, o alvo encurta para
         // aquele centro: frear de 120 mm/s pede ~32 mm.
@@ -1087,7 +1277,22 @@ void Drv8833MotionAdapter::straight(double distanceMm, const char* name, bool ce
     logSeries("pose 50ms (mm*10)", poseTrace);
     logSeries("termo 50ms (mm*10)", termTrace);
 #endif
-    if (sign > 0.0 && lastMoveOk_) {
+    if (path) {
+        runTurnGyroDeg_ = pathGyroDeg;
+        if (lastMoveOk_) {
+            // Rumo depois da curva, em relação ao corredor de SAÍDA (alvo: -90 à direita, +90 à esquerda).
+            headingResidualDeg_ =
+                runTurnStartHeadingDeg_ + pathGyroDeg - (path->plan().right ? -90.0 : 90.0);
+        }
+#if CONFIG_RATO_LOG_RETA
+        ESP_LOGI("curva",
+                 "curva continua a %s na celula %d: entrou a %.0f mm/s (reta %.0f mm, aproximacao %.0f mm, antecipa %.0f), "
+                 "rumo inicial %.1f, arco de %.1f graus, girou %.1f (giroscopio), erro max %.1f graus, %s",
+                 path->plan().right ? "direita" : "esquerda", runTurnCell_, pathEntrySpeed, pathTravelledAtStart,
+                 path->plan().approachMm, calibration_.continuousArcLeadMm, runTurnStartHeadingDeg_,
+                 path->plan().angleDeg, pathGyroDeg, pathMaxErrorDeg, lastMoveOk_ ? "ok" : lastMoveFailure_);
+#endif
+    } else if (sign > 0.0 && lastMoveOk_) {
         headingResidualDeg_ += headingDeg;  // o que a reta girou, com a correção, entra na conta
     }
     lastMoveEndUs_ = esp_timer_get_time();
