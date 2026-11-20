@@ -58,6 +58,24 @@ TEST(StraightMoveSimulation, CruiseSpeedIsSteadyWithTheMeasuredWheels) {
     EXPECT_NEAR(run.rightMm, 3.0 * kCell, 3.0);
 }
 
+// A roda REAL é lenta (constante de tempo de 0,2 a 0,3 s, com a massa do robô e a redução). Com I = 3,0 e D = 0,004
+// o controle oscilava de 0 a ~270 mm/s (e até velocidade negativa) a cada ~0,4 s; é o "anda um pouco, para" do E15 de
+// 20/11. Aqui a velocidade no meio da reta tem de ficar em volta do cruzeiro, em toda a faixa de inércia e de atrito.
+TEST(StraightMoveSimulation, CruiseSpeedStaysSteadyEvenForSlowWheels) {
+    for (const double tau : {0.03, 0.10, 0.20, 0.30}) {
+        for (const double friction : {0.2, 1.2}) {
+            MotorWheel left{0.0075, friction, 1.8, tau};
+            MotorWheel right{0.0072, friction, 1.6, tau};
+            const StraightResult run = simulateStraight(left, right, 3.0 * kCell, 0.0, 10.0, 50.0);
+            ASSERT_TRUE(run.done) << tau << " " << friction;
+            EXPECT_GT(run.minCruiseSpeed, 100.0) << "tau " << tau << " atrito " << friction;
+            EXPECT_LT(run.maxCruiseSpeed, 145.0) << "tau " << tau << " atrito " << friction;
+            EXPECT_NEAR(run.leftMm, 3.0 * kCell, 7.0) << "tau " << tau;
+            EXPECT_NEAR(run.rightMm, 3.0 * kCell, 7.0) << "tau " << tau;
+        }
+    }
+}
+
 TEST(StraightMoveSimulation, OneCellIsSmoothWithTheMeasuredWheelsToo) {
     const StraightResult run = simulateStraight(realLeftWheel(), realRightWheel(), kCell, 0.0, 4.0, 50.0);
     ASSERT_TRUE(run.done);

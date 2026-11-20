@@ -36,7 +36,11 @@ inline constexpr double kMmPerPulse =
 //   velocidade. Com I menor (1,0), a roda "dura" da simulação (2,5 V para sair do lugar) parava a
 //   3 mm do alvo; com 0,30/4,0 e 0,30/5,0 também passa, mas o robô real tem atraso e ruído: começar
 //   pelo mais moderado.
-inline constexpr WheelLoopGains kWheelLoop{0.0075, 2.5, 0.25, 3.0, 0.004, kMotorMaxVolts, 3.0};
+// 20/11, RETUNE: com a constante de tempo da roda real (~0,2-0,3 s, medida pelo ciclo do E15: a velocidade ia de 0 a 270 mm/s
+// a cada ~0,4 s com a referência em 120), I = 3,0 e D = 0,004 oscilavam. O simulador de 09/11 usava uma roda de 0,03 s. Varredura
+// no simulador (constante de tempo de 0,03 a 0,3 s, atrito de 0,2 a 1,2 V, retas de 180 e 540 mm): com I = 3,0 e D = 0,004 o pior
+// caso oscilava 505 mm/s e parava 16,6 mm fora; com I = 0,1 e D = 0,02, 7 mm/s e ~6 mm. PROPOSTA A CONFIRMAR no robô.
+inline constexpr WheelLoopGains kWheelLoop{0.0075, 2.5, 0.25, 0.1, 0.02, kMotorMaxVolts, 3.0};
 
 // Reta de uma célula: 200 mm/s de cruzeiro e 600 mm/s² (o perfil leva ~1,23 s por célula). Em 09/11,
 // com 250 mm/s e 1200 mm/s², até a roda boa ficava atrás da trajetória com 6 V no chão. A sincronia
