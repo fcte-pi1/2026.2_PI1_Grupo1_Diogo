@@ -42,6 +42,10 @@ constexpr double kSlewGapS = 0.1;
 // a decisão sai ~59 mm antes do centro e frear de 120 mm/s pede ~32 mm).
 constexpr char kRunBrakeFailure[] = "reta continua: nao freou a tempo na celula";
 constexpr double kControlDtForRampS = 0.01;
+// Plano B do arco (sem espaço para recuar): o giro no lugar não cabe com as medidas do robô (a frente real, ~100 mm do eixo,
+// leva o canto a ~115 mm do eixo, e o meio corredor tem 84). Em vez de raspar na parede, para com este motivo.
+constexpr char kPivotNoFitFailure[] =
+    "giro no lugar nao cabe nesta celula: sem espaco para recuar e a frente do robo nao cabe girando";
 constexpr char kShortOfCellFailure[] = "nao chegou ao fim da celula";
 // Laço de controle: 2 ms. O intervalo real é medido a cada volta (I²C do giroscópio, BLE, log).
 constexpr TickType_t kControlPeriod = pdMS_TO_TICKS(2);
@@ -1391,8 +1395,8 @@ void Drv8833MotionAdapter::oneWheelTurn(controller::PivotMove::Direction directi
 // (100 mm do eixo) e o de trás varrem o círculo, e o corredor tem só 84 mm de meio vão. Só cabe com o eixo
 // 17 a 27,5 mm ATRÁS do centro (domain::planPivotInPlace). Onde o eixo está vem do frontal (parede
 // a 84 mm do centro); sem leitura, supõe a traseira encostada na parede de trás. O reposicionamento
-// é só pelos encoders (o frontal lê abaixo do mínimo ali). Se não cabe (frente do CAD), avisa e gira
-// como antes.
+// é só pelos encoders (o frontal lê abaixo do mínimo ali). Se não cabe (com a frente real de ~100 mm
+// não cabe em nenhuma posição), a manobra FALHA com o motivo claro, em vez de girar e raspar na parede.
 void Drv8833MotionAdapter::pivotInBoxedCell(controller::PivotMove::Direction direction) {
     constexpr double kHalfCorridorMm = domain::robot::kCorridorWidthMm / 2.0;
     const std::optional<int> settled = settledFrontMm();
@@ -1411,6 +1415,12 @@ void Drv8833MotionAdapter::pivotInBoxedCell(controller::PivotMove::Direction dir
              axleMm, frontWall ? "frontal" : "supondo a traseira na parede", planName, plan.moveMm,
              plan.targetMm);
 #endif
+    if (plan.action == domain::PivotAction::DoesNotFit) {
+        // 20/11: antes avisava e girava assim mesmo (raspava na parede). Agora a manobra falha com o motivo claro.
+        lastMoveOk_ = false;
+        lastMoveFailure_ = kPivotNoFitFailure;
+        return;
+    }
     if (plan.action == domain::PivotAction::MoveThenPivot && std::fabs(plan.moveMm) > 2.0) {
         suppressFrontStop_ = true;
         straight(plan.moveMm, plan.moveMm > 0.0 ? "avanco para girar" : "recuo para girar", false);
