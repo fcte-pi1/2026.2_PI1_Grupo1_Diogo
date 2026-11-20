@@ -223,7 +223,7 @@ EXPECTED_CALIBRATION = {
     "tof_lado_ao_centro": 50.5, "tof_lado_a_frente_do_eixo": 59.15, "cabo_frente_mm": 0.0, "preset_cad": 0.0,
     "escala_giro": 1.08, "freio_arco": 2.6, "freio_pivo": 8.1, "modo_curva": 0.0, "freio_uma_roda": 2.6,
     "autoajuste_freio": 0.0, "parada_frente": 35.0, "tof_na_reta": 1.0, "rampa_tensao": 50.0, "fusao_rumo": 0.0,
-    "reancorar_parede": 0.0, "parada_dinamica": 0.0, "vies_giro": 0.0}
+    "reancorar_parede": 0.0, "parada_dinamica": 0.0, "vies_giro": 0.0, "reta_continua": 1.0}
 # Chaves que o operador pode ter mudado de propósito (calibração de reta de 19/11).
 CALIBRATION_MAY_DIFFER = {"ganho_rumo": 0.6, "centralizar": 1.0}
 

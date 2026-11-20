@@ -11,7 +11,9 @@ _RACE_START = r"largada \d+: labirinto (\d+)x(\d+), via 3 (?P<via3>\w+) "
 _RACE_SUMMARY = (r"fim da corrida \d+: (?P<outcome>\w+), (?P<steps>\d+) passos, (\d+) celulas, "
                  r"posicao \(l(?P<row>\d+),c(?P<col>\d+)\) rumo (\w), passagens para fora=(?P<outside>\d+), "
                  r"eventos perdidos=(?P<lost_events>\d+), linhas de log perdidas=(?P<lost_lines>\d+)")
-_NAV_STEP = r"nav: passo \d+: cel \(l(?P<row>\d+),c(?P<col>\d+)\) .* acao=(?P<action>[a-z ]+?)(?: \(|-> | ->)"
+# Reta contínua (20/11): um passo que andou várias células traz " (N celulas)" depois da ação.
+_NAV_STEP = (r"nav: passo \d+: cel \(l(?P<row>\d+),c(?P<col>\d+)\) .* acao=(?P<action>[a-z ]+?)"
+             r"(?: \((?P<cells>\d+) celulas\))?(?: \(|-> | ->)")
 _MOVEMENT_SUMMARY = (r"movimento: (?P<repeated_arcs>\d+) arco\(s\) repetido\(s\), "
                      r"(\d+) parada\(s\) pela parede da frente, (\d+) leitura")
 
@@ -37,8 +39,12 @@ def check_race(lines: list[str], expect_success: bool = True, expected_steps: in
         checks.append(Check.judge(last["lost_events"] == "0" and last["lost_lines"] == "0",
                                   f"perdidos: {last['lost_events']} eventos, {last['lost_lines']} linhas de log"))
     if expected_steps is not None:
-        checks.append(Check.judge(int(last["steps"]) == expected_steps,
-                                  f"{last['steps']} passos (esperado {expected_steps})"))
+        # Com a reta contínua, um passo pode andar várias células: conta como os passos célula a célula.
+        extra = _extra_cells(lines)
+        cell_steps = int(last["steps"]) + extra
+        checks.append(Check.judge(cell_steps == expected_steps,
+                                  f"{cell_steps} passos célula a célula (esperado {expected_steps}"
+                                  + (f"; {last['steps']} passos com a reta contínua)" if extra else ")")))
     if expected_sequence:
         checks.append(_sequence_check(lines, expected_sequence))
     movement = find_matches(lines, _MOVEMENT_SUMMARY)
@@ -58,12 +64,27 @@ def _via3_check(seen: str, expected: str) -> Check:
         "'python t.py reiniciar' e repita. Este resultado NÃO vale")
 
 
+def _extra_cells(lines: list[str]) -> int:
+    return sum(int(match["cells"]) - 1 for match in find_matches(lines, _NAV_STEP) if match["cells"])
+
+
 def _sequence_check(lines: list[str], expected: list[ExpectedStep]) -> Check:
-    seen = [(f"l{match['row']},c{match['col']}", match["action"].strip())
+    seen = [(f"l{match['row']},c{match['col']}", match["action"].strip(), int(match["cells"] or 1))
             for match in find_matches(lines, _NAV_STEP)]
-    seen = [(cell, action) for cell, action in seen if action != "chegou"]
-    wrong = [f"passo {index + 1}: esperado {want}, veio {got}"
-             for index, (want, got) in enumerate(zip(expected, seen)) if want != got]
-    in_order = not wrong and len(seen) >= len(expected)
+    seen = [step for step in seen if step[1] != "chegou"]
+    # Um passo de N células cobre N passos esperados: o primeiro (célula e ação) e mais N-1 'frente'.
+    wrong: list[str] = []
+    index = 0
+    for cell, action, cells in seen:
+        if index >= len(expected):
+            break
+        if expected[index] != (cell, action):
+            wrong.append(f"passo {index + 1}: esperado {expected[index]}, veio {(cell, action)}")
+        for offset in range(1, cells):
+            if index + offset < len(expected) and expected[index + offset][1] != "frente":
+                wrong.append(f"passo {index + offset + 1}: esperado {expected[index + offset]}, "
+                             f"o robô passou reto (trecho de {cells} células)")
+        index += cells
+    in_order = not wrong and index >= len(expected)
     return Check.judge(in_order, f"os {len(expected)} passos na ordem esperada",
                        f"passos fora da ordem ({len(seen)} vistos): {wrong[:3]}")

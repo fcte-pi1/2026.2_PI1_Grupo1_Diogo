@@ -153,3 +153,23 @@ def check_no_power_reset(lines: list[str]) -> list[Check]:
     """Nenhuma reinicialização de energia durante o teste (BROWNOUT ou queda)."""
     return [Check.judge(not any("BROWNOUT" in line or "reset=LIGOU" in line for line in lines),
                         "sem BROWNOUT nem reinício de energia")]
+
+
+def check_continuous_run(lines: list[str], cells: int, pulses_per_cell: int = 511, tolerance: int = 25) -> list[Check]:
+    """E15: o trecho de `cells` células saiu num movimento só e chegou ao fim."""
+    summary = find_matches(lines, rf"trecho continuo: (?P<moved>\d+) de {cells} celulas")
+    straight = find_matches(lines, rf"reta: trecho de {cells} celulas (-?\d+) mm: enc E=(?P<left>-?\d+) D=(?P<right>-?\d+) "
+                                   r".*?tempo=(?P<took>\d+) ms .*?giro=(?P<gyro>-?[\d.]+)")
+    checks = [Check.judge(bool(summary) and int(summary[-1]["moved"]) == cells,
+                          f"trecho contínuo: {summary[-1]['moved'] if summary else '?'} de {cells} células")]
+    if straight:
+        last = straight[-1]
+        expected = cells * pulses_per_cell
+        left, right = int(last["left"]), int(last["right"])
+        checks.append(Check.judge(abs(left - expected) <= tolerance and abs(right - expected) <= tolerance,
+                                  f"pulsos E={left} D={right} (esperado {expected} ± {tolerance})"))
+        checks.append(Check.judge(abs(float(last["gyro"])) < 3.0, f"giro={last['gyro']} graus (limite 3)"))
+        checks.append(Check.info(f"tempo do trecho: {last['took']} ms (3 células paradas uma a uma: ~6,9 s)"))
+    else:
+        checks.append(Check.failed(f"sem a linha 'reta: trecho de {cells} celulas' no log"))
+    return checks

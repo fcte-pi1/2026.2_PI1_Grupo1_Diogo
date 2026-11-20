@@ -2,7 +2,7 @@
 
 from functools import partial
 
-from ..checks.motion import (MANEUVER_END, check_log_lines, check_no_power_reset, check_full_turn, check_lateral_pose, check_maneuver_ok,
+from ..checks.motion import (MANEUVER_END, check_continuous_run, check_log_lines, check_no_power_reset, check_full_turn, check_lateral_pose, check_maneuver_ok,
                              check_straight_times, check_straights)
 from ..checks.sensors import check_calibration_in_use, check_tof_too_close, check_wheels
 from ..log_parsing import contains
@@ -38,13 +38,19 @@ def _check_pivot_in_boxed_cell(lines: list[str]) -> list[Check]:
 
 
 def _loop_test(ident: str, title: str, calib: str, log_pattern: str | None, log_text: str, criterion: str,
-               prepare: tuple[str, ...], questions=(), repeat: int = 1, count: int = 3) -> Test:
-    """Teste de uma malha nova: liga/desliga a chave do calib, anda `count` retas e confere o log da malha."""
-    steps = (Step(f"calib {calib}", r"calib: ", timeout=10),) + (Step("andar", MANEUVER_END, timeout=15, gap=0.6),) * count
+               prepare: tuple[str, ...], questions=(), repeat: int = 1, count: int = 3, pairs: int = 0) -> Test:
+    """Teste de uma malha nova: liga/desliga a chave do calib, anda `count` retas (ou `pairs` pares reta + ré,
+    para não precisar pegar o robô ligado) e confere o log da malha."""
+    go = (Step("andar", MANEUVER_END, timeout=15, gap=0.6),)
+    back = (Step("re", MANEUVER_END, timeout=15, gap=0.6),)
+    steps = (Step(f"calib {calib}", r"calib: ", timeout=10),) + ((go + back) * pairs if pairs else go * count)
 
     def check(lines: list[str]) -> list[Check]:
-        result = (check_straights(lines, "andar 1 celula", count, CELL_PULSES, 25, max_gyro_deg=3.0)
-                  + check_maneuver_ok(lines, count) + check_no_power_reset(lines))
+        goes = pairs or count
+        result = (check_straights(lines, "andar 1 celula", goes, CELL_PULSES, 25, max_gyro_deg=3.0)
+                  + check_maneuver_ok(lines, goes + pairs) + check_no_power_reset(lines))
+        if pairs:
+            result += check_straights(lines, "re de 1 celula", pairs, -CELL_PULSES, 25, max_gyro_deg=3.0)
         if log_pattern:
             result += check_log_lines(lines, log_pattern, log_text)
         return result
@@ -55,14 +61,13 @@ LOOP_PREPARE = ("Corredor reto com 3 células livres (MDF), parede de fundo, rob
                 "ligados. Mão perto do balancim.",)
 
 LOOP_TESTS: tuple[Test, ...] = (
-    _loop_test("E10a", "Rampa de tensão LIGADA (rampa_tensao=50): 5 partidas sem BROWNOUT", "rampa_tensao=50", None, "",
-               "Cada partida termina ok, sem reinicialização de energia (BROWNOUT na partida: ~3 de 8 antes da rampa). "
-               "Rode 5 vezes.",
-               LOOP_PREPARE + ("Em cada rodada, volte o robô ao início (à mão, sem desligar o balancim).",),
-               count=1, repeat=5),
+    _loop_test("E10a", "Rampa de tensão LIGADA (rampa_tensao=50): 10 partidas sem BROWNOUT", "rampa_tensao=50", None, "",
+               "5 pares reta + ré (10 partidas) ok, sem reinicialização de energia (BROWNOUT na partida: ~3 de 8 antes da "
+               "rampa). Não é preciso pegar o robô.",
+               LOOP_PREPARE, pairs=5),
     _loop_test("E10b", "Rampa de tensão DESLIGADA (rampa_tensao=0), para comparar com o E10a", "rampa_tensao=0", None, "",
-               "Mesma conta do E10a sem a rampa: anote quantos BROWNOUT aconteceram em 5 partidas.",
-               LOOP_PREPARE + ("Em cada rodada, volte o robô ao início.",), count=1, repeat=5),
+               "Mesma conta do E10a sem a rampa: anote quantos BROWNOUT aconteceram em 10 partidas.",
+               LOOP_PREPARE, pairs=5),
     _loop_test("E11a", "Fusão giroscópio + encoders LIGADA (fusao_rumo=0,5)", "fusao_rumo=0.5", None, "",
                "3 retas ok com giro final menor que 2 graus; compare o desvio lateral com o E11b.",
                LOOP_PREPARE, questions=(number("desvio_mm", "Desvio lateral final na régua (mm)", -30, 30),)),
@@ -177,6 +182,16 @@ NOVELTY_TESTS: tuple[Test, ...] = (
          questions=(yes_no("sem_raspar", "O robô girou SEM raspar nenhuma parede?", expected=YES),),
          moves=True, repeat=3),
     *LOOP_TESTS,
+    Test("E15", "Reta contínua: 3 células num movimento só (andar 3) e volta de ré",
+         ("Corredor reto de MDF, robô no início, centrado e afastado das paredes laterais. 3 células livres à frente.",
+          "Olhe de lado, abaixado: o robô deve acelerar UMA vez, andar as 3 células sem parar e frear UMA vez.",
+          "Depois ele volta 3 células de ré (uma por vez, como antes)."),
+         (Step("andar 3", MANEUVER_END, timeout=20),) + (Step("re", MANEUVER_END, timeout=15, gap=0.6),) * 3,
+         "Uma linha 'trecho continuo: 3 de 3 celulas', ~1533 pulsos em cada roda, giro < 3 graus, sem parar no meio.",
+         lambda lines: (check_continuous_run(lines, 3) + check_maneuver_ok(lines, 4) + check_no_power_reset(lines)),
+         questions=(yes_no("sem_parar", "O robô andou as 3 células SEM parar no meio?", expected=YES),
+                    number("tranco", "Tranco ao parar no fim: 0 = nada, 1 = pouco, 2 = como antes, 3 = pior", 0, 1)),
+         moves=True),
     Test("E8", "ToF cai em movimento (P6): rodas girando e você mexendo nos cabos",
          (SUPPORTED, "As rodas VÃO GIRAR sozinhas por ~15 s. Mantenha dedos, cabos e roupas longe delas.",
           "Com um palito de PLÁSTICO, balance DE LEVE o cabo e o conector de cada ToF enquanto as rodas giram. "
