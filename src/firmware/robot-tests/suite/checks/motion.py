@@ -177,6 +177,32 @@ def check_continuous_run(lines: list[str], cells: int, pulses_per_cell: int = 51
     return checks
 
 
+_RUN_TURN = (r"curva continua a (?P<side>direita|esquerda) na celula (?P<cell>\d+): entrou a (?P<speed>-?\d+) mm/s .*?"
+             r"rumo inicial (?P<start>-?[\d.]+), arco de (?P<arc>-?[\d.]+) graus, girou (?P<turned>-?[\d.]+) \(giroscopio\), "
+             r"erro max (?P<error>[\d.]+) graus, (?P<result>.*)")
+
+
+def check_run_turn(lines: list[str], side: str) -> list[Check]:
+    """Curva contínua (`curvac d|e`): vira sem parar, ~90 graus, entrando em movimento, com o arco acompanhando o planejado."""
+    found = find_matches(lines, _RUN_TURN)
+    if not found:
+        locked = find_matches(lines, r"curva continua travou a (?P<deg>-?[\d.]+) graus")
+        return [Check.failed("sem a linha 'curva continua a ...' no log"
+                             + (f": o arco TRAVOU a {locked[-1]['deg']} graus (desfez e virou parado)" if locked else
+                                " (firmware antigo, curva_continua=0 ou o Navigator não pediu a curva)"))]
+    last = found[-1]
+    sign = -1.0 if side == "direita" else 1.0
+    turned = float(last["turned"])
+    return [
+        Check.judge(last["side"] == side, f"curva contínua à {last['side']} na célula {last['cell']} (pedido: {side})"),
+        Check.judge(last["result"].strip().startswith("ok"), f"resultado: {last['result'].strip()[:90]}"),
+        Check.judge(int(last["speed"]) >= 60, f"entrou na curva a {last['speed']} mm/s (sem parar: >= 60)"),
+        Check.judge(abs(turned - sign * 90.0) <= 6.0, f"girou {turned:.1f} graus pelo giroscópio (alvo {sign * 90.0:.0f} ± 6)"),
+        Check.judge(float(last["error"]) <= 10.0, f"erro máximo do arco em relação ao planejado: {last['error']} graus (limite 10)"),
+        Check.info(f"rumo inicial {last['start']} graus, arco planejado de {last['arc']} graus"),
+    ]
+
+
 def speed_runs(lines: list[str]) -> list[list[int]]:
     """Velocidades (mm/s, a cada 50 ms) de cada reta do log, na ordem. Cada reta começa no bloco '[0]'."""
     runs: list[list[int]] = []

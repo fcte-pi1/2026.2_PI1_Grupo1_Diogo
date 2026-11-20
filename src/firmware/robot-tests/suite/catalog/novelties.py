@@ -2,7 +2,7 @@
 
 from functools import partial
 
-from ..checks.motion import (MANEUVER_END, check_clean_motion, check_continuous_run, check_tof_centering, check_log_lines, check_no_power_reset, check_full_turn, check_lateral_pose, check_maneuver_ok,
+from ..checks.motion import (MANEUVER_END, check_clean_motion, check_continuous_run, check_run_turn, check_tof_centering, check_log_lines, check_no_power_reset, check_full_turn, check_lateral_pose, check_maneuver_ok,
                              check_straight_times, check_straights)
 from ..checks.sensors import check_calibration_in_use, check_tof_too_close, check_wheels
 from ..log_parsing import contains
@@ -194,6 +194,19 @@ NOVELTY_TESTS: tuple[Test, ...] = (
          questions=(yes_no("sem_parar", "O robô andou as 3 células SEM parar no meio?", expected=YES),
                     number("tranco", "Tranco ao parar no fim: 0 = nada, 1 = pouco, 2 = como antes, 3 = pior", 0, 1)),
          moves=True),
+    *[Test(f"E16{suffix}", f"Curva contínua à {name}: anda 1 célula e vira SEM parar (curvac {key})",
+           ("Célula de curva do labirinto: corredor reto atrás de você e a curva para o lado " + name + " logo à frente (parede na frente "
+            "da célula da curva, saída aberta para a " + name + ").",
+            "Robô no centro de uma célula, voltado para a célula da curva, afastado das paredes laterais, fora de parede de trás encostada.",
+            "Olhe de cima: ele anda, entra no arco SEM parar e termina no centro da célula depois da curva, já virado."),
+           (Step(f"curvac {key} 1", MANEUVER_END, timeout=25),),
+           "Uma linha 'curva continua a " + name + "', entrou a >= 60 mm/s, ~90 graus pelo giroscópio, erro do arco <= 10 graus, sem raspar parede.",
+           lambda lines, side=name: (check_run_turn(lines, side) + check_maneuver_ok(lines, 1) + check_no_power_reset(lines)),
+           questions=(yes_no("sem_parar", "O robô entrou na curva SEM parar?", expected=YES),
+                      yes_no("sem_raspar", "O robô terminou a curva SEM raspar nenhuma parede?", expected=YES),
+                      yes_no("centrado", "Terminou no centro da célula, reto no corredor de saída?", expected=YES)),
+           moves=True, repeat=3)
+      for suffix, name, key in (("a", "direita", "d"), ("b", "esquerda", "e"))],
     Test("E8", "ToF cai em movimento (P6): rodas girando e você mexendo nos cabos",
          (SUPPORTED, "As rodas VÃO GIRAR sozinhas por ~15 s. Mantenha dedos, cabos e roupas longe delas.",
           "Com um palito de PLÁSTICO, balance DE LEVE o cabo e o conector de cada ToF enquanto as rodas giram. "
