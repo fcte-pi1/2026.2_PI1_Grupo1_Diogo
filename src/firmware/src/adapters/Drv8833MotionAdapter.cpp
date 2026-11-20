@@ -83,6 +83,7 @@ constexpr int64_t kHeadingStaleUs = 4'000'000;
 // terminava 1 a 4 graus curto (D2: 86,1 / -86,2 / 88,9). Se faltar de 1 a 8 graus, gira o resto no
 // lugar, devagar (o canto da frente varre ~7 mm em 4 graus).
 constexpr double kTrimMinDeg = 1.0;
+constexpr double kArcNearlyDoneDeg = 78.0;  // arco parado a partir daqui: terminou
 constexpr double kTrimMaxDeg = 15.0;  // E16a de 20/11: a curva contínua terminou 11 graus a mais
 constexpr double kTrimMaxDegPerS = 45.0;
 constexpr double kTrimMaxDegPerS2 = 300.0;
@@ -1469,6 +1470,11 @@ void Drv8833MotionAdapter::pivot(double degrees, controller::PivotMove::Directio
             break;
         }
         if (stall.update(now, turn.angle())) {
+            // Um arco que para já perto do fim (faltam menos de ~12 graus) não travou de verdade: terminou. O ajuste fino
+            // corrige o resto (SERPENTINA-5 de 20/11: parou em -85,6, e o desfazer recuou a curva quase pronta).
+            if (arc && std::fabs(turn.angle()) >= kArcNearlyDoneDeg) {
+                break;
+            }
             lastMoveOk_ = false;
             lastMoveFailure_ = kStallFailure;
             lastTurnJammed_ = true;
@@ -1767,6 +1773,11 @@ void Drv8833MotionAdapter::positionForArc(double frontTargetMm) {
     // o robô avançar ~120 mm para dentro da célula seguinte antes do arco.
     domain::ArcStartConfig config = controller::robot::kArcStart;
     config.frontTargetMm = frontTargetMm;
+    // Sem parede à frente o recuo fixo de 75 mm (09/11, frente de projeto) deixa o arco começar tarde demais para a frente
+    // real: folga negativa no modelo, e na SERPENTINA-5 de 20/11 o arco raspou. O recuo é o mesmo que o frontal daria numa
+    // célula com parede: alvo + eixo até o ToF - meio corredor (~105 mm).
+    config.fixedSetbackMm = std::max(config.fixedSetbackMm,
+                                     frontTargetMm + calibration_.axleToFrontTofMm - 0.5 * calibration_.corridorWidthMm);
     bool frontValid = false;
     bool frontTooClose = false;
     double frontMm = 0.0;
