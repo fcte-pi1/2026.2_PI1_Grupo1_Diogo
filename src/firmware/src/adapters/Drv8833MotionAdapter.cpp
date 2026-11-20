@@ -765,7 +765,7 @@ void Drv8833MotionAdapter::reverseCell() {
     const double distance = domain::robot::kCellSizeMm + aheadMm_ - lastShortMm_;
     wallFixMm_ = 0.0;  // a correção valia para a reta para a frente que ia seguir
     aheadMm_ = 0.0;
-    straight(-distance, "re de 1 celula", false);
+    straight(-distance, "re de 1 celula", walls_ != nullptr && calibration_.centerOnWalls >= 0.5);
     trackGyroBias();
 }
 
@@ -853,6 +853,14 @@ void Drv8833MotionAdapter::straight(double distanceMm, const char* name, bool ce
     const int gyroMissesBefore = gyroMissesTotal_;
 #endif
 
+#if CONFIG_RATO_LOG_RETA
+    // Velocidade média das rodas a cada 50 ms (mm/s), para ver se o movimento é contínuo e limpo ou tem
+    // trancos e paradas dentro do perfil (20/11).
+    constexpr int kSpeedTraceMax = 200;  // 10 s
+    int16_t speedTrace[kSpeedTraceMax];
+    int speedTraceCount = 0;
+    double nextSpeedTrace = 0.0;
+#endif
     LoopClock clock;
     while (true) {
         const double dt = clock.tick();
@@ -899,6 +907,13 @@ void Drv8833MotionAdapter::straight(double distanceMm, const char* name, bool ce
         wheelDeg = controller::wheelHeadingDeg(leftMm, rightMm, domain::robot::kWheelTrackMm, sign);
         const double leftSpeedMmS = leftSpeed.update(leftMm, now);
         const double rightSpeedMmS = rightSpeed.update(rightMm, now);
+#if CONFIG_RATO_LOG_RETA
+        if (now >= nextSpeedTrace && speedTraceCount < kSpeedTraceMax) {
+            speedTrace[speedTraceCount++] =
+                static_cast<int16_t>(std::lround(0.5 * (leftSpeedMmS + rightSpeedMmS)));
+            nextSpeedTrace += 0.05;
+        }
+#endif
 
         if (sides != nullptr && now - lastWallPoll >= kWallPollS) {
             lastWallPoll = now;
@@ -991,6 +1006,17 @@ void Drv8833MotionAdapter::straight(double distanceMm, const char* name, bool ce
         vTaskDelay(kControlPeriod);
     }
     stopAndSettle();
+#if CONFIG_RATO_LOG_RETA
+    // Em linhas de 25 amostras: "reta: vel 50ms (mm/s) [i]: ..."
+    for (int start = 0; start < speedTraceCount; start += 25) {
+        char line[200];
+        int used = std::snprintf(line, sizeof line, "vel 50ms (mm/s) [%d]:", start);
+        for (int i = start; i < speedTraceCount && i < start + 25 && used + 7 < static_cast<int>(sizeof line); ++i) {
+            used += std::snprintf(line + used, sizeof line - static_cast<size_t>(used), " %d", speedTrace[i]);
+        }
+        ESP_LOGI("reta", "%s", line);
+    }
+#endif
     if (sign > 0.0 && lastMoveOk_) {
         headingResidualDeg_ += headingDeg;  // o que a reta girou, com a correção, entra na conta
     }

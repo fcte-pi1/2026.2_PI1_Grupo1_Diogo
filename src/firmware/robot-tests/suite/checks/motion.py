@@ -173,3 +173,42 @@ def check_continuous_run(lines: list[str], cells: int, pulses_per_cell: int = 51
     else:
         checks.append(Check.failed(f"sem a linha 'reta: trecho de {cells} celulas' no log"))
     return checks
+
+
+def speed_runs(lines: list[str]) -> list[list[int]]:
+    """Velocidades (mm/s, a cada 50 ms) de cada reta do log, na ordem. Cada reta começa no bloco '[0]'."""
+    runs: list[list[int]] = []
+    for match in find_matches(lines, r"vel 50ms \(mm/s\) \[(?P<start>\d+)\]:(?P<values>(?: -?\d+)+)"):
+        values = [int(v) for v in match["values"].split()]
+        if int(match["start"]) == 0 or not runs:
+            runs.append([])
+        runs[-1].extend(values)
+    return runs
+
+
+def check_clean_motion(lines: list[str], run_index: int = 0, cruise_mm_s: float = 120.0) -> list[Check]:
+    """O movimento é contínuo e limpo? Na parte de cruzeiro (fora dos 80 mm de cada ponta) a velocidade tem de
+    ficar perto do cruzeiro, sem paradas nem trancos."""
+    runs = speed_runs(lines)
+    if len(runs) <= run_index:
+        return [Check.failed("sem o registro 'vel 50ms' da reta no log (firmware antigo, ou o log não chegou)")]
+    speeds = runs[run_index]
+    distance = sum(abs(v) * 0.05 for v in speeds)
+    position, cruise = 0.0, []
+    for speed in speeds:
+        position += abs(speed) * 0.05
+        if 80.0 < position < distance - 80.0:
+            cruise.append(abs(speed))
+    if len(cruise) < 4:
+        return [Check.info(f"trecho curto demais para medir o cruzeiro ({distance:.0f} mm)")]
+    mean = sum(cruise) / len(cruise)
+    spread = (sum((v - mean) ** 2 for v in cruise) / len(cruise)) ** 0.5
+    slow = sum(1 for v in cruise if v < 0.6 * cruise_mm_s)
+    checks = [Check.info("velocidade a cada 50 ms (mm/s): " + " ".join(str(v) for v in speeds[:60])),
+              Check.passed_or_review(min(cruise) >= 0.7 * cruise_mm_s,
+                                     f"cruzeiro: mínimo {min(cruise)} mm/s (esperado ~{cruise_mm_s:.0f}, mínimo aceito "
+                                     f"{0.7 * cruise_mm_s:.0f})"),
+              Check.passed_or_review(spread <= 0.1 * cruise_mm_s,
+                                     f"cruzeiro: média {mean:.0f} mm/s, desvio {spread:.1f} (limite {0.1 * cruise_mm_s:.0f})"),
+              Check.passed_or_review(slow == 0, f"{slow} amostra(s) de 50 ms abaixo de 60% do cruzeiro no meio do trecho")]
+    return checks

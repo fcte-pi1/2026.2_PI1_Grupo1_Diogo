@@ -2,7 +2,7 @@
 
 from functools import partial
 
-from ..checks.motion import (MANEUVER_END, check_continuous_run, check_log_lines, check_no_power_reset, check_full_turn, check_lateral_pose, check_maneuver_ok,
+from ..checks.motion import (MANEUVER_END, check_clean_motion, check_continuous_run, check_log_lines, check_no_power_reset, check_full_turn, check_lateral_pose, check_maneuver_ok,
                              check_straight_times, check_straights)
 from ..checks.sensors import check_calibration_in_use, check_tof_too_close, check_wheels
 from ..log_parsing import contains
@@ -188,7 +188,8 @@ NOVELTY_TESTS: tuple[Test, ...] = (
           "Depois ele volta 3 células de ré (uma por vez, como antes)."),
          (Step("andar 3", MANEUVER_END, timeout=20),) + (Step("re", MANEUVER_END, timeout=15, gap=0.6),) * 3,
          "Uma linha 'trecho continuo: 3 de 3 celulas', ~1533 pulsos em cada roda, giro < 3 graus, sem parar no meio.",
-         lambda lines: (check_continuous_run(lines, 3) + check_maneuver_ok(lines, 4) + check_no_power_reset(lines)),
+         lambda lines: (check_continuous_run(lines, 3) + check_clean_motion(lines, 0) + check_maneuver_ok(lines, 4)
+                        + check_no_power_reset(lines)),
          questions=(yes_no("sem_parar", "O robô andou as 3 células SEM parar no meio?", expected=YES),
                     number("tranco", "Tranco ao parar no fim: 0 = nada, 1 = pouco, 2 = como antes, 3 = pior", 0, 1)),
          moves=True),
