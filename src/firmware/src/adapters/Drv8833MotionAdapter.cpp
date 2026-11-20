@@ -834,6 +834,8 @@ void Drv8833MotionAdapter::straight(double distanceMm, const char* name, bool ce
     domain::SideReading leftWall{};
     domain::SideReading rightWall{};
     double wallMm = 0.0;
+    double learnedLeftCenterMm = 0.0;   // centros aprendidos nesta reta (0 = ainda não)
+    double learnedRightCenterMm = 0.0;
     // O termo da parede entra suavizado (filtro de 0,3 s e 20 mm/s): leituras ruidosas do ToF não são degraus de
     // posição nas rodas (E15 de 20/11: a velocidade ia de 0 a 270 mm/s a cada ~0,4 s).
     controller::OffsetFilter wallFilter(controller::robot::kWallOffsetTauS,
@@ -966,9 +968,19 @@ void Drv8833MotionAdapter::straight(double distanceMm, const char* name, bool ce
             if (centerOnWalls && walls_ != nullptr) {
                 // Pose lateral do EIXO (19/11): desconta o rumo (os ToF ficam ~59 mm à frente do eixo)
                 // e desliga se o rumo for grande. Nunca usa leitura inválida nem 0 mm.
+                // Centro APRENDIDO com as duas paredes visíveis nesta reta: vale para a parede que sobra quando a outra
+                // some (a abertura de uma curva). O corredor real nem sempre tem os 168 mm de projeto.
+                domain::LateralPoseConfig poseConfig = domain::robot::lateralPoseConfig(calibration_);
+                poseConfig.leftCenterMm = learnedLeftCenterMm;
+                poseConfig.rightCenterMm = learnedRightCenterMm;
                 const domain::LateralPose pose = domain::estimateLateralPose(
-                    leftWall, rightWall, headingResidualDeg_ + headingDeg,
-                    domain::robot::lateralPoseConfig(calibration_));
+                    leftWall, rightWall, headingResidualDeg_ + headingDeg, poseConfig);
+                if (pose.valid && pose.usedBoth) {
+                    const domain::LateralPoseCenters learned =
+                        domain::learnCenters(leftWall, rightWall, pose.rightOffsetMm);
+                    learnedLeftCenterMm = learned.leftMm;
+                    learnedRightCenterMm = learned.rightMm;
+                }
                 poseValid = pose.valid;
                 poseOffsetMm = pose.rightOffsetMm;
                 wallMm = domain::lateralCorrectionPulses(pose, domain::robot::wallCenteringConfig(calibration_)) *
@@ -1333,7 +1345,7 @@ void Drv8833MotionAdapter::oneWheelTurn(controller::PivotMove::Direction directi
     lastShortMm_ = 0.0;
     const double backMm = axleAheadMm + oneWheelTargetMm_;
     if (std::fabs(backMm) > 3.0) {
-        straight(-backMm, backMm > 0.0 ? "recuo antes da curva" : "avanco antes da curva", false);
+        straight(-backMm, backMm > 0.0 ? "recuo antes da curva" : "avanco antes da curva", centerBeforeTurn());
     }
     // Confirmação pelo frontal quando ele tem distância válida: lê (parede - frente do ToF) no ponto
     // de partida. "Muito perto" vale como a leitura mínima, como no arco.
@@ -1354,7 +1366,7 @@ void Drv8833MotionAdapter::oneWheelTurn(controller::PivotMove::Direction directi
                  domain::oneWheelEnd(oneWheelTargetMm_).inwardOffsetMm);
 #endif
         if (fix != 0.0) {
-            straight(-fix, "ajuste antes da curva", false);
+            straight(-fix, "ajuste antes da curva", centerBeforeTurn());
         }
     }
     if (!lastMoveOk_ && lastMoveFailure_ != nullptr &&
@@ -1487,7 +1499,7 @@ void Drv8833MotionAdapter::positionForArc(double frontTargetMm) {
                                                  : domain::arcStart(frontValid, frontMm, config);
     if (std::fabs(start.setbackMm) > 3.0) {
         straight(-start.setbackMm,
-                 start.setbackMm > 0.0 ? "recuo antes da curva" : "avanco antes da curva", false);
+                 start.setbackMm > 0.0 ? "recuo antes da curva" : "avanco antes da curva", centerBeforeTurn());
     }
     // Confere a posição com uma medida nova, feita com o robô parado e já longe da parede, e
     // corrige uma vez. O arco tem 1 a 3 cm de folga: não pode depender de uma leitura só, feita a
@@ -1503,7 +1515,7 @@ void Drv8833MotionAdapter::positionForArc(double frontTargetMm) {
                  frontTargetMm, frontMm, settled.value_or(-1), fix);
 #endif
         if (fix != 0.0) {
-            straight(-fix, "ajuste antes da curva", false);
+            straight(-fix, "ajuste antes da curva", centerBeforeTurn());
         }
     } else {
 #if CONFIG_RATO_LOG_RETA

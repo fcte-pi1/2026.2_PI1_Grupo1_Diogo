@@ -46,12 +46,18 @@ LateralPose estimateLateralPose(const SideReading& left, const SideReading& righ
         return {true, (left.mm - right.mm) / 2.0 + turnMm, true};
     }
     if (hasLeft) {
-        return {true, left.mm - config.centerMm + turnMm, false};
+        const double center = config.leftCenterMm > 0.0 ? config.leftCenterMm : config.centerMm;
+        return {true, left.mm - center + turnMm, false};
     }
     if (hasRight) {
-        return {true, config.centerMm - right.mm + turnMm, false};
+        const double center = config.rightCenterMm > 0.0 ? config.rightCenterMm : config.centerMm;
+        return {true, center - right.mm + turnMm, false};
     }
     return {};
+}
+
+LateralPoseCenters learnCenters(const SideReading& left, const SideReading& right, double offsetMm) noexcept {
+    return {left.mm - offsetMm, right.mm + offsetMm};
 }
 
 double lateralCorrectionPulses(const LateralPose& pose, const WallCenteringConfig& config) noexcept {

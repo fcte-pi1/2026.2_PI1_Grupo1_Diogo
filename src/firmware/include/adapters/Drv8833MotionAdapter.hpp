@@ -103,6 +103,11 @@ private:
     void pivot(double degrees, controller::PivotMove::Direction direction,
                const controller::PivotMoveConfig& config);
     void pivotInBoxedCell(controller::PivotMove::Direction direction);
+    // O recuo, o avanço e o ajuste antes da curva também centralizam pelas paredes (20/11): as curvas que travaram
+    // começaram a 11-15 mm da parede.
+    [[nodiscard]] bool centerBeforeTurn() const noexcept {
+        return walls_ != nullptr && calibration_.centerOnWalls >= 0.5;
+    }
     void reanchorOnFrontWall(bool endedAtCellCenter);
     void trackGyroBias();
     void arcTurn(controller::PivotMove::Direction direction);

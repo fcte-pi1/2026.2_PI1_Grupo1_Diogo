@@ -186,5 +186,48 @@ TEST(LateralPoseCorridor, OneWallAtTheRealCenterReadsZeroOffsetWithTheRightWidth
     EXPECT_NEAR(wrong.rightOffsetMm, -9.0, 1e-9);
 }
 
+
+// Corrida SERPENTINA-4 (20/11): na ré de 2 células o robô estava centrado com as DUAS paredes (E=20, D=22). Aos 2,7 s a
+// parede direita acabou (a abertura da curva) e a estimativa passou para UMA parede, comparando o E com um valor fixo
+// (meio corredor de 168 menos o ToF até o centro: 28,5). O corredor real mede ~153 (o centro é E=21): ela achou que o
+// robô estava 8 a 14 mm fora do centro, corrigiu para o lado errado e a curva começou colada na parede.
+// O centro aprendido com as duas paredes vale para a parede que sobrou.
+TEST(LateralPoseLearnedCenter, WhenOneWallDisappearsTheLearnedCenterKeepsTheRobotWhereItWas) {
+    Calibration c;
+    c.sideTofToCenterMm = 55.5;  // medida de 20/11: corredor de 168 e laterais a 55,5: centro fixo em 28,5
+    LateralPoseConfig config = lateralPoseConfig(c);
+    ASSERT_NEAR(config.centerMm, 28.5, 1e-9);
+    // Duas paredes, E=21 e D=21: centrado, e o centro daquela parede é 21.
+    const LateralPose both = estimateLateralPose({true, 21.0}, {true, 21.0}, 0.0, config);
+    ASSERT_TRUE(both.valid);
+    EXPECT_NEAR(both.rightOffsetMm, 0.0, 1e-9);
+    // A direita some. Com o centro fixo, o robô "está 7,5 mm à esquerda" (errado); com o aprendido, está no centro.
+    const LateralPose fixedCenter = estimateLateralPose({true, 21.0}, {false, 0.0}, 0.0, config);
+    EXPECT_NEAR(fixedCenter.rightOffsetMm, -7.5, 1e-9);
+    config.leftCenterMm = 21.0;
+    config.rightCenterMm = 21.0;
+    const LateralPose learned = estimateLateralPose({true, 21.0}, {false, 0.0}, 0.0, config);
+    EXPECT_NEAR(learned.rightOffsetMm, 0.0, 1e-9);
+    // E o inverso: some a esquerda.
+    const LateralPose rightOnly = estimateLateralPose({false, 0.0}, {true, 21.0}, 0.0, config);
+    EXPECT_NEAR(rightOnly.rightOffsetMm, 0.0, 1e-9);
+}
+
+TEST(LateralPoseLearnedCenter, LearnedCentersFollowTheMeasuredCorridor) {
+    // O centro de cada lado: a leitura menos o desvio estimado (esquerda) ou mais o desvio (direita).
+    const LateralPoseCenters centers = learnCenters({true, 24.0}, {true, 18.0}, 3.0);
+    EXPECT_NEAR(centers.leftMm, 21.0, 1e-9);   // 24 - 3
+    EXPECT_NEAR(centers.rightMm, 21.0, 1e-9);  // 18 + 3
+}
+
+// Sem aprendizado (centros em 0) tudo continua como antes.
+TEST(LateralPoseLearnedCenter, WithoutLearningTheFixedCenterStillApplies) {
+    const LateralPoseConfig config = lateralPoseConfig(Calibration{});
+    EXPECT_DOUBLE_EQ(config.leftCenterMm, 0.0);
+    EXPECT_DOUBLE_EQ(config.rightCenterMm, 0.0);
+    const LateralPose pose = estimateLateralPose({true, 35.5}, {false, 0.0}, 0.0, config);
+    EXPECT_NEAR(pose.rightOffsetMm, 2.0, 1e-9);  // 35,5 - 33,5 (o padrão de 168 e 50,5)
+}
+
 }  // namespace
 }  // namespace micromouse::domain

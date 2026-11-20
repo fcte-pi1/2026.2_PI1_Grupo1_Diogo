@@ -36,6 +36,11 @@ struct LateralPoseConfig {
     double useBelowMm;      // só usa uma parede com leitura abaixo disto (a da própria célula)
     double sensorAheadMm;   // ToF lateral à frente do eixo
     double maxHeadingDeg;   // acima deste rumo (em módulo) a estimativa desliga: o robô está torto
+    // Centro APRENDIDO de cada lado (20/11): a leitura de cada ToF quando o eixo estava no centro, medida com as duas
+    // paredes visíveis. Vale para a parede que sobra quando a outra some (a abertura de uma curva). 0 = não aprendido
+    // (usa centerMm, o meio corredor de projeto). O corredor real nem sempre é o de 168 mm.
+    double leftCenterMm{0.0};
+    double rightCenterMm{0.0};
 };
 
 struct LateralPose {
@@ -49,6 +54,14 @@ struct LateralPose {
 [[nodiscard]] LateralPose estimateLateralPose(const SideReading& left, const SideReading& right,
                                               double headingDeg,
                                               const LateralPoseConfig& config) noexcept;
+
+// Centro de cada lado a partir de uma medida com as duas paredes: `offsetMm` é o desvio estimado (+ = eixo à direita).
+struct LateralPoseCenters {
+    double leftMm;
+    double rightMm;
+};
+[[nodiscard]] LateralPoseCenters learnCenters(const SideReading& left, const SideReading& right,
+                                              double offsetMm) noexcept;
 
 // O termo de correção em pulsos equivalentes (mesma convenção do wallCenteringError), limitado.
 [[nodiscard]] double lateralCorrectionPulses(const LateralPose& pose,
