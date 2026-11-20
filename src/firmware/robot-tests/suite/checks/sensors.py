@@ -224,7 +224,7 @@ def check_tof_too_close(lines: list[str], sensor_letter: str, sensor_name: str, 
 EXPECTED_CALIBRATION = {
     "eixo_ate_frente": 100.0, "largura_frente": 112.0, "eixo_ate_tof_frente": 98.0, "largura_com_rodas": 108.0,
     "tof_lado_ao_centro": 55.5, "tof_lado_a_frente_do_eixo": 59.15, "cabo_frente_mm": 0.0, "preset_cad": 0.0,
-    "escala_giro": 1.01, "freio_arco": 2.6, "freio_pivo": 8.1, "modo_curva": 0.0, "freio_uma_roda": 2.6,
+    "escala_giro": 1.00, "freio_arco": 2.6, "freio_pivo": 8.1, "modo_curva": 0.0, "freio_uma_roda": 2.6,
     "autoajuste_freio": 0.0, "parada_frente": 35.0, "tof_na_reta": 1.0, "rampa_tensao": 50.0, "fusao_rumo": 0.0,
     "reancorar_parede": 0.0, "parada_dinamica": 0.0, "vies_giro": 0.0, "reta_continua": 1.0,
     "largura_corredor": 168.0, "ganho_parede": 3.0, "max_parede": 50.0, "folga_arco": 12.0,
