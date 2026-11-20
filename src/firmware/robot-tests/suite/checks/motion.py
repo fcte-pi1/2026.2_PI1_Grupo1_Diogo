@@ -212,3 +212,52 @@ def check_clean_motion(lines: list[str], run_index: int = 0, cruise_mm_s: float 
                                      f"cruzeiro: média {mean:.0f} mm/s, desvio {spread:.1f} (limite {0.1 * cruise_mm_s:.0f})"),
               Check.passed_or_review(slow == 0, f"{slow} amostra(s) de 50 ms abaixo de 60% do cruzeiro no meio do trecho")]
     return checks
+
+
+def _series(lines: list[str], title: str) -> list[list[int]]:
+    runs: list[list[int]] = []
+    for match in find_matches(lines, rf"{title} \[(?P<start>\d+)\]:(?P<values>(?: -?\d+)+)"):
+        values = [int(v) for v in match["values"].split()]
+        if int(match["start"]) == 0 or not runs:
+            runs.append([])
+        runs[-1].extend(values)
+    return runs
+
+
+def check_tof_centering(lines: list[str], run_index: int = 0) -> list[Check]:
+    """Por que a centralização não segura o robô no meio? Mostra, por reta, o que cada ToF lateral leu (a cada
+    50 ms), quantas vezes ele alterna entre válido e inválido, os saltos entre leituras, a largura do corredor e o
+    erro lateral estimado."""
+    left_runs, right_runs = _series(lines, "tof E 50ms \\(mm\\)"), _series(lines, "tof D 50ms \\(mm\\)")
+    pose_runs, term_runs = _series(lines, "pose 50ms \\(mm\\*10\\)"), _series(lines, "termo 50ms \\(mm\\*10\\)")
+    if len(left_runs) <= run_index or len(right_runs) <= run_index:
+        return [Check.failed("sem o registro 'tof E/D 50ms' da reta no log (firmware antigo)")]
+    left, right = left_runs[run_index], right_runs[run_index]
+    pose = pose_runs[run_index] if len(pose_runs) > run_index else []
+    term = term_runs[run_index] if len(term_runs) > run_index else []
+    checks: list[Check] = []
+    for name, data in (("esquerdo", left), ("direito", right)):
+        valid = [v for v in data if v >= 0]
+        flips = sum(1 for a, b in zip(data, data[1:]) if (a >= 0) != (b >= 0))
+        jumps = [abs(b - a) for a, b in zip(data, data[1:]) if a >= 0 and b >= 0]
+        big = sum(1 for j in jumps if j >= 8)
+        if not valid:
+            checks.append(Check.failed(f"ToF {name}: nenhuma leitura válida na reta"))
+            continue
+        checks.append(Check.info(
+            f"ToF {name}: {len(valid)} de {len(data)} leituras válidas, min {min(valid)} máx {max(valid)} mm, "
+            f"{flips} alternância(s) válido/inválido, {big} salto(s) de 8 mm ou mais entre leituras"))
+        checks.append(Check.passed_or_review(flips <= 2, f"ToF {name}: {flips} alternância(s) entre válido e inválido (meta: até 2)"))
+        checks.append(Check.passed_or_review(big <= 3, f"ToF {name}: {big} salto(s) de 8 mm ou mais (meta: até 3)"))
+    both = [(a, b) for a, b in zip(left, right) if a >= 0 and b >= 0]
+    if both:
+        widths = [a + b + 101 for a, b in both]
+        checks.append(Check.info(f"corredor medido (E + D + 101): {min(widths)} a {max(widths)} mm, média "
+                                 f"{sum(widths) / len(widths):.0f} mm (a chave largura_corredor deve ficar perto)"))
+    if pose:
+        checks.append(Check.info(f"erro lateral estimado (mm, + = direita): de {min(pose) / 10:.1f} a {max(pose) / 10:.1f}, "
+                                 f"no fim {pose[-1] / 10:.1f}"))
+        checks.append(Check.passed_or_review(abs(pose[-1]) <= 100, f"erro lateral no fim: {pose[-1] / 10:.1f} mm (meta: até 10)"))
+    if term:
+        checks.append(Check.info(f"termo da parede aplicado (mm): de {min(term) / 10:.1f} a {max(term) / 10:.1f}"))
+    return checks

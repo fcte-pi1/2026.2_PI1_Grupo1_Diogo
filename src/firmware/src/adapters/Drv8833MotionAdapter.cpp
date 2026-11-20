@@ -861,9 +861,16 @@ void Drv8833MotionAdapter::straight(double distanceMm, const char* name, bool ce
 #if CONFIG_RATO_LOG_RETA
     // Velocidade média das rodas a cada 50 ms (mm/s), para ver se o movimento é contínuo e limpo ou tem
     // trancos e paradas dentro do perfil (20/11).
+    // Estáticos (não na pilha): são ~2 KB. Além da velocidade e da tensão, o que cada ToF lateral leu (mm, -1 = sem
+    // leitura válida), o erro lateral estimado e o termo da parede aplicado (décimos de mm): para ver por que a
+    // centralização não segura o robô no meio.
     constexpr int kSpeedTraceMax = 200;  // 10 s
-    int16_t speedTrace[kSpeedTraceMax];
-    int16_t voltsTrace[kSpeedTraceMax];  // tensão comandada na roda esquerda, em décimos de volt
+    static int16_t speedTrace[kSpeedTraceMax];
+    static int16_t voltsTrace[kSpeedTraceMax];
+    static int16_t leftTofTrace[kSpeedTraceMax];
+    static int16_t rightTofTrace[kSpeedTraceMax];
+    static int16_t poseTrace[kSpeedTraceMax];
+    static int16_t termTrace[kSpeedTraceMax];
     int speedTraceCount = 0;
     double nextSpeedTrace = 0.0;
 #endif
@@ -916,6 +923,10 @@ void Drv8833MotionAdapter::straight(double distanceMm, const char* name, bool ce
 #if CONFIG_RATO_LOG_RETA
         if (now >= nextSpeedTrace && speedTraceCount < kSpeedTraceMax) {
             voltsTrace[speedTraceCount] = static_cast<int16_t>(std::lround(10.0 * endLeftVolts_));
+            leftTofTrace[speedTraceCount] = leftWall.valid ? static_cast<int16_t>(std::lround(leftWall.mm)) : -1;
+            rightTofTrace[speedTraceCount] = rightWall.valid ? static_cast<int16_t>(std::lround(rightWall.mm)) : -1;
+            poseTrace[speedTraceCount] = static_cast<int16_t>(std::lround(10.0 * poseOffsetMm));
+            termTrace[speedTraceCount] = static_cast<int16_t>(std::lround(10.0 * wallFilter.value()));
             speedTrace[speedTraceCount++] =
                 static_cast<int16_t>(std::lround(0.5 * (leftSpeedMmS + rightSpeedMmS)));
             nextSpeedTrace += 0.05;
@@ -1024,14 +1035,22 @@ void Drv8833MotionAdapter::straight(double distanceMm, const char* name, bool ce
         }
         ESP_LOGI("reta", "%s", line);
     }
-    for (int start = 0; start < speedTraceCount; start += 25) {
-        char line[200];
-        int used = std::snprintf(line, sizeof line, "tensao 50ms (V/10) [%d]:", start);
-        for (int i = start; i < speedTraceCount && i < start + 25 && used + 7 < static_cast<int>(sizeof line); ++i) {
-            used += std::snprintf(line + used, sizeof line - static_cast<size_t>(used), " %d", voltsTrace[i]);
+    // Cada série em linhas de 25 amostras.
+    auto logSeries = [&](const char* title, const int16_t* data) {
+        for (int start = 0; start < speedTraceCount; start += 25) {
+            char line[200];
+            int used = std::snprintf(line, sizeof line, "%s [%d]:", title, start);
+            for (int i = start; i < speedTraceCount && i < start + 25 && used + 7 < static_cast<int>(sizeof line); ++i) {
+                used += std::snprintf(line + used, sizeof line - static_cast<size_t>(used), " %d", data[i]);
+            }
+            ESP_LOGI("reta", "%s", line);
         }
-        ESP_LOGI("reta", "%s", line);
-    }
+    };
+    logSeries("tensao 50ms (V/10)", voltsTrace);
+    logSeries("tof E 50ms (mm)", leftTofTrace);
+    logSeries("tof D 50ms (mm)", rightTofTrace);
+    logSeries("pose 50ms (mm*10)", poseTrace);
+    logSeries("termo 50ms (mm*10)", termTrace);
 #endif
     if (sign > 0.0 && lastMoveOk_) {
         headingResidualDeg_ += headingDeg;  // o que a reta girou, com a correção, entra na conta
