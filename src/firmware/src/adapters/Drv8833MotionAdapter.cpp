@@ -1274,6 +1274,18 @@ void Drv8833MotionAdapter::straight(double distanceMm, const char* name, bool ce
         vTaskDelay(kControlPeriod);
     }
     stopAndSettle();
+    if (path) {
+        // O robô ainda gira depois de frear o arco (a curva parada já soma isso): sem esta soma, o giro que sobrou fica
+        // fora do rumo e a reta de saída parte achando que está reto (E16a de 20/11: traseira inclinada).
+        const int64_t settleStart = esp_timer_get_time();
+        LoopClock settleClock;
+        (void)settleClock.tick();
+        while (esp_timer_get_time() - settleStart < 150'000) {
+            vTaskDelay(kControlPeriod);
+            const double settleDt = settleClock.tick();
+            pathGyroDeg += gyroRate() * settleDt;
+        }
+    }
 #if CONFIG_RATO_LOG_RETA
     // Em linhas de 25 amostras: "reta: vel 50ms (mm/s) [i]: ..."
     for (int start = 0; start < speedTraceCount; start += 25) {
