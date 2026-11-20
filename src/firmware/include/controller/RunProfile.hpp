@@ -15,6 +15,8 @@ public:
     using Sample = TrapezoidProfile::Sample;
 
     RunProfile(double distance, const ProfileLimits& limits) noexcept;
+    // Parte do estado (posição e velocidade) e para em `target` (curva contínua: a trajetória começa em movimento).
+    RunProfile(double fromPosition, double fromSpeed, double target, const ProfileLimits& limits) noexcept;
 
     [[nodiscard]] Sample at(double timeSeconds) const noexcept;
     [[nodiscard]] double duration() const noexcept { return start_ + total_; }

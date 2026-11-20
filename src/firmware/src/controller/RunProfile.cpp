@@ -49,6 +49,16 @@ void RunProfile::plan(double fromPosition, double fromSpeed, double target) noex
     total_ = t1_ + t2_ + t3_;
 }
 
+RunProfile::RunProfile(double fromPosition, double fromSpeed, double target, const ProfileLimits& limits) noexcept
+    : limits_(limits) {
+    if (!(limits.maxSpeed > 0.0) || !(limits.acceleration > 0.0)) {
+        target_ = target;
+        p0_ = fromPosition;
+        return;
+    }
+    plan(fromPosition, fromSpeed, target);
+}
+
 RunProfile::Sample RunProfile::at(double timeSeconds) const noexcept {
     const double t = timeSeconds - start_;
     if (total_ <= 0.0 || t >= total_) {
