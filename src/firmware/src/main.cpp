@@ -362,6 +362,16 @@ void onBleCommand(const std::string& command) {
         if (command == "re") maneuver = M::Reverse;  // uma célula de ré (saída de beco)
         gRemoteStop = false;  // zera aqui, e não ao começar: um "parar" que chegue depois vale
         gTestManeuver = static_cast<int>(maneuver);
+    } else if (command.rfind("re ", 0) == 0) {
+        // `re N` (20/11): N células de ré num movimento só, de 2 a 8.
+        const int cells = std::atoi(command.c_str() + 3);
+        if (cells >= 2 && cells <= 8) {
+            gTestRunCells = cells;
+            gRemoteStop = false;
+            gTestManeuver = static_cast<int>(adapters::Drv8833MotionAdapter::Maneuver::ReverseRun);
+        } else {
+            ESP_LOGW("teste", "re N: N de 2 a 8 (veio '%s')", command.c_str());
+        }
     } else if (command.rfind("andar ", 0) == 0) {
         // `andar N` (20/11): N células num movimento só (reta contínua), de 2 a 8.
         const int cells = std::atoi(command.c_str() + 6);

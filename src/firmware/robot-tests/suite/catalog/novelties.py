@@ -182,14 +182,14 @@ NOVELTY_TESTS: tuple[Test, ...] = (
          questions=(yes_no("sem_raspar", "O robô girou SEM raspar nenhuma parede?", expected=YES),),
          moves=True, repeat=3),
     *LOOP_TESTS,
-    Test("E15", "Reta contínua: 3 células num movimento só (andar 3) e volta de ré",
+    Test("E15", "Reta e ré contínuas: 3 células num movimento só (andar 3) e volta de ré contínua (re 3)",
          ("Corredor reto de MDF, robô no início, centrado e afastado das paredes laterais. 3 células livres à frente.",
           "Olhe de lado, abaixado: o robô deve acelerar UMA vez, andar as 3 células sem parar e frear UMA vez.",
-          "Depois ele volta 3 células de ré (uma por vez, como antes)."),
-         (Step("andar 3", MANEUVER_END, timeout=20),) + (Step("re", MANEUVER_END, timeout=15, gap=0.6),) * 3,
-         "Uma linha 'trecho continuo: 3 de 3 celulas', ~1533 pulsos em cada roda, giro < 3 graus, sem parar no meio.",
+          "Depois ele volta as 3 células de ré, também sem parar no meio (re 3)."),
+         (Step("andar 3", MANEUVER_END, timeout=20), Step("re 3", MANEUVER_END, timeout=20, gap=0.6)),
+         "Uma linha 'trecho continuo: 3 de 3 celulas', ~1533 pulsos em cada roda, giro < 3 graus, sem parar no meio; a ré (re 3) também contínua.",
          lambda lines: (check_continuous_run(lines, 3) + check_clean_motion(lines, 0) + check_tof_centering(lines, 0)
-                        + check_maneuver_ok(lines, 4)
+                        + check_clean_motion(lines, 1) + check_maneuver_ok(lines, 2)
                         + check_no_power_reset(lines)),
          questions=(yes_no("sem_parar", "O robô andou as 3 células SEM parar no meio?", expected=YES),
                     number("tranco", "Tranco ao parar no fim: 0 = nada, 1 = pouco, 2 = como antes, 3 = pior", 0, 1)),

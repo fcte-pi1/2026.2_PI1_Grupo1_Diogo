@@ -596,6 +596,9 @@ void Drv8833MotionAdapter::testManeuver(Maneuver maneuver, int cells) {
             (void)advanceCells(cells, always);
             break;
         }
+        case Maneuver::ReverseRun:
+            (void)reverseCells(cells);
+            break;
         case Maneuver::None:
             break;
     }
@@ -661,6 +664,22 @@ void Drv8833MotionAdapter::advanceCell() {
     straight(distance, "andar 1 celula", walls_ != nullptr && calibration_.centerOnWalls >= 0.5);
     trackGyroBias();
     reanchorOnFrontWall(fromCenter);
+}
+
+// Ré contínua (20/11): `cells` células para trás num movimento só, por células já percorridas (conhecidas): não há
+// o que decidir no caminho, então é uma reta de n células de ré, com a centralização como a de uma célula.
+int Drv8833MotionAdapter::reverseCells(int cells) {
+    if (cells <= 1) {
+        reverseCell();
+        return 1;
+    }
+    const double distance = cells * domain::robot::kCellSizeMm + aheadMm_ - lastShortMm_;
+    wallFixMm_ = 0.0;
+    aheadMm_ = 0.0;
+    std::snprintf(runName_, sizeof runName_, "re de %d celulas", cells);
+    straight(-distance, runName_, walls_ != nullptr && calibration_.centerOnWalls >= 0.5);
+    trackGyroBias();
+    return cells;
 }
 
 // Reta contínua (20/11): um trecho de até `maxCells` células num movimento só. Antes de cada centro o

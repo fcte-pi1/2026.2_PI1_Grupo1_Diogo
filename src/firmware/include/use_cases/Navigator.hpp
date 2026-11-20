@@ -81,6 +81,8 @@ private:
     // Decide, na célula `cellIndex` à frente de `start`, se o trecho passa dela sem parar.
     [[nodiscard]] bool continueRunPast(Position start, int cellIndex, int maxCells,
                                        double axleBehindCenterMm);
+    // Quantas células de ré o trecho pode ter: as de trás que o mapa sabe abertas e por onde o caminho segue de ré.
+    [[nodiscard]] int reverseRunCells() const;
     class RunObserver;
     void applyTurnTo(Direction target);
     [[nodiscard]] bool wasUnseen(Direction direction) const;

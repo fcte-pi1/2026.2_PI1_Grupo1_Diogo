@@ -222,8 +222,11 @@ void Navigator::step() {
         // graus no lugar já travava a 68-75 graus em A4. Na célula de trás, ele continua virado para o beco,
         // os três sensores valem, e a curva seguinte (se houver) é a curva em arco de sempre.
         report_.action = StepAction::Reverse;
-        motion_.reverseCell();
-        position_ = {position_.row + rowDelta(back), position_.column + colDelta(back)};
+        // Ré contínua: se o caminho segue de ré por células já abertas no mapa, sai num movimento só.
+        const int cells = continuous_ ? reverseRunCells() : 1;
+        const int moved = cells > 1 ? motion_.reverseCells(cells) : (motion_.reverseCell(), 1);
+        position_ = {position_.row + rowDelta(back) * moved, position_.column + colDelta(back) * moved};
+        report_.cells = moved;
         entrySide_ = heading_;
         return;
     }
@@ -246,6 +249,21 @@ void Navigator::step() {
     motion_.advanceCell();
     position_ = {position_.row + rowDelta(heading_), position_.column + colDelta(heading_)};
     entrySide_ = opposite(heading_);
+}
+
+int Navigator::reverseRunCells() const {
+    const Direction back = opposite(heading_);
+    int cells = 1;
+    Position cell{position_.row + rowDelta(back), position_.column + colDelta(back)};
+    while (cells < maxRunCells_) {
+        const bool isGoal = std::any_of(goals_.begin(), goals_.end(), [&cell](const Position& g) { return g == cell; });
+        if (isGoal || maze_.getWall(cell, back) != Wall::Open) break;
+        const std::optional<Direction> next = flood_.nextDirection(cell);
+        if (!next || *next != back) break;  // o caminho vira (ou acaba) nesta célula
+        cell = {cell.row + rowDelta(back), cell.column + colDelta(back)};
+        ++cells;
+    }
+    return cells;
 }
 
 int Navigator::runCellsAhead() const {

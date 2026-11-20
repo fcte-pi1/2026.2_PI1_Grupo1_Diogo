@@ -160,7 +160,8 @@ public:
     // lugar) e "andar" (uma célula). Cada uma loga a linha "curva" ou "reta".
     // "re" (10/11): uma célula de ré, como na saída de um beco.
     enum class Maneuver {
-        None, TurnLeft, TurnRight, ArcLeft, ArcRight, PivotLeft, PivotRight, Advance, Reverse, AdvanceRun
+        None, TurnLeft, TurnRight, ArcLeft, ArcRight, PivotLeft, PivotRight, Advance, Reverse, AdvanceRun,
+        ReverseRun
     };
     // `cells`: só para AdvanceRun (comando `andar N`): N células num trecho contínuo, sempre seguindo.
     void testManeuver(Maneuver maneuver, int cells = 1);
@@ -216,6 +217,7 @@ public:
     void resetEncoders();
     void advanceCell() override;
     int advanceCells(int maxCells, ports::IStraightRunObserver& observer) override;
+    int reverseCells(int cells) override;
     void turnLeft() override;
     void turnRight() override;
     void turnAround() override;

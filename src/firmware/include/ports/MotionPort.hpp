@@ -31,6 +31,14 @@ public:
     // disser não (ou na última). Devolve quantas células andou.
     // A implementação padrão anda uma célula por vez, parando, e pergunta parada no centro: o mesmo
     // caminho, sem a continuidade (simuladores e bancada).
+    // Ré contínua (20/11): anda `cells` células para trás sem parar entre elas (células já percorridas, conhecidas).
+    // O padrão anda uma por vez. Devolve quantas andou.
+    virtual int reverseCells(int cells) {
+        for (int i = 0; i < cells; ++i) {
+            reverseCell();
+        }
+        return cells;
+    }
     virtual int advanceCells(int maxCells, IStraightRunObserver& observer) {
         int moved = 0;
         while (moved < maxCells) {
