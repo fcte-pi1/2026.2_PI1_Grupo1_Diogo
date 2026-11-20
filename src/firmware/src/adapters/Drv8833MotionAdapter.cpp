@@ -83,6 +83,13 @@ constexpr int64_t kHeadingStaleUs = 4'000'000;
 // terminava 1 a 4 graus curto (D2: 86,1 / -86,2 / 88,9). Se faltar de 1 a 8 graus, gira o resto no
 // lugar, devagar (o canto da frente varre ~7 mm em 4 graus).
 constexpr double kTrimMinDeg = 1.0;
+// Ré (recuo antes da curva e ré contínua): mais lenta e mais suave que a frente (operador, 20/11: "o recuo ainda é alto e rápido").
+constexpr double kReverseMaxSpeedMmPerS = 70.0;
+constexpr double kReverseAccelMmPerS2 = 120.0;
+// O cabo da bateria fica à ESQUERDA do robô: numa curva à esquerda ele está do lado de dentro e a folga da quina de dentro
+// cai de ~12 para ~2 mm (domain/ArcClearance, E16/SERPENTINA-7: travou a 43 graus). O arco à esquerda começa este tanto
+// mais tarde (mais perto da parede da frente), onde o modelo dá ~6 mm. Some quando o cabo for reposicionado.
+constexpr double kLeftArcLateMm = 4.0;
 constexpr double kArcNearlyDoneDeg = 78.0;  // arco parado a partir daqui: terminou
 constexpr double kTrimMaxDeg = 15.0;  // E16a de 20/11: a curva contínua terminou 11 graus a mais
 constexpr double kTrimMaxDegPerS = 45.0;
@@ -951,7 +958,12 @@ void Drv8833MotionAdapter::straight(double distanceMm, const char* name, bool ce
     // Para trás (distância negativa): o mesmo controle, com os encoders e a tensão invertidos.
     const double sign = distanceMm < 0.0 ? -1.0 : 1.0;
     encoders_.reset();
-    controller::StraightMove move(std::fabs(distanceMm), controller::robot::kStraightMove);
+    controller::StraightMoveConfig moveConfig = controller::robot::kStraightMove;
+    if (sign < 0.0) {
+        moveConfig.limits.maxSpeed = std::min(moveConfig.limits.maxSpeed, kReverseMaxSpeedMmPerS);
+        moveConfig.limits.acceleration = std::min(moveConfig.limits.acceleration, kReverseAccelMmPerS2);
+    }
+    controller::StraightMove move(std::fabs(distanceMm), moveConfig);
     controller::SpeedEstimator leftSpeed;
     controller::SpeedEstimator rightSpeed;
     leftSpeed.reset(0.0, 0.0);
@@ -1206,7 +1218,8 @@ void Drv8833MotionAdapter::straight(double distanceMm, const char* name, bool ce
                     const double startHeading = headingResidualDeg_ + headingDeg;
                     const double fix =
                         std::clamp(startHeading, -kRunTurnMaxStartFixDeg, kRunTurnMaxStartFixDeg);
-                    const controller::PathPlan plan{std::max(0.0, arcStartMm - travelled),
+                    const double leftLate = right ? 0.0 : kLeftArcLateMm;  // cabo por dentro: ver kLeftArcLateMm
+                    const controller::PathPlan plan{std::max(0.0, arcStartMm + leftLate - travelled),
                                                     controller::robot::kArcSetbackMm,
                                                     90.0 + (right ? fix : -fix),
                                                     right,
@@ -1714,7 +1727,8 @@ void Drv8833MotionAdapter::arcTurn(controller::PivotMove::Direction direction) {
     // Recua a meia célula inteira, mesmo se a reta anterior parou antes pela parede da frente: com
     // o eixo atrás do centro, o arco tem espaço no canto (V3b de 09/11).
     lastShortMm_ = 0.0;
-    positionForArc(arcStartFrontMm());
+    const double leftLate = direction == controller::PivotMove::Direction::Left ? kLeftArcLateMm : 0.0;
+    positionForArc(arcStartFrontMm() - leftLate);
     // Sem espaço para recuar (a traseira encostou na parede de trás: A1 virado para A2, 18/11), o
     // arco não cabe. Em vez de falhar, o robô gira no lugar, que não precisa de recuo, e segue.
     if (!lastMoveOk_ && lastMoveFailure_ != nullptr &&
@@ -1752,7 +1766,7 @@ void Drv8833MotionAdapter::arcTurn(controller::PivotMove::Direction direction) {
         }
         // O ajuste vai para o lado certo (domain::arcRetryShiftMm): travou antes de ~52 graus = parede da frente,
         // começa mais longe; depois = quina de dentro, começa mais perto.
-        positionForArc(arcStartFrontMm() + attempt * domain::arcRetryShiftMm(stalledDeg));
+        positionForArc(arcStartFrontMm() - leftLate + attempt * domain::arcRetryShiftMm(stalledDeg));
 #if CONFIG_RATO_LOG_RETA
         ESP_LOGW("curva", "tentativa %d do arco (a anterior: %s a %.0f graus, ajuste %+.0f mm)", attempt + 1,
                  firstFailure, stalledDeg, domain::arcRetryShiftMm(stalledDeg));
