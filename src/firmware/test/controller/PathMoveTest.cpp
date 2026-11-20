@@ -145,3 +145,54 @@ TEST(PathMoveSteer, PositiveSteerPushesTheRightWheelAhead) {
 
 }  // namespace
 }  // namespace micromouse::controller
+
+namespace micromouse::controller {
+namespace {
+
+// Entrando a 130 mm/s com teto de 80: o perfil freia até o teto, sem ultrapassar a posição, e chega parado.
+TEST(RunProfileCeiling, BrakesDownToTheCeilingThenRunsAndStops) {
+    ProfileLimits limits = robot::kStraightMove.limits;
+    limits.maxSpeed = 80.0;
+    const RunProfile profile(0.0, 130.0, 300.0, limits);
+    EXPECT_NEAR(profile.at(0.0).speed, 130.0, 1e-9);
+    double maxAfter = 0.0, last = -1.0;
+    for (double t = 0.0; t < profile.duration() + 0.1; t += 0.005) {
+        const RunProfile::Sample s = profile.at(t);
+        EXPECT_GE(s.position, last - 1e-9);  // nunca anda para trás
+        last = s.position;
+        if (t > (130.0 - 80.0) / limits.acceleration + 0.01) maxAfter = std::max(maxAfter, s.speed);
+    }
+    EXPECT_LE(maxAfter, 80.0 + 1e-6);
+    EXPECT_NEAR(profile.at(profile.duration() + 0.01).position, 300.0, 1e-6);
+    EXPECT_TRUE(profile.at(profile.duration() + 0.01).finished);
+}
+
+TEST(PathMoveSimulation, EnteringFastTheArcRunsAtTheCeilingSpeed) {
+    const PathPlan plan{10.0, 90.0, 90.0, true, 90.0, 100.0};
+    MotorWheel left = test::realLeftWheel(), right = test::realRightWheel();
+    left.speed = right.speed = 130.0;
+    PathMove move(plan, robot::kStraightMove, 130.0, 80.0);
+    SpeedEstimator ls, rs;
+    ls.reset(0.0, 0.0);
+    rs.reset(0.0, 0.0);
+    for (int i = 1; i <= 8; ++i) {
+        (void)ls.update(-130.0 * 0.002 * (8 - i), -0.002 * (8 - i));
+        (void)rs.update(-130.0 * 0.002 * (8 - i), -0.002 * (8 - i));
+    }
+    double arcSpeedMax = 0.0;
+    bool done = false;
+    for (double t = 0.002; t < 8.0 && !done; t += 0.002) {
+        const PathMove::Output out =
+            move.step(0.002, left.encoderMm(), right.encoderMm(), ls.update(left.encoderMm(), t), rs.update(right.encoderMm(), t));
+        if (out.done) { done = true; break; }
+        left.step(out.leftVolts, 0.002);
+        right.step(out.rightVolts, 0.002);
+        const double axle = 0.5 * (left.position + right.position);
+        if (axle > 60.0 && axle < 130.0) arcSpeedMax = std::max(arcSpeedMax, 0.5 * (left.speed + right.speed));
+    }
+    EXPECT_TRUE(done);
+    EXPECT_LT(arcSpeedMax, 95.0);
+}
+
+}  // namespace
+}  // namespace micromouse::controller

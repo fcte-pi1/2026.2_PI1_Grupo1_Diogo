@@ -19,7 +19,7 @@ public:
     RunProfile(double fromPosition, double fromSpeed, double target, const ProfileLimits& limits) noexcept;
 
     [[nodiscard]] Sample at(double timeSeconds) const noexcept;
-    [[nodiscard]] double duration() const noexcept { return start_ + total_; }
+    [[nodiscard]] double duration() const noexcept { return start_ + preT_ + total_; }
     [[nodiscard]] double target() const noexcept { return target_; }
     [[nodiscard]] bool retarget(double newTarget, double atTimeSeconds) noexcept;
 
@@ -40,6 +40,11 @@ private:
     double t2_{0.0};        // duração do cruzeiro
     double t3_{0.0};        // duração da frenagem
     double total_{0.0};
+    // Parte com velocidade ACIMA do teto (curva contínua: a reta chega a 130 mm/s e o arco é a 80): antes do trapézio
+    // há uma frenagem até o teto, com a mesma aceleração.
+    double preT_{0.0};
+    double preP0_{0.0};
+    double preV0_{0.0};
 };
 
 }  // namespace micromouse::controller

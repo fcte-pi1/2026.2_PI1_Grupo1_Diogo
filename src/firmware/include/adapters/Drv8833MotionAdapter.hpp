@@ -56,6 +56,7 @@ private:
     double wallFixMm_{0.0};    // `reancorar_parede`: quanto a próxima reta anda a mais (negativo: a menos)
     double aheadMm_{0.0};      // quanto o robô já está à frente do centro (fim de uma curva em arco)
     double batteryVolts_;
+    int batteryDropStreak_{0};  // leituras seguidas com uma queda brusca (ver setBatteryVolts)
     controller::VoltageSlew leftSlew_;   // rampa de tensão (soft-start): `calib rampa_tensao`
     controller::VoltageSlew rightSlew_;
     int64_t lastDriveUs_{0};

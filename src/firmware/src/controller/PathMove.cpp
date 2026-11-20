@@ -38,10 +38,20 @@ PathPlan::Wheels PathPlan::wheelsAt(double axleMm) const noexcept {
     return {inner, outer, innerF, outerF, heading};
 }
 
-PathMove::PathMove(const PathPlan& plan, const StraightMoveConfig& config, double startSpeedMmPerS) noexcept
+namespace {
+ProfileLimits capped(ProfileLimits limits, double maxSpeed) {
+    if (maxSpeed > 0.0 && maxSpeed < limits.maxSpeed) {
+        limits.maxSpeed = maxSpeed;
+    }
+    return limits;
+}
+}  // namespace
+
+PathMove::PathMove(const PathPlan& plan, const StraightMoveConfig& config, double startSpeedMmPerS,
+                   double maxSpeedMmPerS) noexcept
     : plan_(plan),
       config_(config),
-      profile_(0.0, startSpeedMmPerS, plan.lengthMm(), config.limits),
+      profile_(0.0, startSpeedMmPerS, plan.lengthMm(), capped(config.limits, maxSpeedMmPerS)),
       left_(config.wheel),
       right_(config.wheel) {}
 
@@ -52,7 +62,10 @@ PathMove::Output PathMove::step(double dtSeconds, double leftMm, double rightMm,
     const PathPlan::Wheels wheels = plan_.wheelsAt(reference.position);
     // Sincronia: a diferença entre as rodas em relação à planejada.
     const double difference = (leftMm - rightMm) - (wheels.leftMm - wheels.rightMm);
-    const double shift = 0.5 * config_.syncGain * difference;
+    // No arco quem manda no rumo é a correção do giroscópio (steerMm); a sincronia das rodas, que quer a diferença
+    // PLANEJADA, brigava com ela (E16a de 20/11: o giro ficou em 2/3 do planejado).
+    const bool inArc = reference.position > plan_.approachMm && reference.position < plan_.approachMm + plan_.arcLengthMm();
+    const double shift = inArc ? 0.0 : 0.5 * config_.syncGain * difference;
     const double leftTarget = wheels.leftMm - shift - 0.5 * steerMm;
     const double rightTarget = wheels.rightMm + shift + 0.5 * steerMm;
     const double leftVolts =

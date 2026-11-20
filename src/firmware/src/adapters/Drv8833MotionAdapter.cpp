@@ -55,8 +55,13 @@ constexpr char kShortOfCellFailure[] = "nao chegou ao fim da celula";
 // `kRunTurnJamDeg` entre o rumo planejado e o medido é o arco preso numa parede.
 constexpr double kRunTurnDecisionMm = 8.0;
 constexpr double kRunTurnLateMm = 3.0;
-constexpr double kRunTurnHeadingGain = 0.5;
-constexpr double kRunTurnSteerMaxMm = 12.0;
+constexpr double kRunTurnHeadingGain = 1.0;
+constexpr double kRunTurnSteerMaxMm = 30.0;
+// E16a de 20/11: a 132 mm/s o arco girou 2/3 do que as rodas indicavam (56 graus contra 83). A trajetória passa a ser a
+// ~80 mm/s (perto dos 54 graus/s em que o arco parado foi calibrado) e com bitola de 100 mm (a de 74,2 vale para o
+// giro parado, em que as rodas arrastam): o rumo quem fecha é o giroscópio.
+constexpr double kRunTurnSpeedMmPerS = 80.0;
+constexpr double kRunTurnTrackMm = 100.0;
 constexpr double kRunTurnJamDeg = 20.0;
 constexpr double kRunTurnMaxStartFixDeg = 10.0;
 constexpr double kDegToRad = 3.14159265358979323846 / 180.0;
@@ -122,7 +127,17 @@ void Drv8833MotionAdapter::begin() {
 }
 
 void Drv8833MotionAdapter::setBatteryVolts(double volts) noexcept {
-    batteryVolts_ = domain::usableBatteryVolts(volts, controller::robot::kNominalBatteryVolts);
+    const double usable = domain::usableBatteryVolts(volts, controller::robot::kNominalBatteryVolts);
+    // Uma queda brusca (mais de 1 V de uma leitura para a outra) é quase sempre uma leitura ruim do INA219 (E16a de
+    // 20/11: 6,11 V com 7,98 V no cellmeter, e o PWM saiu ~30% acima do pedido). Só vale se se repetir.
+    constexpr double kMaxDropV = 1.0;
+    constexpr int kDropStreakToAccept = 3;
+    if (usable < batteryVolts_ - kMaxDropV && batteryDropStreak_ + 1 < kDropStreakToAccept) {
+        ++batteryDropStreak_;
+        return;
+    }
+    batteryDropStreak_ = 0;
+    batteryVolts_ = usable;
 }
 
 void Drv8833MotionAdapter::drive(double leftVolts, double rightVolts) {
@@ -1164,9 +1179,9 @@ void Drv8833MotionAdapter::straight(double distanceMm, const char* name, bool ce
                                                     90.0 + (right ? fix : -fix),
                                                     right,
                                                     controller::robot::kArcSetbackMm,
-                                                    controller::robot::kArcEffectiveTrackMm};
+                                                    kRunTurnTrackMm};
                     pathEntrySpeed = std::max(0.0, 0.5 * (leftSpeedMmS + rightSpeedMmS));
-                    path.emplace(plan, controller::robot::kStraightMove, pathEntrySpeed);
+                    path.emplace(plan, controller::robot::kStraightMove, pathEntrySpeed, kRunTurnSpeedMmPerS);
                     pathLeft0 = leftMm;
                     pathRight0 = rightMm;
                     pathStartS = now;

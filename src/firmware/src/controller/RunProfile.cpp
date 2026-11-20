@@ -14,6 +14,18 @@ RunProfile::RunProfile(double distance, const ProfileLimits& limits) noexcept : 
 }
 
 void RunProfile::plan(double fromPosition, double fromSpeed, double target) noexcept {
+    preT_ = 0.0;
+    const double ceiling = limits_.maxSpeed;
+    if (fromSpeed > ceiling * 1.02) {
+        const double decelDistance = (fromSpeed * fromSpeed - ceiling * ceiling) / (2.0 * limits_.acceleration);
+        if (target - fromPosition > decelDistance) {
+            preT_ = (fromSpeed - ceiling) / limits_.acceleration;
+            preP0_ = fromPosition;
+            preV0_ = fromSpeed;
+            fromPosition += decelDistance;
+            fromSpeed = ceiling;
+        }
+    }
     p0_ = fromPosition;
     v0_ = std::max(fromSpeed, 0.0);
     target_ = target;
@@ -60,7 +72,17 @@ RunProfile::RunProfile(double fromPosition, double fromSpeed, double target, con
 }
 
 RunProfile::Sample RunProfile::at(double timeSeconds) const noexcept {
-    const double t = timeSeconds - start_;
+    double t = timeSeconds - start_;
+    if (preT_ > 0.0) {
+        if (t <= 0.0) {
+            return {preP0_, preV0_, false};
+        }
+        if (t < preT_) {
+            return {preP0_ + preV0_ * t - 0.5 * limits_.acceleration * t * t, preV0_ - limits_.acceleration * t,
+                    false};
+        }
+        t -= preT_;
+    }
     if (total_ <= 0.0 || t >= total_) {
         return {target_, 0.0, true};
     }
