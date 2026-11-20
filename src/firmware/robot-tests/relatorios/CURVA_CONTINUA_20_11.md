@@ -14,6 +14,11 @@ Firmware: `e870e67` (curva contínua), `8457f35`, `7431b4f`, `775ac49`, `05c5edf
 | 5 | 775ac49, escala 1,01 | -90,2 | E=49 | "está bom", reto |
 | 6 | escala 1,00 | -88,9 | E=58 (~30 mm fora) | melhor, mas longe da parede esquerda |
 | 7 | escala 1,00, antecipa 12 | -83,1 (rumo inicial -4,6) | E=54 | raspou levemente a parede direita da célula de partida; longe da parede esquerda |
+| 8 | escala 1,00, antecipa 12, partida F=163 | -88,4 | E=40 (~6 mm fora) | não bateu, mais centralizado (E16a PASSOU) |
+| 9 | idem, partida F=175 E=44 | -89,2 | E=53 (~20 mm fora) | não bateu |
+
+### Duas curvas à direita em sequência (rodada 9 + `virar d`)
+A 1ª pela curva contínua; a 2ª, na célula de saída (com parede à frente e sem espaço para a aproximação), pela curva parada com recuo: recuou 51 + 15 mm, arco de -88,9 graus sem 2ª tentativa, ajuste fino de -1,1; fim E=22 (11 mm perto da parede esquerda). Operador: "ficou bom", frente levemente inclinada à direita; no comando de teste o robô fica fora do centro depois da `volta ao centro` de 90 mm (isso é só do teste: na corrida o Navigator anda o resto até o centro da célula seguinte).
 
 ## O que mudou e por quê
 1. Entrada do arco a 80 mm/s (a 132 mm/s o giro foi 2/3 do planejado) e giroscópio mandando no arco (sem a sincronia das rodas brigando).
