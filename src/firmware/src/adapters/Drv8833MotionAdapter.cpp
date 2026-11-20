@@ -1316,10 +1316,15 @@ void Drv8833MotionAdapter::trimArc(controller::PivotMove::Direction direction) {
 #if CONFIG_RATO_LOG_RETA
     ESP_LOGI("curva", "ajuste fino depois do arco: faltaram %.1f graus", error);
 #endif
+    // O pivot soma ao erro de rumo só o quanto o ajuste errou do pedido; o que o ajuste CORRIGIU continuava contado
+    // como erro, e a reta seguinte "corrigia" um desvio que já não existia (o robô saía torto da curva). Agora o erro
+    // de rumo é o de antes mais o que o ajuste girou de fato (medido pelo giroscópio, mesmo se o ajuste falhar).
+    const double residualBefore = headingResidualDeg_;
     pivot(std::fabs(error),
           error > 0.0 ? controller::PivotMove::Direction::Left
                       : controller::PivotMove::Direction::Right,
           config);
+    headingResidualDeg_ = residualBefore + lastTurnDeg_;
     // O ajuste é um extra: se ele falhar (travou, tempo), a curva já estava feita e segue valendo.
     // Só a parada do operador continua cancelando.
     if (!aborted()) {
