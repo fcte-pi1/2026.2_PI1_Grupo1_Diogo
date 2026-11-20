@@ -4,7 +4,7 @@ from functools import partial
 
 from ..checks.motion import (MANEUVER_END, check_log_lines, check_no_power_reset, check_full_turn, check_lateral_pose, check_maneuver_ok,
                              check_straight_times, check_straights)
-from ..checks.sensors import check_tof_too_close, check_wheels
+from ..checks.sensors import check_calibration_in_use, check_tof_too_close, check_wheels
 from ..log_parsing import contains
 from ..verdict import Check
 from ..model import YES, Step, Test, number, yes_no
@@ -85,6 +85,12 @@ LOOP_TESTS: tuple[Test, ...] = (
 )
 
 NOVELTY_TESTS: tuple[Test, ...] = (
+    Test("E0", "Calibração em uso depois de gravar o firmware novo (calib)",
+         (SUPPORTED, "Só leitura: nada se mexe. Rode logo depois de gravar e religar o robô."),
+         (Step("calib", r"calib: vies_giro", timeout=20),),
+         "Os freios são 2,6 / 8,1 / 2,6, cabo_frente_mm = 0, rampa_tensao = 50 e as outras chaves novas = 0. Se algum "
+         "freio mostrar o valor antigo (3,2 / 10,1), a memória não foi zerada: 'calib padrao'.",
+         check_calibration_in_use),
     *(too_close_test(letter, name, distance) for letter, name, distances in TOO_CLOSE_CASES
       for distance in distances),
     Test("E2", "Centralização célula a célula (calib centralizar=1)",
@@ -160,6 +166,15 @@ NOVELTY_TESTS: tuple[Test, ...] = (
          questions=(yes_no("sem_raspar", "O robô girou SEM raspar nenhuma parede (frente, atrás ou lado)?", expected=YES),
                     number("desvio_mm", "Depois da curva, desvio do eixo para o lado, na régua, em mm", -30, 30),
                     yes_no("alinhado", "Ficou alinhado (reto) no corredor de saída?", expected=YES)),
+         moves=True, repeat=3),
+    Test("E9b", "Célula fechada com a curva de UMA roda (modo_curva=1), 3 vezes",
+         ("Mesma célula do E9: parede na frente, ATRÁS e na esquerda; lado direito aberto; robô no centro.",
+          "Esta curva (uma roda) usa o mesmo plano B (andar até a faixa e girar) quando não há espaço para recuar."),
+         (Step("calib modo_curva=1", r"calib: modo_curva", timeout=10), Step("virar d", MANEUVER_END, timeout=25),
+          Step("calib modo_curva=0", r"calib: modo_curva", timeout=10)),
+         "A curva termina 'ok' sem raspar parede; o modo volta a 0 no fim.",
+         _check_pivot_in_boxed_cell,
+         questions=(yes_no("sem_raspar", "O robô girou SEM raspar nenhuma parede?", expected=YES),),
          moves=True, repeat=3),
     *LOOP_TESTS,
     Test("E8", "ToF cai em movimento (P6): rodas girando e você mexendo nos cabos",

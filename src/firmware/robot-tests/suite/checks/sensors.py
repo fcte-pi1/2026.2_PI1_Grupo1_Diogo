@@ -215,3 +215,31 @@ def check_tof_too_close(lines: list[str], sensor_letter: str, sensor_name: str, 
             ok > 0 and abs(mean - real_mm) <= 15, f"ToF {sensor_name} a {real_mm} mm: ok={ok}, média {mean:.1f} mm "
                                                   "(esperado ±15)"))
     return checks
+
+
+# Calibração esperada depois de gravar o firmware de 20/11 (memória calib4 = tudo no padrão do código).
+EXPECTED_CALIBRATION = {
+    "eixo_ate_frente": 87.0, "largura_frente": 101.0, "eixo_ate_tof_frente": 85.0, "largura_com_rodas": 108.0,
+    "tof_lado_ao_centro": 50.5, "tof_lado_a_frente_do_eixo": 59.15, "cabo_frente_mm": 0.0, "preset_cad": 0.0,
+    "escala_giro": 1.08, "freio_arco": 2.6, "freio_pivo": 8.1, "modo_curva": 0.0, "freio_uma_roda": 2.6,
+    "autoajuste_freio": 0.0, "parada_frente": 35.0, "tof_na_reta": 1.0, "rampa_tensao": 50.0, "fusao_rumo": 0.0,
+    "reancorar_parede": 0.0, "parada_dinamica": 0.0, "vies_giro": 0.0}
+# Chaves que o operador pode ter mudado de propósito (calibração de reta de 19/11).
+CALIBRATION_MAY_DIFFER = {"ganho_rumo": 0.6, "centralizar": 1.0}
+
+
+def check_calibration_in_use(lines: list[str]) -> list[Check]:
+    """E0: o `calib` mostra os valores do firmware novo (a memória antiga pode ter ficado com freios velhos)."""
+    shown = {m["name"]: float(m["value"]) for m in find_matches(
+        lines, r"calib: (?P<name>\w+) = (?P<value>-?[\d.]+) .*?(padrao|ALTERADO)")}
+    checks = [Check.judge(len(shown) >= len(EXPECTED_CALIBRATION) + len(CALIBRATION_MAY_DIFFER),
+                          f"{len(shown)} chaves do calib no log (esperado {len(EXPECTED_CALIBRATION) + 2})")]
+    for name, expected in EXPECTED_CALIBRATION.items():
+        value = shown.get(name)
+        checks.append(Check.judge(value is not None and abs(value - expected) < 1e-6,
+                                  f"{name} = {value} (esperado {expected})",
+                                  f"{name} = {value}: esperado {expected}. Memória antiga? Rode 'calib padrao' e "
+                                  "reaplique ganho_rumo e centralizar"))
+    for name, usual in CALIBRATION_MAY_DIFFER.items():
+        checks.append(Check.info(f"{name} = {shown.get(name)} (valor de reta de 19/11: {usual})"))
+    return checks
