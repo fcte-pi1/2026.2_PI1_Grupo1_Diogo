@@ -122,6 +122,23 @@ TEST(PivotMoveSimulation, SlippingWheelsStillTurnNinetyByTheGyro) {
     }
 }
 
+// Rampa de tensão (soft-start) também no giro: a subida cai para no máximo 50 V/s e a curva ainda termina
+// perto de 90 graus, nos dois sentidos.
+TEST(PivotMoveSimulation, VoltageRampStillTurnsNinetyAndLimitsTheRise) {
+    for (const PivotMove::Direction direction :
+         {PivotMove::Direction::Right, PivotMove::Direction::Left}) {
+        const PivotResult hard =
+            simulatePivot(easyWheel(), easyWheel(), 90.0, direction, 1.0, 0.0);
+        const PivotResult soft =
+            simulatePivot(easyWheel(), easyWheel(), 90.0, direction, 1.0, 0.0, false, 3.0, 50.0);
+        ASSERT_TRUE(soft.done);
+        EXPECT_GT(hard.maxRiseVoltsPerS, 100.0);
+        EXPECT_LE(soft.maxRiseVoltsPerS, 50.5);
+        EXPECT_NEAR(std::fabs(soft.trueDeg), 90.0, 4.0);
+        EXPECT_LT(soft.seconds, hard.seconds + 0.5);
+    }
+}
+
 // Rodas que não patinam: termina pelo giroscópio no fim do perfil, sem precisar continuar.
 TEST(PivotMoveSimulation, CleanTurnEndsWithTheProfile) {
     const PivotResult turn =

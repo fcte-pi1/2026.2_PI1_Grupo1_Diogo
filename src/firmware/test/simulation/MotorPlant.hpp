@@ -117,6 +117,7 @@ struct PivotResult {
     double gyroDeg{0.0};   // quanto o giroscópio somou
     double seconds{0.0};
     double maxVolts{0.0};
+    double maxRiseVoltsPerS{0.0};  // maior subida do módulo da tensão entre dois passos (V/s)
     bool done{false};
     bool crept{false};
 };
@@ -126,7 +127,7 @@ struct PivotResult {
 inline PivotResult simulatePivot(MotorWheel left, MotorWheel right, double targetDeg,
                                  controller::PivotMove::Direction direction, double slip,
                                  double biasDegPerS, bool suspended = false,
-                                 double limitSeconds = 3.0) {
+                                 double limitSeconds = 3.0, double rampVoltsPerS = 0.0) {
     constexpr double kDt = 0.002;
     constexpr double kRadToDeg = 57.29577951308232;
     controller::PivotMove move(targetDeg, direction, controller::robot::kPivotMove);
@@ -134,14 +135,26 @@ inline PivotResult simulatePivot(MotorWheel left, MotorWheel right, double targe
     controller::SpeedEstimator rightSpeed;
     leftSpeed.reset(0.0, 0.0);
     rightSpeed.reset(0.0, 0.0);
+    controller::VoltageSlew leftSlew(rampVoltsPerS);
+    controller::VoltageSlew rightSlew(rampVoltsPerS);
+    double previousLeft = 0.0;
+    double previousRight = 0.0;
     PivotResult result;
     double trueRate = 0.0;
     for (double t = kDt; t <= limitSeconds; t += kDt) {
         const double l = left.encoderMm();
         const double r = right.encoderMm();
-        const controller::PivotMove::Output out =
+        controller::PivotMove::Output out =
             move.step(kDt, trueRate + biasDegPerS, l, r, leftSpeed.update(l, t),
                       rightSpeed.update(r, t));
+        out.leftVolts = leftSlew.step(out.leftVolts, kDt);
+        out.rightVolts = rightSlew.step(out.rightVolts, kDt);
+        result.maxRiseVoltsPerS = std::fmax(
+            result.maxRiseVoltsPerS,
+            std::fmax((std::fabs(out.leftVolts) - std::fabs(previousLeft)) / kDt,
+                      (std::fabs(out.rightVolts) - std::fabs(previousRight)) / kDt));
+        previousLeft = out.leftVolts;
+        previousRight = out.rightVolts;
         result.maxVolts =
             std::fmax(result.maxVolts, std::fmax(std::fabs(out.leftVolts), std::fabs(out.rightVolts)));
         if (out.done) {
