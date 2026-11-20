@@ -70,5 +70,37 @@ TEST(ArcClearance, TheStartPlanLandsInsideTheWindowWithTheCalibratedClearance) {
     EXPECT_GT(real.longMaxMm - better, 6.0);   // e de 6+ mm para o lado da parede da frente
 }
 
+
+// Em que ângulo o arco trava diz POR QUE travou (modelo, robô real, corredor de 168): começando perto demais bate na parede
+// da FRENTE com o arco a 38-46 graus; começando longe demais, na QUINA de dentro, a 43-83 graus (e mais cedo quanto mais para
+// a direita). Na SERPENTINA-3 o arco travou a 48 (frente) e a 2a tentativa, com +12 mm fixos, a 66 (quina): cruzou a janela.
+TEST(ArcClearance, TheStallAngleSaysWhichWallWasHit) {
+    ArcBody body = realBody();
+    body.leftExtraMm = 10.0;
+    // perto demais: a parede da frente, antes dos 50 graus
+    const ArcCollision close = arcFirstCollision(body, 0.0, +6.0, 168.0, 90.0);
+    ASSERT_TRUE(close.hit);
+    EXPECT_EQ(close.wall, ArcWall::Front);
+    EXPECT_LT(close.angleDeg, 50.0);
+    // longe demais: a quina de dentro
+    const ArcCollision far = arcFirstCollision(body, 0.0, -30.0, 168.0, 90.0);
+    ASSERT_TRUE(far.hit);
+    EXPECT_EQ(far.wall, ArcWall::InnerCorner);
+    // dentro da janela: nada
+    EXPECT_FALSE(arcFirstCollision(body, 0.0, -15.0, 168.0, 90.0).hit);
+}
+
+TEST(ArcClearance, TheRetryMovesTheStartAwayFromTheWallThatWasHit) {
+    // Travou cedo (parede da frente): começa MAIS LONGE da parede (leitura do frontal maior).
+    EXPECT_DOUBLE_EQ(arcRetryShiftMm(48.0), +kArcRetryShiftMm);
+    EXPECT_DOUBLE_EQ(arcRetryShiftMm(-40.0), +kArcRetryShiftMm);  // o sinal do giro não importa
+    // Travou tarde (quina de dentro): começa MAIS PERTO da parede da frente.
+    EXPECT_DOUBLE_EQ(arcRetryShiftMm(66.0), -kArcRetryShiftMm);
+    EXPECT_DOUBLE_EQ(arcRetryShiftMm(-83.0), -kArcRetryShiftMm);
+    // A fronteira entre os dois casos fica entre os 46 e os 55 graus medidos.
+    EXPECT_GT(kArcStallFrontWallMaxDeg, 46.0);
+    EXPECT_LT(kArcStallFrontWallMaxDeg, 56.0);
+}
+
 }  // namespace
 }  // namespace micromouse::domain

@@ -54,6 +54,35 @@ double arcMinClearanceMm(const ArcBody& body, double lateralMm, double longitudi
     return worst;
 }
 
+ArcCollision arcFirstCollision(const ArcBody& body, double lateralMm, double longitudinalMm, double corridorMm,
+                               double radiusMm) noexcept {
+    const double half = corridorMm / 2.0;
+    for (int degrees = 0; degrees <= 90; ++degrees) {
+        const double phi = degrees * kPi / 180.0;
+        const double px = radiusMm - radiusMm * std::cos(phi) + lateralMm;
+        const double py = -radiusMm + radiusMm * std::sin(phi) + longitudinalMm;
+        const double fx = std::sin(phi), fy = std::cos(phi);
+        const double lx = -std::cos(phi), ly = std::sin(phi);
+        ArcWall wall = ArcWall::None;
+        auto check = [&](double u, double v) {
+            const double x = px + u * fx + v * lx;
+            const double y = py + u * fy + v * ly;
+            if (wall != ArcWall::None) return;
+            if (x + half < 0.0) wall = ArcWall::Left;
+            else if (half - y < 0.0) wall = ArcWall::Front;
+            else if (x >= half && y <= -half) wall = ArcWall::InnerCorner;
+        };
+        forEachEdge(-body.rearMm, body.frontMm, -body.halfWidthMm, body.halfWidthMm, check);
+        if (body.leftExtraMm > 0.0) {
+            forEachEdge(-body.rearMm, 20.0, body.halfWidthMm, body.halfWidthMm + body.leftExtraMm, check);
+        }
+        if (wall != ArcWall::None) {
+            return {true, static_cast<double>(degrees), wall};
+        }
+    }
+    return {};
+}
+
 ArcWindow arcStartWindow(const ArcBody& body, double corridorMm, double radiusMm) noexcept {
     ArcWindow window;
     bool first = true;

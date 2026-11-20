@@ -32,6 +32,27 @@ struct ArcWindow {
 
 [[nodiscard]] ArcWindow arcStartWindow(const ArcBody& body, double corridorMm, double radiusMm) noexcept;
 
+// Em que ângulo e em que parede o arco bate pela primeira vez (modelo): o ângulo de travamento diz o que aconteceu.
+enum class ArcWall { None, Left, Front, InnerCorner };
+struct ArcCollision {
+    bool hit{false};
+    double angleDeg{0.0};
+    ArcWall wall{ArcWall::None};
+};
+[[nodiscard]] ArcCollision arcFirstCollision(const ArcBody& body, double lateralMm, double longitudinalMm,
+                                             double corridorMm, double radiusMm) noexcept;
+
+// Segunda tentativa depois de um arco travado (20/11). Travar ANTES de ~52 graus é bater na parede da frente (começou perto
+// demais); depois, na quina de dentro (começou longe demais). O ajuste é de 12 mm e vai para o lado certo: positivo = a leitura
+// do frontal no início do arco sobe (começa mais longe da parede da frente). Antes era sempre +12, e na SERPENTINA-3 a 2a
+// tentativa cruzou a janela de ~20 mm e bateu na quina.
+inline constexpr double kArcRetryShiftMm = 12.0;
+inline constexpr double kArcStallFrontWallMaxDeg = 52.0;
+[[nodiscard]] inline double arcRetryShiftMm(double stalledAngleDeg) noexcept {
+    const double angle = stalledAngleDeg < 0.0 ? -stalledAngleDeg : stalledAngleDeg;
+    return angle < kArcStallFrontWallMaxDeg ? kArcRetryShiftMm : -kArcRetryShiftMm;
+}
+
 // Onde o plano do firmware coloca o início do arco em relação ao ponto nominal (mm, longitudinal): o eixo fica a
 // (raio do canto de fora + folga) da parede da frente. Com `clearance` em mm.
 [[nodiscard]] double arcStartPlanOffsetMm(const Calibration& calibration, double corridorMm, double radiusMm) noexcept;

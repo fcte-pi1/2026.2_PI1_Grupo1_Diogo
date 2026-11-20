@@ -14,6 +14,7 @@
 #include "controller/HeadingFusion.hpp"
 #include "controller/OffsetFilter.hpp"
 #include "controller/RobotMotion.hpp"
+#include "domain/ArcClearance.hpp"
 #include "domain/DynamicFrontStop.hpp"
 #include "domain/GyroBiasTracker.hpp"
 #include "domain/MotorVoltage.hpp"
@@ -1462,6 +1463,7 @@ void Drv8833MotionAdapter::arcTurn(controller::PivotMove::Direction direction) {
             break;  // deu certo, ou falhou por outro motivo (operador, giroscópio)
         }
         const char* firstFailure = lastMoveFailure_;
+        const double stalledDeg = lastTurnDeg_;  // onde o arco travou: diz qual parede bateu
         ++arcRetriesUsed_;
         lastMoveOk_ = true;
         lastMoveFailure_ = "";
@@ -1474,10 +1476,12 @@ void Drv8833MotionAdapter::arcTurn(controller::PivotMove::Direction direction) {
             lastMoveWasTurn_ = true;
             break;
         }
-        positionForArc(arcStartFrontMm() +
-                       attempt * controller::robot::kArcRetryExtraFrontMm);
+        // O ajuste vai para o lado certo (domain::arcRetryShiftMm): travou antes de ~52 graus = parede da frente,
+        // começa mais longe; depois = quina de dentro, começa mais perto.
+        positionForArc(arcStartFrontMm() + attempt * domain::arcRetryShiftMm(stalledDeg));
 #if CONFIG_RATO_LOG_RETA
-        ESP_LOGW("curva", "tentativa %d do arco (a anterior: %s)", attempt + 1, firstFailure);
+        ESP_LOGW("curva", "tentativa %d do arco (a anterior: %s a %.0f graus, ajuste %+.0f mm)", attempt + 1,
+                 firstFailure, stalledDeg, domain::arcRetryShiftMm(stalledDeg));
 #endif
         pivot(90.0, direction, arcConfig());
     }
