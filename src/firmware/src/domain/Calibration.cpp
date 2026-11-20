@@ -36,6 +36,7 @@ constexpr std::array<CalibrationField, kCalibrationFieldCount> kFields{{
     {"largura_corredor", &Calibration::corridorWidthMm, 120.0, 200.0, "mm"},
     {"ganho_parede", &Calibration::wallGainPulsesPerMm, 0.0, 6.0, "pulsos/mm"},
     {"max_parede", &Calibration::wallMaxPulses, 0.0, 120.0, "pulsos"},
+    {"folga_arco", &Calibration::arcClearanceMm, 0.0, 40.0, "mm"},
 }};
 
 }  // namespace

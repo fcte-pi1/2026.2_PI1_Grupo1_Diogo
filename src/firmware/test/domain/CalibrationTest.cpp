@@ -67,6 +67,9 @@ TEST(Calibration, NewClosedLoopSwitchesHaveSafeDefaultsAndRanges) {
     EXPECT_EQ(setCalibration(calibration, "ganho_parede", "2"), CalibrationSet::Ok);
     EXPECT_EQ(setCalibration(calibration, "max_parede", "60"), CalibrationSet::Ok);
     EXPECT_EQ(setCalibration(calibration, "max_parede", "200"), CalibrationSet::OutOfRange);
+    EXPECT_DOUBLE_EQ(Calibration{}.arcClearanceMm, 12.0);  // folga do arco: o modelo de 20/11 pede ~12 mm
+    EXPECT_EQ(setCalibration(calibration, "folga_arco", "20"), CalibrationSet::Ok);
+    EXPECT_EQ(setCalibration(calibration, "folga_arco", "60"), CalibrationSet::OutOfRange);
     EXPECT_EQ(setCalibration(calibration, "reta_continua", "0"), CalibrationSet::Ok);
     EXPECT_EQ(setCalibration(calibration, "reta_continua", "2"), CalibrationSet::OutOfRange);
     EXPECT_EQ(setCalibration(calibration, "vies_giro", "1"), CalibrationSet::Ok);
@@ -79,7 +82,7 @@ TEST(Calibration, NewClosedLoopSwitchesHaveSafeDefaultsAndRanges) {
     EXPECT_EQ(setCalibration(calibration, "reancorar_parede", "2"), CalibrationSet::OutOfRange);
     EXPECT_EQ(setCalibration(calibration, "parada_dinamica", "1"), CalibrationSet::Ok);
     EXPECT_EQ(setCalibration(calibration, "parada_dinamica", "-1"), CalibrationSet::OutOfRange);
-    EXPECT_EQ(calibrationFields().size(), 27u);
+    EXPECT_EQ(calibrationFields().size(), 28u);
 }
 
 TEST(Calibration, EveryDefaultIsInsideItsRange) {

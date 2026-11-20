@@ -49,6 +49,9 @@ struct Calibration {
     double corridorWidthMm{168.0};     // largura_corredor: vão livre; com uma parede só, o alvo é meio vão menos o ToF até o centro
     double wallGainPulsesPerMm{0.8};   // ganho_parede: pulsos equivalentes por mm fora do centro
     double wallMaxPulses{16.0};        // max_parede: teto do termo da parede, em pulsos (16 = ~5,6 mm de correção)
+    // Folga do canto de fora do arco à parede da frente (mm). O modelo de 20/11 (domain/ArcClearance) mostra que, com o robô real
+    // (frente 100, largura 112), 20 mm põe o início do arco colado no limite de trás da janela; 12 mm fica perto do ótimo.
+    double arcClearanceMm{12.0};       // folga_arco
 };
 
 struct CalibrationField {
@@ -59,7 +62,7 @@ struct CalibrationField {
     std::string_view unit;
 };
 
-inline constexpr std::size_t kCalibrationFieldCount = 27;
+inline constexpr std::size_t kCalibrationFieldCount = 28;
 [[nodiscard]] const std::array<CalibrationField, kCalibrationFieldCount>& calibrationFields() noexcept;
 
 enum class CalibrationSet { Ok, UnknownName, OutOfRange, NotANumber };

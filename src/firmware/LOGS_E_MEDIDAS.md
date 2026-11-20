@@ -269,6 +269,7 @@ O que depende do robô montado e do piso fica na memória do robô (NVS) e é tr
 | `largura_corredor` | Vão livre do corredor. Com uma parede só (o outro ToF "perto" ou sem alvo), o alvo do ToF lateral é meio vão menos o ToF até o centro: 168 mm dá 33,5; o corredor de MDF de teste mede ~150 mm e dá 24,5 | 168 mm | 120 a 200 |
 | `ganho_parede` | Pulsos equivalentes por mm fora do centro no termo da parede (RF-44). O termo controla o RUMO (de primeira ordem, não oscila) | 0,8 | 0 a 6 |
 | `max_parede` | Teto do termo da parede em pulsos (16 = ~5,6 mm entre as rodas, ~1,2 graus de rumo) | 16 | 0 a 120 |
+| `folga_arco` | Folga da quina de fora do arco à parede da frente: `F inicial = raio do canto de fora + folga - ToF até o eixo`. O modelo de 20/11 (`domain/ArcClearance`) mostra que com o robô real (frente 100, largura 112) a janela em que o arco cabe é de -24 a -4 mm; com 20 mm o plano fica em -23 (colado no limite de trás), com 12 mm em -15 (perto do ótimo, -16). Afinar na pista | 12 mm | 0 a 40 |
 
 As três medidas do corpo decidem onde o arco começa (a linha `calib: fim: arco comeca com o frontal
 a X mm` mostra o resultado). Linhas novas no log:

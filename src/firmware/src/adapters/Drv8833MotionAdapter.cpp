@@ -654,8 +654,7 @@ controller::PivotMoveConfig Drv8833MotionAdapter::pivotConfig() const noexcept {
 double Drv8833MotionAdapter::arcStartFrontMm() const noexcept {
     const domain::BodyGeometry body{calibration_.axleToFrontMm, calibration_.frontWidthMm / 2.0,
                                     calibration_.axleToFrontTofMm};
-    return domain::arcStartFrontMm(body, controller::robot::kArcSetbackMm,
-                                   controller::robot::kArcFrontClearanceMm);
+    return domain::arcStartFrontMm(body, controller::robot::kArcSetbackMm, calibration_.arcClearanceMm);
 }
 
 void Drv8833MotionAdapter::advanceCell() {

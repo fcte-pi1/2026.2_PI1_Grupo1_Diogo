@@ -54,6 +54,7 @@ add_executable(firmware_tests
     domain/WallCenteringTest.cpp
     domain/LateralPoseTest.cpp
     domain/PivotClearanceTest.cpp
+    domain/ArcClearanceTest.cpp
     domain/WallPositionTest.cpp
     domain/DynamicFrontStopTest.cpp
     domain/GyroBiasTrackerTest.cpp
