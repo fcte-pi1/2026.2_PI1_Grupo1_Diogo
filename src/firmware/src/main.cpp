@@ -298,6 +298,7 @@ std::atomic<bool> gTestDiag{false};
 std::atomic<bool> gTestHealth{false};
 // "tofmon [s]": os três ToF lidos sem parar por alguns segundos (estabilidade, cabo, calibração).
 std::atomic<int> gTestTofMonSeconds{0};
+std::atomic<int> gTestGyroAngleSeconds{0};  // `giroang [s]`
 // "tofrec": reinicia pelo XSHUT os ToF que não respondem.
 std::atomic<bool> gTestTofRecover{false};
 // "motor e|d|ed <volts> <ms>": roda(s) em tensão fixa. Bit 0 = esquerda, bit 1 = direita.
@@ -333,6 +334,7 @@ void discardTestCommands() {
     any = gTestWheelSweep.exchange(false) || any;
     any = (gTestEncoderSeconds.exchange(0) != 0) || any;
     any = (gTestTofMonSeconds.exchange(0) != 0) || any;
+    any = (gTestGyroAngleSeconds.exchange(0) != 0) || any;
     any = gTestTof.exchange(false) || any;
     any = gTestGyro.exchange(false) || any;
     any = gTestDiag.exchange(false) || any;
@@ -415,6 +417,13 @@ void onBleCommand(const std::string& command) {
         }
         gRemoteStop = false;
         gTestTofMonSeconds = seconds < 1 ? 1 : seconds > 120 ? 120 : seconds;
+    } else if (command == "giroang" || command.rfind("giroang ", 0) == 0) {
+        int seconds = 8;
+        if (command.size() > 8) {
+            (void)std::sscanf(command.c_str() + 8, "%d", &seconds);
+        }
+        gRemoteStop = false;
+        gTestGyroAngleSeconds = seconds < 2 ? 2 : seconds > 30 ? 30 : seconds;
     } else if (command == "enc" || command.rfind("enc ", 0) == 0) {
         int seconds = 10;
         if (command.size() > 4) {
@@ -882,6 +891,9 @@ void serviceTestCommands(const domain::MazeSetup& setup, bool allowMotion) {
     if (gTestWheelSweep.exchange(false) && !refused("rodas")) {
         gMotion.setBatteryVolts(gPower.busVoltageV());
         gMotion.wheelSweep();
+    }
+    if (const int seconds = gTestGyroAngleSeconds.exchange(0); seconds > 0) {
+        gMotion.gyroAngleWatch(seconds);
     }
     if (const int seconds = gTestEncoderSeconds.exchange(0); seconds > 0) {
         gMotion.encoderWatch(seconds);

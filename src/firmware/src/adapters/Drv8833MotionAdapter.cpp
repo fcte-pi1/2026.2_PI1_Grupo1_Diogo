@@ -556,6 +556,28 @@ void Drv8833MotionAdapter::wheelSweep() {
     clearLastMove();
 }
 
+void Drv8833MotionAdapter::gyroAngleWatch(int seconds) {
+    (void)calibrateGyro(100);  // robô PARADO neste instante: mede o desvio em repouso
+    ESP_LOGI("teste", "giroang: GIRE o robo na mao agora (%d s); escala em uso %.3f", seconds, calibration_.gyroScale);
+    gyroMisses_ = 0;
+    double angle = 0.0;
+    double peak = 0.0;
+    LoopClock clock;
+    (void)clock.tick();
+    int nextSecond = 1;
+    while (clock.elapsed() < seconds && !aborted()) {
+        vTaskDelay(kControlPeriod);
+        angle += gyroRate() * clock.tick();
+        peak = std::max(peak, std::fabs(angle));
+        if (clock.elapsed() >= nextSecond) {
+            ESP_LOGI("teste", "giroang %d/%d s: %.1f graus", nextSecond, seconds, angle);
+            ++nextSecond;
+        }
+    }
+    ESP_LOGI("teste", "giroang fim: %.1f graus (pico %.1f), escala em uso %.3f, %d leituras perdidas", angle, peak,
+             calibration_.gyroScale, gyroMisses_);
+}
+
 void Drv8833MotionAdapter::encoderWatch(int seconds) {
     clearLastMove();
     motors_.coast();  // motores soltos, para girar a roda à mão (em qualquer modo de decay)

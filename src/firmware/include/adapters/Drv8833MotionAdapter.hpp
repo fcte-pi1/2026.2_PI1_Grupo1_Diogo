@@ -229,6 +229,9 @@ public:
     // Motores soltos por `seconds`: os pulsos de cada encoder a cada segundo, para girar as rodas
     // à mão (uma volta = 285 pulsos). Comando "enc".
     void encoderWatch(int seconds);
+    // `giroang [s]` (20/11): soma o giroscópio por `seconds` s (com o desvio em repouso descontado e a escala em uso) e
+    // diz o ângulo girado, para conferir a escala girando o robô na mão por um ângulo conhecido. Não mexe os motores.
+    void gyroAngleWatch(int seconds);
     void readEncoders(long& left, long& right) const;
     void resetEncoders();
     void advanceCell() override;
