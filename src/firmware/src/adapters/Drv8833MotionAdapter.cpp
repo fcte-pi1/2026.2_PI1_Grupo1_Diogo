@@ -919,7 +919,7 @@ void Drv8833MotionAdapter::straight(double distanceMm, const char* name, bool ce
                     domain::robot::lateralPoseConfig(calibration_));
                 poseValid = pose.valid;
                 poseOffsetMm = pose.rightOffsetMm;
-                wallMm = domain::lateralCorrectionPulses(pose, domain::robot::kWallCentering) *
+                wallMm = domain::lateralCorrectionPulses(pose, domain::robot::wallCenteringConfig(calibration_)) *
                          controller::robot::kMmPerPulse;
             }
         }

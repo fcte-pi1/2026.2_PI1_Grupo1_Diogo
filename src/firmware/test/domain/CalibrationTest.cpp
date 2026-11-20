@@ -58,6 +58,15 @@ TEST(Calibration, NewClosedLoopSwitchesHaveSafeDefaultsAndRanges) {
     EXPECT_DOUBLE_EQ(calibration.gyroBiasTracking, 0.0);
     // Reta contínua (20/11): vem LIGADA, a pedido do operador (o para-e-anda dava tranco em cada célula).
     EXPECT_DOUBLE_EQ(calibration.continuousRun, 1.0);
+    // Corredor e termo da parede (20/11): os valores de projeto, até serem medidos na pista.
+    EXPECT_DOUBLE_EQ(calibration.corridorWidthMm, 168.0);
+    EXPECT_DOUBLE_EQ(calibration.wallGainPulsesPerMm, 0.8);
+    EXPECT_DOUBLE_EQ(calibration.wallMaxPulses, 16.0);
+    EXPECT_EQ(setCalibration(calibration, "largura_corredor", "150"), CalibrationSet::Ok);
+    EXPECT_EQ(setCalibration(calibration, "largura_corredor", "100"), CalibrationSet::OutOfRange);
+    EXPECT_EQ(setCalibration(calibration, "ganho_parede", "2"), CalibrationSet::Ok);
+    EXPECT_EQ(setCalibration(calibration, "max_parede", "60"), CalibrationSet::Ok);
+    EXPECT_EQ(setCalibration(calibration, "max_parede", "200"), CalibrationSet::OutOfRange);
     EXPECT_EQ(setCalibration(calibration, "reta_continua", "0"), CalibrationSet::Ok);
     EXPECT_EQ(setCalibration(calibration, "reta_continua", "2"), CalibrationSet::OutOfRange);
     EXPECT_EQ(setCalibration(calibration, "vies_giro", "1"), CalibrationSet::Ok);
@@ -70,7 +79,7 @@ TEST(Calibration, NewClosedLoopSwitchesHaveSafeDefaultsAndRanges) {
     EXPECT_EQ(setCalibration(calibration, "reancorar_parede", "2"), CalibrationSet::OutOfRange);
     EXPECT_EQ(setCalibration(calibration, "parada_dinamica", "1"), CalibrationSet::Ok);
     EXPECT_EQ(setCalibration(calibration, "parada_dinamica", "-1"), CalibrationSet::OutOfRange);
-    EXPECT_EQ(calibrationFields().size(), 24u);
+    EXPECT_EQ(calibrationFields().size(), 27u);
 }
 
 TEST(Calibration, EveryDefaultIsInsideItsRange) {

@@ -45,6 +45,10 @@ struct Calibration {
     double dynamicFrontStop{0.0};   // parada_dinamica: 1 = a parada da frente conta a velocidade
     double gyroBiasTracking{0.0};   // vies_giro: 1 = remede o desvio do giroscópio a cada parada
     double continuousRun{1.0};      // reta_continua: 1 = trecho reto em um movimento só (sem parar em cada célula)
+    // Corredor e termo da parede (20/11). O corredor de MDF de teste mede ~150 mm, não os 168 do regulamento.
+    double corridorWidthMm{168.0};     // largura_corredor: vão livre; com uma parede só, o alvo é meio vão menos o ToF até o centro
+    double wallGainPulsesPerMm{0.8};   // ganho_parede: pulsos equivalentes por mm fora do centro
+    double wallMaxPulses{16.0};        // max_parede: teto do termo da parede, em pulsos (16 = ~5,6 mm de correção)
 };
 
 struct CalibrationField {
@@ -55,7 +59,7 @@ struct CalibrationField {
     std::string_view unit;
 };
 
-inline constexpr std::size_t kCalibrationFieldCount = 24;
+inline constexpr std::size_t kCalibrationFieldCount = 27;
 [[nodiscard]] const std::array<CalibrationField, kCalibrationFieldCount>& calibrationFields() noexcept;
 
 enum class CalibrationSet { Ok, UnknownName, OutOfRange, NotANumber };

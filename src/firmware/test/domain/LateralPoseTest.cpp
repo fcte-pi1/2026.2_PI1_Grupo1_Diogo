@@ -162,5 +162,29 @@ TEST(LateralPose, DriftOverTwelveCellsStaysUnderFiveMillimetresWhenCorrected) {
     EXPECT_LT(corrected.maxAbsMm, 10.0);
 }
 
+
+// Corredor de teste de 150 mm (20/11): com uma parede só, o alvo do ToF lateral é meio corredor menos o ToF até
+// o centro. Com 168 mm são 33,5; com 150, 24,5. Sem isto o robô era empurrado ~9 mm para a parede oposta.
+TEST(LateralPoseCorridor, TheSingleWallTargetFollowsTheCorridorWidth) {
+    Calibration c;
+    EXPECT_NEAR(lateralPoseConfig(c).centerMm, 33.5, 1e-9);  // padrão: 168 mm
+    c.corridorWidthMm = 150.0;
+    EXPECT_NEAR(lateralPoseConfig(c).centerMm, 24.5, 1e-9);
+    // A folga lateral do robô de 108 mm também acompanha: (150 - 108) / 2 = 21 mm por lado.
+    EXPECT_NEAR(robot::lateralClearanceMm(c), 21.0, 1e-9);
+}
+
+// Só o esquerdo lê (o direito está perto demais): com o corredor de 150, estar no centro é ler 24,5 e o erro some.
+TEST(LateralPoseCorridor, OneWallAtTheRealCenterReadsZeroOffsetWithTheRightWidth) {
+    Calibration c;
+    c.corridorWidthMm = 150.0;
+    const LateralPose pose = estimateLateralPose({true, 24.5}, {false, 0.0}, 0.0, lateralPoseConfig(c));
+    ASSERT_TRUE(pose.valid);
+    EXPECT_NEAR(pose.rightOffsetMm, 0.0, 1e-9);
+    c.corridorWidthMm = 168.0;  // com o valor errado, o robô acharia que está 9 mm para a direita
+    const LateralPose wrong = estimateLateralPose({true, 24.5}, {false, 0.0}, 0.0, lateralPoseConfig(c));
+    EXPECT_NEAR(wrong.rightOffsetMm, -9.0, 1e-9);
+}
+
 }  // namespace
 }  // namespace micromouse::domain

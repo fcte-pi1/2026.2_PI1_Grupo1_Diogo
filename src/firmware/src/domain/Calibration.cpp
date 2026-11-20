@@ -33,6 +33,9 @@ constexpr std::array<CalibrationField, kCalibrationFieldCount> kFields{{
     {"parada_dinamica", &Calibration::dynamicFrontStop, 0.0, 1.0, "0/1"},
     {"vies_giro", &Calibration::gyroBiasTracking, 0.0, 1.0, "0/1"},
     {"reta_continua", &Calibration::continuousRun, 0.0, 1.0, "0/1"},
+    {"largura_corredor", &Calibration::corridorWidthMm, 120.0, 200.0, "mm"},
+    {"ganho_parede", &Calibration::wallGainPulsesPerMm, 0.0, 6.0, "pulsos/mm"},
+    {"max_parede", &Calibration::wallMaxPulses, 0.0, 120.0, "pulsos"},
 }};
 
 }  // namespace

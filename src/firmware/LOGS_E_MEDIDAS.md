@@ -266,6 +266,9 @@ O que depende do robô montado e do piso fica na memória do robô (NVS) e é tr
 | `parada_dinamica` | 1 = a parada pela frente soma v^2/(2a) ao limiar (a = 1600 mm/s², estimada; teto 20 mm), para parar em `parada_frente` qualquer que seja a velocidade | 0 | 0 ou 1 |
 | `vies_giro` | 1 = depois de cada reta, remede o desvio do giroscópio parado (15 amostras) e anda 30% do caminho; descarta se variar mais de 3 graus/s ou diferir mais de 5 do em uso. Custa ~0,3 s por célula | 0 | 0 ou 1 |
 | `reta_continua` | 1 = num trecho reto a corrida anda várias células num movimento só (uma aceleração, uma frenagem) e decide antes de cada centro, com as paredes lidas andando, se continua; 0 = uma célula por vez, parando em cada uma (como antes). Comando de teste: `andar N` (2 a 8 células) | 1 | 0 ou 1 |
+| `largura_corredor` | Vão livre do corredor. Com uma parede só (o outro ToF "perto" ou sem alvo), o alvo do ToF lateral é meio vão menos o ToF até o centro: 168 mm dá 33,5; o corredor de MDF de teste mede ~150 mm e dá 24,5 | 168 mm | 120 a 200 |
+| `ganho_parede` | Pulsos equivalentes por mm fora do centro no termo da parede (RF-44). O termo controla o RUMO (de primeira ordem, não oscila) | 0,8 | 0 a 6 |
+| `max_parede` | Teto do termo da parede em pulsos (16 = ~5,6 mm entre as rodas, ~1,2 graus de rumo) | 16 | 0 a 120 |
 
 As três medidas do corpo decidem onde o arco começa (a linha `calib: fim: arco comeca com o frontal
 a X mm` mostra o resultado). Linhas novas no log:
