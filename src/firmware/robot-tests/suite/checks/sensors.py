@@ -217,23 +217,26 @@ def check_tof_too_close(lines: list[str], sensor_letter: str, sensor_name: str, 
     return checks
 
 
-# Calibração esperada depois de gravar o firmware de 20/11 (memória calib4 = tudo no padrão do código).
+# Calibração esperada do robô (estado de 20/11): os padrões do firmware, mais as MEDIDAS REAIS lidas das fotos (MEDICOES.md) e os
+# ganhos da centralização que funcionaram. Depois de gravar uma versão com chave nova do calib a memória volta ao padrão: reaplique
+# com `python t.py calib "eixo_ate_frente=100 eixo_ate_tof_frente=98 largura_frente=112 tof_lado_ao_centro=55.5 centralizar=1
+# ganho_rumo=0.6 ganho_parede=3 max_parede=50"`.
 EXPECTED_CALIBRATION = {
-    "eixo_ate_frente": 87.0, "largura_frente": 101.0, "eixo_ate_tof_frente": 85.0, "largura_com_rodas": 108.0,
-    "tof_lado_ao_centro": 50.5, "tof_lado_a_frente_do_eixo": 59.15, "cabo_frente_mm": 0.0, "preset_cad": 0.0,
+    "eixo_ate_frente": 100.0, "largura_frente": 112.0, "eixo_ate_tof_frente": 98.0, "largura_com_rodas": 108.0,
+    "tof_lado_ao_centro": 55.5, "tof_lado_a_frente_do_eixo": 59.15, "cabo_frente_mm": 0.0, "preset_cad": 0.0,
     "escala_giro": 1.08, "freio_arco": 2.6, "freio_pivo": 8.1, "modo_curva": 0.0, "freio_uma_roda": 2.6,
     "autoajuste_freio": 0.0, "parada_frente": 35.0, "tof_na_reta": 1.0, "rampa_tensao": 50.0, "fusao_rumo": 0.0,
     "reancorar_parede": 0.0, "parada_dinamica": 0.0, "vies_giro": 0.0, "reta_continua": 1.0,
-    "largura_corredor": 168.0, "ganho_parede": 0.8, "max_parede": 16.0}
-# Chaves que o operador pode ter mudado de propósito (calibração de reta de 19/11).
-CALIBRATION_MAY_DIFFER = {"ganho_rumo": 0.6, "centralizar": 1.0}
+    "largura_corredor": 168.0, "ganho_parede": 3.0, "max_parede": 50.0, "folga_arco": 12.0,
+    "centralizar": 1.0, "ganho_rumo": 0.6}
+CALIBRATION_MAY_DIFFER: dict[str, float] = {}
 
 
 def check_calibration_in_use(lines: list[str]) -> list[Check]:
     """E0: o `calib` mostra os valores do firmware novo (a memória antiga pode ter ficado com freios velhos)."""
     shown = {m["name"]: float(m["value"]) for m in find_matches(
         lines, r"calib: (?P<name>\w+) = (?P<value>-?[\d.]+) .*?(padrao|ALTERADO)")}
-    checks = [Check.judge(len(shown) >= len(EXPECTED_CALIBRATION) + len(CALIBRATION_MAY_DIFFER),
+    checks = [Check.judge(len(shown) >= len(EXPECTED_CALIBRATION),
                           f"{len(shown)} chaves do calib no log (esperado {len(EXPECTED_CALIBRATION) + 2})")]
     for name, expected in EXPECTED_CALIBRATION.items():
         value = shown.get(name)
