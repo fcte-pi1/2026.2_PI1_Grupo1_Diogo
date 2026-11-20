@@ -53,6 +53,9 @@ private:
     // Depois de um trecho que terminou virando: o ajuste fino, ou, se o arco travou, desfaz e vira parado.
     void finishRunTurn();
     char runName_[32]{};  // só o reposicionamento para girar: o frontal lê abaixo do mínimo
+    // Alvo lateral da centralização, mm para a direita do centro (0 = centro). Na curva à direita o recuo mira para a esquerda:
+    // a roda de dentro engancha na ponta da parede da direita se o robô passa centrado ou à direita (20/11).
+    double centeringTargetRightMm_{0.0};
     double wallFixMm_{0.0};    // `reancorar_parede`: quanto a próxima reta anda a mais (negativo: a menos)
     double aheadMm_{0.0};      // quanto o robô já está à frente do centro (fim de uma curva em arco)
     double batteryVolts_;

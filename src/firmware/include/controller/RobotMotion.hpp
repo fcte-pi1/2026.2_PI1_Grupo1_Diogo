@@ -188,10 +188,11 @@ inline constexpr int kArcRetries = 1;
 inline constexpr double kArcRetryExtraFrontMm = 12.0;
 // 20/11: de 5,0/3,0 V e 1,5 s para 3,5/2,0 V e 1,2 s, e para na hora se o ângulo se afastar do zero em mais de
 // kArcUndoWrongWayDeg (corrida SERPENTINA-2: a ré a 5 V sacudiu o robô calçado nas paredes por 410 mm).
-inline constexpr double kArcUndoOuterVolts = 3.5;
-inline constexpr double kArcUndoInnerVolts = 2.0;
+// 20/11: de 3,5/2,0 V para 2,8/1,6 V: o operador viu a ré do desfazer, quando o arco não completa, alta e rápida.
+inline constexpr double kArcUndoOuterVolts = 2.8;
+inline constexpr double kArcUndoInnerVolts = 1.6;
 inline constexpr double kArcUndoDoneDeg = 4.0;
-inline constexpr double kArcUndoTimeoutS = 1.2;
+inline constexpr double kArcUndoTimeoutS = 1.6;  // mais lenta: mais tempo para voltar
 inline constexpr double kArcUndoWrongWayDeg = 8.0;
 // Giroscópio sem resposta: tantas leituras seguidas perdidas (2 ms cada) encerram o movimento com
 // falha. Antes, a leitura perdida valia 0 grau/s e a curva seguia girando sem ver.
