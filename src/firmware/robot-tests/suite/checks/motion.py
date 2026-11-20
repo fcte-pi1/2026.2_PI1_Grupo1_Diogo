@@ -69,6 +69,8 @@ def check_turn(lines: list[str], need_ok: bool = True, max_ms: int = 2500) -> li
                                   f"curva NÃO terminou ok: {outcome}"))
     took = int(last["took"])
     checks.append(Check.passed_or_review(took < max_ms, f"tempo da curva: {took} ms (meta: menos de {max_ms})"))
+    if "travada" in last["outcome"]:
+        checks.append(Check.info(explain_arc_stall(float(last["final"]))))
     if last["continued"] == "sim":
         checks.append(Check.info("a curva emperrou perto do fim e o firmware insistiu (continuou=sim): anote"))
     trace = find_matches(lines, r"curva: angulo a cada 100 ms: (.*)$")
@@ -261,3 +263,18 @@ def check_tof_centering(lines: list[str], run_index: int = 0) -> list[Check]:
     if term:
         checks.append(Check.info(f"termo da parede aplicado (mm): de {min(term) / 10:.1f} a {max(term) / 10:.1f}"))
     return checks
+
+
+# Modelo do arco (domain/ArcClearance, 20/11): perto demais bate na parede da FRENTE a 38-46 graus; longe demais, na quina de
+# DENTRO a 43-83 graus. A fronteira usada pelo firmware na 2a tentativa é a mesma (52 graus).
+ARC_STALL_FRONT_WALL_MAX_DEG = 52.0
+
+
+def explain_arc_stall(final_deg: float) -> str:
+    """Interpreta o ângulo em que um arco travou e diz o que ajustar (chave `folga_arco`, em mm)."""
+    angle = abs(final_deg)
+    if angle < ARC_STALL_FRONT_WALL_MAX_DEG:
+        return (f"o arco travou a {angle:.0f} graus: provavelmente bateu na PAREDE DA FRENTE (começou perto demais). "
+                "Aumente a folga: `python t.py calib folga_arco=16` (+4 mm), ou confira se o robô partiu centrado.")
+    return (f"o arco travou a {angle:.0f} graus: provavelmente bateu na QUINA DE DENTRO (começou longe demais ou torto para "
+            "dentro). Reduza a folga: `python t.py calib folga_arco=8` (-4 mm), ou confira se o robô partiu centrado.")
