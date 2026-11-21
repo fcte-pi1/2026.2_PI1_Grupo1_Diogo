@@ -706,7 +706,8 @@ const domain::CellTurnPlan& Drv8833MotionAdapter::openTurnPlan(bool left, bool f
         walls.front = frontWall;
         const int64_t start = esp_timer_get_time();
         openPlans_[l][f] = domain::planCellTurn(domain::cellTurnBody(calibration_), left, walls, calibration_.openTurnMarginMm,
-                                                calibration_.openTurnMaxBetaDeg, calibration_.openTurnEntryErrorMm);
+                                                calibration_.openTurnMaxBetaDeg, calibration_.openTurnEntryErrorMm,
+                                                [] { vTaskDelay(1); });  // cede a CPU entre as etapas (watchdog de tarefas)
         openPlanValid_[l][f] = true;
         const domain::CellTurnPlan& p = openPlans_[l][f];
         ESP_LOGI("curva", "plano da curva em celula aberta (%s, %s): %s eixo %.0f mm, giro %.0f, diagonal %.0f mm, saida %.0f mm "

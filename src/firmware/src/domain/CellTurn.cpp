@@ -194,7 +194,7 @@ double cellTurnClearanceMm(const CellTurnBody& body, bool turnLeft, const CellTu
 }
 
 CellTurnPlan planCellTurn(const CellTurnBody& body, bool turnLeft, const CellTurnWalls& walls, double marginMm,
-                          double maxBetaDeg, double entryUncertaintyMm) noexcept {
+                          double maxBetaDeg, double entryUncertaintyMm, void (*onProgress)()) noexcept {
     const Shape s = shape(body, turnLeft);
     const Obstacles o = obstacles(walls);
     const float uncertainty = static_cast<float>(std::max(entryUncertaintyMm, 0.0));
@@ -214,6 +214,7 @@ CellTurnPlan planCellTurn(const CellTurnBody& body, bool turnLeft, const CellTur
         // Saída no meio do corredor ou até 10 mm para o lado de dentro (a reta seguinte, com as paredes do corredor, corrige).
         for (const float lateral : {0.0F, 5.0F, 10.0F}) {
             if (beta == 0.0F && lateral != 0.0F) continue;
+            if (onProgress != nullptr) onProgress();
             for (float axle = 0.0F; axle >= -60.0F; axle -= 2.0F) {  // do centro para trás (a parede da frente corta os primeiros)
                 float diagonal = 0.0F;
                 if (beta > 0.0F) {

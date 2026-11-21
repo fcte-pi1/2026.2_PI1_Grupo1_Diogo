@@ -241,6 +241,17 @@ char directionLetter(domain::Direction direction) {
     return '?';
 }
 
+// Fora do #if do log: a escolha do labirinto e o toque longo valem também no modo prova (21/11: sem
+// CONFIG_RATO_LOG_RETA o firmware não compilava, porque estas duas ficavam dentro do bloco dos comandos de teste).
+// "labirinto <tipo>" (19/11): troca o tipo de labirinto da PRÓXIMA largada sem mexer no DIP, para o 4x8
+// e o 4x12 (em pé), que o DIP não escolhe (via 1 + 2 fechadas é combinação proibida, #393). O canto
+// de largada continua o da via 3. Vale até o reinício; "labirinto dip" volta ao que o DIP diz.
+// -1 = o do DIP; senão o valor de domain::MazeType. O comando só muda a configuração: nada se move.
+std::atomic<int> gMazeOverride{-1};
+// Toque longo no botão (19/11): alterna a orientação (em pé <-> deitado; o 4x4 vira "4x4 girado", só
+// para testar o relato girado com o único labirinto físico). O comando `labirinto` zera.
+std::atomic<bool> gOrientationFlip{false};
+
 #if CONFIG_RATO_LOG_RETA
 // Diagnóstico sem cabo: na bateria, o serial não chega a ninguém (não se pode ligar o USB junto),
 // então as linhas de log "reta", "curva" e "main" (motivo das falhas) também vão pelo BLE, como
@@ -312,14 +323,6 @@ std::atomic<int> gTestEncoderSeconds{0};
 // Comandos recusados (desconhecidos ou fora da faixa). O callback do BLE só conta; quem loga é a
 // tarefa de navegação (a pilha da tarefa do NimBLE é pequena para formatar uma linha de log).
 std::atomic<int> gRejectedCommands{0};
-// "labirinto <tipo>" (19/11): troca o tipo de labirinto da PRÓXIMA largada sem mexer no DIP, para o 4x8
-// e o 4x12 (em pé), que o DIP não escolhe (via 1 + 2 fechadas é combinação proibida, #393). O canto
-// de largada continua o da via 3. Vale até o reinício; "labirinto dip" volta ao que o DIP diz.
-// -1 = o do DIP; senão o valor de domain::MazeType. O comando só muda a configuração: nada se move.
-std::atomic<int> gMazeOverride{-1};
-// Toque longo no botão (19/11): alterna a orientação (em pé <-> deitado; o 4x4 vira "4x4 girado", só
-// para testar o relato girado com o único labirinto físico). O comando `labirinto` zera.
-std::atomic<bool> gOrientationFlip{false};
 // "calib [nome=valor ...]" (16/11): valores do robô e do piso trocáveis sem regravar. O callback do
 // BLE só guarda o texto; quem interpreta, grava na memória e loga é a tarefa de navegação.
 char gCalibText[232] = "";
@@ -1234,11 +1237,12 @@ void navigationTask(void*) {
         // sai antes de a ponte BLE conectar e se perdia.
         ESP_LOGI(kTag,
                  "largada %d: labirinto %dx%d, via 3 %s (borda a %s do robo), largada (l%d,c%d) "
-                 "virado N, objetivo (l%d,c%d), bat=%.2f V",
+                 "virado N, objetivo (l%d,c%d), bat=%.2f V, firmware %s",
                  runIndex, setup.columns, setup.rows,
                  domain::startBorderIsOnTheLeft(setup) ? "ABERTA" : "FECHADA",
                  domain::startBorderIsOnTheLeft(setup) ? "ESQUERDA" : "DIREITA", setup.start.row,
-                 setup.start.column, setup.goal.row, setup.goal.column, gPower.busVoltageV());
+                 setup.start.column, setup.goal.row, setup.goal.column, gPower.busVoltageV(),
+                 esp_app_get_description()->version);
         {
             const domain::Calibration& calib = gMotion.calibration();
             ESP_LOGI(kTag,
@@ -1626,5 +1630,11 @@ extern "C" void app_main() {
     // passa por um buffer de 320 bytes na pilha (mirrorLogToBle).
     xTaskCreatePinnedToCore(navigationTask, "nav", 12288, nullptr, configMAX_PRIORITIES - 1, nullptr,
                             1);
+    {
+        // Cada gravação é identificável: versão (git describe do build), data e IDF no boot.
+        const esp_app_desc_t* app = esp_app_get_description();
+        ESP_LOGI(kTag, "firmware: versao %s, compilado em %s %s, IDF %s", app->version, app->date, app->time,
+                 app->idf_ver);
+    }
     xTaskCreatePinnedToCore(telemetryTask, "telemetry", 6144, nullptr, 1, nullptr, 0);
 }

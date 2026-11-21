@@ -54,7 +54,10 @@ struct CellTurnPlan {
 // Escolhe o movimento de MAIOR folga no pior caso do desvio lateral de entrada (+-`entryUncertaintyMm`): beta de 0 a
 // `maxBetaDeg` (de 5 em 5), eixo de 0 a -60 mm e saída no meio do corredor ou até 10 mm para o lado de dentro. found = false
 // quando nenhum movimento cabe (folga < 0). `marginMm` é só referência para o log (o firmware avisa quando a folga fica abaixo).
+// `onProgress` (opcional) é chamado entre as etapas da busca: no robô, cede a CPU (a busca leva ~1-2 s no ESP32 e a tarefa da
+// navegação tem a maior prioridade; sem ceder, o watchdog de tarefas pode reiniciar a placa).
 [[nodiscard]] CellTurnPlan planCellTurn(const CellTurnBody& body, bool turnLeft, const CellTurnWalls& walls,
-                                        double marginMm, double maxBetaDeg, double entryUncertaintyMm) noexcept;
+                                        double marginMm, double maxBetaDeg, double entryUncertaintyMm,
+                                        void (*onProgress)() = nullptr) noexcept;
 
 }  // namespace micromouse::domain
