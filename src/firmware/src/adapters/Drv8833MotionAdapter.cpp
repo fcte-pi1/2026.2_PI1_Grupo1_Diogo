@@ -1451,6 +1451,12 @@ void Drv8833MotionAdapter::pivot(double degrees, controller::PivotMove::Directio
     // Ângulo a cada 100 ms, para ver ONDE a curva perde velocidade ou trava.
     constexpr int kTraceMax = 48;
     int trace[kTraceMax];
+    // Mais dados do arco (20/11): caminho de cada roda (mm), tensão aplicada (V/10) e velocidade de giro (graus/s).
+    int traceLeftMm[kTraceMax];
+    int traceRightMm[kTraceMax];
+    int traceLeftV[kTraceMax];
+    int traceRightV[kTraceMax];
+    int traceRate[kTraceMax];
     int traceCount = 0;
     double nextTrace = 0.1;
 #endif
@@ -1484,6 +1490,15 @@ void Drv8833MotionAdapter::pivot(double degrees, controller::PivotMove::Directio
             break;
         }
         if (stall.update(now, turn.angle())) {
+#if CONFIG_RATO_LOG_RETA
+            if (front_ != nullptr) {
+                using TofSide = Vl53l1xSensorAdapter::Side;
+                ESP_LOGW("curva", "travou a %.1f graus (%s): tof E=%d F=%d D=%d no momento, giro %.1f graus/s, enc E=%.0f D=%.0f mm",
+                         turn.angle(), direction == controller::PivotMove::Direction::Left ? "esquerda" : "direita",
+                         front_->reading(TofSide::Left).mm, front_->reading(TofSide::Front).mm,
+                         front_->reading(TofSide::Right).mm, rate, leftMm, rightMm);
+            }
+#endif
             // Um arco que para já perto do fim (faltam menos de ~12 graus) não travou de verdade: terminou. O ajuste fino
             // corrige o resto (SERPENTINA-5 de 20/11: parou em -85,6, e o desfazer recuou a curva quase pronta).
             if (arc && std::fabs(turn.angle()) >= kArcNearlyDoneDeg) {
@@ -1496,6 +1511,11 @@ void Drv8833MotionAdapter::pivot(double degrees, controller::PivotMove::Directio
         }
 #if CONFIG_RATO_LOG_RETA
         if (now >= nextTrace && traceCount < kTraceMax) {
+            traceLeftMm[traceCount] = static_cast<int>(std::lround(leftMm));
+            traceRightMm[traceCount] = static_cast<int>(std::lround(rightMm));
+            traceLeftV[traceCount] = static_cast<int>(std::lround(10.0 * out.leftVolts));
+            traceRightV[traceCount] = static_cast<int>(std::lround(10.0 * out.rightVolts));
+            traceRate[traceCount] = static_cast<int>(std::lround(rate));
             trace[traceCount++] = static_cast<int>(std::lround(turn.angle()));
             nextTrace += 0.1;
         }
@@ -1558,6 +1578,21 @@ void Drv8833MotionAdapter::pivot(double degrees, controller::PivotMove::Directio
     }
     line[used < sizeof line ? used : sizeof line - 1] = '\0';
     ESP_LOGI("curva", "angulo a cada 100 ms: %s", line);
+    auto logTrace = [&](const char* title, const int* data) {
+        char text[260];
+        size_t at = 0;
+        for (int i = 0; i < traceCount && at + 7 < sizeof text; ++i) {
+            const int n = std::snprintf(text + at, sizeof text - at, "%s%d", i == 0 ? "" : " ", data[i]);
+            at += n > 0 ? static_cast<size_t>(n) : 0;
+        }
+        text[at < sizeof text ? at : sizeof text - 1] = '\0';
+        ESP_LOGI("curva", "%s a cada 100 ms: %s", title, text);
+    };
+    logTrace("roda E (mm)", traceLeftMm);
+    logTrace("roda D (mm)", traceRightMm);
+    logTrace("tensao E (V/10)", traceLeftV);
+    logTrace("tensao D (V/10)", traceRightV);
+    logTrace("giro (graus/s)", traceRate);
     ESP_LOGI("curva", "laco: pior volta %.1f ms | giro: %d leituras perdidas no total, desvio "
                       "descontado %.2f graus/s%s",
              worstLoopMs, gyroMissesTotal_, gyroBias_,
@@ -1729,6 +1764,15 @@ void Drv8833MotionAdapter::arcTurn(controller::PivotMove::Direction direction) {
     // o eixo atrás do centro, o arco tem espaço no canto (V3b de 09/11).
     lastShortMm_ = 0.0;
     const double leftLate = direction == controller::PivotMove::Direction::Left ? calibration_.leftArcLateMm : 0.0;
+#if CONFIG_RATO_LOG_RETA
+    if (front_ != nullptr) {
+        using TofSide = Vl53l1xSensorAdapter::Side;
+        ESP_LOGI("curva", "arco a %s: alvo frontal %.0f mm (arco_esq_atraso %.1f), antes do recuo tof E=%d F=%d D=%d, rumo residual %.1f graus",
+                 direction == controller::PivotMove::Direction::Left ? "esquerda" : "direita",
+                 arcStartFrontMm() - leftLate, calibration_.leftArcLateMm, front_->reading(TofSide::Left).mm,
+                 front_->reading(TofSide::Front).mm, front_->reading(TofSide::Right).mm, headingResidualDeg_);
+    }
+#endif
     centeringTargetRightMm_ = direction == controller::PivotMove::Direction::Right ? -kRightArcOuterBiasMm : 0.0;
     positionForArc(arcStartFrontMm() - leftLate);
     centeringTargetRightMm_ = 0.0;
