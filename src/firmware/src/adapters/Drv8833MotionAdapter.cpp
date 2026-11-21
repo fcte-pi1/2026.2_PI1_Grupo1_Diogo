@@ -1785,6 +1785,8 @@ void Drv8833MotionAdapter::arcTurn(controller::PivotMove::Direction direction) {
 #endif
         lastShortMm_ = 0.0;
         pivotInBoxedCell(direction, false);
+        // O giro no lugar também termina com erro (SERPENTINA-23: 81,8 graus): o ajuste fino fecha o resto, como depois do arco.
+        trimArc(direction);
         aheadMm_ = 0.0;
         return;
     }
