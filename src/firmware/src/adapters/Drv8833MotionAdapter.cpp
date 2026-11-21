@@ -1731,8 +1731,23 @@ void Drv8833MotionAdapter::pivotInBoxedCell(controller::PivotMove::Direction dir
     const double axleMm = frontWall ? kHalfCorridorMm - calibration_.axleToFrontTofMm - *settled
                                     : (backWall ? -(kHalfCorridorMm - domain::robot::kAxleToRearMm) : 0.0);
     const domain::CellWalls walls{frontWall, backWall, false, false};
-    const domain::PivotPlan plan = domain::planPivotInPlace(
+    domain::PivotPlan plan = domain::planPivotInPlace(
         calibration_, direction == controller::PivotMove::Direction::Left, walls, axleMm);
+    // Célula aberta (20/11, SERPENTINA-21): o giro "já cabe" onde o robô está, mas 54 mm atrás do centro deixava a saída 54 mm fora do eixo.
+    // Vai até o ponto da faixa em que o giro cabe MAIS PERTO do centro (5 mm de folga da borda): o desvio lateral de saída é essa distância.
+    if (!backWall && plan.action != domain::PivotAction::DoesNotFit) {
+        const domain::PivotBand band = domain::pivotInPlaceBand(
+            calibration_, direction == controller::PivotMove::Direction::Left, walls, 0.0);
+        if (band.found) {
+            constexpr double kInsetMm = 5.0;
+            const double lo = band.minMm + kInsetMm;
+            const double hi = band.maxMm - kInsetMm;
+            const double target = lo <= hi ? std::clamp(0.0, lo, hi) : 0.5 * (band.minMm + band.maxMm);
+            plan.action = domain::PivotAction::MoveThenPivot;
+            plan.targetMm = target;
+            plan.moveMm = target - axleMm;
+        }
+    }
 #if CONFIG_RATO_LOG_RETA
     const char* planName = plan.action == domain::PivotAction::PivotNow        ? "gira ja"
                            : plan.action == domain::PivotAction::MoveThenPivot ? "anda e gira"
