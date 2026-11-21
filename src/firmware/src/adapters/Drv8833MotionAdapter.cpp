@@ -782,8 +782,43 @@ bool Drv8833MotionAdapter::openCellTurn(controller::PivotMove::Direction directi
         return true;
     }
     // Rumo em relação ao corredor de ENTRADA antes de girar; no fim, vira o erro em relação ao de saída.
-    const double residualBefore = headingResidualDeg_;
+    double residualBefore = headingResidualDeg_;
     pivot(plan.firstTurnDeg, direction, pivotConfig());
+    // 2a tentativa (21/11, SERPENTINAS 32, 35 e 37): o 1o giro travou com o corpo preso num poste ou parede (as rodas andaram,
+    // o robô não girou). A janela do plano é de uns +-5 mm e a posição varia isso de uma corrida para outra. Volta o que girou
+    // (solta o contato), desloca o eixo metade de `ajuste_2a_tentativa` e tenta de novo, uma vez: travou cedo (< 45 graus) =
+    // contato na frente, recua; travou tarde = contato atrás, avança.
+    if (!lastMoveOk_ && lastTurnJammed_ && !aborted() && calibration_.arcRetryShiftMm > 0.0) {
+        const double stalledDeg = lastTurnDeg_;  // + = esquerda
+        const double shiftMm = std::fabs(stalledDeg) < 45.0 ? -0.5 * calibration_.arcRetryShiftMm
+                                                            : 0.5 * calibration_.arcRetryShiftMm;
+#if CONFIG_RATO_LOG_RETA
+        ESP_LOGW("curva", "curva em S: o 1o giro travou a %.1f graus; volta o giro, %s %.0f mm e tenta de novo",
+                 stalledDeg, shiftMm < 0.0 ? "recua" : "avanca", std::fabs(shiftMm));
+#endif
+        lastMoveOk_ = true;
+        lastMoveFailure_ = "";
+        if (std::fabs(stalledDeg) > 1.0) {
+            pivot(std::fabs(stalledDeg),
+                  stalledDeg > 0.0 ? controller::PivotMove::Direction::Right : controller::PivotMove::Direction::Left,
+                  pivotConfig());
+            if (!lastMoveOk_) {
+                return true;  // nem voltar deu: erro, como antes
+            }
+            residualBefore += stalledDeg + lastTurnDeg_;  // o que sobrou de rumo depois de voltar
+        }
+        suppressFrontStop_ = true;
+        straight(shiftMm, shiftMm < 0.0 ? "recuo da 2a tentativa" : "avanco da 2a tentativa", false);
+        suppressFrontStop_ = false;
+        if (!lastMoveOk_) {
+            return true;
+        }
+        pivot(plan.firstTurnDeg, direction, pivotConfig());
+#if CONFIG_RATO_LOG_RETA
+        ESP_LOGI("curva", "curva em S: 2a tentativa do 1o giro %s (%.1f graus)", lastMoveOk_ ? "deu certo" : "TRAVOU DE NOVO",
+                 lastTurnDeg_);
+#endif
+    }
     if (!lastMoveOk_) {
         return true;
     }
