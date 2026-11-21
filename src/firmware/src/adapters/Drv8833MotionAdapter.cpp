@@ -90,6 +90,9 @@ constexpr double kReverseAccelMmPerS2 = 120.0;
 // cai de ~12 para ~2 mm (domain/ArcClearance, E16/SERPENTINA-7: travou a 43 graus). O arco à esquerda começa este tanto
 // mais tarde (mais perto da parede da frente), onde o modelo dá ~6 mm. Some quando o cabo for reposicionado.
 constexpr double kLeftArcLateMm = 4.0;
+// Antes da curva à direita o robô se alinha este tanto à ESQUERDA do centro (lado de fora): o modelo dá a maior folga com ~8 mm
+// para fora, e a roda de dentro raspava a ponta da parede da direita a ~66 graus (SERPENTINA-5/6/7/9).
+constexpr double kRightArcOuterBiasMm = 8.0;
 constexpr double kArcNearlyDoneDeg = 78.0;  // arco parado a partir daqui: terminou
 constexpr double kTrimMaxDeg = 15.0;  // E16a de 20/11: a curva contínua terminou 11 graus a mais
 constexpr double kTrimMaxDegPerS = 45.0;
@@ -1139,7 +1142,9 @@ void Drv8833MotionAdapter::straight(double distanceMm, const char* name, bool ce
                 }
                 poseValid = pose.valid;
                 poseOffsetMm = pose.rightOffsetMm;
-                wallMm = domain::lateralCorrectionPulses(pose, domain::robot::wallCenteringConfig(calibration_)) *
+                domain::LateralPose aimed = pose;
+                aimed.rightOffsetMm -= centeringTargetRightMm_;  // mira num ponto fora do centro, se pedido
+                wallMm = domain::lateralCorrectionPulses(aimed, domain::robot::wallCenteringConfig(calibration_)) *
                          controller::robot::kMmPerPulse;
             }
         }
@@ -1728,7 +1733,9 @@ void Drv8833MotionAdapter::arcTurn(controller::PivotMove::Direction direction) {
     // o eixo atrás do centro, o arco tem espaço no canto (V3b de 09/11).
     lastShortMm_ = 0.0;
     const double leftLate = direction == controller::PivotMove::Direction::Left ? kLeftArcLateMm : 0.0;
+    centeringTargetRightMm_ = direction == controller::PivotMove::Direction::Right ? -kRightArcOuterBiasMm : 0.0;
     positionForArc(arcStartFrontMm() - leftLate);
+    centeringTargetRightMm_ = 0.0;
     // Sem espaço para recuar (a traseira encostou na parede de trás: A1 virado para A2, 18/11), o
     // arco não cabe. Em vez de falhar, o robô gira no lugar, que não precisa de recuo, e segue.
     if (!lastMoveOk_ && lastMoveFailure_ != nullptr &&
