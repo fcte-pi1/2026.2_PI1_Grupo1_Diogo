@@ -39,6 +39,7 @@ constexpr std::array<CalibrationField, kCalibrationFieldCount> kFields{{
     {"folga_arco", &Calibration::arcClearanceMm, 0.0, 40.0, "mm"},
     {"curva_continua", &Calibration::continuousTurn, 0.0, 1.0, "0/1"},
     {"antecipa_arco", &Calibration::continuousArcLeadMm, 0.0, 30.0, "mm"},
+    {"arco_esq_atraso", &Calibration::leftArcLateMm, -20.0, 20.0, "mm"},
 }};
 
 }  // namespace

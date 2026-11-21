@@ -228,7 +228,7 @@ EXPECTED_CALIBRATION = {
     "autoajuste_freio": 0.0, "parada_frente": 35.0, "tof_na_reta": 1.0, "rampa_tensao": 50.0, "fusao_rumo": 0.0,
     "reancorar_parede": 0.0, "parada_dinamica": 0.0, "vies_giro": 0.0, "reta_continua": 1.0,
     "largura_corredor": 168.0, "ganho_parede": 3.0, "max_parede": 50.0, "folga_arco": 12.0,
-    "curva_continua": 1.0, "antecipa_arco": 16.0,
+    "curva_continua": 1.0, "antecipa_arco": 12.0, "arco_esq_atraso": 0.0,
     "centralizar": 1.0, "ganho_rumo": 0.6}
 CALIBRATION_MAY_DIFFER: dict[str, float] = {}
 

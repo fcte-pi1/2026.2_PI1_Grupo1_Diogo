@@ -56,6 +56,9 @@ struct Calibration {
     // `antecipa_arco` mm antes da borda da célula da curva (o modelo de 20/11 dá a maior folga, ~11 mm, em 16).
     double continuousTurn{1.0};        // curva_continua: 1 = vira sem parar (com reta_continua=1)
     double continuousArcLeadMm{16.0};  // antecipa_arco
+    // Curva à ESQUERDA: mm a mais (positivo = começa mais tarde, perto da parede da frente; negativo = mais cedo). O cabo da bateria
+    // fica à esquerda e a curva à esquerda trava a ~40 graus (20/11); o padrão 0 é o arco simétrico. Para ajustar na pista.
+    double leftArcLateMm{0.0};         // arco_esq_atraso
 };
 
 struct CalibrationField {
@@ -66,7 +69,7 @@ struct CalibrationField {
     std::string_view unit;
 };
 
-inline constexpr std::size_t kCalibrationFieldCount = 30;
+inline constexpr std::size_t kCalibrationFieldCount = 31;
 [[nodiscard]] const std::array<CalibrationField, kCalibrationFieldCount>& calibrationFields() noexcept;
 
 enum class CalibrationSet { Ok, UnknownName, OutOfRange, NotANumber };

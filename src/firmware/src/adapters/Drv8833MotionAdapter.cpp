@@ -86,10 +86,6 @@ constexpr double kTrimMinDeg = 1.0;
 // Ré (recuo antes da curva e ré contínua): mais lenta e mais suave que a frente (operador, 20/11: "o recuo ainda é alto e rápido").
 constexpr double kReverseMaxSpeedMmPerS = 70.0;
 constexpr double kReverseAccelMmPerS2 = 120.0;
-// O cabo da bateria fica à ESQUERDA do robô: numa curva à esquerda ele está do lado de dentro e a folga da quina de dentro
-// cai de ~12 para ~2 mm (domain/ArcClearance, E16/SERPENTINA-7: travou a 43 graus). O arco à esquerda começa este tanto
-// mais tarde (mais perto da parede da frente), onde o modelo dá ~6 mm. Some quando o cabo for reposicionado.
-constexpr double kLeftArcLateMm = 4.0;
 // Antes da curva à direita o robô se alinha este tanto à ESQUERDA do centro (lado de fora): o modelo dá a maior folga com ~8 mm
 // para fora, e a roda de dentro raspava a ponta da parede da direita a ~66 graus (SERPENTINA-5/6/7/9).
 constexpr double kRightArcOuterBiasMm = 8.0;
@@ -1223,7 +1219,7 @@ void Drv8833MotionAdapter::straight(double distanceMm, const char* name, bool ce
                     const double startHeading = headingResidualDeg_ + headingDeg;
                     const double fix =
                         std::clamp(startHeading, -kRunTurnMaxStartFixDeg, kRunTurnMaxStartFixDeg);
-                    const double leftLate = right ? 0.0 : kLeftArcLateMm;  // cabo por dentro: ver kLeftArcLateMm
+                    const double leftLate = right ? 0.0 : calibration_.leftArcLateMm;  // `calib arco_esq_atraso`
                     const controller::PathPlan plan{std::max(0.0, arcStartMm + leftLate - travelled),
                                                     controller::robot::kArcSetbackMm,
                                                     90.0 + (right ? fix : -fix),
@@ -1732,7 +1728,7 @@ void Drv8833MotionAdapter::arcTurn(controller::PivotMove::Direction direction) {
     // Recua a meia célula inteira, mesmo se a reta anterior parou antes pela parede da frente: com
     // o eixo atrás do centro, o arco tem espaço no canto (V3b de 09/11).
     lastShortMm_ = 0.0;
-    const double leftLate = direction == controller::PivotMove::Direction::Left ? kLeftArcLateMm : 0.0;
+    const double leftLate = direction == controller::PivotMove::Direction::Left ? calibration_.leftArcLateMm : 0.0;
     centeringTargetRightMm_ = direction == controller::PivotMove::Direction::Right ? -kRightArcOuterBiasMm : 0.0;
     positionForArc(arcStartFrontMm() - leftLate);
     centeringTargetRightMm_ = 0.0;
