@@ -69,6 +69,9 @@ private:
     const char* lastMoveName_{"nenhum"};
     const char* lastMoveFailure_{""};  // por que o último movimento falhou (vazio se não falhou)
     char undoFailure_[192]{};          // texto de "curva travada e o desfazer nao voltou"
+    // Desvio de rumo que a reta aceita antes de dar "rumo perdido" (kMaxHeadingErrorDeg). Na diagonal da curva em S sobe: sem paredes
+    // para se guiar, um toque leve numa parede gira o robô alguns graus e o 2o giro compensa (SERPENTINA-39: 10,1 graus abortou a corrida).
+    double headingLimitDeg_{10.0};
     char headingFailure_[64]{};        // texto de "rumo perdido: desviou N graus"
     // Retrato do fim do último movimento, para o motivo de uma falha (corrida na bateria, sem
     // cabo: é o único jeito de saber se as rodas giraram e se os encoders contaram).

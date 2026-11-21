@@ -825,7 +825,9 @@ bool Drv8833MotionAdapter::openCellTurn(controller::PivotMove::Direction directi
     double turned = lastTurnDeg_;  // + = esquerda
     if (plan.diagonalMm > 0.0) {
         headingResidualDeg_ = 0.0;  // a diagonal segura o rumo em que o giro parou (sem centralizar: não há paredes)
+        headingLimitDeg_ = 18.0;  // um toque leve na parede gira o robô alguns graus; o 2o giro abaixo compensa
         straight(plan.diagonalMm, "diagonal da curva", false);
+        headingLimitDeg_ = controller::robot::kMaxHeadingErrorDeg;
         if (!lastMoveOk_) {
             return true;
         }
@@ -1226,7 +1228,7 @@ void Drv8833MotionAdapter::straight(double distanceMm, const char* name, bool ce
         if (gyroLost()) {
             break;
         }
-        if (!path && domain::headingLost(headingDeg, controller::robot::kMaxHeadingErrorDeg)) {
+        if (!path && domain::headingLost(headingDeg, headingLimitDeg_)) {
             lastMoveOk_ = false;
             // Para na hora (sem recentralizar: girar de volta num corredor de ~26 mm de folga
             // raspa na parede) e leva ao Erro com o desvio no motivo.
