@@ -197,3 +197,50 @@ movimento couber, o log diz `NENHUM MOVIMENTO CABE` e a curva segue pelo arco, c
 - **Segunda metade do labirinto sem paredes a menos de 90 mm:** a centralização não tem referência e o erro lateral acumula.
   A curva em S diminui o erro na entrada dessas retas. A localização pelas paredes distantes continua pendente.
 - **BLE perde comandos `calib` longos:** mandar no máximo 4 chaves por linha (o roteiro da Fase 2 já vem dividido).
+
+
+## 9. Sessão de pista de 21/11 (noite): resultado
+
+Firmware gravado: `fase1-entrega-4-g264ef77` (calib15). Corridas SERPENTINA-30 a 50, logs em `robot-tests/resultados/logs/corridas/`.
+
+### 9.1 Resultado
+- **Chega ao objetivo.** Com a configuração final, 2 corridas seguidas passam (49 e 50, ~52 a 53 s, 7 passos, giros de 88,3 a 89,0°). Com a mesma
+  configuração e a 2ª tentativa de 6 mm, 40, 41, 42 e 43 passaram (4 seguidas); a 44 e a 45 o operador parou por arrasto na parede.
+- **O que ainda não está bom:** o robô **raspa na parede direita**: depois das curvas à direita o sensor direito lê 0 mm; a saída da curva em S fica 15 a
+  35 mm à direita do que o plano prevê; a estimativa lateral nas retas chega a 15 a 32 mm à direita (correção no teto de 12,3 mm).
+- **Calib final em uso** (acima dos padrões): `eixo_ate_frente=100 eixo_ate_tof_frente=88 largura_frente=112 tof_lado_ao_centro=55.5 escala_giro=1.00
+  freio_pivo=4 centralizar=1 ganho_rumo=1.0 ganho_parede=3 max_parede=35 folga_arco=18 antecipa_arco=12 arco_esq_atraso=-14 desfazer_tensao_fora=3.6
+  desfazer_tensao_dentro=2.2 ajuste_fino_min=0.4 alvo_lateral_dir_mm=-8 alvo_pos_esq_mm=0 curva_dir_fora=8 rumo_max_lateral=8 ajuste_2a_tentativa=24
+  giro_aberto=1 bateria_minima=5.5`. As do S (`cabo_esq_mm=10`, `giro_s_*`) ficam nos padrões.
+
+### 9.2 O que mudou no firmware depois de `fc2cad8` (commits)
+| Commit | O quê |
+|:--|:--|
+| `9336850` | Curva em S **tenta de novo** quando o 1º giro trava: gira de volta, desloca o eixo metade de `ajuste_2a_tentativa` (recua se travou antes de 45°, avança depois) e repete uma vez. Funcionou na pista (43: 55,9° → +6 mm → ok; 48: 58° → +12 mm → ok); falhou na 47 (38,7° e 46,2° com 6 mm) |
+| `264ef77` | A diagonal da curva em S aceita até **18°** de desvio de rumo (antes 10°): um toque leve na parede abortava a corrida por 0,1° (SERPENTINA-39) |
+
+### 9.3 Achados
+1. **O ToF frontal lê ~4,5 mm a mais perto da parede:** eixo→sensor medido com trena é 92 mm a F=51 mm e 96,5 mm a F=132 (e 85 a F=42 em 19/11). `eixo_ate_tof_frente` caiu de
+   98 para 88 (o melhor medido na pista): a posição do eixo no começo da curva em S decide se o corpo bate no poste ou na parede, e a janela é de ~±5 mm.
+2. **1ª curva em S travou em 3 de 8** (32, 35, 37; mais a 43, 47 e 48 já com recuperação). Não há padrão em bateria, distância frontal, avanço ou posição lateral.
+   O robô gira só 40 a 60% do esperado desde o início (as rodas andam, o corpo não acompanha). Não é defeito do giro em piso livre: 10 giros de 90° sem paredes deram
+   88 a 91° com as rodas simétricas (esquerda ≈ direita), com 1 patinagem das duas rodas no 1º giro depois do reinício.
+3. **ToF direito caiu sozinho** (volta ao endereço de fábrica 0x29 = a alimentação do módulo piscou) 2 vezes em ~4 min depois da limpeza das rodas; `tofrec` recuperou. Depois ficou
+   estável (988 de 988 leituras). Não é o cálculo dos planos (testei: caiu com o robô parado, sem cálculo). Para a equipe de energia/eletrônica.
+4. **O cálculo dos 4 planos da curva em S leva 8 a 12 s cada no ESP32** (não 1 a 3 s): ~40 s sem responder a cada boot e a cada `calib` que mude corpo, cabo, `giro_s_beta_max`
+   ou `giro_s_incerteza`. Os valores dão exatamente os do PC (esquerda 4,4 mm, direita 7,4 mm). Sem reiniciar o watchdog.
+5. **Depois de um erro o robô precisa reiniciar** (ele ignora `largar`); o `parar` pelo BLE leva alguns segundos (mensagem → comando → BLE). Existe o atalho
+   `parar.sh` para o operador e a chave do robô é o único jeito imediato.
+6. **A curva contínua não é a causa do arrasto:** desligá-la (`curva_continua=0`, 46, 47, 48) piorou: 0 de 3, porque a curva à esquerda em (l2,c2) vira arco parado e trava no poste
+   quando o robô chega encostado na parede direita.
+7. **A INA219 lê oscilando** (6,3 a 7,3 V com 8,0 V no cellmeter), como já se sabia.
+
+### 9.4 Pendências (para a próxima sessão)
+1. **Reiniciar o ToF que cai DURANTE a reta/curva** (hoje só reinicia com o robô parado). Está na memória do projeto.
+2. **Viés para a direita na saída das curvas em S e dos arcos à direita:** investigar com o robô visível (filmar de cima, medir o ângulo da saída). Hipóteses: cabo da bateria,
+   contato do canto da frente com o poste, aderência. Ajuste cego de calib não resolveu.
+3. **Cabo da bateria** (equipe de estrutura): prender rente ao chassi tira a folga do lado esquerdo do plano (7,4 mm contra 4,4) e alarga a janela do S.
+4. **Pneus e engrenagens** (estrutura): o 1º giro depois do reinício patinou; limpar só com fita adesiva e álcool no pneu, nada de solvente nas rodas/caixa; trocar o N20 se a engrenagem
+   prender (R$ 76 cada).
+5. **Estimativa lateral parada em 12,3 mm** (`max_parede=35`): robô chega a 15 a 32 mm da posição pedida e não volta. Testar `max_parede` maior só com o robô visível.
+6. **Reduzir o tempo dos planos da curva em S** (busca mais grossa ou 1 plano por vez no boot).

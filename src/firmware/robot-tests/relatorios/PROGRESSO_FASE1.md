@@ -39,3 +39,7 @@ entrega na tag `fase1-entrega`.
 - Curva em S isolada, à esquerda e à direita (etapa 2).
 - Corrida completa (etapa 3) e ajuste pela tabela de prioridades (etapa 4).
 - Confirmar por que o giro simples às vezes passava no passo 4 (auditoria, 4.5).
+
+## Atualização da noite de 21/11 (sessão de pista)
+A pista foi feita no mesmo dia: gravado `fase1-entrega-4-g264ef77`, SERPENTINAS 30 a 50. Resultado: o robô chega ao objetivo (49 e 50 passaram; 40 a 43 também);
+raspa na parede direita; recuperação automática da curva em S funciona; ToF direito caiu 2 vezes (hardware). Detalhes em `auditoria/AUDITORIA-2026-11-21.md`, seção 9.

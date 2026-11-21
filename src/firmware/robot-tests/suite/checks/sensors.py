@@ -222,17 +222,17 @@ def check_tof_too_close(lines: list[str], sensor_letter: str, sensor_name: str, 
 # com `python t.py calib "eixo_ate_frente=100 eixo_ate_tof_frente=98 largura_frente=112 tof_lado_ao_centro=55.5 centralizar=1
 # ganho_rumo=0.6 ganho_parede=3 max_parede=50"`.
 EXPECTED_CALIBRATION = {
-    "eixo_ate_frente": 100.0, "largura_frente": 112.0, "eixo_ate_tof_frente": 98.0, "largura_com_rodas": 108.0,
+    "eixo_ate_frente": 100.0, "largura_frente": 112.0, "eixo_ate_tof_frente": 88.0, "largura_com_rodas": 108.0,
     "tof_lado_ao_centro": 55.5, "tof_lado_a_frente_do_eixo": 59.15, "cabo_frente_mm": 0.0, "preset_cad": 0.0,
     "escala_giro": 1.00, "freio_arco": 2.6, "freio_pivo": 4.0, "modo_curva": 0.0, "freio_uma_roda": 2.6,
     "autoajuste_freio": 0.0, "parada_frente": 35.0, "tof_na_reta": 1.0, "rampa_tensao": 50.0, "fusao_rumo": 0.0,
     "reancorar_parede": 0.0, "parada_dinamica": 0.0, "vies_giro": 0.0, "reta_continua": 1.0,
-    "largura_corredor": 168.0, "ganho_parede": 3.0, "max_parede": 22.0, "folga_arco": 18.0,
+    "largura_corredor": 168.0, "ganho_parede": 3.0, "max_parede": 35.0, "folga_arco": 18.0,
     "curva_continua": 1.0, "antecipa_arco": 12.0, "arco_esq_atraso": -14.0,
     "curva_cont_vel": 80.0, "curva_cont_bitola": 100.0, "curva_cont_ganho": 1.0, "curva_cont_giro_max": 30.0,
     "curva_cont_trava": 20.0, "curva_cont_freio": 4.0, "desfazer_tensao_fora": 3.6, "desfazer_tensao_dentro": 2.2,
-    "desfazer_tempo": 2.4, "recuo_sem_parede": 90.0, "ajuste_2a_tentativa": 12.0, "trava_frente_ate": 52.0,
-    "arco_quase_pronto": 78.0, "ajuste_fino_min": 0.4, "ajuste_fino_max": 15.0, "alvo_lateral_dir_mm": 0.0, "alvo_pos_esq_mm": 12.0, "curva_dir_fora": 0.0, "rumo_max_mm": 6.0,
+    "desfazer_tempo": 2.4, "recuo_sem_parede": 90.0, "ajuste_2a_tentativa": 24.0, "trava_frente_ate": 52.0,
+    "arco_quase_pronto": 78.0, "ajuste_fino_min": 0.4, "ajuste_fino_max": 15.0, "alvo_lateral_dir_mm": -8.0, "alvo_pos_esq_mm": 0.0, "curva_dir_fora": 8.0, "rumo_max_mm": 6.0,
     "rumo_max_lateral": 8.0, "giro_aberto": 1.0, "lado_aberto_mm": 150.0, "cabo_esq_mm": 10.0, "giro_s_beta_max": 25.0,
     "giro_s_folga": 3.0, "giro_s_incerteza": 10.0, "re_vel": 70.0, "re_acel": 120.0, "bateria_minima": 5.5,
     "centralizar": 1.0, "ganho_rumo": 1.0}

@@ -32,4 +32,13 @@ Valores decididos antes, com a medida que os justifica:
 
 | Data / hora | Firmware | Chave: antes → depois | Teste | Resultado (log) | O que o operador viu | Log |
 |:--|:--|:--|:--|:--|:--|:--|
-| | | | | | | |
+| 21/11 17:30 | g13d515a | `eixo_ate_tof_frente` 98 → 92 | virar e isolado (l2,c1) | saída centrada (E=38/D=30) em vez de 20 mm à direita; sem bater | operador: "não bateu em nada e reto" | `resultados/log_robo.txt` |
+| 21/11 18:00 | g13d515a | `eixo_ate_tof_frente` 92 → 88; `max_parede` 22 → 35 | SERPENTINA-31 | passou; retas dentro de ±8 mm (antes 14-22 mm à direita) | operador: "quase bom", raspava na parede | SERPENTINA-31 |
+| 21/11 18:10 | g13d515a | `alvo_pos_esq_mm` 12 → 6; `eixo_ate_tof_frente` 88 → 84 | SERPENTINA-32 | **falhou**: 1o giro da curva em S travou a 57,5° | operador: "girou 70 e disparou um erro" | SERPENTINA-32 |
+| 21/11 18:30 | g13d515a | `eixo_ate_tof_frente` 84 → 88 | SERPENTINAS 33b, 34, 36 | passaram; 35 e 37 travaram na 1a curva em S (26° e 36°) | rodas limpas; ainda raspa | SERPENTINAS 33b-37 |
+| 21/11 18:40 | g9336850 | recuperação da 2a tentativa (código) | SERPENTINA-38 | passou | | SERPENTINA-38 |
+| 21/11 18:55 | g9336850 | `alvo_lateral_dir_mm` 0 → -4 → -8; `alvo_pos_esq_mm` 6 → 0; `curva_dir_fora` 0 → 8 | SERPENTINAS 38, 39 | 39 falhou: "rumo perdido 10,1" na diagonal do S | | SERPENTINAS 38, 39 |
+| 21/11 19:05 | g264ef77 | diagonal do S tolera 18° (código) | SERPENTINAS 40-43 | **4 passaram**; a 43 usou a 2a tentativa do S (55,9° → +6 mm → 67,3°) | operador: ainda raspa na parede direita; última curva não fica a 90° | SERPENTINAS 40-43 |
+| 21/11 19:25 | g264ef77 | operador parou 44 e 45 (arrastando na parede direita no passo 6) | SERPENTINAS 44, 45 | paradas pelo operador | sensores no ponto da parada: E=82 D=0 F=355 | SERPENTINAS 44, 45 |
+| 21/11 19:35 | g264ef77 | `curva_continua` 1 → 0; `curva_dir_fora` 8 → 16; `ajuste_2a_tentativa` 12 → 24 | SERPENTINAS 46, 47, 48 | **0 de 3**: 46 parada; 47 travou o S (38,7° e 46,2° mesmo recuando 6 mm); 48 passou o S com +12 mm mas travou o arco parado em (l2,c2) | | SERPENTINAS 46-48 |
+| 21/11 19:50 | g264ef77 | `curva_continua` 0 → 1; `curva_dir_fora` 16 → 8; `ajuste_2a_tentativa` 24 mantido | SERPENTINA-49 | **passou** (53,1 s) | operador: passou, mas voltou a arrastar na parede | SERPENTINA-49 |
