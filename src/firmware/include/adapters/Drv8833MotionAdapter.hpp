@@ -56,6 +56,7 @@ private:
     // Alvo lateral da centralização, mm para a direita do centro (0 = centro). Na curva à direita o recuo mira para a esquerda:
     // a roda de dentro engancha na ponta da parede da direita se o robô passa centrado ou à direita (20/11).
     double centeringTargetRightMm_{0.0};
+    bool afterLeftTurn_{false};  // a próxima reta vem logo depois de uma curva/giro à esquerda (`alvo_pos_esq_mm`)
     double wallFixMm_{0.0};    // `reancorar_parede`: quanto a próxima reta anda a mais (negativo: a menos)
     double aheadMm_{0.0};      // quanto o robô já está à frente do centro (fim de uma curva em arco)
     double batteryVolts_;

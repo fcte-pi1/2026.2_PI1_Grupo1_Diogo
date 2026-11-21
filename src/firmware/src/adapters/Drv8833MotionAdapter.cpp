@@ -1130,7 +1130,8 @@ void Drv8833MotionAdapter::straight(double distanceMm, const char* name, bool ce
                 poseValid = pose.valid;
                 poseOffsetMm = pose.rightOffsetMm;
                 domain::LateralPose aimed = pose;
-                aimed.rightOffsetMm -= centeringTargetRightMm_ + calibration_.lateralAimRightMm;  // mira fora do centro (recuo da curva e cabo)
+                aimed.rightOffsetMm -= centeringTargetRightMm_ + calibration_.lateralAimRightMm +
+                                       (afterLeftTurn_ ? calibration_.afterLeftAimRightMm : 0.0);  // mira fora do centro (recuo da curva e cabo)
                 wallMm = domain::lateralCorrectionPulses(aimed, domain::robot::wallCenteringConfig(calibration_)) *
                          controller::robot::kMmPerPulse;
             }
@@ -1358,6 +1359,9 @@ void Drv8833MotionAdapter::straight(double distanceMm, const char* name, bool ce
 #endif
     } else if (sign > 0.0 && lastMoveOk_) {
         headingResidualDeg_ += headingDeg;  // o que a reta girou, com a correção, entra na conta
+    }
+    if (sign > 0.0) {
+        afterLeftTurn_ = false;  // valeu só para a primeira reta para a frente depois da curva à esquerda
     }
     lastMoveEndUs_ = esp_timer_get_time();
 #if CONFIG_RATO_LOG_RETA
@@ -1968,9 +1972,15 @@ bool Drv8833MotionAdapter::undoArc(controller::PivotMove::Direction direction) {
     return back && lastMoveOk_;
 }
 
-void Drv8833MotionAdapter::turnLeft() { arcTurn(controller::PivotMove::Direction::Left); }
+void Drv8833MotionAdapter::turnLeft() {
+    arcTurn(controller::PivotMove::Direction::Left);
+    afterLeftTurn_ = lastMoveOk_;  // a reta que vem agora mira `alvo_pos_esq_mm` à direita (o cabo fica à esquerda)
+}
 
-void Drv8833MotionAdapter::turnRight() { arcTurn(controller::PivotMove::Direction::Right); }
+void Drv8833MotionAdapter::turnRight() {
+    arcTurn(controller::PivotMove::Direction::Right);
+    afterLeftTurn_ = false;
+}
 
 // Meia-volta no lugar. O Navigator NÃO usa mais (10/11): num beco ele sai de ré (reverseCell). Com
 // o eixo na traseira, as quinas da frente passam a ~100 mm do centro do giro e o corredor tem 84 mm

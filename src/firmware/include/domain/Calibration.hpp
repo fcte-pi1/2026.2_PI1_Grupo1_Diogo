@@ -81,6 +81,7 @@ struct Calibration {
     // O cabo da bateria deixa o chassi ~10 mm mais largo à ESQUERDA: a centralização mira este tanto à direita do centro do corredor (20/11: a lateral
     // esquerda raspava na parede depois do giro à esquerda, com o robô 20-26 mm à esquerda).
     double lateralAimRightMm{0.0};      // alvo_lateral_dir_mm
+    double afterLeftAimRightMm{0.0};   // alvo_pos_esq_mm: SÓ na reta logo depois de uma curva/giro à esquerda a centralização mira este tanto à direita
     double rightArcOuterBiasMm{0.0};   // curva_dir_fora: o recuo da curva à direita se alinha este tanto para a esquerda (0 = não)
     // Reta e proteção:
     double headingHoldMaxMm{6.0};      // rumo_max_mm: teto da correção do ganho_rumo
@@ -102,7 +103,7 @@ struct CalibrationField {
     std::string_view unit;
 };
 
-inline constexpr std::size_t kCalibrationFieldCount = 55;
+inline constexpr std::size_t kCalibrationFieldCount = 56;
 [[nodiscard]] const std::array<CalibrationField, kCalibrationFieldCount>& calibrationFields() noexcept;
 
 enum class CalibrationSet { Ok, UnknownName, OutOfRange, NotANumber };

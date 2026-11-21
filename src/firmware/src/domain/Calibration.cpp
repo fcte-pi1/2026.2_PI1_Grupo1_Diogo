@@ -56,6 +56,7 @@ constexpr std::array<CalibrationField, kCalibrationFieldCount> kFields{{
     {"ajuste_fino_min", &Calibration::trimMinDeg, 0.1, 5.0, "graus"},
     {"ajuste_fino_max", &Calibration::trimMaxDeg, 0.0, 30.0, "graus"},
     {"alvo_lateral_dir_mm", &Calibration::lateralAimRightMm, -20.0, 30.0, "mm"},
+    {"alvo_pos_esq_mm", &Calibration::afterLeftAimRightMm, -20.0, 30.0, "mm"},
     {"curva_dir_fora", &Calibration::rightArcOuterBiasMm, 0.0, 20.0, "mm"},
     {"rumo_max_mm", &Calibration::headingHoldMaxMm, 1.0, 30.0, "mm"},
     {"rumo_max_lateral", &Calibration::lateralMaxHeadingDeg, 1.0, 15.0, "graus"},
