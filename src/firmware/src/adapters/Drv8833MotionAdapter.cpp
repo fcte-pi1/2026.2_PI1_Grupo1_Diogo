@@ -1794,11 +1794,11 @@ void Drv8833MotionAdapter::positionForArc(double frontTargetMm) {
     // o robô avançar ~120 mm para dentro da célula seguinte antes do arco.
     domain::ArcStartConfig config = controller::robot::kArcStart;
     config.frontTargetMm = frontTargetMm;
-    // Sem parede à frente o recuo fixo de 75 mm (09/11, frente de projeto) deixa o arco começar tarde demais para a frente
-    // real: folga negativa no modelo, e na SERPENTINA-5 de 20/11 o arco raspou. O recuo é o mesmo que o frontal daria numa
-    // célula com parede: alvo + eixo até o ToF - meio corredor (~105 mm).
-    config.fixedSetbackMm = std::max(config.fixedSetbackMm,
-                                     frontTargetMm + calibration_.axleToFrontTofMm - 0.5 * calibration_.corridorWidthMm);
+    // Sem parede à frente não há folga da frente a manter: o recuo é o do arco centrado na célula (kArcSetbackMm, 90 mm),
+    // que sai da curva no eixo do corredor de saída. Com 105 mm (o do arco com parede) o robô saía 15 mm para o lado de
+    // dentro, a roda de dentro ficava a ~6 mm da parede e prendia na quina (SERPENTINA-14); com 75 mm saía 15 mm para fora.
+    // Os ajustes da 2a tentativa e do arco à esquerda (o alvo já vem deslocado) entram como no arco com parede.
+    config.fixedSetbackMm = controller::robot::kArcSetbackMm + (frontTargetMm - arcStartFrontMm());
     bool frontValid = false;
     bool frontTooClose = false;
     double frontMm = 0.0;
