@@ -1130,7 +1130,7 @@ void Drv8833MotionAdapter::straight(double distanceMm, const char* name, bool ce
                 poseValid = pose.valid;
                 poseOffsetMm = pose.rightOffsetMm;
                 domain::LateralPose aimed = pose;
-                aimed.rightOffsetMm -= centeringTargetRightMm_;  // mira num ponto fora do centro, se pedido
+                aimed.rightOffsetMm -= centeringTargetRightMm_ + calibration_.lateralAimRightMm;  // mira fora do centro (recuo da curva e cabo)
                 wallMm = domain::lateralCorrectionPulses(aimed, domain::robot::wallCenteringConfig(calibration_)) *
                          controller::robot::kMmPerPulse;
             }
