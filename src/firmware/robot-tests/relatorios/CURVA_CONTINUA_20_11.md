@@ -91,3 +91,13 @@ Opções para continuar (decisão de projeto, não de calib):
 2. Fazer a curva por outro caminho nessa célula: uma roda (`modo_curva=1`, que precisa de recuo e termina 19 mm deslocado) ou um arco de raio maior.
 3. Hardware (segunda-feira): reposicionar o cabo da bateria (tira ~10 mm do lado esquerdo) e conferir a largura/folga do robô.
 Também pendentes: localização lateral pelas paredes distantes (segunda metade do labirinto) e proteção de bateria (INA219 lê ~1,7 V abaixo do cellmeter).
+
+## Nota de 21/11: a explicação do passo 7 estava incompleta
+
+A seção acima diz que o giro do passo 7 falha porque "esse desvio é maior que a folga lateral de 28 mm". O número está certo, mas
+a conclusão que ele sugere (girar mais perto do centro) não resolve: mais perto do centro o nariz bate na parede da frente, mais
+longe a lateral bate no **poste do canto**, que o modelo do giro no lugar (`domain/PivotClearance`) não tinha. Com os postes, o giro
+simples de 90 graus não cabe em posição nenhuma com este robô (folga de -8 mm na melhor posição). A mesma causa explica o arco à
+direita que trava em (l0,c1): o giro à esquerda do passo 4 deixa o robô 26 mm à esquerda, e a correção pela parede, no teto, não
+o traz de volta. Análise completa e correção (curva em S, `domain/CellTurn`): `auditoria/AUDITORIA-2026-11-21.md` na raiz do
+repositório. O texto acima foi mantido como estava.
