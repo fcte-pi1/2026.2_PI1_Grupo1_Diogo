@@ -123,10 +123,13 @@ private:
     // Curva em célula aberta como "S" (21/11, domain/CellTurn): posiciona, gira parte, anda na diagonal, completa. false = nenhum
     // movimento cabe (quem chamou segue para o arco).
     bool openCellTurn(controller::PivotMove::Direction direction);
-    // Planos do S em cache, por lado e por haver parede à frente; calculados ao aplicar o calib (robô parado).
+    // Planos do S em cache, por lado e por haver parede à frente; os quatro são calculados ao aplicar o calib (robô parado),
+    // e só de novo quando muda alguma chave que entra no plano (corpo, cabo, beta, incerteza).
     const domain::CellTurnPlan& openTurnPlan(bool left, bool frontWall);
+    void refreshOpenTurnPlans();
     domain::CellTurnPlan openPlans_[2][2]{};
     bool openPlanValid_[2][2]{};
+    double openPlanInputs_[6]{};
     // Os dois ToF laterais leem acima de `lado_aberto_mm` (sem parede perto dos dois lados).
     [[nodiscard]] bool sidesOpen() const;
     // O recuo, o avanço e o ajuste antes da curva também centralizam pelas paredes (20/11): as curvas que travaram

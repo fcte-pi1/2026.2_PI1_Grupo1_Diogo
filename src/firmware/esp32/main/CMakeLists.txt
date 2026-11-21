@@ -61,3 +61,7 @@ idf_component_register(
              esp_app_format nvs_flash esp-nimble-cpp)
 
 target_compile_features(${COMPONENT_LIB} PUBLIC cxx_std_17)
+
+# A busca da curva em S (domain/CellTurn) roda no robô ao aplicar o calib: com -O2 leva menos da metade do tempo do -Og do
+# projeto (no PC: 35 contra 77 ms por plano). Só este arquivo; o resto continua como o sdkconfig manda.
+set_source_files_properties("${CORE_ROOT}/src/domain/CellTurn.cpp" PROPERTIES COMPILE_OPTIONS "-O2")

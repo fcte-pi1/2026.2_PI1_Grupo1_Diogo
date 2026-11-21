@@ -686,15 +686,29 @@ void Drv8833MotionAdapter::setCalibration(const domain::Calibration& calibration
     // boot ou `calib`), não no meio da corrida.
     oneWheelTargetMm_ =
         calibration_.turnMode >= 0.5 ? domain::oneWheelStartTargetMm(calibration_) : -1.0;
-    // Planos da curva em célula aberta (~1-2 s cada no ESP32): recalcula agora, com o robô parado, os dois mais usados (parede à
-    // frente); os outros, na primeira vez que forem pedidos.
+    refreshOpenTurnPlans();
+}
+
+void Drv8833MotionAdapter::refreshOpenTurnPlans() {
+    if (calibration_.openPivot < 0.5) {
+        return;  // sem giro_aberto a curva em S não é usada
+    }
+    const domain::CellTurnBody body = domain::cellTurnBody(calibration_);
+    const double inputs[6] = {body.frontMm, body.rearMm, body.halfWidthMm, body.cableMm, calibration_.openTurnMaxBetaDeg,
+                              calibration_.openTurnEntryErrorMm};
+    if (std::equal(std::begin(inputs), std::end(inputs), std::begin(openPlanInputs_)) && openPlanValid_[0][0] &&
+        openPlanValid_[0][1] && openPlanValid_[1][0] && openPlanValid_[1][1]) {
+        return;  // nada que entra no plano mudou
+    }
+    std::copy(std::begin(inputs), std::end(inputs), std::begin(openPlanInputs_));
     for (auto& side : openPlanValid_) {
         side[0] = side[1] = false;
     }
-    if (calibration_.openPivot >= 0.5) {
-        (void)openTurnPlan(true, true);
-        vTaskDelay(pdMS_TO_TICKS(2));
-        (void)openTurnPlan(false, true);
+    // Os quatro agora, com o robô parado (boot ou `calib`): no meio da corrida a busca seria uma pausa de segundos.
+    for (const bool left : {true, false}) {
+        for (const bool frontWall : {true, false}) {
+            (void)openTurnPlan(left, frontWall);
+        }
     }
 }
 
