@@ -1014,11 +1014,11 @@ void navigationTask(void*) {
     gMotion.enableWallCentering(gSensor);
     gMotion.setCalibration(loadCalibration());
     // CAD x campo na frente do robô: não podem estar certos os dois (19/11). Avisa a cada boot até a
-    // medida de paquímetro decidir (`calib preset_cad=1` usa o CAD).
+    // medida no robô decidir (`calib preset_cad=1` usa o CAD). Não há paquímetro: trena ou fita métrica.
     if (domain::bodyConflictsWithCad(gMotion.calibration())) {
         ESP_LOGW("calib",
                  "AVISO: a frente em uso (chassi %.1f, ToF %.1f mm do eixo) difere do CAD (%.2f / "
-                 "%.2f) em %.1f mm (> %.0f): meca com paquimetro e grave com `calib`",
+                 "%.2f) em %.1f mm (> %.0f): meca com trena e grave com `calib`",
                  gMotion.calibration().axleToFrontMm, gMotion.calibration().axleToFrontTofMm,
                  domain::robot::kCadAxleToFrontMm, domain::robot::kCadAxleToFrontTofMm,
                  domain::bodyVsCadGapMm(gMotion.calibration()), domain::robot::kBodyConflictMm);

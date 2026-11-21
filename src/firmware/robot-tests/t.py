@@ -18,7 +18,7 @@ A ponte tem de estar aberta em OUTRA janela (python ponte.py). Depois:
 Calibração sem regravar o firmware (comando `calib` do robô, gravado na memória dele):
 
     python t.py calib-ver       mostra os valores em uso no robô
-    python t.py medidas         pergunta as medidas do robô (paquímetro) e grava no robô
+    python t.py medidas         pergunta as medidas do robô (trena ou fita métrica) e grava no robô
     python t.py calib-giro      o robô mede sozinho a escala do giroscópio (4 curvas ao lado de uma
                                 parede) e propõe o valor
     python t.py calib "parada_frente=65 autoajuste_freio=1"

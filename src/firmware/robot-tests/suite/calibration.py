@@ -91,7 +91,8 @@ class CalibrationClient:
 def ask_measures(client: CalibrationClient) -> None:
     """`medidas`: pergunta cada medida pelo nome, confere a faixa e grava no robô."""
     current = client.current_values()
-    print("Medidas do robô, em milímetros, com PAQUÍMETRO. ENTER sem número = não mudar.")
+    print("Medidas do robô, em milímetros (trena ou fita métrica; por diferença entre dois anteparos). "
+          "ENTER sem número = não mudar.")
     print("O 'meio do eixo' é o ponto no meio entre as duas rodas, na linha dos eixos dos motores.\n")
     assignments = [f"{measure.name}={value:g}" for measure in MEASURES
                    if (value := _ask_measure(measure, current.get(measure.name))) is not None]
