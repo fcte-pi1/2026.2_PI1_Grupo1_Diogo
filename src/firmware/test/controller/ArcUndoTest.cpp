@@ -108,7 +108,7 @@ TEST(ArcUndo, StopsAsSoonAsTheAngleMovesAwayFromZero) {
 TEST(ArcUndo, VoltagesAreGentle) {
     EXPECT_LE(robot::kArcUndoOuterVolts, 3.5);
     EXPECT_LE(robot::kArcUndoInnerVolts, 2.0);
-    EXPECT_LE(robot::kArcUndoTimeoutS, 1.6);  // 20/11: ré mais suave (2,8/1,6 V) leva um pouco mais de tempo
+    EXPECT_LE(robot::kArcUndoTimeoutS, 1.2);
 }
 
 }  // namespace

@@ -220,16 +220,16 @@ def check_tof_too_close(lines: list[str], sensor_letter: str, sensor_name: str, 
 # Calibração esperada do robô (estado de 20/11): os padrões do firmware, mais as MEDIDAS REAIS lidas das fotos (MEDICOES.md) e os
 # ganhos da centralização que funcionaram. Depois de gravar uma versão com chave nova do calib a memória volta ao padrão: reaplique
 # com `python t.py calib "eixo_ate_frente=100 eixo_ate_tof_frente=98 largura_frente=112 tof_lado_ao_centro=55.5 centralizar=1
-# ganho_rumo=1.2 ganho_parede=3 max_parede=20"`.
+# ganho_rumo=0.6 ganho_parede=3 max_parede=50"`.
 EXPECTED_CALIBRATION = {
     "eixo_ate_frente": 100.0, "largura_frente": 112.0, "eixo_ate_tof_frente": 98.0, "largura_com_rodas": 108.0,
     "tof_lado_ao_centro": 55.5, "tof_lado_a_frente_do_eixo": 59.15, "cabo_frente_mm": 0.0, "preset_cad": 0.0,
     "escala_giro": 1.00, "freio_arco": 2.6, "freio_pivo": 8.1, "modo_curva": 0.0, "freio_uma_roda": 2.6,
     "autoajuste_freio": 0.0, "parada_frente": 35.0, "tof_na_reta": 1.0, "rampa_tensao": 50.0, "fusao_rumo": 0.0,
     "reancorar_parede": 0.0, "parada_dinamica": 0.0, "vies_giro": 0.0, "reta_continua": 1.0,
-    "largura_corredor": 168.0, "ganho_parede": 3.0, "max_parede": 20.0, "folga_arco": 12.0,
+    "largura_corredor": 168.0, "ganho_parede": 3.0, "max_parede": 50.0, "folga_arco": 12.0,
     "curva_continua": 1.0, "antecipa_arco": 16.0,
-    "centralizar": 1.0, "ganho_rumo": 1.2}
+    "centralizar": 1.0, "ganho_rumo": 0.6}
 CALIBRATION_MAY_DIFFER: dict[str, float] = {}
 
 

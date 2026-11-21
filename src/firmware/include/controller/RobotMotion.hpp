@@ -161,9 +161,7 @@ inline constexpr double kFrontStopMm = 35.0;
 inline constexpr double kMaxHeadingErrorDeg = 10.0;
 // Rumo segurado pelo giroscópio na reta (`calib ganho_rumo`, 16/11): a correção, em mm de diferença
 // entre as rodas, nunca passa disto (1 grau de rumo equivale a ~1,5 mm de diferença entre as rodas).
-// 20/11: de 6 para 14 mm. Na SERPENTINA-10 o robô derivou -10 graus em 217 mm com as duas rodas contando pulsos iguais
-// (derrapagem): com 6 mm a correção do rumo só segurava ~4 graus.
-inline constexpr double kHeadingHoldMaxMm = 14.0;
+inline constexpr double kHeadingHoldMaxMm = 6.0;
 
 // Desvio do giroscópio em repouso (12/11). O MPU-6050 sai de fábrica com até ±20 graus/s de desvio
 // de zero, e ele muda com a temperatura: em 11/11 leu de -0,1 a +5,0 graus/s parado, e 5 graus/s
@@ -190,11 +188,10 @@ inline constexpr int kArcRetries = 1;
 inline constexpr double kArcRetryExtraFrontMm = 12.0;
 // 20/11: de 5,0/3,0 V e 1,5 s para 3,5/2,0 V e 1,2 s, e para na hora se o ângulo se afastar do zero em mais de
 // kArcUndoWrongWayDeg (corrida SERPENTINA-2: a ré a 5 V sacudiu o robô calçado nas paredes por 410 mm).
-// 20/11: de 3,5/2,0 V para 2,8/1,6 V: o operador viu a ré do desfazer, quando o arco não completa, alta e rápida.
-inline constexpr double kArcUndoOuterVolts = 2.8;
-inline constexpr double kArcUndoInnerVolts = 1.6;
+inline constexpr double kArcUndoOuterVolts = 3.5;
+inline constexpr double kArcUndoInnerVolts = 2.0;
 inline constexpr double kArcUndoDoneDeg = 4.0;
-inline constexpr double kArcUndoTimeoutS = 1.6;  // mais lenta: mais tempo para voltar
+inline constexpr double kArcUndoTimeoutS = 1.2;
 inline constexpr double kArcUndoWrongWayDeg = 8.0;
 // Giroscópio sem resposta: tantas leituras seguidas perdidas (2 ms cada) encerram o movimento com
 // falha. Antes, a leitura perdida valia 0 grau/s e a curva seguia girando sem ver.
