@@ -88,7 +88,9 @@ constexpr double kReverseMaxSpeedMmPerS = 70.0;
 constexpr double kReverseAccelMmPerS2 = 120.0;
 // Antes da curva à direita o robô se alinha este tanto à ESQUERDA do centro (lado de fora): o modelo dá a maior folga com ~8 mm
 // para fora, e a roda de dentro raspava a ponta da parede da direita a ~66 graus (SERPENTINA-5/6/7/9).
-constexpr double kRightArcOuterBiasMm = 8.0;
+// DESLIGADO (0) em 20/11 depois da SERPENTINA-19: a roda presa vinha do recuo de 105 mm (agora 90), e o alinhamento inclinava o robô
+// no recuo (operador). Mantido para poder voltar.
+constexpr double kRightArcOuterBiasMm = 0.0;
 constexpr double kArcNearlyDoneDeg = 78.0;  // arco parado a partir daqui: terminou
 constexpr double kTrimMaxDeg = 15.0;  // E16a de 20/11: a curva contínua terminou 11 graus a mais
 constexpr double kTrimMaxDegPerS = 45.0;
