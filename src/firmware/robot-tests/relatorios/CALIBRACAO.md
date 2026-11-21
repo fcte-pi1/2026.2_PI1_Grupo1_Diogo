@@ -6,6 +6,7 @@ Uma linha por mudança de `calib` ou por teste que decide um valor. Roteiro e pr
 - **Antes → depois:** o valor que estava e o novo. Se voltou atrás, outra linha.
 - **Resultado:** o que o log mostrou (números) e o que o operador viu, separados.
 - **Log:** caminho do arquivo em `robot-tests/resultados/`.
+- **Medidas:** não há paquímetro; anotar o instrumento (fita métrica, trena) e o método (direto, por diferença, pelo ToF).
 
 ## Ponto de partida (fim de 20/11, firmware `cd15948`, calib14)
 
@@ -19,13 +20,13 @@ Valores decididos antes, com a medida que os justifica:
 | Chave | Valor | De onde veio |
 |:--|:--|:--|
 | `escala_giro` | 1,00 | `giroang`: duas voltas à mão (720 graus) deram 771,6 (20/11); com 1,08 o robô girava ~83 graus quando marcava 90 |
-| `eixo_ate_frente` / `eixo_ate_tof_frente` | 100 / 98 | medida do robô montado, em uso nas corridas de 20/11 |
+| `eixo_ate_frente` / `eixo_ate_tof_frente` | 100 / 98 | fita métrica / trena (sem paquímetro; ~2-3 mm de precisão), em uso nas corridas de 20/11 |
 | `largura_frente` | 112 | idem (sem o cabo) |
 | `tof_lado_ao_centro` | 55,5 | idem |
 | `bateria_minima` | 5,5 | o INA219 às vezes lê ~1,7 V abaixo do cellmeter; limite só para os testes (operador, 20/11) |
 | `alvo_lateral_dir_mm` | 0 | 10 jogou o robô na parede direita na SERPENTINA-27 |
 | `max_parede` | 22 | com 50 a correção passava do limite de rumo (10 graus) na reta depois do giro (SERPENTINA-26) |
-| `cabo_esq_mm` | 10 | **estimativa**, falta medir (padrão do firmware a partir de `fase1-entrega`) |
+| `cabo_esq_mm` | 10 | **estimativa**, falta medir pela diferença entre dois anteparos (`AJUSTES_FINAIS.md`, etapa 1) |
 
 ## Sessões
 

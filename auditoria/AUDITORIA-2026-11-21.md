@@ -37,7 +37,7 @@ de 20/11, modelo geométrico, código, compilação e testes no computador. Nada
 | Firmware no robô | `cd15948` (calib14, 56 chaves), gravado em 20/11 às ~22:30 |
 | Calib em uso na SERPENTINA-29 (20 chaves fora do padrão) | `eixo_ate_frente=100 eixo_ate_tof_frente=98 largura_frente=112 tof_lado_ao_centro=55.5 escala_giro=1 freio_pivo=4 centralizar=1 ganho_rumo=1 ganho_parede=3 max_parede=22 folga_arco=18 antecipa_arco=12 arco_esq_atraso=-14 desfazer_tensao_fora=3.6 desfazer_tensao_dentro=2.2 ajuste_fino_min=0.4 alvo_pos_esq_mm=12 rumo_max_lateral=8 giro_aberto=1 bateria_minima=5.5` |
 | Labirinto | Serpentina 4x4, largada (l3,c0) virada ao norte, via 3 aberta, objetivo (l0,c3) |
-| Robô | Frente 100 mm (ToF 98), largura 112, traseira 17,25, cabo da bateria ~10 mm para fora na lateral esquerda (estimativa do operador: "considere o cabo parte do chassi") |
+| Robô | Frente 100 mm (ToF 98), largura 112, traseira 17,25, cabo da bateria ~10 mm para fora na lateral esquerda (estimativa do operador: "considere o cabo parte do chassi"). Medidas com fita métrica e trena (não há paquímetro): precisão de ~2-3 mm |
 | Labirinto físico | Corredor 168 mm (face da parede a 84 mm do centro), célula 180, parede 12 mm, postes 12 x 12 nos cantos |
 | Hardware | Não muda até segunda-feira (cabo, pneu direito e energia são de outras equipes) |
 
@@ -130,9 +130,10 @@ relatório de 20/11 ganhou uma nota no fim apontando para esta auditoria; o text
   (36 mm): o centro do giro anda com o arrasto das rodas. Hipótese: no passo 4 o robô raspa e passa; no passo 7, com a reta
   saindo direto para o corredor seguinte, ele prende. **A confirmar na pista** (observar se a lateral esquerda toca o poste no
   passo 4).
-- **A largura real do cabo.** 10 mm é estimativa. A folga do S à esquerda cai de 7,1 mm (sem cabo) para 4,4 mm (com 10 mm).
-  Se o cabo sobressair mais de ~15 mm, o S à esquerda deixa de caber com ±10 mm de entrada (o firmware avisa no log e usa o
-  arco).
+- **A largura real do cabo.** 10 mm é estimativa (não há paquímetro; o operador mede com fita métrica e trena). Com a medida
+  certa no `calib` o plano se adapta: folga de 7,4 mm com o cabo rente, 4,4 com 10, 2,3 com 14, 0,2 com 18; acima de ~18 mm
+  nenhum movimento cabe (o firmware avisa no log e usa o arco). O perigo é o valor errado: o plano de 10 mm com um cabo real de
+  15 mm invade 0,6 mm.
 
 ## 5. Correções feitas
 
@@ -175,8 +176,11 @@ movimento couber, o log diz `NENHUM MOVIMENTO CABE` e a curva segue pelo arco, c
 1. **Tempo do plano no ESP32.** Estimativa de 1 a 3 s por plano: 4 a 12 s a mais no boot, e o mesmo a cada `calib` que mude
    corpo, cabo, `giro_s_beta_max` ou `giro_s_incerteza`. A busca cede a CPU entre as etapas (`vTaskDelay(1)`), então o watchdog
    de 5 s não deve disparar, mas isso precisa ser confirmado no primeiro boot.
-2. **Modelo x pista.** Robô e postes são retângulos rígidos no modelo. O S à esquerda tem 4,4 mm de folga no pior caso: pouco,
-   se o cabo for maior que 10 mm ou o robô entrar mais de 10 mm fora do eixo.
+2. **Modelo x pista, e medidas de trena.** Robô e postes são retângulos rígidos no modelo, e as medidas do robô vêm de fita
+   métrica e trena (~2-3 mm). O plano à direita aguenta 5 mm de erro em qualquer medida. O da esquerda (4,4 mm) aguenta 3 mm em
+   cada medida sozinha, mas não um cabo de 15 mm (-0,6) nem 3 mm errados em todas ao mesmo tempo (-1,0 a -2,9). As medidas que
+   pesam são o cabo e o `eixo_ate_tof_frente`; o método com trena e a tabela completa estão em `AJUSTES_FINAIS.md`, etapa 1.
+   Diminuir o `giro_s_incerteza` não compra folga (o plano é o mesmo com 10 e com 5).
 3. **Diagonal sem referência.** Os 76-127 mm da diagonal são andados só com o giroscópio (não há paredes para centralizar). Um
    erro de 2 graus no primeiro giro dá ~3-4 mm no fim da diagonal.
 4. **Correção pela parede fraca.** Mesmo com o S, o robô sai até 10 mm para o lado de dentro, e o teto `max_parede=22` (7,7 mm)

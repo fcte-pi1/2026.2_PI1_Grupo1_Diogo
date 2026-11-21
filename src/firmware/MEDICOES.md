@@ -21,11 +21,12 @@ Outros: `escala_giro` (1,08), `freio_arco` (3,2), `freio_pivo` (10,1), `freio_um
 `autoajuste_freio`, `parada_frente` (35), `centralizar`, `ganho_rumo`, `modo_curva` (0 = arco, 1 = uma
 roda) e `preset_cad` (1 = frente do CAD). Detalhes e faixas aceitas: `LOGS_E_MEDIDAS.md`, seção 6.
 
-## CONFLITO na frente do robô: decide o paquímetro
+## CONFLITO na frente do robô: decide a medida no robô
 Três fontes divergem: **CAD** 107,75 (ToF), **.3mf impresso** 102,25 (chassi de 119,5 em vez de
 124,5) e **campo** (A2: parede-eixo 127 menos F=42) ~85 a 91. Se o CAD estivesse certo, o frontal leria
 ~19 mm na parede (abaixo do mínimo). O firmware roda com o valor de campo (87 / 85) e avisa no boot
-enquanto ele difere do CAD em mais de 10 mm. **Medir com paquímetro** o eixo até a frente do chassi, até
+enquanto ele difere do CAD em mais de 10 mm. **Medir** (não há paquímetro: trena ou fita métrica, pelo método de
+`robot-tests/relatorios/AJUSTES_FINAIS.md`, etapa 1) o eixo até a frente do chassi, até
 a face do ToF frontal e os cabos, e só então trocar o padrão. Atalho: `calib preset_cad=1`.
 
 ## Não aumentar o robô fisicamente
@@ -42,7 +43,8 @@ Origem do CAD na traseira do chassi, x para a frente, y para a esquerda, eixo da
 | ToF frontal (:2) | 122,000 | 0 | **104,75 à frente** | 0 |
 | ToF direito (:3) | 76,445 | -47,5 | **59,195 à frente** | 47,5 |
 O firmware usa 50,5 (= 47,5 + 3,0 até a janela do sensor) e 59,15 para os laterais, e 107,75 para a face do frontal (= 104,75 + 3,0): batem com o CAD.
-Os 3 mm até a janela foram assumidos na versão anterior; confirmar com paquímetro se o módulo real tem a janela a 3 mm da origem.
+Os 3 mm até a janela foram assumidos na versão anterior. A medida pelo próprio ToF (parede até o eixo menos a leitura) já inclui a janela e o desvio do sensor.
+Situação em 20/11: frente 100 e ToF frontal 98, medidos com fita métrica e trena.
 Lateral: confere com o campo (84 - 50,5 = 33,5 mm; medido 33,6). Frontal: o CAD (107,75) contradiz o campo (~85): ver o conflito acima.
 Não existe cabo à frente do robô (operador, 19/11): `cabo_frente_mm` = 0. O cabo vermelho e preto da bateria sai pela lateral esquerda e não entra no modelo. `preset_cad` é só um registro.
 

@@ -5,7 +5,7 @@ juntas:
 
 1. **O que o robô registra sozinho** numa corrida, para o erro ser achado pelo log, sem medir nada
    com ele dentro do labirinto.
-2. **O que precisa ser medido fora do labirinto** (paquímetro, régua, bancada) e em que constante
+2. **O que precisa ser medido fora do labirinto** (trena ou fita métrica, régua, bancada; não há paquímetro) e em que constante
    do código cada medida entra.
 
 Tudo abaixo vale para o build de teste: `RATO_LOG_RETA=y`. As linhas saem no serial e, pelo BLE, no
@@ -135,7 +135,8 @@ parou sem tirá-lo da pista. Os que mexem os motores respondem `comando ... IGNO
 
 ## 3. Medidas para pedir à equipe de estrutura (robô FORA do labirinto)
 
-Todas a partir do **meio do eixo das rodas** (o ponto no chão entre as duas rodas), com paquímetro.
+Todas a partir do **meio do eixo das rodas** (o ponto no chão entre as duas rodas). Não há paquímetro: trena ou fita métrica,
+por diferença entre dois anteparos ou pelo próprio ToF (método em `robot-tests/relatorios/AJUSTES_FINAIS.md`, etapa 1).
 
 | # | Medida | Valor usado hoje | Onde entra |
 |:--|:--|:--|:--|
@@ -375,7 +376,7 @@ pivô com a bitola efetiva. Aguarda medida com transferidor.
 ### Roteiro de reconferência (19/11), com critério de aprovação
 | Item | Como | Aprovado se |
 |:--|:--|:--|
-| **Paquímetro, frente** (decide campo x CAD) | Do meio do eixo das rodas até o ponto mais à frente do chassi, e até a face do ToF frontal; depois `calib eixo_ate_frente=.. eixo_ate_tof_frente=..` | os dois valores medidos; se der perto de 107, `calib preset_cad=1`; some o aviso de boot |
+| **Medida da frente** (trena; decide campo x CAD) | Do meio do eixo das rodas até o ponto mais à frente do chassi, e até a face do ToF frontal; depois `calib eixo_ate_frente=.. eixo_ate_tof_frente=..` | os dois valores medidos; se der perto de 107, `calib preset_cad=1`; some o aviso de boot |
 | **Cabo da bateria** | Não há cabo à frente. O cabo vermelho e preto da bateria sai ~10 mm para fora da lateral esquerda e prende nas paredes (equipe de energia) | `cabo_frente_mm` = 0 |
 | Pose lateral | `calib centralizar=1`; `andar` 5 células pelo corredor, saindo 10 mm deslocado | no fim, `lat E`/`D` com diferença <= 10 mm; linha `pose lateral` com estimativa; sem raspar |
 | Curva com uma roda | `calib modo_curva=1`; `virar e` e `virar d` em A2 e C1, 3 vezes cada | giro final 90 +- 3 graus; sem encostar; a roda de dentro anda <= 10 mm; anotar o freio aprendido (`autoajuste_freio=1`) e o desvio lateral final (esperado 15 a 33 mm) |

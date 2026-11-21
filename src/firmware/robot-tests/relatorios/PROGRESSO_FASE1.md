@@ -29,7 +29,9 @@ entrega na tag `fase1-entrega`.
    nesta fase.
 4. **Robô rígido:** o modelo trata robô e postes como retângulos. Na pista o robô escorrega, e o deslocamento medido depois do giro
    (23-26 mm) foi menor que o planejado (36 mm).
-5. **Tempo do plano no ESP32:** estimado em 1 a 3 s por plano (35 ms no PC com `-O2`). Não medido.
+5. **Medidas do robô feitas com fita métrica e trena** (não há paquímetro): precisão de ~2-3 mm. A curva à direita aguenta esse
+   erro; a da esquerda depende do cabo e do `eixo_ate_tof_frente` (`AJUSTES_FINAIS.md`, etapa 1, com a tabela de sensibilidade).
+6. **Tempo do plano no ESP32:** estimado em 1 a 3 s por plano (35 ms no PC com `-O2`). Não medido.
 
 ## O que fica para a pista
 
