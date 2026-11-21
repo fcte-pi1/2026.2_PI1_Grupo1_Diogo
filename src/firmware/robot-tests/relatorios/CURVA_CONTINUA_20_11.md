@@ -71,3 +71,23 @@ arco_esq_atraso=-14 bateria_minima=5.5. E0 passa.
 2. Localização pelo mapa com as paredes distantes (segunda metade do labirinto).
 3. Curva à esquerda: outro modo (uma roda, `modo_curva`) ou raio maior, depois do cabo reposicionado.
 4. Recalibrar `freio_arco` e `freio_pivo` com a escala nova do giroscópio.
+
+
+## Fim da noite de 20/11: curva à esquerda do passo 7 (SERPENTINAS 21 a 26)
+
+Firmware `6a81396` (calib12, 54 chaves). Calib em uso: eixo_ate_frente=100 eixo_ate_tof_frente=98 largura_frente=112 tof_lado_ao_centro=55.5 centralizar=1
+ganho_rumo=1.0 ganho_parede=3 max_parede=22 escala_giro=1.00 antecipa_arco=12 folga_arco=18 arco_esq_atraso=-14 giro_aberto=1 freio_pivo=4
+desfazer_tensao_fora=3.6 desfazer_tensao_dentro=2.2 rumo_max_lateral=8 ajuste_fino_min=0.4 bateria_minima=5.5.
+
+Resultado: passos 1 a 6 passam (inclusive a curva à direita que travava a 48-53° e agora recupera pelo desfazer + 2a tentativa); o giro no lugar em célula
+aberta (novo) fecha em 86-89° e o ajuste fino depois dele leva a ~90°. A falha que sobra é a **reta depois do giro do passo 7**, em (l2,c3):
+- o giro é feito a -36 mm do centro (o mais perto que a parede da frente permite: o nariz precisa de 115 mm de raio, a parede está a 84 do centro);
+- esse desvio é maior que a folga lateral de 28 mm (corredor de 168 menos 112 do robô), e ao sair uma lateral encosta na ponta da parede do corredor: as rodas
+  andam quase iguais (diferença de 2 mm) e o giroscópio marca +10° em ~42-67 mm = robô arrastado, não correção que passa do limite;
+- `max_parede` 22/35/50 não muda o resultado.
+
+Opções para continuar (decisão de projeto, não de calib):
+1. Sair do giro com um deslocamento lateral antes de avançar (recuar na diagonal ou uma ré curta com o rumo desviado) para entrar no corredor dentro dos 28 mm.
+2. Fazer a curva por outro caminho nessa célula: uma roda (`modo_curva=1`, que precisa de recuo e termina 19 mm deslocado) ou um arco de raio maior.
+3. Hardware (segunda-feira): reposicionar o cabo da bateria (tira ~10 mm do lado esquerdo) e conferir a largura/folga do robô.
+Também pendentes: localização lateral pelas paredes distantes (segunda metade do labirinto) e proteção de bateria (INA219 lê ~1,7 V abaixo do cellmeter).
