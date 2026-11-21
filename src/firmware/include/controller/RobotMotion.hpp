@@ -192,7 +192,7 @@ inline constexpr double kArcRetryExtraFrontMm = 12.0;
 inline constexpr double kArcUndoOuterVolts = 2.8;
 inline constexpr double kArcUndoInnerVolts = 1.6;
 inline constexpr double kArcUndoDoneDeg = 4.0;
-inline constexpr double kArcUndoTimeoutS = 1.6;  // mais lenta: mais tempo para voltar
+inline constexpr double kArcUndoTimeoutS = 2.4;  // mais lenta: mais tempo para voltar (SERPENTINA-19: voltou a -7,7 graus em 1,6 s)
 inline constexpr double kArcUndoWrongWayDeg = 8.0;
 // Giroscópio sem resposta: tantas leituras seguidas perdidas (2 ms cada) encerram o movimento com
 // falha. Antes, a leitura perdida valia 0 grau/s e a curva seguia girando sem ver.
