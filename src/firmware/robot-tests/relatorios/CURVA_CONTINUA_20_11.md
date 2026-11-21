@@ -34,3 +34,40 @@ O desvio da saída em relação ao centro da célula é igual a `antecipa_arco` 
 - O rumo no início do arco variou de -4,6 a +3 graus: a centralização na aproximação (70 mm) oscila, e o ToF direito perto da parede (D < 25 mm) é instável (hardware, segunda-feira). A rodada 7 raspou a parede direita da célula de partida por isso.
 - Falta o E16b (curva à esquerda), testar numa corrida da serpentina e calibrar de novo os freios do arco e do pivô com a escala nova do giroscópio.
 - `calib`: o padrão do firmware ainda é `escala_giro=1.08` e `antecipa_arco=16`; o robô está com 1.00 e 12. Decidir antes de mudar o padrão.
+
+
+## Corridas da serpentina à noite (SERPENTINAS 5 a 20) e estado no fim do dia
+
+Melhores corridas: SERPENTINA-18 (7 passos, 12 células, parou a 2 células do objetivo) e SERPENTINA-20 (igual). As 5 primeiras curvas e a
+curva contínua do passo 6 passam; a falha que sobra é a **curva à esquerda do passo 7**, em (l2,c3).
+
+### Achados (por ordem de importância)
+1. **Roda direita presa depois da curva à direita (SERPENTINAS 6, 9, 14):** o recuo fixo de 105 mm (valor do arco com parede à frente) deixava a
+   saída 15 mm para dentro, a roda de dentro a ~6 mm da parede e ela prendia na quina. Com recuo de 90 mm (célula sem parede à frente) passou
+   (SERPENTINAS 15 a 20). Calib `recuo_sem_parede`.
+2. **Curva à esquerda sem janela (SERPENTINAS 7, 15, 17, 18, 19, 20):** o cabo da bateria está do lado de dentro dela. Com o alvo frontal de 99 mm
+   o arco trava a 38° (parede da frente), com 105 a 47°, com 111 a 55° (quina de dentro) e com 117 a 67° (quina). Não há janela segura com
+   a variação da posição de partida (3 a 6 mm). Resolve com o cabo reposicionado (segunda-feira) ou outro tipo de curva à esquerda.
+3. **Segunda metade do labirinto sem referência lateral:** as paredes ficam a 400-600 mm, a estimativa lateral só usa paredes a menos de 90 mm
+   (`pose lateral: sem estimativa`, `termo = 0`). O desvio de cada curva (15-40 mm) e o rumo residual (1-4°) se acumulam e a curva seguinte trava
+   (SERPENTINA-19, passo 4). Solução de fundo: localização pelo mapa com as paredes distantes (não feita).
+4. **Escala do giroscópio** 1,08 -> 1,00 (duas voltas completas deram 771,6 graus para 720). Os freios do arco e do pivô foram calibrados com a
+   escala antiga e podem precisar de novo ajuste.
+5. **Bateria:** o INA219 do robô lê 6,0 a 6,6 V com o cellmeter em 7,85 a 8,18 V (diferença de ~1,7 V, cresceu ao longo do dia e voltou a subir
+   com o robô parado). A proteção de bateria fraca (6,6 V) parava corridas com a bateria boa. Hoje: `calib bateria_minima=5.5`. ACHADO PARA A
+   EQUIPE DE ENERGIA: mau contato ou componente que esquenta no caminho da alimentação, ou o INA219 lendo errado.
+6. **Deriva para a direita na reta (SERPENTINAS 10, 11, 12):** -10° em ~230 mm com pulsos iguais nas duas rodas e V máx. da direita ~2x a da
+   esquerda; não reproduziu depois (13 a 20). Suspeita: poeira de MDF ou desgaste do pneu direito. Conferir pneus na segunda-feira.
+7. **Desfazer do arco** (2,8/1,6 V, 2,4 s): voltou de ~38-48° a 4° nas SERPENTINAS 18, 19 e 20; com 1,6 s faltaram ~4°.
+
+### Estado do robô e do firmware
+Firmware `a959dfd` (51 chaves no calib, `calib10`): curva contínua, recuo de 90 mm sem parede à frente, desfazer suave, logs novos da curva
+(ToF antes do recuo, caminho e tensão de cada roda, ToF no travamento). Calib em uso: eixo_ate_frente=100 eixo_ate_tof_frente=98
+largura_frente=112 tof_lado_ao_centro=55.5 centralizar=1 ganho_rumo=1.0 ganho_parede=3 max_parede=50 escala_giro=1.00 antecipa_arco=12
+arco_esq_atraso=-14 bateria_minima=5.5. E0 passa.
+
+### Próximos passos
+1. Reposicionar o cabo da bateria e conferir o pneu direito e o caminho de alimentação (segunda-feira, hardware).
+2. Localização pelo mapa com as paredes distantes (segunda metade do labirinto).
+3. Curva à esquerda: outro modo (uma roda, `modo_curva`) ou raio maior, depois do cabo reposicionado.
+4. Recalibrar `freio_arco` e `freio_pivo` com a escala nova do giroscópio.
