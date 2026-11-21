@@ -53,6 +53,7 @@ constexpr std::array<CalibrationField, kCalibrationFieldCount> kFields{{
     {"ajuste_2a_tentativa", &Calibration::arcRetryShiftMm, 0.0, 30.0, "mm"},
     {"trava_frente_ate", &Calibration::arcStallFrontDeg, 35.0, 70.0, "graus"},
     {"arco_quase_pronto", &Calibration::arcNearlyDoneDeg, 60.0, 89.0, "graus"},
+    {"ajuste_fino_min", &Calibration::trimMinDeg, 0.1, 5.0, "graus"},
     {"ajuste_fino_max", &Calibration::trimMaxDeg, 0.0, 30.0, "graus"},
     {"curva_dir_fora", &Calibration::rightArcOuterBiasMm, 0.0, 20.0, "mm"},
     {"rumo_max_mm", &Calibration::headingHoldMaxMm, 1.0, 30.0, "mm"},

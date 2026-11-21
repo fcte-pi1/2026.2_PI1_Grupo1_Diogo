@@ -76,6 +76,7 @@ struct Calibration {
     double arcRetryShiftMm{12.0};      // ajuste_2a_tentativa: quanto a 2a tentativa move o início do arco
     double arcStallFrontDeg{52.0};     // trava_frente_ate: travou antes disto = parede da frente (depois = quina de dentro)
     double arcNearlyDoneDeg{78.0};     // arco_quase_pronto: um arco parado a partir daqui terminou (o ajuste fino fecha o resto)
+    double trimMinDeg{1.0};            // ajuste_fino_min: o ajuste fino depois da curva só age acima deste erro
     double trimMaxDeg{15.0};           // ajuste_fino_max: o ajuste fino depois do arco corrige até este erro
     double rightArcOuterBiasMm{0.0};   // curva_dir_fora: o recuo da curva à direita se alinha este tanto para a esquerda (0 = não)
     // Reta e proteção:
@@ -98,7 +99,7 @@ struct CalibrationField {
     std::string_view unit;
 };
 
-inline constexpr std::size_t kCalibrationFieldCount = 53;
+inline constexpr std::size_t kCalibrationFieldCount = 54;
 [[nodiscard]] const std::array<CalibrationField, kCalibrationFieldCount>& calibrationFields() noexcept;
 
 enum class CalibrationSet { Ok, UnknownName, OutOfRange, NotANumber };

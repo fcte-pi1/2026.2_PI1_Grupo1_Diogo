@@ -82,7 +82,7 @@ TEST(Calibration, NewClosedLoopSwitchesHaveSafeDefaultsAndRanges) {
     EXPECT_EQ(setCalibration(calibration, "reancorar_parede", "2"), CalibrationSet::OutOfRange);
     EXPECT_EQ(setCalibration(calibration, "parada_dinamica", "1"), CalibrationSet::Ok);
     EXPECT_EQ(setCalibration(calibration, "parada_dinamica", "-1"), CalibrationSet::OutOfRange);
-    EXPECT_EQ(calibrationFields().size(), 53u);
+    EXPECT_EQ(calibrationFields().size(), 54u);
 }
 
 TEST(Calibration, EveryDefaultIsInsideItsRange) {

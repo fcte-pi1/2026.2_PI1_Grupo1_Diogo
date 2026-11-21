@@ -1616,7 +1616,7 @@ void Drv8833MotionAdapter::trimArc(controller::PivotMove::Direction direction) {
     const double target =
         direction == controller::PivotMove::Direction::Left ? 90.0 : -90.0;
     const double error = target - lastTurnDeg_;  // > 0: falta girar para a esquerda
-    if (std::fabs(error) < kTrimMinDeg || std::fabs(error) > calibration_.trimMaxDeg) {
+    if (std::fabs(error) < calibration_.trimMinDeg || std::fabs(error) > calibration_.trimMaxDeg) {
         return;
     }
     controller::PivotMoveConfig config = controller::robot::kPivotMove;
