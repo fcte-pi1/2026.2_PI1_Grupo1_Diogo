@@ -8,6 +8,13 @@ namespace micromouse::controller {
 // de dentro, até o giroscópio marcar ~0. Tensões fixas, sem perfil (os encoders não servem: as rodas
 // patinaram). Acompanha o PROGRESSO medido pelo giroscópio: se ele não anda (robô preso ou
 // segurado, rodas patinando), termina com NoProgress em vez de girar as rodas até o tempo limite.
+// Tensões e tempo do desfazer, ajustáveis pelo `calib` (desfazer_*); os padrões são os de RobotMotion.hpp.
+struct ArcUndoConfig {
+    double outerVolts;
+    double innerVolts;
+    double timeoutS;
+};
+
 class ArcUndo {
 public:
     enum class State {
@@ -24,7 +31,8 @@ public:
     };
 
     // `startAngleDeg`: ângulo do giroscópio onde o arco travou (negativo = arco à direita).
-    ArcUndo(double startAngleDeg, bool rightArc) noexcept;
+    ArcUndo(double startAngleDeg, bool rightArc, const ArcUndoConfig& config) noexcept;
+    ArcUndo(double startAngleDeg, bool rightArc) noexcept;  // com os padrões de RobotMotion.hpp
 
     // Chamar a cada volta com o dt e a taxa do giroscópio (graus/s, já corrigida).
     [[nodiscard]] Output step(double dtSeconds, double gyroDegPerS) noexcept;
@@ -33,6 +41,7 @@ public:
     [[nodiscard]] double elapsed() const noexcept { return time_; }
 
 private:
+    ArcUndoConfig config_;
     double startAngle_;
     bool rightArc_;
     double angle_;

@@ -26,7 +26,7 @@ namespace micromouse::domain::robot {
 // (84) menos o ToF até o centro (50,5) = 33,5 mm, e o ToF 59,15 mm à frente do eixo.
 [[nodiscard]] constexpr LateralPoseConfig lateralPoseConfig(const Calibration& c) noexcept {
     return {c.corridorWidthMm / 2.0 - c.sideTofToCenterMm, kWallCentering.useBelowMm,
-            c.sideTofAheadOfAxleMm, kLateralPoseMaxHeadingDeg};
+            c.sideTofAheadOfAxleMm, c.lateralMaxHeadingDeg};
 }
 
 // Termo da parede com o corredor e o ganho em uso (`largura_corredor`, `ganho_parede`, `max_parede`).

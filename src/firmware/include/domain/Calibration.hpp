@@ -59,6 +59,31 @@ struct Calibration {
     // Curva à ESQUERDA: mm a mais (positivo = começa mais tarde, perto da parede da frente; negativo = mais cedo). O cabo da bateria
     // fica à esquerda e a curva à esquerda trava a ~40 graus (20/11); o padrão 0 é o arco simétrico. Para ajustar na pista.
     double leftArcLateMm{0.0};         // arco_esq_atraso
+    // Constantes de pista de 20/11 que antes exigiam regravar o firmware (os padrões são os valores em uso).
+    // Curva contínua (arco sem parar dentro da reta):
+    double runTurnSpeedMmPerS{80.0};   // curva_cont_vel: velocidade do eixo no arco (a reta chega a ~130 e freia até ela)
+    double runTurnTrackMm{100.0};      // curva_cont_bitola: bitola do arco (a do giro parado, 74,2, não vale com o robô andando)
+    double runTurnHeadingGain{1.0};    // curva_cont_ganho: mm de diferença entre as rodas por grau de erro do giroscópio no arco
+    double runTurnSteerMaxMm{30.0};    // curva_cont_giro_max: teto dessa correção
+    double runTurnJamDeg{20.0};        // curva_cont_trava: erro do giroscópio em relação ao planejado que vale como arco preso
+    double runTurnGyroBrakeDeg{4.0};   // curva_cont_freio: o arco para este tanto antes dos 90 graus (o robô ainda gira ao frear)
+    // Desfazer de um arco travado (ré pelo mesmo arco):
+    double arcUndoOuterVolts{2.8};     // desfazer_tensao_fora
+    double arcUndoInnerVolts{1.6};     // desfazer_tensao_dentro
+    double arcUndoTimeoutS{2.4};       // desfazer_tempo
+    // Arco parado:
+    double arcFixedSetbackMm{90.0};    // recuo_sem_parede: recuo antes do arco quando não há parede à frente na célula
+    double arcRetryShiftMm{12.0};      // ajuste_2a_tentativa: quanto a 2a tentativa move o início do arco
+    double arcStallFrontDeg{52.0};     // trava_frente_ate: travou antes disto = parede da frente (depois = quina de dentro)
+    double arcNearlyDoneDeg{78.0};     // arco_quase_pronto: um arco parado a partir daqui terminou (o ajuste fino fecha o resto)
+    double trimMaxDeg{15.0};           // ajuste_fino_max: o ajuste fino depois do arco corrige até este erro
+    double rightArcOuterBiasMm{0.0};   // curva_dir_fora: o recuo da curva à direita se alinha este tanto para a esquerda (0 = não)
+    // Reta e proteção:
+    double headingHoldMaxMm{6.0};      // rumo_max_mm: teto da correção do ganho_rumo
+    double lateralMaxHeadingDeg{5.0};  // rumo_max_lateral: acima deste rumo a estimativa lateral desliga
+    double reverseMaxSpeedMmPerS{70.0};  // re_vel: velocidade máxima da ré (a frente anda a 120)
+    double reverseAccelMmPerS2{120.0};   // re_acel: aceleração da ré (a frente usa 225)
+    double batteryLowV{6.6};           // bateria_minima: abaixo disto (5 leituras) a corrida para; no robô de 20/11 o INA219 lê ~1,7 V a menos
 };
 
 struct CalibrationField {
@@ -69,7 +94,7 @@ struct CalibrationField {
     std::string_view unit;
 };
 
-inline constexpr std::size_t kCalibrationFieldCount = 31;
+inline constexpr std::size_t kCalibrationFieldCount = 51;
 [[nodiscard]] const std::array<CalibrationField, kCalibrationFieldCount>& calibrationFields() noexcept;
 
 enum class CalibrationSet { Ok, UnknownName, OutOfRange, NotANumber };

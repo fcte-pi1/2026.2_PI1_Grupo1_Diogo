@@ -48,6 +48,11 @@ struct ArcCollision {
 // tentativa cruzou a janela de ~20 mm e bateu na quina.
 inline constexpr double kArcRetryShiftMm = 12.0;
 inline constexpr double kArcStallFrontWallMaxDeg = 52.0;
+// Com os valores do `calib` (ajuste_2a_tentativa e trava_frente_ate).
+[[nodiscard]] inline double arcRetryShiftMm(double stalledAngleDeg, double shiftMm, double frontWallMaxDeg) noexcept {
+    const double angle = stalledAngleDeg < 0.0 ? -stalledAngleDeg : stalledAngleDeg;
+    return angle < frontWallMaxDeg ? shiftMm : -shiftMm;
+}
 [[nodiscard]] inline double arcRetryShiftMm(double stalledAngleDeg) noexcept {
     const double angle = stalledAngleDeg < 0.0 ? -stalledAngleDeg : stalledAngleDeg;
     return angle < kArcStallFrontWallMaxDeg ? kArcRetryShiftMm : -kArcRetryShiftMm;

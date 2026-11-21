@@ -55,15 +55,9 @@ constexpr char kShortOfCellFailure[] = "nao chegou ao fim da celula";
 // `kRunTurnJamDeg` entre o rumo planejado e o medido é o arco preso numa parede.
 constexpr double kRunTurnDecisionMm = 8.0;
 constexpr double kRunTurnLateMm = 3.0;
-constexpr double kRunTurnHeadingGain = 1.0;
-constexpr double kRunTurnSteerMaxMm = 30.0;
 // E16a de 20/11: a 132 mm/s o arco girou 2/3 do que as rodas indicavam (56 graus contra 83). A trajetória passa a ser a
 // ~80 mm/s (perto dos 54 graus/s em que o arco parado foi calibrado) e com bitola de 100 mm (a de 74,2 vale para o
 // giro parado, em que as rodas arrastam): o rumo quem fecha é o giroscópio.
-constexpr double kRunTurnSpeedMmPerS = 80.0;
-constexpr double kRunTurnTrackMm = 100.0;
-constexpr double kRunTurnGyroBrakeDeg = 4.0;  // o arco para um pouco antes: o robô ainda gira ao frear
-constexpr double kRunTurnJamDeg = 20.0;
 constexpr double kRunTurnMaxStartFixDeg = 10.0;
 constexpr double kDegToRad = 3.14159265358979323846 / 180.0;
 constexpr char kRunTurnJamFailure[] = "curva continua travada (o giroscopio nao acompanhou as rodas)";
@@ -84,15 +78,10 @@ constexpr int64_t kHeadingStaleUs = 4'000'000;
 // lugar, devagar (o canto da frente varre ~7 mm em 4 graus).
 constexpr double kTrimMinDeg = 1.0;
 // Ré (recuo antes da curva e ré contínua): mais lenta e mais suave que a frente (operador, 20/11: "o recuo ainda é alto e rápido").
-constexpr double kReverseMaxSpeedMmPerS = 70.0;
-constexpr double kReverseAccelMmPerS2 = 120.0;
 // Antes da curva à direita o robô se alinha este tanto à ESQUERDA do centro (lado de fora): o modelo dá a maior folga com ~8 mm
 // para fora, e a roda de dentro raspava a ponta da parede da direita a ~66 graus (SERPENTINA-5/6/7/9).
 // DESLIGADO (0) em 20/11 depois da SERPENTINA-19: a roda presa vinha do recuo de 105 mm (agora 90), e o alinhamento inclinava o robô
 // no recuo (operador). Mantido para poder voltar.
-constexpr double kRightArcOuterBiasMm = 0.0;
-constexpr double kArcNearlyDoneDeg = 78.0;  // arco parado a partir daqui: terminou
-constexpr double kTrimMaxDeg = 15.0;  // E16a de 20/11: a curva contínua terminou 11 graus a mais
 constexpr double kTrimMaxDegPerS = 45.0;
 constexpr double kTrimMaxDegPerS2 = 300.0;
 constexpr double kTrimToleranceDeg = 0.5;
@@ -961,8 +950,8 @@ void Drv8833MotionAdapter::straight(double distanceMm, const char* name, bool ce
     encoders_.reset();
     controller::StraightMoveConfig moveConfig = controller::robot::kStraightMove;
     if (sign < 0.0) {
-        moveConfig.limits.maxSpeed = std::min(moveConfig.limits.maxSpeed, kReverseMaxSpeedMmPerS);
-        moveConfig.limits.acceleration = std::min(moveConfig.limits.acceleration, kReverseAccelMmPerS2);
+        moveConfig.limits.maxSpeed = std::min(moveConfig.limits.maxSpeed, calibration_.reverseMaxSpeedMmPerS);
+        moveConfig.limits.acceleration = std::min(moveConfig.limits.acceleration, calibration_.reverseAccelMmPerS2);
     }
     controller::StraightMove move(std::fabs(distanceMm), moveConfig);
     controller::SpeedEstimator leftSpeed;
@@ -1156,7 +1145,7 @@ void Drv8833MotionAdapter::straight(double distanceMm, const char* name, bool ce
             const double progress = 0.5 * (pathLeft + pathRight);
             const double errorDeg = path->plannedHeadingDeg(progress) - pathGyroDeg;  // > 0: falta virar à esquerda
             pathMaxErrorDeg = std::max(pathMaxErrorDeg, std::fabs(errorDeg));
-            if (std::fabs(errorDeg) > kRunTurnJamDeg) {
+            if (std::fabs(errorDeg) > calibration_.runTurnJamDeg) {
                 lastMoveOk_ = false;
                 lastMoveFailure_ = kRunTurnJamFailure;
                 lastTurnJammed_ = true;
@@ -1180,13 +1169,13 @@ void Drv8833MotionAdapter::straight(double distanceMm, const char* name, bool ce
                 }
             }
             // O giroscópio encerra o arco: chegou a ~90 graus menos o freio, as rodas não decidem mais.
-            if (std::fabs(pathGyroDeg) >= std::fabs(plan.angleDeg) - kRunTurnGyroBrakeDeg &&
+            if (std::fabs(pathGyroDeg) >= std::fabs(plan.angleDeg) - calibration_.runTurnGyroBrakeDeg &&
                 progress > plan.approachMm + 0.5 * plan.arcLengthMm()) {
                 break;
             }
             const double steerMm =
-                std::clamp(kRunTurnHeadingGain * errorDeg * plan.trackMm * kDegToRad, -kRunTurnSteerMaxMm,
-                           kRunTurnSteerMaxMm);
+                std::clamp(calibration_.runTurnHeadingGain * errorDeg * plan.trackMm * kDegToRad, -calibration_.runTurnSteerMaxMm,
+                           calibration_.runTurnSteerMaxMm);
             const controller::PathMove::Output out =
                 path->step(dt, pathLeft, pathRight, leftSpeedMmS, rightSpeedMmS, steerMm);
             if (out.done) {
@@ -1227,9 +1216,9 @@ void Drv8833MotionAdapter::straight(double distanceMm, const char* name, bool ce
                                                     90.0 + (right ? fix : -fix),
                                                     right,
                                                     0.0,  // a saída é uma reta normal, com as paredes (finishRunTurn)
-                                                    kRunTurnTrackMm};
+                                                    calibration_.runTurnTrackMm};
                     pathEntrySpeed = std::max(0.0, 0.5 * (leftSpeedMmS + rightSpeedMmS));
-                    path.emplace(plan, controller::robot::kStraightMove, pathEntrySpeed, kRunTurnSpeedMmPerS);
+                    path.emplace(plan, controller::robot::kStraightMove, pathEntrySpeed, calibration_.runTurnSpeedMmPerS);
                     pathLeft0 = leftMm;
                     pathRight0 = rightMm;
                     pathStartS = now;
@@ -1296,8 +1285,8 @@ void Drv8833MotionAdapter::straight(double distanceMm, const char* name, bool ce
         // limite impede que uma leitura ruim torça o robô.
         const double headingMm =
             sign > 0.0 ? std::clamp(-calibration_.headingGain * (headingResidualDeg_ + headingDeg),
-                                    -controller::robot::kHeadingHoldMaxMm,
-                                    controller::robot::kHeadingHoldMaxMm)
+                                    -calibration_.headingHoldMaxMm,
+                                    calibration_.headingHoldMaxMm)
                        : 0.0;
         const controller::StraightMove::Output out =
             move.step(dt, leftMm, rightMm, leftSpeedMmS, rightSpeedMmS,
@@ -1503,7 +1492,7 @@ void Drv8833MotionAdapter::pivot(double degrees, controller::PivotMove::Directio
 #endif
             // Um arco que para já perto do fim (faltam menos de ~12 graus) não travou de verdade: terminou. O ajuste fino
             // corrige o resto (SERPENTINA-5 de 20/11: parou em -85,6, e o desfazer recuou a curva quase pronta).
-            if (arc && std::fabs(turn.angle()) >= kArcNearlyDoneDeg) {
+            if (arc && std::fabs(turn.angle()) >= calibration_.arcNearlyDoneDeg) {
                 break;
             }
             lastMoveOk_ = false;
@@ -1627,7 +1616,7 @@ void Drv8833MotionAdapter::trimArc(controller::PivotMove::Direction direction) {
     const double target =
         direction == controller::PivotMove::Direction::Left ? 90.0 : -90.0;
     const double error = target - lastTurnDeg_;  // > 0: falta girar para a esquerda
-    if (std::fabs(error) < kTrimMinDeg || std::fabs(error) > kTrimMaxDeg) {
+    if (std::fabs(error) < kTrimMinDeg || std::fabs(error) > calibration_.trimMaxDeg) {
         return;
     }
     controller::PivotMoveConfig config = controller::robot::kPivotMove;
@@ -1775,7 +1764,7 @@ void Drv8833MotionAdapter::arcTurn(controller::PivotMove::Direction direction) {
                  front_->reading(TofSide::Front).mm, front_->reading(TofSide::Right).mm, headingResidualDeg_);
     }
 #endif
-    centeringTargetRightMm_ = direction == controller::PivotMove::Direction::Right ? -kRightArcOuterBiasMm : 0.0;
+    centeringTargetRightMm_ = direction == controller::PivotMove::Direction::Right ? -calibration_.rightArcOuterBiasMm : 0.0;
     positionForArc(arcStartFrontMm() - leftLate);
     centeringTargetRightMm_ = 0.0;
     // Sem espaço para recuar (a traseira encostou na parede de trás: A1 virado para A2, 18/11), o
@@ -1815,10 +1804,12 @@ void Drv8833MotionAdapter::arcTurn(controller::PivotMove::Direction direction) {
         }
         // O ajuste vai para o lado certo (domain::arcRetryShiftMm): travou antes de ~52 graus = parede da frente,
         // começa mais longe; depois = quina de dentro, começa mais perto.
-        positionForArc(arcStartFrontMm() - leftLate + attempt * domain::arcRetryShiftMm(stalledDeg));
+        positionForArc(arcStartFrontMm() - leftLate + attempt * domain::arcRetryShiftMm(stalledDeg, calibration_.arcRetryShiftMm,
+                                                                                         calibration_.arcStallFrontDeg));
 #if CONFIG_RATO_LOG_RETA
         ESP_LOGW("curva", "tentativa %d do arco (a anterior: %s a %.0f graus, ajuste %+.0f mm)", attempt + 1,
-                 firstFailure, stalledDeg, domain::arcRetryShiftMm(stalledDeg));
+                 firstFailure, stalledDeg,
+                 domain::arcRetryShiftMm(stalledDeg, calibration_.arcRetryShiftMm, calibration_.arcStallFrontDeg));
 #endif
         pivot(90.0, direction, arcConfig());
     }
@@ -1840,7 +1831,7 @@ void Drv8833MotionAdapter::positionForArc(double frontTargetMm) {
     // que sai da curva no eixo do corredor de saída. Com 105 mm (o do arco com parede) o robô saía 15 mm para o lado de
     // dentro, a roda de dentro ficava a ~6 mm da parede e prendia na quina (SERPENTINA-14); com 75 mm saía 15 mm para fora.
     // Os ajustes da 2a tentativa e do arco à esquerda (o alvo já vem deslocado) entram como no arco com parede.
-    config.fixedSetbackMm = controller::robot::kArcSetbackMm + (frontTargetMm - arcStartFrontMm());
+    config.fixedSetbackMm = calibration_.arcFixedSetbackMm + (frontTargetMm - arcStartFrontMm());
     bool frontValid = false;
     bool frontTooClose = false;
     double frontMm = 0.0;
@@ -1887,7 +1878,9 @@ bool Drv8833MotionAdapter::undoArc(controller::PivotMove::Direction direction) {
     // progresso (robô preso ou segurado, rodas patinando) para na hora, em vez de girar as rodas
     // até o tempo limite. Os encoders não servem aqui: as rodas patinaram.
     const double startAngle = lastTurnDeg_;
-    controller::ArcUndo undo(startAngle, direction == controller::PivotMove::Direction::Right);
+    controller::ArcUndo undo(startAngle, direction == controller::PivotMove::Direction::Right,
+                             controller::ArcUndoConfig{calibration_.arcUndoOuterVolts, calibration_.arcUndoInnerVolts,
+                                                       calibration_.arcUndoTimeoutS});
     controller::ArcUndo::State state = controller::ArcUndo::State::Running;
     encoders_.reset();
     gyroMisses_ = 0;

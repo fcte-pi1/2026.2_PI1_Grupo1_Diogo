@@ -88,7 +88,7 @@ adapters::BleTelemetryAdapter gBle;
 // curvas, parada pela parede da frente...) fica em domain::Calibration. O comando `calib` troca
 // os valores sem regravar o firmware; eles valem a partir do boot seguinte também.
 constexpr char kCalibNamespace[] = "rato";
-constexpr char kCalibKey[] = "calib9";  // mude o número se a struct mudar de formato (calib1: 13 campos)
+constexpr char kCalibKey[] = "calib10";  // mude o número se a struct mudar de formato (calib1: 13 campos)
 
 domain::Calibration defaultCalibration() {
     domain::Calibration calibration;
@@ -1193,13 +1193,14 @@ void navigationTask(void*) {
                                      gMotion.calibration().continuousTurn >= 0.5);
 #endif
 
-        // TESTES DE 20/11: o INA219 do robô lê ~1,7 V abaixo do cellmeter (6,2 a 6,5 V contra 7,85 a 8,18 V) e o limite padrão
-        // (6,6 V) parava a corrida com a bateria boa. Limite de 5,5 V só enquanto a equipe de energia não explica a diferença
-        // (segunda-feira); VOLTAR a domain::BatteryMonitor::kDefaultLowVoltageV depois.
-        constexpr double kTestLowBatteryV = 5.5;
-        ESP_LOGW(kTag, "AVISO: limite de bateria fraca em %.1f V (padrao %.1f V): o INA219 le ~1,7 V abaixo do cellmeter",
-                 kTestLowBatteryV, domain::BatteryMonitor::kDefaultLowVoltageV);
-        domain::BatteryMonitor battery(kTestLowBatteryV);
+        // Limite de bateria fraca pelo `calib bateria_minima` (padrão 6,6 V). Nos testes de 20/11 o INA219 do robô lê ~1,7 V
+        // abaixo do cellmeter, e o limite foi posto em 5,5 V com `calib bateria_minima=5.5` enquanto a equipe de energia investiga.
+        const double lowBatteryV = gMotion.calibration().batteryLowV;
+        if (lowBatteryV < domain::BatteryMonitor::kDefaultLowVoltageV) {
+            ESP_LOGW(kTag, "AVISO: limite de bateria fraca em %.1f V (padrao %.1f V)", lowBatteryV,
+                     domain::BatteryMonitor::kDefaultLowVoltageV);
+        }
+        domain::BatteryMonitor battery(lowBatteryV);
         domain::SensorHealthMonitor sensorHealth;
         char failure[190] = "";  // motivo, se a corrida terminar em falha
         int cells = 0;

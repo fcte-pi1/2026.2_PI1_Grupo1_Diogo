@@ -7,14 +7,19 @@
 namespace micromouse::controller {
 
 ArcUndo::ArcUndo(double startAngleDeg, bool rightArc) noexcept
-    : startAngle_(startAngleDeg),
+    : ArcUndo(startAngleDeg, rightArc,
+              ArcUndoConfig{robot::kArcUndoOuterVolts, robot::kArcUndoInnerVolts, robot::kArcUndoTimeoutS}) {}
+
+ArcUndo::ArcUndo(double startAngleDeg, bool rightArc, const ArcUndoConfig& config) noexcept
+    : config_(config),
+      startAngle_(startAngleDeg),
       rightArc_(rightArc),
       angle_(startAngleDeg),
       progress_(robot::kTurnStall) {}
 
 ArcUndo::Output ArcUndo::step(double dtSeconds, double gyroDegPerS) noexcept {
-    const double outer = -robot::kArcUndoOuterVolts;
-    const double inner = -robot::kArcUndoInnerVolts;
+    const double outer = -config_.outerVolts;
+    const double inner = -config_.innerVolts;
     const double leftVolts = rightArc_ ? outer : inner;
     const double rightVolts = rightArc_ ? inner : outer;
 
@@ -24,7 +29,7 @@ ArcUndo::Output ArcUndo::step(double dtSeconds, double gyroDegPerS) noexcept {
     if (std::fabs(angle_) <= robot::kArcUndoDoneDeg || angle_ * startAngle_ < 0.0) {
         return {0.0, 0.0, State::Done};
     }
-    if (time_ > robot::kArcUndoTimeoutS) {
+    if (time_ > config_.timeoutS) {
         return {0.0, 0.0, State::Timeout};
     }
     // O ângulo se afastou do zero além da tolerância: o desfazer não está desfazendo (robô calçado, ou sentido
