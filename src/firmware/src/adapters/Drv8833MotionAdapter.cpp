@@ -686,6 +686,112 @@ void Drv8833MotionAdapter::setCalibration(const domain::Calibration& calibration
     // boot ou `calib`), não no meio da corrida.
     oneWheelTargetMm_ =
         calibration_.turnMode >= 0.5 ? domain::oneWheelStartTargetMm(calibration_) : -1.0;
+    // Planos da curva em célula aberta (~1-2 s cada no ESP32): recalcula agora, com o robô parado, os dois mais usados (parede à
+    // frente); os outros, na primeira vez que forem pedidos.
+    for (auto& side : openPlanValid_) {
+        side[0] = side[1] = false;
+    }
+    if (calibration_.openPivot >= 0.5) {
+        (void)openTurnPlan(true, true);
+        vTaskDelay(pdMS_TO_TICKS(2));
+        (void)openTurnPlan(false, true);
+    }
+}
+
+const domain::CellTurnPlan& Drv8833MotionAdapter::openTurnPlan(bool left, bool frontWall) {
+    const int l = left ? 1 : 0;
+    const int f = frontWall ? 1 : 0;
+    if (!openPlanValid_[l][f]) {
+        domain::CellTurnWalls walls{};
+        walls.front = frontWall;
+        const int64_t start = esp_timer_get_time();
+        openPlans_[l][f] = domain::planCellTurn(domain::cellTurnBody(calibration_), left, walls, calibration_.openTurnMarginMm,
+                                                calibration_.openTurnMaxBetaDeg, calibration_.openTurnEntryErrorMm);
+        openPlanValid_[l][f] = true;
+        const domain::CellTurnPlan& p = openPlans_[l][f];
+        ESP_LOGI("curva", "plano da curva em celula aberta (%s, %s): %s eixo %.0f mm, giro %.0f, diagonal %.0f mm, saida %.0f mm "
+                          "para dentro, folga %.1f mm (%s), calculado em %lld ms",
+                 left ? "esquerda" : "direita", frontWall ? "parede a frente" : "sem parede a frente",
+                 p.found ? "" : "NENHUM MOVIMENTO CABE;", p.axleMm, p.firstTurnDeg, p.diagonalMm, p.exitLateralMm, p.clearanceMm,
+                 p.clearanceMm >= calibration_.openTurnMarginMm ? "ok" : "ABAIXO de giro_s_folga",
+                 static_cast<long long>((esp_timer_get_time() - start) / 1000));
+    }
+    return openPlans_[l][f];
+}
+
+bool Drv8833MotionAdapter::openCellTurn(controller::PivotMove::Direction direction) {
+    const bool left = direction == controller::PivotMove::Direction::Left;
+    constexpr double kHalfCorridorMm = domain::robot::kCorridorWidthMm / 2.0;
+    // Onde está o eixo, pelo frontal. "Muito perto" (< 40 mm) não é medida confiável: recua 20 mm e mede de novo.
+    std::optional<int> settled = settledFrontMm();
+    if (settled.has_value() && *settled <= Vl53l1xSensorAdapter::kFrontTooCloseMm) {
+        suppressFrontStop_ = true;
+        straight(-20.0, "recuo para medir a frente", false);
+        suppressFrontStop_ = false;
+        if (!lastMoveOk_) {
+            return true;
+        }
+        settled = settledFrontMm();
+    }
+    const bool frontWall =
+        settled.has_value() && static_cast<double>(*settled) < controller::robot::kArcFrontWallMaxMm;
+    const domain::CellTurnPlan& plan = openTurnPlan(left, frontWall);
+    if (!plan.found) {
+#if CONFIG_RATO_LOG_RETA
+        ESP_LOGW("curva", "celula aberta: nenhum movimento cabe (paredes e postes); usa o arco");
+#endif
+        return false;
+    }
+    // Sem parede à frente o eixo está onde a reta parou: no centro da célula.
+    const double axle = frontWall ? kHalfCorridorMm - calibration_.axleToFrontTofMm - *settled : 0.0;
+    const double move = plan.axleMm - axle;
+#if CONFIG_RATO_LOG_RETA
+    ESP_LOGI("curva", "curva em S a %s: frontal %d mm, eixo a %.0f mm do centro, anda %.0f, gira %.0f, diagonal %.0f mm, completa; "
+                      "folga do plano %.1f mm",
+             left ? "esquerda" : "direita", settled.value_or(-1), axle, move, plan.firstTurnDeg, plan.diagonalMm,
+             plan.clearanceMm);
+#endif
+    if (std::fabs(move) > 2.0) {
+        suppressFrontStop_ = true;
+        straight(move, move > 0.0 ? "avanco para girar" : "recuo para girar", false);
+        suppressFrontStop_ = false;
+    }
+    if (!lastMoveOk_) {
+        return true;
+    }
+    // Rumo em relação ao corredor de ENTRADA antes de girar; no fim, vira o erro em relação ao de saída.
+    const double residualBefore = headingResidualDeg_;
+    pivot(plan.firstTurnDeg, direction, pivotConfig());
+    if (!lastMoveOk_) {
+        return true;
+    }
+    double turned = lastTurnDeg_;  // + = esquerda
+    if (plan.diagonalMm > 0.0) {
+        headingResidualDeg_ = 0.0;  // a diagonal segura o rumo em que o giro parou (sem centralizar: não há paredes)
+        straight(plan.diagonalMm, "diagonal da curva", false);
+        if (!lastMoveOk_) {
+            return true;
+        }
+        turned += headingResidualDeg_;  // o que a diagonal girou
+    }
+    const double target = left ? 90.0 : -90.0;
+    const double rest = target - (residualBefore + turned);
+    if (std::fabs(rest) >= calibration_.trimMinDeg) {
+        pivot(std::fabs(rest),
+              rest > 0.0 ? controller::PivotMove::Direction::Left : controller::PivotMove::Direction::Right,
+              pivotConfig());
+        if (!lastMoveOk_) {
+            return true;
+        }
+        turned += lastTurnDeg_;
+    }
+    // Ajuste fino final, como depois do arco: trimArc compara lastTurnDeg_ com +-90 e fecha o erro de rumo.
+    lastTurnDeg_ = residualBefore + turned;
+    headingResidualDeg_ = lastTurnDeg_ - target;
+    trimArc(direction);
+    aheadMm_ = plan.exitAheadMm;  // a reta seguinte anda só o que falta até o centro da célula de saída
+    lastShortMm_ = 0.0;
+    return true;
 }
 
 double Drv8833MotionAdapter::arcBrakeDeg() const noexcept {
@@ -1785,14 +1891,13 @@ void Drv8833MotionAdapter::arcTurn(controller::PivotMove::Direction direction) {
     // Célula aberta (`giro_aberto`): sem paredes perto dos dois lados o arco não tem referência lateral e o erro se acumula; gira no lugar.
     if (calibration_.openPivot >= 0.5 && sidesOpen()) {
 #if CONFIG_RATO_LOG_RETA
-        ESP_LOGI("curva", "celula aberta (lados > %.0f mm): giro no lugar em vez do arco", calibration_.openSideMm);
+        ESP_LOGI("curva", "celula aberta (lados > %.0f mm): curva em S em vez do arco", calibration_.openSideMm);
 #endif
         lastShortMm_ = 0.0;
-        pivotInBoxedCell(direction, false);
-        // O giro no lugar também termina com erro (SERPENTINA-23: 81,8 graus): o ajuste fino fecha o resto, como depois do arco.
-        trimArc(direction);
-        aheadMm_ = 0.0;
-        return;
+        // O giro simples de 90 graus no lugar não cabe com os postes dos cantos (domain/CellTurn): curva em S.
+        if (openCellTurn(direction)) {
+            return;
+        }
     }
     // Recua a meia célula inteira, mesmo se a reta anterior parou antes pela parede da frente: com
     // o eixo atrás do centro, o arco tem espaço no canto (V3b de 09/11).

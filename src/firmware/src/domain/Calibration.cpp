@@ -64,6 +64,10 @@ constexpr std::array<CalibrationField, kCalibrationFieldCount> kFields{{
     {"re_acel", &Calibration::reverseAccelMmPerS2, 40.0, 300.0, "mm/s2"},
     {"giro_aberto", &Calibration::openPivot, 0.0, 1.0, "0/1"},
     {"lado_aberto_mm", &Calibration::openSideMm, 100.0, 400.0, "mm"},
+    {"cabo_esq_mm", &Calibration::cableLeftMm, 0.0, 30.0, "mm"},
+    {"giro_s_beta_max", &Calibration::openTurnMaxBetaDeg, 0.0, 40.0, "graus"},
+    {"giro_s_folga", &Calibration::openTurnMarginMm, 0.0, 15.0, "mm"},
+    {"giro_s_incerteza", &Calibration::openTurnEntryErrorMm, 0.0, 25.0, "mm"},
     {"bateria_minima", &Calibration::batteryLowV, 3.0, 8.0, "V"},
 }};
 

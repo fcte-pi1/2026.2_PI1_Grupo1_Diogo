@@ -15,6 +15,7 @@
 #include "controller/StraightMove.hpp"
 #include "domain/BrakeLearner.hpp"
 #include "domain/Calibration.hpp"
+#include "domain/CellTurn.hpp"
 #include "ports/MotionPort.hpp"
 
 namespace micromouse::adapters {
@@ -119,6 +120,13 @@ private:
                const controller::PivotMoveConfig& config);
     // `backWall`: supõe parede atrás (célula fechada, padrão) ou não (célula aberta, `giro_aberto`).
     void pivotInBoxedCell(controller::PivotMove::Direction direction, bool backWall = true);
+    // Curva em célula aberta como "S" (21/11, domain/CellTurn): posiciona, gira parte, anda na diagonal, completa. false = nenhum
+    // movimento cabe (quem chamou segue para o arco).
+    bool openCellTurn(controller::PivotMove::Direction direction);
+    // Planos do S em cache, por lado e por haver parede à frente; calculados ao aplicar o calib (robô parado).
+    const domain::CellTurnPlan& openTurnPlan(bool left, bool frontWall);
+    domain::CellTurnPlan openPlans_[2][2]{};
+    bool openPlanValid_[2][2]{};
     // Os dois ToF laterais leem acima de `lado_aberto_mm` (sem parede perto dos dois lados).
     [[nodiscard]] bool sidesOpen() const;
     // O recuo, o avanço e o ajuste antes da curva também centralizam pelas paredes (20/11): as curvas que travaram

@@ -92,6 +92,11 @@ struct Calibration {
     // frente exigir) em vez do arco: o arco precisa de paredes laterais para se alinhar e o erro lateral acumula (segunda metade do labirinto).
     double openPivot{0.0};             // giro_aberto: 1 = giro no lugar em célula aberta
     double openSideMm{150.0};          // lado_aberto_mm: ToF lateral acima disto = lado aberto
+    // Curva em célula aberta como "S" (21/11, domain/CellTurn): o giro de 90 no lugar não cabe com os postes dos cantos.
+    double cableLeftMm{10.0};          // cabo_esq_mm: o cabo da bateria sobressai na lateral esquerda; ESTIMATIVA de 20/11 (~10 mm), medir
+    double openTurnMaxBetaDeg{25.0};   // giro_s_beta_max: o primeiro giro pode parar até este tanto antes dos 90 (0 = giro simples)
+    double openTurnMarginMm{3.0};      // giro_s_folga: abaixo desta folga o plano é usado, mas o log avisa
+    double openTurnEntryErrorMm{10.0}; // giro_s_incerteza: o plano tem de caber com o robô até este tanto fora do eixo de entrada
     double batteryLowV{6.6};           // bateria_minima: abaixo disto (5 leituras) a corrida para; no robô de 20/11 o INA219 lê ~1,7 V a menos
 };
 
@@ -103,7 +108,7 @@ struct CalibrationField {
     std::string_view unit;
 };
 
-inline constexpr std::size_t kCalibrationFieldCount = 56;
+inline constexpr std::size_t kCalibrationFieldCount = 60;
 [[nodiscard]] const std::array<CalibrationField, kCalibrationFieldCount>& calibrationFields() noexcept;
 
 enum class CalibrationSet { Ok, UnknownName, OutOfRange, NotANumber };

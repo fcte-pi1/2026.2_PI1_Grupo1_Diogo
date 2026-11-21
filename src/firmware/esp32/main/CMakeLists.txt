@@ -16,6 +16,7 @@ idf_component_register(
         "${CORE_ROOT}/src/domain/ReportFrame.cpp"
         "${CORE_ROOT}/src/domain/SensorHealthMonitor.cpp"
         "${CORE_ROOT}/src/domain/PivotClearance.cpp"
+        "${CORE_ROOT}/src/domain/CellTurn.cpp"
         "${CORE_ROOT}/src/domain/ArcClearance.cpp"
         "${CORE_ROOT}/src/domain/WallPosition.cpp"
         "${CORE_ROOT}/src/domain/SweptFootprint.cpp"
