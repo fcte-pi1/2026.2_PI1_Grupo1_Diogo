@@ -724,10 +724,10 @@ const domain::CellTurnPlan& Drv8833MotionAdapter::openTurnPlan(bool left, bool f
                                                 [] { vTaskDelay(1); });  // cede a CPU entre as etapas (watchdog de tarefas)
         openPlanValid_[l][f] = true;
         const domain::CellTurnPlan& p = openPlans_[l][f];
-        ESP_LOGI("curva", "plano da curva em celula aberta (%s, %s): %s eixo %.0f mm, giro %.0f, diagonal %.0f mm, saida %.0f mm "
+        ESP_LOGI("curva", "plano da curva em celula aberta (%s, %s): %seixo %.0f mm, giro %.0f, diagonal %.0f mm, saida %.0f mm "
                           "para dentro, folga %.1f mm (%s), calculado em %lld ms",
                  left ? "esquerda" : "direita", frontWall ? "parede a frente" : "sem parede a frente",
-                 p.found ? "" : "NENHUM MOVIMENTO CABE;", p.axleMm, p.firstTurnDeg, p.diagonalMm, p.exitLateralMm, p.clearanceMm,
+                 p.found ? "" : "NENHUM MOVIMENTO CABE; ", p.axleMm, p.firstTurnDeg, p.diagonalMm, p.exitLateralMm, p.clearanceMm,
                  p.clearanceMm >= calibration_.openTurnMarginMm ? "ok" : "ABAIXO de giro_s_folga",
                  static_cast<long long>((esp_timer_get_time() - start) / 1000));
     }
