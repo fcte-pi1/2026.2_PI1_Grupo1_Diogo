@@ -737,6 +737,9 @@ const domain::CellTurnPlan& Drv8833MotionAdapter::openTurnPlan(bool left, bool f
 bool Drv8833MotionAdapter::openCellTurn(controller::PivotMove::Direction direction) {
     const bool left = direction == controller::PivotMove::Direction::Left;
     constexpr double kHalfCorridorMm = domain::robot::kCorridorWidthMm / 2.0;
+    // Sem parede à frente, onde o eixo está vem da odometria (como na curva com uma roda): depois de um arco já passou do
+    // centro; depois de uma reta que parou antes, está atrás dele.
+    const double odometryAxleMm = aheadMm_ - lastShortMm_;
     // Onde está o eixo, pelo frontal. "Muito perto" (< 40 mm) não é medida confiável: recua 20 mm e mede de novo.
     std::optional<int> settled = settledFrontMm();
     if (settled.has_value() && *settled <= Vl53l1xSensorAdapter::kFrontTooCloseMm) {
@@ -757,9 +760,13 @@ bool Drv8833MotionAdapter::openCellTurn(controller::PivotMove::Direction directi
 #endif
         return false;
     }
-    // Sem parede à frente o eixo está onde a reta parou: no centro da célula.
-    const double axle = frontWall ? kHalfCorridorMm - calibration_.axleToFrontTofMm - *settled : 0.0;
-    const double move = plan.axleMm - axle;
+    aheadMm_ = 0.0;
+    lastShortMm_ = 0.0;
+    const double axle = frontWall ? kHalfCorridorMm - calibration_.axleToFrontTofMm - *settled : odometryAxleMm;
+    double move = plan.axleMm - axle;
+    if (frontWall && *settled <= Vl53l1xSensorAdapter::kFrontTooCloseMm) {
+        move = std::min(move, 0.0);  // ainda "muito perto" depois do recuo: a posição real é incerta, nunca avança
+    }
 #if CONFIG_RATO_LOG_RETA
     ESP_LOGI("curva", "curva em S a %s: frontal %d mm, eixo a %.0f mm do centro, anda %.0f, gira %.0f, diagonal %.0f mm, completa; "
                       "folga do plano %.1f mm",
@@ -1908,7 +1915,6 @@ void Drv8833MotionAdapter::arcTurn(controller::PivotMove::Direction direction) {
 #if CONFIG_RATO_LOG_RETA
         ESP_LOGI("curva", "celula aberta (lados > %.0f mm): curva em S em vez do arco", calibration_.openSideMm);
 #endif
-        lastShortMm_ = 0.0;
         // O giro simples de 90 graus no lugar não cabe com os postes dos cantos (domain/CellTurn): curva em S.
         if (openCellTurn(direction)) {
             return;
