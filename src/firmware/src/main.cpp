@@ -1193,7 +1193,13 @@ void navigationTask(void*) {
                                      gMotion.calibration().continuousTurn >= 0.5);
 #endif
 
-        domain::BatteryMonitor battery;
+        // TESTES DE 20/11: o INA219 do robô lê ~1,7 V abaixo do cellmeter (6,2 a 6,5 V contra 7,85 a 8,18 V) e o limite padrão
+        // (6,6 V) parava a corrida com a bateria boa. Limite de 5,5 V só enquanto a equipe de energia não explica a diferença
+        // (segunda-feira); VOLTAR a domain::BatteryMonitor::kDefaultLowVoltageV depois.
+        constexpr double kTestLowBatteryV = 5.5;
+        ESP_LOGW(kTag, "AVISO: limite de bateria fraca em %.1f V (padrao %.1f V): o INA219 le ~1,7 V abaixo do cellmeter",
+                 kTestLowBatteryV, domain::BatteryMonitor::kDefaultLowVoltageV);
+        domain::BatteryMonitor battery(kTestLowBatteryV);
         domain::SensorHealthMonitor sensorHealth;
         char failure[190] = "";  // motivo, se a corrida terminar em falha
         int cells = 0;
