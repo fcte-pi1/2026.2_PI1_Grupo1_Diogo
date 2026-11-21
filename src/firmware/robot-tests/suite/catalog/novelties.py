@@ -92,7 +92,8 @@ LOOP_TESTS: tuple[Test, ...] = (
 NOVELTY_TESTS: tuple[Test, ...] = (
     Test("E0", "Calibração em uso depois de gravar o firmware novo (calib)",
          (SUPPORTED, "Só leitura: nada se mexe. Rode logo depois de gravar e religar o robô."),
-         (Step("calib", r"calib: vies_giro", timeout=20),),
+         # Espera a ÚLTIMA linha (calib: fim): esperando a 23a chave, a captura fechava antes das últimas (20/11: 52 de 55).
+         (Step("calib", r"calib: fim:", timeout=30),),
          "Os freios são 2,6 / 8,1 / 2,6, cabo_frente_mm = 0, rampa_tensao = 50 e as outras chaves novas = 0. Se algum "
          "freio mostrar o valor antigo (3,2 / 10,1), a memória não foi zerada: 'calib padrao'.",
          check_calibration_in_use),
