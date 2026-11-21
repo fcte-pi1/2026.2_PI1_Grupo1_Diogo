@@ -233,7 +233,7 @@ EXPECTED_CALIBRATION = {
     "curva_cont_trava": 20.0, "curva_cont_freio": 4.0, "desfazer_tensao_fora": 2.8, "desfazer_tensao_dentro": 1.6,
     "desfazer_tempo": 2.4, "recuo_sem_parede": 90.0, "ajuste_2a_tentativa": 12.0, "trava_frente_ate": 52.0,
     "arco_quase_pronto": 78.0, "ajuste_fino_max": 15.0, "curva_dir_fora": 0.0, "rumo_max_mm": 6.0,
-    "rumo_max_lateral": 5.0, "re_vel": 70.0, "re_acel": 120.0, "bateria_minima": 5.5,
+    "rumo_max_lateral": 5.0, "giro_aberto": 0.0, "lado_aberto_mm": 150.0, "re_vel": 70.0, "re_acel": 120.0, "bateria_minima": 5.5,
     "centralizar": 1.0, "ganho_rumo": 1.0}
 CALIBRATION_MAY_DIFFER: dict[str, float] = {}
 

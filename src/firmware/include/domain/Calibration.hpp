@@ -83,6 +83,10 @@ struct Calibration {
     double lateralMaxHeadingDeg{5.0};  // rumo_max_lateral: acima deste rumo a estimativa lateral desliga
     double reverseMaxSpeedMmPerS{70.0};  // re_vel: velocidade máxima da ré (a frente anda a 120)
     double reverseAccelMmPerS2{120.0};   // re_acel: aceleração da ré (a frente usa 225)
+    // Célula aberta (20/11): sem parede dos dois lados a menos de `lado_aberto_mm`, a curva é um giro no lugar (recua o que a parede da
+    // frente exigir) em vez do arco: o arco precisa de paredes laterais para se alinhar e o erro lateral acumula (segunda metade do labirinto).
+    double openPivot{0.0};             // giro_aberto: 1 = giro no lugar em célula aberta
+    double openSideMm{150.0};          // lado_aberto_mm: ToF lateral acima disto = lado aberto
     double batteryLowV{6.6};           // bateria_minima: abaixo disto (5 leituras) a corrida para; no robô de 20/11 o INA219 lê ~1,7 V a menos
 };
 
@@ -94,7 +98,7 @@ struct CalibrationField {
     std::string_view unit;
 };
 
-inline constexpr std::size_t kCalibrationFieldCount = 51;
+inline constexpr std::size_t kCalibrationFieldCount = 53;
 [[nodiscard]] const std::array<CalibrationField, kCalibrationFieldCount>& calibrationFields() noexcept;
 
 enum class CalibrationSet { Ok, UnknownName, OutOfRange, NotANumber };

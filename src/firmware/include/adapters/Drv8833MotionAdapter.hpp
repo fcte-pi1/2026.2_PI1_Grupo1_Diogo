@@ -116,7 +116,10 @@ private:
     bool aborted();  // a flag de parada está ligada: marca a falha
     void pivot(double degrees, controller::PivotMove::Direction direction,
                const controller::PivotMoveConfig& config);
-    void pivotInBoxedCell(controller::PivotMove::Direction direction);
+    // `backWall`: supõe parede atrás (célula fechada, padrão) ou não (célula aberta, `giro_aberto`).
+    void pivotInBoxedCell(controller::PivotMove::Direction direction, bool backWall = true);
+    // Os dois ToF laterais leem acima de `lado_aberto_mm` (sem parede perto dos dois lados).
+    [[nodiscard]] bool sidesOpen() const;
     // O recuo, o avanço e o ajuste antes da curva também centralizam pelas paredes (20/11): as curvas que travaram
     // começaram a 11-15 mm da parede.
     [[nodiscard]] bool centerBeforeTurn() const noexcept {

@@ -1711,14 +1711,26 @@ void Drv8833MotionAdapter::oneWheelTurn(controller::PivotMove::Direction directi
 // a 84 mm do centro); sem leitura, supõe a traseira encostada na parede de trás. O reposicionamento
 // é só pelos encoders (o frontal lê abaixo do mínimo ali). Se não cabe (com a frente real de ~100 mm
 // não cabe em nenhuma posição), a manobra FALHA com o motivo claro, em vez de girar e raspar na parede.
-void Drv8833MotionAdapter::pivotInBoxedCell(controller::PivotMove::Direction direction) {
+bool Drv8833MotionAdapter::sidesOpen() const {
+    if (front_ == nullptr) {
+        return false;
+    }
+    using TofSide = Vl53l1xSensorAdapter::Side;
+    const auto left = front_->reading(TofSide::Left);
+    const auto right = front_->reading(TofSide::Right);
+    return left.kind == drivers::ReadingKind::Distance && right.kind == drivers::ReadingKind::Distance &&
+           left.mm > calibration_.openSideMm && right.mm > calibration_.openSideMm;
+}
+
+void Drv8833MotionAdapter::pivotInBoxedCell(controller::PivotMove::Direction direction, bool backWall) {
     constexpr double kHalfCorridorMm = domain::robot::kCorridorWidthMm / 2.0;
     const std::optional<int> settled = settledFrontMm();
     const bool frontWall =
         settled.has_value() && static_cast<double>(*settled) < controller::robot::kArcFrontWallMaxMm;
+    // Célula aberta e sem parede à frente: o eixo fica onde está (no centro, pelo mapa).
     const double axleMm = frontWall ? kHalfCorridorMm - calibration_.axleToFrontTofMm - *settled
-                                    : -(kHalfCorridorMm - domain::robot::kAxleToRearMm);
-    const domain::CellWalls walls{frontWall, true, false, false};
+                                    : (backWall ? -(kHalfCorridorMm - domain::robot::kAxleToRearMm) : 0.0);
+    const domain::CellWalls walls{frontWall, backWall, false, false};
     const domain::PivotPlan plan = domain::planPivotInPlace(
         calibration_, direction == controller::PivotMove::Direction::Left, walls, axleMm);
 #if CONFIG_RATO_LOG_RETA
@@ -1749,6 +1761,16 @@ void Drv8833MotionAdapter::arcTurn(controller::PivotMove::Direction direction) {
     wallFixMm_ = 0.0;
     if (calibration_.turnMode >= 0.5) {
         oneWheelTurn(direction);
+        return;
+    }
+    // Célula aberta (`giro_aberto`): sem paredes perto dos dois lados o arco não tem referência lateral e o erro se acumula; gira no lugar.
+    if (calibration_.openPivot >= 0.5 && sidesOpen()) {
+#if CONFIG_RATO_LOG_RETA
+        ESP_LOGI("curva", "celula aberta (lados > %.0f mm): giro no lugar em vez do arco", calibration_.openSideMm);
+#endif
+        lastShortMm_ = 0.0;
+        pivotInBoxedCell(direction, false);
+        aheadMm_ = 0.0;
         return;
     }
     // Recua a meia célula inteira, mesmo se a reta anterior parou antes pela parede da frente: com

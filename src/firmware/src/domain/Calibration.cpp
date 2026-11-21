@@ -59,6 +59,8 @@ constexpr std::array<CalibrationField, kCalibrationFieldCount> kFields{{
     {"rumo_max_lateral", &Calibration::lateralMaxHeadingDeg, 1.0, 15.0, "graus"},
     {"re_vel", &Calibration::reverseMaxSpeedMmPerS, 20.0, 150.0, "mm/s"},
     {"re_acel", &Calibration::reverseAccelMmPerS2, 40.0, 300.0, "mm/s2"},
+    {"giro_aberto", &Calibration::openPivot, 0.0, 1.0, "0/1"},
+    {"lado_aberto_mm", &Calibration::openSideMm, 100.0, 400.0, "mm"},
     {"bateria_minima", &Calibration::batteryLowV, 3.0, 8.0, "V"},
 }};
 
