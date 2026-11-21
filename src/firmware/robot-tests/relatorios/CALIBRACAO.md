@@ -42,3 +42,7 @@ Valores decididos antes, com a medida que os justifica:
 | 21/11 19:25 | g264ef77 | operador parou 44 e 45 (arrastando na parede direita no passo 6) | SERPENTINAS 44, 45 | paradas pelo operador | sensores no ponto da parada: E=82 D=0 F=355 | SERPENTINAS 44, 45 |
 | 21/11 19:35 | g264ef77 | `curva_continua` 1 → 0; `curva_dir_fora` 8 → 16; `ajuste_2a_tentativa` 12 → 24 | SERPENTINAS 46, 47, 48 | **0 de 3**: 46 parada; 47 travou o S (38,7° e 46,2° mesmo recuando 6 mm); 48 passou o S com +12 mm mas travou o arco parado em (l2,c2) | | SERPENTINAS 46-48 |
 | 21/11 19:50 | g264ef77 | `curva_continua` 0 → 1; `curva_dir_fora` 16 → 8; `ajuste_2a_tentativa` 24 mantido | SERPENTINA-49 | **passou** (53,1 s) | operador: passou, mas voltou a arrastar na parede | SERPENTINA-49 |
+| 21/11 20:20 | g264ef77 | operador limpou rodas e motores depois da 51 | SERPENTINAS 51, 52, 53 | 51 falhou com o motor direito arrastando (7,2 V contra 3,1 V); **52 e 53 passaram** com as rodas equilibradas (3,5 / 3,5 V) | ainda raspa nas saídas dos arcos | SERPENTINAS 51-53 |
+| 21/11 20:35 | g264ef77 | `curva_dir_fora` 8 → 16 | SERPENTINA-54 | passou, mas **pior**: estimativa lateral 20-35 mm à direita (na 52 eram 3-10), sensor direito 5-6 mm depois da curva em S | operador: "pior" | SERPENTINA-54 |
+| 21/11 20:40 | g264ef77 | `curva_dir_fora` 16 → 8 (desfeito) | E0 | passou: calib final restaurado | | |
+
