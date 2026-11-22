@@ -1,6 +1,6 @@
 # Auditoria da serpentina 4x4: 21/11/2026 (Fase 1)
 
-Branch `feat/controle-motores-tensao`. Ponto de partida marcado com a tag `antes-fase1` (`cd15948`, o firmware gravado no robô
+Branch `feat/controle-motores-tensao`. Ponto de partida marcado com a tag `antes-fase1` (`1a28a15`, o firmware gravado no robô
 na última corrida de 20/11). Entrega marcada com a tag `fase1-entrega`. A Fase 1 foi feita **sem o robô**: só leitura dos logs
 de 20/11, modelo geométrico, código, compilação e testes no computador. Nada foi gravado na placa e nada acionou o hardware.
 
@@ -34,7 +34,7 @@ de 20/11, modelo geométrico, código, compilação e testes no computador. Nada
 
 | Item | Valor |
 |:--|:--|
-| Firmware no robô | `cd15948` (calib14, 56 chaves), gravado em 20/11 às ~22:30 |
+| Firmware no robô | `1a28a15` (calib14, 56 chaves), gravado em 20/11 às ~22:30 |
 | Calib em uso na SERPENTINA-29 (20 chaves fora do padrão) | `eixo_ate_frente=100 eixo_ate_tof_frente=98 largura_frente=112 tof_lado_ao_centro=55.5 escala_giro=1 freio_pivo=4 centralizar=1 ganho_rumo=1 ganho_parede=3 max_parede=22 folga_arco=18 antecipa_arco=12 arco_esq_atraso=-14 desfazer_tensao_fora=3.6 desfazer_tensao_dentro=2.2 ajuste_fino_min=0.4 alvo_pos_esq_mm=12 rumo_max_lateral=8 giro_aberto=1 bateria_minima=5.5` |
 | Labirinto | Serpentina 4x4, largada (l3,c0) virada ao norte, via 3 aberta, objetivo (l0,c3) |
 | Robô | Frente 100 mm (ToF 98), largura 112, traseira 17,25, cabo da bateria ~10 mm para fora na lateral esquerda (estimativa do operador: "considere o cabo parte do chassi"). Medidas com fita métrica e trena (não há paquímetro): precisão de ~2-3 mm |
@@ -49,7 +49,7 @@ Fonte: `robot-tests/resultados/corridas.csv` e `robot-tests/resultados/logs/corr
 |:--|:--|:--|:--|
 | 5-7, 9 | curva contínua, recuo fixo 105 | (l2,c0)-(l2,c1), passos 3-4 | arco à direita sem parede à frente travava; arco à esquerda travava a 38-43 graus |
 | 8, 10-12 | ré a 70 mm/s, desfazer suave, `ganho_rumo` 1,2, `max_parede` 20 | passo 1 | a reta inicial perdia o rumo (correção forte demais); revertido em 13 |
-| 13-14 | revertido para o estado do `ce8ff24` | (l2,c1), passo 3 | volta a chegar ao passo 3 |
+| 13-14 | revertido para o estado do `e79ad34` | (l2,c1), passo 3 | volta a chegar ao passo 3 |
 | 15-17 | recuo 90 sem parede à frente, limite de bateria 5,5 V | (l2,c1) / (l0,c1) | a curva à direita sem parede passa; o arco à esquerda do passo 4 trava |
 | 18-20 | `arco_esq_atraso` -8 / -14 | (l1,c3) / (l0,c1) | 18 e 20 chegam a 7 passos e 12 células; a curva à esquerda ainda trava às vezes |
 | 21-22 | `giro_aberto=1` (giro no lugar em célula aberta) | (l0,c1), passo 5 | o giro do passo 4 passa; o arco à direita de (l0,c1) trava |
@@ -116,7 +116,7 @@ Esse é o teste `CellTurn.TheOldPivotModelIgnoredThePosts`: o mesmo giro que o m
 
 ### 4.4 Correção do relatório de 20/11
 
-`robot-tests/relatorios/CURVA_CONTINUA_20_11.md` (commit `5bc5f00`) explicou o passo 7 assim: "esse desvio [36 mm] é maior que
+`robot-tests/relatorios/CURVA_CONTINUA_20_11.md` (commit `0711af9`) explicou o passo 7 assim: "esse desvio [36 mm] é maior que
 a folga lateral de 28 mm". O número está certo, mas a explicação está incompleta e levava a uma conclusão errada: parecia que
 bastava girar mais perto do centro. Não basta. Mais perto do centro o nariz bate na parede da frente, e mais longe a lateral
 bate no poste. **Com postes não existe janela para o giro simples.** O operador apontou a inconsistência ("o que não está
@@ -139,12 +139,12 @@ relatório de 20/11 ganhou uma nota no fim apontando para esta auditoria; o text
 
 | Commit | O quê | Por quê |
 |:--|:--|:--|
-| `fc2cad8` | `domain/CellTurn` (modelo com postes e cabo, busca do S), curva em S no adaptador em célula aberta, 3 chaves novas, `calib15` | Causa raiz (seção 4) |
-| `cda846b` | O modo prova (sem `RATO_LOG_RETA`) volta a compilar; versão do firmware (`git describe`) no boot e na linha de largada; a busca do S cede a CPU | O modo prova não compilava desde `7cc1aaa` (19/11): `gMazeOverride` e `gOrientationFlip` ficaram dentro do `#if` do log. A versão no log identifica cada gravação sem depender de anotação |
-| `fef95e6` | O E0 espera a linha `calib: fim:` | A captura fechava antes das últimas chaves (20/11: 52 de 55) e o E0 acusava chave faltando |
-| `77810c9` | Teste da serpentina de 20/11, reconstruída pelos logs, célula a célula e com reta e curva contínuas | O caminho do Navigator (frente 3, ré do beco, as curvas) é o dos logs e chega ao objetivo sem bater no simulador: as falhas são de movimento, não de navegação |
-| `d12bf8a` | Os 4 planos do S calculados ao aplicar o calib (robô parado), só quando muda o que entra neles, com `-O2` nesse arquivo | Sem isso, o primeiro plano sem parede à frente seria calculado no meio da corrida (pausa de segundos) |
-| `1a9d405` | Sem parede à frente, o S usa a odometria (`aheadMm_ - lastShortMm_`) para a posição do eixo; nunca avança com o frontal ainda "muito perto" | Antes supunha o eixo no centro; um frontal "muito perto" (< 40 mm) não é medida confiável |
+| `c94a204` | `domain/CellTurn` (modelo com postes e cabo, busca do S), curva em S no adaptador em célula aberta, 3 chaves novas, `calib15` | Causa raiz (seção 4) |
+| `c97f13d` | O modo prova (sem `RATO_LOG_RETA`) volta a compilar; versão do firmware (`git describe`) no boot e na linha de largada; a busca do S cede a CPU | O modo prova não compilava desde `7cc1aaa` (19/11): `gMazeOverride` e `gOrientationFlip` ficaram dentro do `#if` do log. A versão no log identifica cada gravação sem depender de anotação |
+| `520008e` | O E0 espera a linha `calib: fim:` | A captura fechava antes das últimas chaves (20/11: 52 de 55) e o E0 acusava chave faltando |
+| `c399f89` | Teste da serpentina de 20/11, reconstruída pelos logs, célula a célula e com reta e curva contínuas | O caminho do Navigator (frente 3, ré do beco, as curvas) é o dos logs e chega ao objetivo sem bater no simulador: as falhas são de movimento, não de navegação |
+| `c463bec` | Os 4 planos do S calculados ao aplicar o calib (robô parado), só quando muda o que entra neles, com `-O2` nesse arquivo | Sem isso, o primeiro plano sem parede à frente seria calculado no meio da corrida (pausa de segundos) |
+| `507c955` | Sem parede à frente, o S usa a odometria (`aheadMm_ - lastShortMm_`) para a posição do eixo; nunca avança com o frontal ainda "muito perto" | Antes supunha o eixo no centro; um frontal "muito perto" (< 40 mm) não é medida confiável |
 
 Chaves novas do `calib` (todas com padrão; a chave da memória passou para `calib15`, então **a memória do robô volta aos padrões
 na primeira vez que ligar com este firmware** e o calib de 20/11 tem de ser reaplicado):
@@ -213,11 +213,11 @@ Firmware gravado: `fase1-entrega-4-g264ef77` (calib15). Corridas SERPENTINA-30 a
   desfazer_tensao_dentro=2.2 ajuste_fino_min=0.4 alvo_lateral_dir_mm=-8 alvo_pos_esq_mm=0 curva_dir_fora=8 rumo_max_lateral=8 ajuste_2a_tentativa=24
   giro_aberto=1 bateria_minima=5.5`. As do S (`cabo_esq_mm=10`, `giro_s_*`) ficam nos padrões.
 
-### 9.2 O que mudou no firmware depois de `fc2cad8` (commits)
+### 9.2 O que mudou no firmware depois de `c94a204` (commits)
 | Commit | O quê |
 |:--|:--|
-| `9336850` | Curva em S **tenta de novo** quando o 1º giro trava: gira de volta, desloca o eixo metade de `ajuste_2a_tentativa` (recua se travou antes de 45°, avança depois) e repete uma vez. Funcionou na pista (43: 55,9° → +6 mm → ok; 48: 58° → +12 mm → ok); falhou na 47 (38,7° e 46,2° com 6 mm) |
-| `264ef77` | A diagonal da curva em S aceita até **18°** de desvio de rumo (antes 10°): um toque leve na parede abortava a corrida por 0,1° (SERPENTINA-39) |
+| `540f6b0` | Curva em S **tenta de novo** quando o 1º giro trava: gira de volta, desloca o eixo metade de `ajuste_2a_tentativa` (recua se travou antes de 45°, avança depois) e repete uma vez. Funcionou na pista (43: 55,9° → +6 mm → ok; 48: 58° → +12 mm → ok); falhou na 47 (38,7° e 46,2° com 6 mm) |
+| `4f80eec` | A diagonal da curva em S aceita até **18°** de desvio de rumo (antes 10°): um toque leve na parede abortava a corrida por 0,1° (SERPENTINA-39) |
 
 ### 9.3 Achados
 1. **O ToF frontal lê ~4,5 mm a mais perto da parede:** eixo→sensor medido com trena é 92 mm a F=51 mm e 96,5 mm a F=132 (e 85 a F=42 em 19/11). `eixo_ate_tof_frente` caiu de

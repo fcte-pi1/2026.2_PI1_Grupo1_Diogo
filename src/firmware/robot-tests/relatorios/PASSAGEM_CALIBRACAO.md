@@ -119,3 +119,71 @@ O operador decidiu o rumo final das curvas. **Nada disto foi implementado**: sã
 ## 8. Índice do pacote de passagem
 O pacote com **todos os logs, documentos, o resumo da sessão, o firmware gravado e o repositório (git bundle)** está descrito em `LEIA-ME.md` na raiz do pacote (`passagem-2026-11-21/`, fora do repositório).
 
+## 9. Tradução de hashes (histórico reescrito em 21/11 para remover as fotos do operador)
+
+O histórico do trecho `debd247..` foi reescrito (as fotos enviadas pelo operador saíram de todos os commits). **Os hashes mudaram; o conteúdo é idêntico** (659 arquivos com o mesmo hash). Logs, `corridas.csv` e a versão que o robô mostra no boot (`g264ef77`, `g13d515a`...) ainda trazem os hashes **antigos**: use esta tabela. O robô gravado mostra `fase1-entrega-4-g264ef77`, que corresponde ao commit `4f80eec`.
+
+| Antigo | Novo | Assunto |
+|:--|:--|:--|
+| `debd247` | `62040cb` | docs: medidas reais do robô lidas de fotos (frente 100 mm, ToF frontal 98, laterais a 55,5 |
+| `01656cd` | `4c69b3d` | fix(firmware): a centralização lembra o centro quando uma parede some e vale antes da curv |
+| `8667915` | `8a39f25` | fix(firmware): o giro no lugar que não cabe falha com motivo claro em vez de raspar na par |
+| `a8bbdc6` | `3e4a2a3` | feat(firmware): modelo do arco com o robô real e chave folga_arco (padrão 12 mm) |
+| `5d32666` | `89174c6` | feat(firmware): a 2a tentativa do arco vai para o lado certo, pelo ângulo em que travou |
+| `85a82bd` | `848d501` | test(robot-tests): interpreta a curva travada (parede da frente ou quina de dentro) e diz  |
+| `5e87895` | `92ea41e` | test(robot-tests): o E0 confere a calibração medida de 20/11 (corpo real, ganhos da centra |
+| `05785dc` | `1224886` | test(robot-tests): corrige a contagem de chaves do E0 |
+| `41ac069` | `689dcb9` | docs(robot-tests): plano da próxima sessão com o estado de 20/11 |
+| `9fe702a` | `18732c0` | feat(controller): trajetória de curva contínua (PathMove) que parte em movimento |
+| `38456a6` | `80a69f0` | fix(firmware): o ajuste fino depois da curva desconta do erro de rumo o que corrigiu |
+| `e870e67` | `9e42532` | feat(firmware): curva contínua sem parar (arco de raio 90 dentro da reta, com giroscópio e |
+| `076f9e5` | `7b828a0` | test(robot-tests): E16 confere a curva contínua e o E0 passa a conferir 30 chaves |
+| `8457f35` | `1796c62` | fix(firmware): curva contínua entra a 80 mm/s, giroscópio manda no arco e leitura brusca d |
+| `7431b4f` | `b8eb419` | fix(firmware): a curva contínua para o arco pelo giroscópio e sai com reta centralizada pe |
+| `775ac49` | `1ac31ae` | fix(firmware): a curva contínua soma o giro que sobra ao frear o arco no rumo da saída |
+| `05c5edf` | `110187a` | feat(firmware): comando giroang soma o giroscópio para conferir a escala girando o robô na |
+| `a1e9515` | `15d97a6` | test(robot-tests): o E0 espera escala_giro 1,01, medida em duas voltas completas |
+| `0691217` | `db4cc49` | test(robot-tests): o E0 espera escala_giro 1,00 depois do E16a |
+| `d3c75c1` | `034b388` | docs(robot-tests): resultados da curva contínua de 20/11 e a medida da escala do giroscópi |
+| `c82df7f` | `c203504` | docs(robot-tests): rodadas 8 e 9 da curva contínua e a sequência de duas curvas à direita |
+| `13a111a` | `6938be6` | fix(firmware): arco sem parede à frente recua pelo modelo da frente real e arco parado per |
+| `ce8ff24` | `e79ad34` | fix(firmware): ré mais lenta e suave, e arco à esquerda começa 4 mm mais tarde por causa d |
+| `6d9df5d` | `0985a03` | fix(firmware): desfazer do arco mais suave, ré normal volta ao padrão e a curva à direita  |
+| `91f0ac2` | `74f9ff9` | fix(firmware): correção de rumo da reta com teto de 14 mm e ganho 1,2 (a reta derivava -10 |
+| `18fded0` | `d856c66` | test(robot-tests): o E0 espera max_parede 20: acima de ~7 mm a correção inclina o robô alé |
+| `e96a51b` | `46aa667` | revert(firmware): volta ao estado do ce8ff24, em que a reta da corrida funcionava (desfaz  |
+| `427e642` | `e0ae294` | feat(firmware): o recuo antes da curva à direita se alinha 8 mm para fora do centro |
+| `5c3a5a5` | `902b638` | fix(firmware): arco sem parede à frente recua 90 mm (saída centrada) e não 105, que prendi |
+| `4d37dbb` | `3181ebd` | feat(firmware): arco_esq_atraso no calib para ajustar na pista quando a curva à esquerda c |
+| `2869145` | `c53edda` | fix(firmware): desfazer do arco mais suave (2,8/1,6 V) |
+| `83aa5c2` | `1d04db3` | feat(firmware): mais logs da curva: ToF antes do recuo, caminho e tensão de cada roda e To |
+| `6b9096b` | `d92c4dc` | chore(firmware): limite de bateria fraca em 5,5 V só nos testes de 20/11 (o INA219 lê ~1,7 |
+| `29ce24a` | `c45d596` | fix(firmware): desfazer suave com tempo de 2,4 s e o E0 espera arco_esq_atraso -14 |
+| `967fb7c` | `68820d1` | fix(firmware): desliga o alinhamento de 8 mm para fora no recuo da curva à direita (a roda |
+| `a959dfd` | `534a34a` | feat(firmware): constantes de pista da curva, desfazer, ré e bateria passam para o calib ( |
+| `d5cac0d` | `6ae44c5` | test(robot-tests): o E0 espera ganho_rumo 1,0 e bateria_minima 5,5, o estado de 20/11 |
+| `9ea28b7` | `b32ded3` | docs(robot-tests): corridas da serpentina de 20/11 à noite, achados e estado do robô |
+| `473792d` | `158b212` | feat(firmware): giro no lugar em célula aberta (giro_aberto e lado_aberto_mm no calib, cal |
+| `e7bc691` | `ff49364` | test(robot-tests): o E0 espera giro_aberto 1 durante o teste da célula aberta |
+| `7b14d1f` | `47c84b0` | feat(firmware): o giro no lugar em célula aberta vai ao ponto mais perto do centro em que  |
+| `3503c95` | `e2ac88a` | fix(firmware): ajuste fino depois do giro no lugar em célula aberta |
+| `6a81396` | `5c3f5d4` | feat(firmware): ajuste_fino_min no calib (calib12) e E0 com o estado de 20/11 |
+| `5bc5f00` | `0711af9` | docs(robot-tests): a falha do passo 7 é o desvio do giro maior que a folga lateral do corr |
+| `59838e3` | `d3e0efa` | feat(firmware): alvo_lateral_dir_mm no calib para compensar o cabo da bateria no lado esqu |
+| `d5b7498` | `91788b8` | test(robot-tests): o E0 volta a esperar alvo_lateral_dir_mm 0 (10 mm empurrava o robô para |
+| `cd15948` | `1a28a15` | feat(firmware): alvo_pos_esq_mm no calib: só a reta logo depois da curva à esquerda mira à |
+| `fc2cad8` | `c94a204` | fix(firmware): curva em célula aberta em S (o giro de 90 no lugar não cabe com os postes d |
+| `cda846b` | `c97f13d` | fix(firmware): o modo prova (sem LOG_RETA) volta a compilar, versão do firmware no boot e  |
+| `fef95e6` | `520008e` | test(robot-tests): o E0 espera a linha final do calib (a captura fechava antes das últimas |
+| `77810c9` | `c399f89` | test(use_cases): a serpentina de 20/11 reconstruída pelos logs, com reta e curva contínuas |
+| `d12bf8a` | `c463bec` | perf(firmware): os quatro planos da curva em S calculados com o robô parado, só quando o c |
+| `1a9d405` | `507c955` | fix(firmware): curva em S sem parede à frente usa a odometria para saber onde está o eixo, |
+| `7fda4dd` | `d04bd40` | fix(firmware): espaço da linha do plano da curva em S quando o plano existe |
+| `b5b1dda` | `5761bd6` | docs(firmware): auditoria da serpentina de 20/11, roteiro da Fase 2, diário de calibração  |
+| `b4b4ce0` | `1777f48` | fix(firmware): o aviso de boot e o t.py medidas pedem trena, não paquímetro (o operador nã |
+| `13d515a` | `0d71423` | docs(firmware): medidas com trena (sem paquímetro), o método por diferença e pelo ToF, e q |
+| `9336850` | `540f6b0` | fix(firmware): curva em S tenta de novo quando o 1o giro trava (volta o giro e desloca o e |
+| `264ef77` | `4f80eec` | fix(firmware): a diagonal da curva em S aceita até 18 graus de desvio de rumo (um toque le |
+| `98f458f` | `0b64986` | docs(firmware): sessão de pista de 21/11 (SERPENTINAS 30 a 50), calib final no E0, achados |
+| `ed2da82` | `a010725` | docs(firmware): passagem da calibração (estado, calib final, achados, como operar e pendên |
+| `122774f` | `09463fc` | chore(firmware): retira as fotos enviadas pelo operador do repositório e documenta a passa |

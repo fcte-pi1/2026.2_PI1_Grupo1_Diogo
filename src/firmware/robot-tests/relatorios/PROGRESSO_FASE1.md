@@ -1,7 +1,7 @@
 # Fase 1 (21/11): plano e andamento
 
 Objetivo: achar a causa das falhas da serpentina de 20/11 e deixar o firmware e o roteiro prontos para a próxima sessão na pista,
-**sem gravar a placa e sem acionar o hardware**. Branch `feat/controle-motores-tensao`; início na tag `antes-fase1` (`cd15948`);
+**sem gravar a placa e sem acionar o hardware**. Branch `feat/controle-motores-tensao`; início na tag `antes-fase1` (`1a28a15`);
 entrega na tag `fase1-entrega`.
 
 ## Plano e estado
@@ -11,9 +11,9 @@ entrega na tag `fase1-entrega`.
 | 1 | Reconstruir o contexto: corridas SERPENTINA-5 a 29, calib em uso, firmware gravado | feito | `auditoria/AUDITORIA-2026-11-21.md`, seções 2 e 3 |
 | 2 | Auditar as duas falhas que sobraram (passo 5 em (l0,c1), passo 7 em (l2,c3)) pelos logs | feito | idem, 4.1 e 4.2 |
 | 3 | Causa raiz com modelo e números | feito: o giro no lugar ignorava os postes e não cabe em lugar nenhum | idem, 4.3; `domain/CellTurn`, teste `CellTurn.*` |
-| 4 | Correção com TDD: curva em S em célula aberta, chaves no `calib` | feito | `fc2cad8`, `d12bf8a`, `1a9d405` |
-| 5 | Outras correções achadas no caminho (modo prova não compilava, versão no log, E0 cortado) | feito | `cda846b`, `fef95e6` |
-| 6 | Teste da serpentina inteira no simulador (navegação) | feito | `77810c9` |
+| 4 | Correção com TDD: curva em S em célula aberta, chaves no `calib` | feito | `c94a204`, `c463bec`, `507c955` |
+| 5 | Outras correções achadas no caminho (modo prova não compilava, versão no log, E0 cortado) | feito | `c97f13d`, `520008e` |
+| 6 | Teste da serpentina inteira no simulador (navegação) | feito | `c399f89` |
 | 7 | Verificação: host, ESP32 nos dois modos, 0 avisos | feito: 430/430, 0 avisos | auditoria, seção 6 |
 | 8 | Roteiro da Fase 2 e diário de calibração | feito | `AJUSTES_FINAIS.md`, `CALIBRACAO.md` |
 | 9 | Documentação das chaves e linhas de log novas | feito | `LOGS_E_MEDIDAS.md`, seção 6 |

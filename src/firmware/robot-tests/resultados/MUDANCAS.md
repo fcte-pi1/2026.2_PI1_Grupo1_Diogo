@@ -125,8 +125,8 @@ Sintoma (operador): "anda um pouco, para, anda um pouco, para". Diagnóstico com
 - Pendente: o ToF direito alterna válido/inválido (7 a 13 mm, perto do limite de alcance); a parede direita do corredor de teste não é reta (abertura em ~1,1-2,5 s e aproximação depois).
 
 ## Mudança 13 (20/11 tarde): curva só em arco que cabe, centro aprendido e folga do arco
-- Centro aprendido nas retas (`learnCenters`): quando uma parede some, a outra é comparada com o centro medido com as duas, não com o de 168 mm (commit 01656cd). Recuo/avanço/ajuste antes da curva centralizam.
-- Plano B do arco sem espaço para recuar: se o giro no lugar não cabe (com a frente real de 100 mm não cabe em lugar nenhum), a manobra FALHA com 'giro no lugar nao cabe nesta celula' em vez de raspar (commit 8667915).
+- Centro aprendido nas retas (`learnCenters`): quando uma parede some, a outra é comparada com o centro medido com as duas, não com o de 168 mm (commit 4c69b3d). Recuo/avanço/ajuste antes da curva centralizam.
+- Plano B do arco sem espaço para recuar: se o giro no lugar não cabe (com a frente real de 100 mm não cabe em lugar nenhum), a manobra FALHA com 'giro no lugar nao cabe nesta celula' em vez de raspar (commit 8a39f25).
 - Modelo do arco (`domain/ArcClearance`, 5 testes): robô real (frente 100, largura 112, cabo à esquerda) numa curva em L de 168 mm. Janela longitudinal que cabe: -24 a -4 mm (o projeto antigo: -24 a +8); lateral +-26 mm (com o cabo: -16 a +26); num corredor de 153 mm só +-8 mm. O plano antigo (folga 20 mm) começava a -23 mm, colado no limite de trás.
 - Chave `folga_arco` (padrão 12 mm => início a -15 mm, perto do ótimo de -16). A memória do robô passa a calib7 (reaplicar centralizar=1, ganho_rumo=0.6, ganho_parede=3, max_parede=50, eixo_ate_frente=100, eixo_ate_tof_frente=98, largura_frente=112, tof_lado_ao_centro=55.5 depois de gravar).
 - NADA disto foi testado no robô. O modelo é uma reconstrução do arco (raio 90, quarto de círculo em volta do canto de dentro) e precisa ser validado na pista com `virar d` em A2 e A4 variando `folga_arco` (20 / 12 / 8).
