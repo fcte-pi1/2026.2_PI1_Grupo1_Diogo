@@ -28,7 +28,7 @@ de 20/11, modelo geométrico, código, compilação e testes no computador. Nada
   também foi corrigido.
 - **O que não foi verificado:** nada disto rodou no robô. O tempo do plano no ESP32 (estimado em 1 a 3 s por plano, 4 planos
   ao ligar e a cada `calib` que mude o corpo), a largura real do cabo (10 mm é estimativa) e o comportamento da curva em S na
-  pista ficam para a Fase 2 (`robot-tests/relatorios/AJUSTES_FINAIS.md`).
+  pista ficam para a Fase 2 (`BATERIA_TESTES_21_11.md`).
 
 ## 2. Estado de partida
 
@@ -179,7 +179,7 @@ movimento couber, o log diz `NENHUM MOVIMENTO CABE` e a curva segue pelo arco, c
 2. **Modelo x pista, e medidas de trena.** Robô e postes são retângulos rígidos no modelo, e as medidas do robô vêm de fita
    métrica e trena (~2-3 mm). O plano à direita aguenta 5 mm de erro em qualquer medida. O da esquerda (4,4 mm) aguenta 3 mm em
    cada medida sozinha, mas não um cabo de 15 mm (-0,6) nem 3 mm errados em todas ao mesmo tempo (-1,0 a -2,9). As medidas que
-   pesam são o cabo e o `eixo_ate_tof_frente`; o método com trena e a tabela completa estão em `AJUSTES_FINAIS.md`, etapa 1.
+   pesam são o cabo e o `eixo_ate_tof_frente`; o método com trena e a tabela completa estão em `MEDICOES.md`, seção "Medidas com trena".
    Diminuir o `giro_s_incerteza` não compra folga (o plano é o mesmo com 10 e com 5).
 3. **Diagonal sem referência.** Os 76-127 mm da diagonal são andados só com o giroscópio (não há paredes para centralizar). Um
    erro de 2 graus no primeiro giro dá ~3-4 mm no fim da diagonal.

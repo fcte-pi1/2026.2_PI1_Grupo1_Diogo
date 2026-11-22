@@ -26,7 +26,7 @@ Três fontes divergem: **CAD** 107,75 (ToF), **.3mf impresso** 102,25 (chassi de
 124,5) e **campo** (A2: parede-eixo 127 menos F=42) ~85 a 91. Se o CAD estivesse certo, o frontal leria
 ~19 mm na parede (abaixo do mínimo). O firmware roda com o valor de campo (87 / 85) e avisa no boot
 enquanto ele difere do CAD em mais de 10 mm. **Medir** (não há paquímetro: trena ou fita métrica, pelo método de
-`robot-tests/relatorios/AJUSTES_FINAIS.md`, etapa 1) o eixo até a frente do chassi, até
+`MEDICOES.md`, seção "Medidas com trena") o eixo até a frente do chassi, até
 a face do ToF frontal e os cabos, e só então trocar o padrão. Atalho: `calib preset_cad=1`.
 
 ## Não aumentar o robô fisicamente
@@ -59,3 +59,41 @@ Só havia a fita; as medidas foram lidas das fotos (fotos removidas a pedido do 
 | Largura sobre as rodas | ~106 mm | 108 | foto frontal |
 Conclusões: (1) o corredor de teste NÃO é de 150 mm, é de ~166-168 mm; a "largura de 150" vinha de somar 101 em vez de 111. (2) A frente do robô é ~13 mm mais longa do que o firmware supunha, e os sensores laterais são a parte mais larga (~112-114 mm, contra 108 das rodas). (3) O arco de 19/11 e de hoje (SERPENTINA-2, travou a -66 graus) partiu com a frente 13 mm mais perto da parede do que o modelo achava.
 Aplicado no robô (calib): eixo_ate_frente=100, eixo_ate_tof_frente=98, largura_frente=112, tof_lado_ao_centro=55,5, largura_corredor=168 (volta ao padrão), ganho_parede=3, max_parede=50.
+
+## Medidas com trena (sem paquímetro)
+
+Não há paquímetro. As medidas em uso (frente 100, ToF 98, largura 112, ToF lateral 55,5) foram feitas com fita métrica e trena,
+com precisão de ~2-3 mm. Para tirar mais da trena:
+
+- **Por diferença, entre dois anteparos.** Dois objetos de face reta (livros, caixas ou uma peça de parede do labirinto)
+  encostados nos dois lados do robô, paralelos; medir a distância entre eles. Para o cabo, medir duas vezes: uma com o anteparo
+  esquerdo encostado no chassi, na frente, onde o cabo não passa, e outra encostado no cabo, onde ele fica mais para fora.
+  `cabo_esq_mm` = a diferença. O erro de leitura da trena se repete nas duas medidas e some na diferença. Anotar também de onde
+  até onde o cabo vai ao longo do robô (o modelo supõe da traseira até 20 mm à frente do eixo).
+- **`eixo_ate_tof_frente` pelo próprio ToF.** Robô parado de frente para uma parede, a ~150 mm e depois a ~250 mm. Em cada
+  posição: `python t.py cmd tof` (valor F) e trena da parede até o centro do cubo da roda (o eixo), dos dois lados, e a média.
+  `eixo_ate_tof_frente` = (parede até o eixo) - F; usar a média das duas posições. Assim se calibra exatamente o que o firmware
+  usa para se posicionar antes da curva, incluindo o desvio de leitura do sensor (foi assim a medida de campo de 19/11: parede-eixo
+  127 menos F=42).
+- **`eixo_ate_frente`.** Robô desligado, com o ponto mais à frente encostado na parede: trena da parede ao cubo da roda dos dois
+  lados, e a média.
+
+Depois: `python t.py calib "cabo_esq_mm=<medida>"` (e as outras, se mudarem) e conferir as linhas `plano da curva ... folga`.
+
+Quanto um erro de medida tira da folga da curva em S (modelo, com o plano calculado com as medidas atuais):
+
+| Erro | Esquerda (folga 4,4 mm) | Direita (folga 7,4 mm) |
+|:--|:--|:--|
+| Frente 3 / 5 mm maior | 2,8 / 1,0 | 4,8 / 3,0 |
+| Largura 3 / 5 mm maior | 2,9 / 2,0 | 6,1 / 5,1 |
+| Cabo de 15 / 20 mm (em vez de 10) | **-0,6 / -5,6** | 7,4 / 7,4 (o cabo fica do lado de fora) |
+| `eixo_ate_tof_frente` errado em 3 / 5 mm | 1,6 / **-0,3** | 4,4 / 2,4 |
+| Frente, largura e cabo 3 mm maiores, eixo 3 mm fora | **-1,0 a -2,9** | 1,0 a 3,2 |
+
+A direita aguenta os erros de trena. Na esquerda pesam o **cabo** e o **`eixo_ate_tof_frente`**: são as duas medidas que
+valem o capricho. Diminuir o `giro_s_incerteza` não ajuda (com 10 e com 5 o plano escolhido é o mesmo).
+
+O perigo do cabo é usar um valor errado, não o cabo ser grande: com a medida certa no `calib`, o plano se adapta. Folga do plano
+da esquerda pelo cabo informado: 0 mm (rente) → 7,4; 5 → 7,2; 10 → 4,4; 12 → 3,4; 14 → 2,3; 16 → 1,4; 18 → 0,2; acima disso
+nenhum movimento cabe (o log avisa e a curva vai pelo arco). Acima de ~12 mm a folga fica abaixo de 3 (`giro_s_folga`): registrar
+para a equipe de estrutura prender o cabo junto ao chassi.

@@ -13,7 +13,7 @@
 **Onde está tudo:** `LEIA-ME.md` na raiz do pacote (`passagem-2026-11-21.zip`): documentos, logs de todas as corridas, firmware gravado, repositório (bundle) e a conversa da sessão. Hashes antigos de commit: tabela na seção 9 (o histórico foi reescrito).
 
 Documento para quem assumir a calibração do robô. Leia este arquivo primeiro; os detalhes estão em `auditoria/AUDITORIA-2026-11-21.md` (raiz do
-repositório, seção 9), `CALIBRACAO.md` (diário, uma linha por mudança) e `AJUSTES_FINAIS.md`.
+repositório, seção 9), `CALIBRACAO.md` (diário, uma linha por mudança) e as baterias de teste (`BATERIA_TESTES_20_11.md` e `BATERIA_TESTES_21_11.md`).
 
 ## 1. Onde estamos
 - **O robô completa a serpentina 4x4** (largada (l3,c0) virado ao norte, via 3 aberta, objetivo (l0,c3)): ~52 s, 7 passos, giros de 88 a 89°.

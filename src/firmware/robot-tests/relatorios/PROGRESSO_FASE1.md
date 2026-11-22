@@ -15,7 +15,7 @@ entrega na tag `fase1-entrega`.
 | 5 | Outras correções achadas no caminho (modo prova não compilava, versão no log, E0 cortado) | feito | `c97f13d`, `520008e` |
 | 6 | Teste da serpentina inteira no simulador (navegação) | feito | `c399f89` |
 | 7 | Verificação: host, ESP32 nos dois modos, 0 avisos | feito: 430/430, 0 avisos | auditoria, seção 6 |
-| 8 | Roteiro da Fase 2 e diário de calibração | feito | `AJUSTES_FINAIS.md`, `CALIBRACAO.md` |
+| 8 | Roteiro da Fase 2 e diário de calibração | feito | `BATERIA_TESTES_21_11.md`, `CALIBRACAO.md` |
 | 9 | Documentação das chaves e linhas de log novas | feito | `LOGS_E_MEDIDAS.md`, seção 6 |
 | 10 | Tag `fase1-entrega` | feito | |
 
@@ -30,12 +30,12 @@ entrega na tag `fase1-entrega`.
 4. **Robô rígido:** o modelo trata robô e postes como retângulos. Na pista o robô escorrega, e o deslocamento medido depois do giro
    (23-26 mm) foi menor que o planejado (36 mm).
 5. **Medidas do robô feitas com fita métrica e trena** (não há paquímetro): precisão de ~2-3 mm. A curva à direita aguenta esse
-   erro; a da esquerda depende do cabo e do `eixo_ate_tof_frente` (`AJUSTES_FINAIS.md`, etapa 1, com a tabela de sensibilidade).
+   erro; a da esquerda depende do cabo e do `eixo_ate_tof_frente` (`MEDICOES.md`, seção "Medidas com trena", com a tabela de sensibilidade).
 6. **Tempo do plano no ESP32:** estimado em 1 a 3 s por plano (35 ms no PC com `-O2`). Não medido.
 
 ## O que fica para a pista
 
-- Medir o cabo e conferir os planos (`AJUSTES_FINAIS.md`, etapas 0 e 1).
+- Medir o cabo e conferir os planos (`BATERIA_TESTES_21_11.md` (seção 2) e `MEDICOES.md`).
 - Curva em S isolada, à esquerda e à direita (etapa 2).
 - Corrida completa (etapa 3) e ajuste pela tabela de prioridades (etapa 4).
 - Confirmar por que o giro simples às vezes passava no passo 4 (auditoria, 4.5).

@@ -136,7 +136,7 @@ parou sem tirá-lo da pista. Os que mexem os motores respondem `comando ... IGNO
 ## 3. Medidas para pedir à equipe de estrutura (robô FORA do labirinto)
 
 Todas a partir do **meio do eixo das rodas** (o ponto no chão entre as duas rodas). Não há paquímetro: trena ou fita métrica,
-por diferença entre dois anteparos ou pelo próprio ToF (método em `robot-tests/relatorios/AJUSTES_FINAIS.md`, etapa 1).
+por diferença entre dois anteparos ou pelo próprio ToF (método em `MEDICOES.md`, seção "Medidas com trena").
 
 | # | Medida | Valor usado hoje | Onde entra |
 |:--|:--|:--|:--|
@@ -314,7 +314,7 @@ a X mm` mostra o resultado). Linhas novas no log:
 
 A chave da memória do robô muda quando a lista de chaves muda (`calib15` desde 21/11, 60 chaves). Na primeira vez que liga com
 um firmware de chave nova, **o robô volta aos padrões**: reaplicar o calib em uso (roteiro em
-`robot-tests/relatorios/AJUSTES_FINAIS.md`) e rodar o E0.
+`BATERIA_TESTES_21_11.md`, seção 2) e rodar o E0.
 
 ### Linhas da curva em S e da versão (21/11)
 

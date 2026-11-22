@@ -1,6 +1,6 @@
 # Diário de calibração na pista
 
-Uma linha por mudança de `calib` ou por teste que decide um valor. Roteiro e prioridades: `AJUSTES_FINAIS.md`.
+Uma linha por mudança de `calib` ou por teste que decide um valor. Procedimento da pista: `BATERIA_TESTES_21_11.md`; prioridades: `PASSAGEM_CALIBRACAO.md`.
 
 - **Firmware:** copiar da linha de boot `main: firmware: versao ...` (cada gravação tem a sua).
 - **Antes → depois:** o valor que estava e o novo. Se voltou atrás, outra linha.
@@ -26,7 +26,7 @@ Valores decididos antes, com a medida que os justifica:
 | `bateria_minima` | 5,5 | o INA219 às vezes lê ~1,7 V abaixo do cellmeter; limite só para os testes (operador, 20/11) |
 | `alvo_lateral_dir_mm` | 0 | 10 jogou o robô na parede direita na SERPENTINA-27 |
 | `max_parede` | 22 | com 50 a correção passava do limite de rumo (10 graus) na reta depois do giro (SERPENTINA-26) |
-| `cabo_esq_mm` | 10 | **estimativa**, falta medir pela diferença entre dois anteparos (`AJUSTES_FINAIS.md`, etapa 1) |
+| `cabo_esq_mm` | 10 | **estimativa**, falta medir pela diferença entre dois anteparos (`MEDICOES.md`, seção "Medidas com trena") |
 
 ## Sessões
 
