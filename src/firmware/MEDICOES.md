@@ -49,7 +49,7 @@ Lateral: confere com o campo (84 - 50,5 = 33,5 mm; medido 33,6). Frontal: o CAD 
 Não existe cabo à frente do robô (operador, 19/11): `cabo_frente_mm` = 0. O cabo vermelho e preto da bateria sai pela lateral esquerda e não entra no modelo. `preset_cad` é só um registro.
 
 ## Medidas do robô reais (20/11), lidas de fotos com uma fita métrica
-Só havia a fita; as medidas foram lidas das fotos (`robot-tests/fotos/medida_*_20_11.jpg`), com incerteza de ~3 mm.
+Só havia a fita; as medidas foram lidas das fotos (fotos removidas a pedido do operador), com incerteza de ~3 mm.
 | Cota | Valor lido | Antes no `calib` | Como saiu |
 |:--|--:|--:|:--|
 | Comprimento do chassi (traseira até a placa da frente, foto de baixo) | ~120 mm | 17,25 + 87 = 104 | confere com o `.3mf` (119,5), não com o CAD (124,5) nem com o campo |
