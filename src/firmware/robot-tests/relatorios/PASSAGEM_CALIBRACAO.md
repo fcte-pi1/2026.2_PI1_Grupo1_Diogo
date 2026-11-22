@@ -10,7 +10,7 @@
 4. Com as outras equipes: cabo da bateria, motor/caixa e pneu direitos (estrutura), alimentação do ToF direito (energia). Os documentos de cada equipe foram atualizados em 21/11 (`PARA_EQUIPE_*.md`).
 
 **Como operar:** ponte BLE e `t.py` pelo **Python do Windows**; depois de um erro, `python t.py reiniciar` (~45 s); gravar **só com a bateria fora**; conferir com `python t.py E0 --auto` (60 chaves); rodar `tofrec` e `tofmon 60` antes de cada sessão. Seção 4.
-**Onde está tudo:** `LEIA-ME.md` na raiz do pacote (`passagem-2026-11-21.zip`): documentos, logs de todas as corridas, firmware gravado, repositório (bundle) e a conversa da sessão. Hashes antigos de commit: tabela na seção 9 (o histórico foi reescrito).
+**Onde está tudo:** `LEIA-ME.md` na raiz do pacote (`passagem-2026-11-21.zip`): documentos, logs de todas as corridas, firmware gravado, o código atual (`codigo/`, sem histórico; o histórico completo está no GitHub) e a conversa da sessão. Hashes antigos de commit: tabela na seção 9 (o histórico foi reescrito).
 
 Documento para quem assumir a calibração do robô. Leia este arquivo primeiro; os detalhes estão em `auditoria/AUDITORIA-2026-11-21.md` (raiz do
 repositório, seção 9), `CALIBRACAO.md` (diário, uma linha por mudança) e as baterias de teste (`BATERIA_TESTES_20_11.md` e `BATERIA_TESTES_21_11.md`).
@@ -129,7 +129,7 @@ O operador decidiu o rumo final das curvas. **Nada disto foi implementado**: sã
 5. Decidir o destino da **curva com uma roda** (`modo_curva=1`, `oneWheelTurn`) e do **giro no lugar** (`pivotInBoxedCell`): hoje não são usados na corrida; ou entram no projeto como curva, ou saem.
 
 ## 8. Índice do pacote de passagem
-O pacote com **todos os logs, documentos, o resumo da sessão, o firmware gravado e o repositório (git bundle)** está descrito em `LEIA-ME.md` na raiz do pacote (`passagem-2026-11-21/`, fora do repositório).
+O pacote com **todos os logs, documentos, o resumo da sessão, o firmware gravado e o código atual (sem histórico; o histórico está no GitHub)** está descrito em `LEIA-ME.md` na raiz do pacote (`passagem-2026-11-21/`, fora do repositório).
 
 ## 9. Tradução de hashes (histórico reescrito em 21/11 para remover as fotos do operador)
 
