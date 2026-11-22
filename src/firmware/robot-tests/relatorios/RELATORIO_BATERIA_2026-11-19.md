@@ -71,4 +71,4 @@ Nenhuma leitura de 0 mm "ok" (a melhoria P1 funciona); mínimo do direito a 50 m
 
 ## 6. Não executado (continua amanhã)
 B1/B2 formais, B4 (pivô, informativo), B5 (curvas, precisam de um canto), C (manobra a manobra), D (corridas pista A e B), E1 a E8 (novidades; o `t.py` ainda não tem esses testes),
-F (layouts), G (resistência). Ver `PLANO_AMANHA.md`.
+F (layouts), G (resistência). (O plano de 19/11 estava desatualizado e foi removido; o que fazer agora está em `AJUSTES_FINAIS.md`.)
