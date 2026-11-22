@@ -3,3 +3,21 @@ build/
 
 # O .gitignore da raiz ignora .vscode; aqui versionamos a configuração compartilhada
 !.vscode/
+
+# Resultados de pista (21/11): logs brutos e telemetria ficam no pacote de passagem, não no git.
+# Versionados: RESULTADOS.md, ACHADOS_EQUIPE_ENERGIA.md, MUDANCAS.md e corridas.csv.
+robot-tests/resultados/logs/
+robot-tests/resultados/travas/
+robot-tests/resultados/telemetria.jsonl
+robot-tests/resultados/log_robo.txt
+robot-tests/resultados/ponte_stdout*.txt
+robot-tests/resultados/corrida_serp*.txt
+robot-tests/resultados/e16a_*.txt
+robot-tests/resultados/ciclos_partida*.txt
+robot-tests/resultados/grade_ganhos_*.txt
+robot-tests/resultados/comandos.txt
+robot-tests/resultados/feitos.json
+robot-tests/resultados/estado.txt
+robot-tests/resultados/build.hora
+robot-tests/resultados/versao-firmware.txt
+*.zip
