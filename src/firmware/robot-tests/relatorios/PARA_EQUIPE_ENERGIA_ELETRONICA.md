@@ -30,3 +30,25 @@ Não é falta de corrente (0,14 a 0,18 A) nem afundamento da bateria antes do re
 ## Dados úteis
 - Roda esquerda mais fraca: a 6 V E 2348 e D 2475 pulsos/s (5,4%); a 3 V E 1112 e D 1330 (20%). Lubrificar/inspecionar a engrenagem da roda esquerda.
 - Firmware sempre reconfigura e reinicia o ToF que cai, mas só com o robô parado (entre células).
+
+---
+
+## Atualização de 21/11/2026 (noite): o que a pista mostrou
+Firmware gravado `fase1-entrega-4` (tag `pista-21-11`), 50 corridas na serpentina (SERPENTINAS 5 a 54, logs no pacote de passagem). O firmware **não** é a causa do que segue.
+
+**ToF direito (0x32) continua caindo sozinho.** Em ~2 h de sessão ele caiu **6 vezes** (aos 66 s, 115 s, 169 s, 856 s e outras), sempre com o robô **parado**, e o log diz o mesmo de 19/11: `0x32 NAO responde, 0x29 responde -> o sensor REINICIOU sozinho`.
+Isso prova que **a alimentação (3V3) ou o XSHUT do módulo direito pisca**; não é fio solto de dados. Uma vez o **esquerdo** também ficou mudo junto com o direito (aos 42 s). O `python t.py cmd tofrec` recupera na hora; depois o sensor ficou estável (990 leituras seguidas sem falha) e as corridas 40 a 54 não tiveram queda.
+- **Testei a hipótese de ser o firmware** (o cálculo de 4 planos no boot levava 40 s): a queda aconteceu com o robô parado, sem cálculo. **Não é o firmware.**
+- **Sugestão de menor custo:** capacitor de **10 a 100 µF** (cerâmico + eletrolítico) o mais perto possível do pino 3V3 do módulo direito, e conferir o pino **XSHUT** dele (solda e trilha). Se o direito é o único que cai, o problema é local desse módulo.
+
+**Reset:** em todas as partidas de hoje o motivo foi `LIGOU (poweron)` (a chave). **Nenhum BROWNOUT** nesta noite (bateria 8,0 V no cellmeter).
+
+**INA219:** continua lendo oscilante e abaixo do real: 6,3 a 7,3 V enquanto o cellmeter dava 7,9 a 8,0 V. O limite de bateria do firmware foi baixado para 5,5 V só para os testes (`bateria_minima`). Vale a equipe conferir o shunt/endereço do INA.
+
+**Motor direito (corrida 51):** para manter as duas rodas na mesma velocidade o robô pediu **7,2 V no motor direito contra 3,1 V no esquerdo** na ré, e 6,5 V contra 4,6 V na reta; depois de **limpar os motores**, 3,1 V contra 3,0 V. Um motor que pede o dobro de tensão consome mais corrente e pode ajudar a derrubar a alimentação. Ver o documento da estrutura (o motor/caixa de redução).
+
+**Como a equipe confere sem o robô andar:**
+    python t.py cmd tofrec        # reinicia o ToF que cair (pelo XSHUT)
+    python t.py cmd "tofmon 60"   # 60 s de leitura dos 3 ToF, mostra falhas por segundo
+    python t.py cmd saude         # quedas e reinícios por sensor, bateria, reset
+Pedidos (continuam valendo os de 19/11): 1) ToF direito: 3V3 e XSHUT com multímetro e o capacitor acima; 2) revisar o conector de 6 pinos; 3) prender fios e o cabo da bateria (ver estrutura).

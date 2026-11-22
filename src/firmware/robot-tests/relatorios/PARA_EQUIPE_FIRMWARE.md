@@ -31,3 +31,18 @@
 
 ## Pendências de decisão
 Aumentar o ganho do `kWallCentering`; modo "ignorar sensor morto" (útil porque o robô não será alterado até segunda); corrigir D1/D2 do `t.py`; criar E1 a E8.
+
+---
+
+## Atualização de 21/11/2026 (noite) — LEIA `PASSAGEM_CALIBRACAO.md` primeiro
+Os commits e o estado de 19/11 acima estão **ultrapassados**. O estado atual e as tarefas estão em `robot-tests/relatorios/PASSAGEM_CALIBRACAO.md`; o resumo da sessão, em `SESSAO_21_11.md`; a causa raiz e os números, em `auditoria/AUDITORIA-2026-11-21.md`.
+
+**Resumo:** gravado `fase1-entrega-4` (tag `pista-21-11`, calib15, 60 chaves). **O robô completa a serpentina** (49, 50, 52 e 53 passaram; ~52 s) e **raspa na parede direita** na saída das curvas.
+O que entrou desde 19/11: `domain/CellTurn` (**curva em S** com 4 postes e cabo), **2ª tentativa** quando o 1º giro do S trava, diagonal do S tolerando 18°, ré e reta contínuas, `calib` com 60 chaves (tudo sem regravar), `E0` com as 60 esperas.
+
+**As duas tarefas decididas pelo operador (seção 7 da passagem, na ordem):**
+1. **A curva contínua deve DESAPARECER do projeto.** Só ficam duas curvas, as duas **paradas no centro da célula**: o **arco parado com ré** e a **curva em S** (gira ~70°, anda na diagonal, completa). A **reta contínua** (várias células num movimento) **continua**; sai só o "virar sem parar dentro dela". Tabela de arquivos, chaves (8) e testes a remover na passagem.
+2. **A cada curva o robô deve se calibrar para ficar completamente reto e centralizado** (medir pelas paredes, alinhar o rumo, corrigir o deslocamento lateral, repetir no máximo 2 vezes; critério |E-D| <= 6 mm e rumo <= 1,5°). Especificação completa e critério de aceitação na passagem.
+
+**Outras pendências de firmware:** reiniciar o ToF que cai durante a reta (hoje só parado); aviso de desequilíbrio de tensão das rodas; reduzir o tempo do boot (4 planos de 8 a 12 s cada); decidir o destino da curva com uma roda e do giro no lugar.
+**Achados que valem para quem mexe no código:** (a) o ToF frontal lê ~4,5 mm a mais perto da parede; (b) uma curva em S travou em ~1 de cada 4 vezes sem padrão, e a 2ª tentativa recupera; (c) `curva_continua=0` **piorou** (corridas 46 a 48) porque o robô chega encostado na parede direita: faça a Tarefa 2 antes ou junto da Tarefa 1; (d) hashes de commit: o histórico foi reescrito em 21/11, tabela de tradução na seção 9 da passagem.

@@ -21,3 +21,19 @@
 2. Montar **um canto** (curva de 90°) no labirinto: sem ele não dá para testar as curvas (B4/B5/C).
 3. Reforçar/alinhar as paredes do corredor e deixar 4 células livres de verdade (180 mm cada) para os testes de reta.
 4. Prender o cabo da bateria dentro do chassi (item da equipe de energia).
+
+---
+
+## Atualização de 21/11/2026 (noite)
+**Correção:** o pedido 1 acima (paquímetro) fica assim: **o operador não tem paquímetro**. As medidas do robô foram feitas com **fita métrica e trena**, com precisão de ~2 a 3 mm
+(frente 100 mm, ToF frontal 98 mm, largura da frente 112 mm, ToF lateral a 55,5 mm do centro). Quem tiver paquímetro: medir o cabo da bateria (item 1 abaixo) e o eixo até a frente.
+
+O robô agora **completa a serpentina** (~52 s). O que sobra é **mecânico**, e a estrutura pode resolver:
+
+1. **Cabo da bateria (prioridade 1).** Ele sai **~10 mm (estimativa) para fora da lateral esquerda** e estreita a "janela" da curva em S à esquerda. Pelo modelo (`domain/CellTurn`): **cabo rente = folga de 7,4 mm; 10 mm = 4,4 mm; 14 mm = 2,3 mm; 18 mm = 0,2 mm; acima disso a curva não cabe.** Prender o cabo **rente ao chassi** é a melhor melhoria; o conector JST também.
+2. **Motor/caixa de redução direita (prioridade 2).** Na corrida 51 o motor direito exigiu **7,2 V contra 3,1 V no esquerdo** para andar igual; depois de **limpar**, 3,5 V contra 3,5 V. O arrasto é **intermitente** e some e volta. Para o N20 (6 V, 750 RPM, com encoder, ~R$ 76 cada): **trocar o direito** ou abrir a caixa, limpar com cotonete e passar **uma quantidade mínima de graxa leve de silicone ou PTFE** para engrenagem plástica.
+3. **Pneus.** O 1º giro depois de ligar patinou nas duas rodas (288 pulsos contra ~180 para o mesmo giro). **Limpar só com fita adesiva e álcool isopropílico no pneu; se houver óleo, água morna com detergente neutro e depois álcool.** **Não usar WD-40 nem limpa-contatos** nas rodas ou nas caixas: ele lava a graxa e deixa filme na borracha.
+   Teste simples do diâmetro: **uma volta de cada pneu sobre um barbante**, medir o barbante: se o direito for 2 a 3% menor, está confirmado.
+4. **Paredes e postes do labirinto.** O modelo supõe corredor de **168 mm** (parede de 12 mm, célula de 180) e **postes de 12x12 mm nos 4 cantos**. As folgas das curvas em S são de **4 a 7 mm**: parede torta ou poste maior de 2 a 3 mm já muda o resultado. Conferir largura do corredor e o alinhamento dos postes nas células (l2,c1), (l2,c3) e (l0,c1).
+5. **Piso do labirinto:** passar **pano úmido ou de microfibra** antes de cada sessão (poeira faz a roda patinar).
+6. O robô **raspa na parede direita** na saída das curvas; a causa não está fechada (ver `PASSAGEM_CALIBRACAO.md`). Qualquer folga do lado direito (parede, pneu) ajuda.
