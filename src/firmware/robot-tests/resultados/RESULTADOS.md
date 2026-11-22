@@ -554,7 +554,7 @@ A parada pela parede da frente funcionou: a 3ª reta terminou com o ToF frontal 
 
 # BATERIA DE 20/11/2026 (continuação)
 ## Gravação do firmware novo — 09:33:40
-- Firmware: commit 266c748 (malhas fechadas, freio suave, giro em célula fechada); 367 testes no computador; placa compilada sem avisos (sdkconfig do projeto, RATO_LOG_RETA=y). Gravado com a bateria FORA (`INA219 PAROU de ler`), hash verificado.
+- Firmware: commit 1856479 (malhas fechadas, freio suave, giro em célula fechada); 367 testes no computador; placa compilada sem avisos (sdkconfig do projeto, RATO_LOG_RETA=y). Gravado com a bateria FORA (`INA219 PAROU de ler`), hash verificado.
 - Boot (boot_20_11_flash.log): `calib: nada gravado: valores padrao` (calib4 limpa), 23 chaves em padrão, freios 2,6 / 8,1 / 2,6, cabo_frente_mm 0, rampa_tensao 50, 3 ToF prontos (E 0x30, F 0x31, D 0x32), DIP 4x4 esquerda. Aviso esperado de frente CAD x campo (22,8 mm).
 - Medida da frente com paquímetro: AINDA NÃO feita pelo operador (pendente).
 - Calibração de reta de 19/11 (ganho_rumo=0.6, centralizar=1) perdida pelo calib4: reaplicar depois de ligar a bateria.
@@ -594,7 +594,7 @@ Calibração em uso depois de gravar o firmware novo (calib). Comando(s): calib.
 Diagnóstico geral do hardware. Comando(s): diag.
 
 - PASSOU: diag: fim: OK
-- PASSOU: firmware gravado: versão 266c748, compilado em Nov 20 2026 09:28:58; base do repositório 266c748. Confira que a data e a hora são as da compilação que você acabou de fazer
+- PASSOU: firmware gravado: versão 1856479, compilado em Nov 20 2026 09:28:58; base do repositório 1856479. Confira que a data e a hora são as da compilação que você acabou de fazer
 
 ## H2 (tentativa 2) — PASSOU — 09:44:42
 
@@ -1396,7 +1396,7 @@ Retas e rés no corredor de MDF do labirinto (3 retas, 3 rés, 3 retas; 2 vezes)
 - Consequência para o firmware: `centralizar=1` leva o ToF esquerdo a 33,5 mm (valor de 168 mm) quando só um lado lê; num corredor de 150 mm isso empurra o robô ~9 mm para a parede do outro lado (D=8-10 mm, depois 0). Explica a deriva para a direita e boa parte dos 'rumo perdido'.
 - Proposta (aprovação): o alvo da centralização com UM lado deve vir da largura medida do corredor (soma dos dois ToF quando ambos leem), ou o corredor de teste ser alargado/medido com paquimetro e a chave `tof_lado_ao_centro`/largura ajustada. Os testes de 19/11 (B3 etc.) usaram o mesmo corredor.
 
-## Gravação 2 — 11:03:23 — reta contínua (commit 1466e00)
+## Gravação 2 — 11:03:23 — reta contínua (commit 126c120)
 Bateria fora (INA219 parado), hash verificado. Boot: 3 ToF prontos, calib5 limpa (padrão), reta_continua=1, rampa 50, freios 2,6/8,1/2,6. 382 testes no computador. Falta reaplicar ganho_rumo=0.6 e centralizar=1.
 - calibração (20/11 11:05:18): gravado no robô: ganho_rumo=0.6 centralizar=1
 
@@ -1452,7 +1452,7 @@ Respostas do operador ao E15 (tentativa 1), 11:07:35:
 
 ## E15 (reta contínua, 1a vez, 11:07) — FALHOU pelo critério do operador
 Trecho de 3 células: 1521/1526 pulsos, 5336 ms (perfil 5033), sem queda de energia. Operador: tranco 1; "não" a "andou sem parar no meio" (o tempo medido sugere que não houve parada); e NÃO andou reto nem centralizado. Log: pose lateral +25,8 mm à direita, correção só 5,6 mm (termo da parede limitado a 16 pulsos), ToF D = -1 (perto) e o esquerdo comparado com 33,5 mm (corredor de 168; o de MDF mede ~150).
-## Gravação 3 — 11:10:35 — largura do corredor e ganho do termo da parede (commit ba4e1e5)
+## Gravação 3 — 11:10:35 — largura do corredor e ganho do termo da parede (commit 4c47310)
 Bateria fora. Boot: 3 ToF prontos, calib6 limpa, largura_corredor 168, ganho_parede 0,8, max_parede 16. Próximo: reaplicar ganho_rumo=0.6 centralizar=1 largura_corredor=150 ganho_parede=2.5 max_parede=60 e repetir o E15.
 - calibração (20/11 11:12:03): gravado no robô: ganho_rumo=0.6 centralizar=1 largura_corredor=150 ganho_parede=2.5 max_parede=60
 
@@ -1481,7 +1481,7 @@ Respostas do operador ao E15 (tentativa 2), 11:14:09:
 ## Ajuste da centralização no corredor de ~150 mm (11:14) e gravação 4
 - `andar 3` com ganho_parede=5, max_parede=100, largura_corredor=150: saindo de E=32/D=18 (7 mm à direita), terminou E=28 D=27, eixo a 0,4 mm do centro, rumo -0,2 graus, 1531/1528 pulsos, giro -0,1, 5035 ms. Operador: "A" (reto e centrado), mas "ainda não é um movimento contínuo e limpo".
 - Com os ganhos antigos (ganho_parede 0,8 / max 16) o mesmo trecho terminou 21,6 mm à direita (E=46 D=7).
-- Gravação 4 — 11:21:47 (commit 9efc0de): registro da velocidade da reta a cada 50 ms, conferência `check_clean_motion` no t.py (E15) e centralização também na ré. A calibração (calib6) ficou: centralizar 1, ganho_rumo 0.6, largura_corredor 150, ganho_parede 5, max_parede 100.
+- Gravação 4 — 11:21:47 (commit 0b52404): registro da velocidade da reta a cada 50 ms, conferência `check_clean_motion` no t.py (E15) e centralização também na ré. A calibração (calib6) ficou: centralizar 1, ganho_rumo 0.6, largura_corredor 150, ganho_parede 5, max_parede 100.
 ## E15 (tentativa 3) — CONFERIR (falta a resposta do operador) — 11:24:34
 
 Reta contínua: 3 células num movimento só (andar 3) e volta de ré. Comando(s): andar 3, re.
@@ -1499,9 +1499,9 @@ Reta contínua: 3 células num movimento só (andar 3) e volta de ré. Comando(s
 
 
 ## E15 com velocidade a cada 50 ms (11:24) — CONFERIR: movimento em ARRANCOS
-Velocidade medida pelo controle: 0 8 34 64 67 56 34 23 34 77 160 210 218 176 101 34 0 25 92 193 257 244 193 59 0 0 34 ... : com referência 120 mm/s a roda vai de 0 a ~270 mm/s e volta a 0 a cada ~0,4 s (22 amostras de 50 ms abaixo de 72 mm/s no meio do trecho; desvio 88 mm/s; média 124). Causa: o termo da parede (RF-44) entrava na reta em degraus a cada leitura ruidosa do ToF e o ToF direito (7-13 mm do limite de alcance) alternava entre válido e "perto". Correção: filtro de 0,3 s/20 mm/s (commit 335d450). Era um defeito de 19/11 (o operador descrevia "anda um pouco, para").
+Velocidade medida pelo controle: 0 8 34 64 67 56 34 23 34 77 160 210 218 176 101 34 0 25 92 193 257 244 193 59 0 0 34 ... : com referência 120 mm/s a roda vai de 0 a ~270 mm/s e volta a 0 a cada ~0,4 s (22 amostras de 50 ms abaixo de 72 mm/s no meio do trecho; desvio 88 mm/s; média 124). Causa: o termo da parede (RF-44) entrava na reta em degraus a cada leitura ruidosa do ToF e o ToF direito (7-13 mm do limite de alcance) alternava entre válido e "perto". Correção: filtro de 0,3 s/20 mm/s (commit 68216b0). Era um defeito de 19/11 (o operador descrevia "anda um pouco, para").
 ## Gravação 5 — registro abaixo
-- Gravação 5 — 11:30:04 (commit 335d450). Depois de ligar (boot d33897/018c9a, ligado há ~87 s) os ToF laterais E e D ficaram MUDOS (nem 0x30/0x32 nem 0x29), achado de energia (mesmo padrão da queda de alimentação); o tofrec os recuperou na 2a tentativa. Falha do assistente: a escorva (reta + ré) rodou com E e D fora do ar; passou ok, mas sem centralização. Regra: recuperar e conferir os 3 ToF ANTES de qualquer movimento.
+- Gravação 5 — 11:30:04 (commit 68216b0). Depois de ligar (boot d33897/018c9a, ligado há ~87 s) os ToF laterais E e D ficaram MUDOS (nem 0x30/0x32 nem 0x29), achado de energia (mesmo padrão da queda de alimentação); o tofrec os recuperou na 2a tentativa. Falha do assistente: a escorva (reta + ré) rodou com E e D fora do ar; passou ok, mas sem centralização. Regra: recuperar e conferir os 3 ToF ANTES de qualquer movimento.
 ## E15 (tentativa 4) — FALHOU (falta a resposta do operador) — 11:33:11
 
 Reta contínua: 3 células num movimento só (andar 3) e volta de ré. Comando(s): andar 3, re.
@@ -1519,7 +1519,7 @@ Reta contínua: 3 células num movimento só (andar 3) e volta de ré. Comando(s
 
 
 ## Diagnóstico do E15 por tempo (11:35): ciclo limite do controle da roda
-Registro de velocidade e tensão a cada 50 ms: a partir de ~1,7 s a tensão oscila de -2 a +5,5 V com período de ~0,45 s e a roda vai de 0 a 270 mm/s (e até -19), com a referência em 120. Simulação: a roda real é lenta (constante de tempo ~0,2-0,3 s, o simulador usava 0,03 s) e o WheelLoop antigo (I=3,0, D=0,004) oscila: pior caso 505 mm/s. Retune I=0,1 e D=0,02: 7 mm/s em toda a faixa (commit 0c99d6b). A rampa de tensão e o termo da parede eram agravantes menores (filtro de 0,3 s no termo da parede: 335d450).
+Registro de velocidade e tensão a cada 50 ms: a partir de ~1,7 s a tensão oscila de -2 a +5,5 V com período de ~0,45 s e a roda vai de 0 a 270 mm/s (e até -19), com a referência em 120. Simulação: a roda real é lenta (constante de tempo ~0,2-0,3 s, o simulador usava 0,03 s) e o WheelLoop antigo (I=3,0, D=0,004) oscila: pior caso 505 mm/s. Retune I=0,1 e D=0,02: 7 mm/s em toda a faixa (commit 77c0d8c). A rampa de tensão e o termo da parede eram agravantes menores (filtro de 0,3 s no termo da parede: 68216b0).
 ## Gravação 6 — registro abaixo
 ## E15 (tentativa 5) — CONFERIR (falta a resposta do operador) — 11:41:34
 
@@ -1581,7 +1581,7 @@ Respostas do operador ao E15 (tentativa 6), 11:49:17:
 - PASSOU: operador: Tranco ao parar no fim: 0 = nada, 1 = pouco, 2 = como antes, 3 = pior -> 0.0
 - veredito final: CONFERIR
 
-- nota sobre o E15 (11:49:17): 20/11 11:50 (gravacao 7, commit 486995a): andar 3 e re 3 CONTINUOS e LIMPOS (cruzeiro minimo 104, media 120, desvio 6,5; 5036/5037 ms contra ~6,9 s parando). Operador: sem parar no meio = sim (ida e ré), tranco 0, zigue-zague 'melhorou, quase nao e mais perceptivel'. Erro lateral no fim 6,5 mm; ToF D com 5 alternancias valido/invalido (sensor perto do limite de alcance e abertura na parede).
+- nota sobre o E15 (11:49:17): 20/11 11:50 (gravacao 7, commit 7c9f644): andar 3 e re 3 CONTINUOS e LIMPOS (cruzeiro minimo 104, media 120, desvio 6,5; 5036/5037 ms contra ~6,9 s parando). Operador: sem parar no meio = sim (ida e ré), tranco 0, zigue-zague 'melhorou, quase nao e mais perceptivel'. Erro lateral no fim 6,5 mm; ToF D com 5 alternancias valido/invalido (sensor perto do limite de alcance e abertura na parede).
 
 - calibração (20/11 11:54:43): gravado no robô: ganho_parede=3 max_parede=50
 

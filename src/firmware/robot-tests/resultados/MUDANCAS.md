@@ -91,7 +91,7 @@ Teste físico novo no `t.py`: E9. Testes no computador: 326 passando; placa comp
 - Se a frente configurada for a do CAD (107,25), o plano diz "NAO CABE": o robô avisa no log e gira como antes (comportamento antigo; não há alternativa de ré no Navigator).
 - Item 1 (medida da frente do robô com paquímetro) continua pendente: o plano usa `eixo_ate_frente` e `eixo_ate_tof_frente` do `calib`. NÃO gravado no robô. Testes no computador: 332; a placa compila.
 
-## Mudança 7 (19/11, pedido do operador): novas malhas fechadas (commits 1346633 a 9ae8faf)
+## Mudança 7 (19/11, pedido do operador): novas malhas fechadas (commits 1e1aebd a 622c234)
 | Malha | Chave do calib | Padrão | Erro que ataca | Evidência |
 |---|---|---|---|---|
 | Rampa de tensão (`VoltageSlew`) | `rampa_tensao` 50 V/s | LIGADA | BROWNOUT na partida | simulador: subida de >100 V/s para 50 V/s, reta ainda chega à célula |
@@ -104,7 +104,7 @@ Teste físico novo no `t.py`: E9. Testes no computador: 326 passando; placa comp
 - NÃO implementado (e por quê): limite de corrente pelo INA219 (ler o INA no laço de controle soma uma transação I²C por volta, e o I²C do ToF já causou travadas de 16-17 ms); estimador de ganho por roda (o I do WheelLoop já compensa); reduzir a velocidade ao se aproximar da parede (a parada dinâmica cobre o efeito sem mexer no perfil); ignorar só o ToF morto (contraria a regra de não desativar nada nos testes).
 - Nada disto foi gravado ou testado no robô. Testes no computador: 366; a placa compila com -Werror.
 
-## Mudança 8 (20/11, pedido do operador): reta contínua, fases 1 e 2 (commits eaf1e9f, 91ebe0b e seguintes)
+## Mudança 8 (20/11, pedido do operador): reta contínua, fases 1 e 2 (commits 065d7c4, 00a7c45 e seguintes)
 Motivo: o operador observou que o tranco vem do para-e-anda (cada célula terminava parada); nos movimentos contínuos ele quase não ocorre.
 - `RunProfile`: perfil que muda de alvo andando; `StraightMove::retarget`.
 - `IMotionPort::advanceCells(máx, observador)` e `ISensorPort::senseMoving`: o robô anda várias células sem parar e, quando os ToF laterais passam sobre o centro da próxima célula (eixo ~59 mm antes), o Navigator lê as paredes, recalcula o flood fill e decide se passa; senão o alvo encurta para aquele centro (frear de 120 mm/s pede ~32 mm).
@@ -114,7 +114,7 @@ Motivo: o operador observou que o tranco vem do para-e-anda (cada célula termin
 - Comando de teste `andar N` e teste E15. O `t.py` conta um passo de N células como N passos nas corridas D.
 - Limitações: as paredes das células atravessadas são gravadas com a leitura em movimento (o painel recebe só a célula de cada passo); se o robô não conseguir frear a tempo numa célula, a reta falha com 'reta continua: nao freou a tempo na celula'. NADA disto foi testado no robô ainda.
 
-## Mudanças 9 a 12 (20/11): movimento contínuo e limpo (commits 0c99d6b, 335d450, bc99c89, 486995a)
+## Mudanças 9 a 12 (20/11): movimento contínuo e limpo (commits 77c0d8c, 68216b0, db1e11c, 7c9f644)
 Sintoma (operador): "anda um pouco, para, anda um pouco, para". Diagnóstico com o registro novo de velocidade/tensão a cada 50 ms na reta (E15): com referência 120 mm/s a roda ia de 0 a ~270 mm/s e voltava a 0 a cada ~0,4 s, tensão de -2 a +5,5 V.
 - **Causa principal: ganhos do WheelLoop** (I=3,0, D=0,004) oscilavam com a constante de tempo REAL da roda (~0,2-0,3 s; o simulador usava 0,03 s). Varredura no simulador: pior caso 505 mm/s. Retune I=0,1 e D=0,02: 7 mm/s em toda a faixa (teste de regressão `CruiseSpeedStaysSteadyEvenForSlowWheels`, que falha com os ganhos antigos).
 - Termo da parede (RF-44) suavizado por filtro de 0,3 s e 20 mm/s (`OffsetFilter`): leituras ruidosas do ToF (e o ToF direito alternando válido/"perto") deixam de ser degraus de posição.
@@ -125,8 +125,8 @@ Sintoma (operador): "anda um pouco, para, anda um pouco, para". Diagnóstico com
 - Pendente: o ToF direito alterna válido/inválido (7 a 13 mm, perto do limite de alcance); a parede direita do corredor de teste não é reta (abertura em ~1,1-2,5 s e aproximação depois).
 
 ## Mudança 13 (20/11 tarde): curva só em arco que cabe, centro aprendido e folga do arco
-- Centro aprendido nas retas (`learnCenters`): quando uma parede some, a outra é comparada com o centro medido com as duas, não com o de 168 mm (commit 4c69b3d). Recuo/avanço/ajuste antes da curva centralizam.
-- Plano B do arco sem espaço para recuar: se o giro no lugar não cabe (com a frente real de 100 mm não cabe em lugar nenhum), a manobra FALHA com 'giro no lugar nao cabe nesta celula' em vez de raspar (commit 8a39f25).
+- Centro aprendido nas retas (`learnCenters`): quando uma parede some, a outra é comparada com o centro medido com as duas, não com o de 168 mm (commit 93ea302). Recuo/avanço/ajuste antes da curva centralizam.
+- Plano B do arco sem espaço para recuar: se o giro no lugar não cabe (com a frente real de 100 mm não cabe em lugar nenhum), a manobra FALHA com 'giro no lugar nao cabe nesta celula' em vez de raspar (commit ac961bc).
 - Modelo do arco (`domain/ArcClearance`, 5 testes): robô real (frente 100, largura 112, cabo à esquerda) numa curva em L de 168 mm. Janela longitudinal que cabe: -24 a -4 mm (o projeto antigo: -24 a +8); lateral +-26 mm (com o cabo: -16 a +26); num corredor de 153 mm só +-8 mm. O plano antigo (folga 20 mm) começava a -23 mm, colado no limite de trás.
 - Chave `folga_arco` (padrão 12 mm => início a -15 mm, perto do ótimo de -16). A memória do robô passa a calib7 (reaplicar centralizar=1, ganho_rumo=0.6, ganho_parede=3, max_parede=50, eixo_ate_frente=100, eixo_ate_tof_frente=98, largura_frente=112, tof_lado_ao_centro=55.5 depois de gravar).
 - NADA disto foi testado no robô. O modelo é uma reconstrução do arco (raio 90, quarto de círculo em volta do canto de dentro) e precisa ser validado na pista com `virar d` em A2 e A4 variando `folga_arco` (20 / 12 / 8).

@@ -1,17 +1,17 @@
 # Curva contínua (arco sem parar) — resultados de 20/11/2026
 
 Comando de teste: `curvac d|e [N]` (anda N células e vira na última sem parar); teste `E16a` (direita) e `E16b` (esquerda).
-Firmware: `9e42532` (curva contínua), `1796c62`, `b8eb419`, `1ac31ae`, `110187a` (comando `giroang`). Chaves novas do calib: `curva_continua` (0/1), `antecipa_arco` (mm).
+Firmware: `8b3f807` (curva contínua), `9797d8b`, `c631cb8`, `30459db`, `c7fcc0f` (comando `giroang`). Chaves novas do calib: `curva_continua` (0/1), `antecipa_arco` (mm).
 
 ## Rodadas do E16a (curva à direita, labirinto serpentina)
 
 | # | Firmware | Giro (giroscópio) | Fim | Observação do operador |
 |---|----------|-------------------|-----|------------------------|
-| 1 | 9e42532 | -55,8 (travou) | desfazer sem progresso, robô torto -49 | chassi bateu no canto superior esquerdo |
-| 2 | 1796c62 | -105,6 | E=66 (~38 mm fora do centro), rumo -11 | passou, quase reto, sem bater |
-| 3 | b8eb419 | -89,1 | E=43 (~15 mm fora) | sem bater, traseira inclinada |
-| 4 | 1ac31ae | -89,6 | E=28 (centro) | sem bater, traseira inclinada |
-| 5 | 1ac31ae, escala 1,01 | -90,2 | E=49 | "está bom", reto |
+| 1 | 8b3f807 | -55,8 (travou) | desfazer sem progresso, robô torto -49 | chassi bateu no canto superior esquerdo |
+| 2 | 9797d8b | -105,6 | E=66 (~38 mm fora do centro), rumo -11 | passou, quase reto, sem bater |
+| 3 | c631cb8 | -89,1 | E=43 (~15 mm fora) | sem bater, traseira inclinada |
+| 4 | 30459db | -89,6 | E=28 (centro) | sem bater, traseira inclinada |
+| 5 | 30459db, escala 1,01 | -90,2 | E=49 | "está bom", reto |
 | 6 | escala 1,00 | -88,9 | E=58 (~30 mm fora) | melhor, mas longe da parede esquerda |
 | 7 | escala 1,00, antecipa 12 | -83,1 (rumo inicial -4,6) | E=54 | raspou levemente a parede direita da célula de partida; longe da parede esquerda |
 | 8 | escala 1,00, antecipa 12, partida F=163 | -88,4 | E=40 (~6 mm fora) | não bateu, mais centralizado (E16a PASSOU) |
@@ -61,7 +61,7 @@ curva contínua do passo 6 passam; a falha que sobra é a **curva à esquerda do
 7. **Desfazer do arco** (2,8/1,6 V, 2,4 s): voltou de ~38-48° a 4° nas SERPENTINAS 18, 19 e 20; com 1,6 s faltaram ~4°.
 
 ### Estado do robô e do firmware
-Firmware `534a34a` (51 chaves no calib, `calib10`): curva contínua, recuo de 90 mm sem parede à frente, desfazer suave, logs novos da curva
+Firmware `c63ab24` (51 chaves no calib, `calib10`): curva contínua, recuo de 90 mm sem parede à frente, desfazer suave, logs novos da curva
 (ToF antes do recuo, caminho e tensão de cada roda, ToF no travamento). Calib em uso: eixo_ate_frente=100 eixo_ate_tof_frente=98
 largura_frente=112 tof_lado_ao_centro=55.5 centralizar=1 ganho_rumo=1.0 ganho_parede=3 max_parede=50 escala_giro=1.00 antecipa_arco=12
 arco_esq_atraso=-14 bateria_minima=5.5. E0 passa.
@@ -75,7 +75,7 @@ arco_esq_atraso=-14 bateria_minima=5.5. E0 passa.
 
 ## Fim da noite de 20/11: curva à esquerda do passo 7 (SERPENTINAS 21 a 26)
 
-Firmware `5c3f5d4` (calib12, 54 chaves). Calib em uso: eixo_ate_frente=100 eixo_ate_tof_frente=98 largura_frente=112 tof_lado_ao_centro=55.5 centralizar=1
+Firmware `41757a8` (calib12, 54 chaves). Calib em uso: eixo_ate_frente=100 eixo_ate_tof_frente=98 largura_frente=112 tof_lado_ao_centro=55.5 centralizar=1
 ganho_rumo=1.0 ganho_parede=3 max_parede=22 escala_giro=1.00 antecipa_arco=12 folga_arco=18 arco_esq_atraso=-14 giro_aberto=1 freio_pivo=4
 desfazer_tensao_fora=3.6 desfazer_tensao_dentro=2.2 rumo_max_lateral=8 ajuste_fino_min=0.4 bateria_minima=5.5.
 

@@ -12,7 +12,7 @@
 `13e7cfe` testes de propriedade do Flood Fill | `7cc1aaa` labirinto em pé por comando BLE `labirinto` | `16704f7` docs | `62ef8b5` toque longo do botão |
 `8282d64` bloco O no `t.py`.
 
-## Mudanças de hoje, agora COMMITADAS (aprovadas pelo operador): `2b34729` (snprintf) e `2978466` (`tof_na_reta`); docs `0110e69`
+## Mudanças de hoje, agora COMMITADAS (aprovadas pelo operador): `2b34729` (snprintf) e `2978466` (`tof_na_reta`); docs `df0c28d`
 1. `include/adapters/Drv8833MotionAdapter.hpp:41` `undoFailure_[112]`→`[192]`; `src/adapters/Drv8833MotionAdapter.cpp:1267-1268` `%.0f`→`%d` com `static_cast<int>(undo.angle())` (a placa não compilava com `-Werror`).
 2. Chave `calib tof_na_reta` (padrão 1; 0 = não lê ToF durante a reta): `Calibration.hpp` (campo `tofInStraight`, contagem 17→18), `Calibration.cpp`, `Drv8833MotionAdapter.cpp` (`readTofInStraight` em `straight()`),
    `main.cpp` (chave NVS `calib2`→`calib3`), teste `CalibrationTest.TofInStraightDefaultsOnAndAcceptsOnlyZeroOrOne`. Host 318/318, 0 avisos; placa compilada.

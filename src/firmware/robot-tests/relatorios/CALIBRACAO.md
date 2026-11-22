@@ -8,7 +8,7 @@ Uma linha por mudança de `calib` ou por teste que decide um valor. Procedimento
 - **Log:** caminho do arquivo em `robot-tests/resultados/`.
 - **Medidas:** não há paquímetro; anotar o instrumento (fita métrica, trena) e o método (direto, por diferença, pelo ToF).
 
-## Ponto de partida (fim de 20/11, firmware `1a28a15`, calib14)
+## Ponto de partida (fim de 20/11, firmware `34a7b7c`, calib14)
 
 Calib em uso na SERPENTINA-29 (as 20 chaves fora do padrão):
 `eixo_ate_frente=100 eixo_ate_tof_frente=98 largura_frente=112 tof_lado_ao_centro=55.5 escala_giro=1 freio_pivo=4 centralizar=1

@@ -16,14 +16,14 @@ Um commit explicou o passo 7 como "desvio maior que a folga lateral" (28 mm); **
 
 **21/11, manhã (Fase 1, sem robô):** auditoria dos logs e modelo geométrico. **Causa raiz:** o modelo do giro no lugar (`domain/PivotClearance`) trata as paredes como retas infinitas e
 **ignora os postes dos cantos** (12x12 mm); com os postes e o cabo, o giro simples de 90° **não cabe em posição nenhuma** (folga de -8 mm). Criada a **curva em S**
-(`domain/CellTurn`): gira (90 - beta) graus, anda na diagonal e completa; o plano é conferido contra paredes, postes e cabo. Commits `c94a204`, `c97f13d`, `520008e`, `c399f89`, `c463bec`, `507c955`.
+(`domain/CellTurn`): gira (90 - beta) graus, anda na diagonal e completa; o plano é conferido contra paredes, postes e cabo. Commits `6fbcafc`, `2f038b7`, `0a01d9e`, `70a98ae`, `7c86104`, `a36cfd6`.
 
 **21/11, noite (Fase 2, pista):**
 1. Gravado o firmware; o cálculo dos 4 planos da curva em S levou **8 a 12 s cada** no ESP32 (estimei 1 a 3 s).
 2. Medidas com trena: eixo->sensor frontal = 92 mm perto da parede (96,5 a 229 mm); o ToF **lê ~4,5 mm a mais perto da parede**. `eixo_ate_tof_frente` 98 -> 92 -> 88 (o melhor medido na pista; 84 travou o S).
 3. Retas dentro de ±8 mm com `max_parede` 22 -> 35 (22 deixava o robô 14 a 22 mm à direita; 50 abortava por rumo perdido).
-4. A 1ª curva em S travou em ~1 de cada 4 vezes sem padrão (bateria, frontal, avanço, posição). Implementada a **2ª tentativa** (`540f6b0`): gira de volta, desloca o eixo meia `ajuste_2a_tentativa` e repete.
-5. A diagonal do S aborta com "rumo perdido 10,1°" por toque leve na parede: limite da diagonal subiu para 18° (`4f80eec`).
+4. A 1ª curva em S travou em ~1 de cada 4 vezes sem padrão (bateria, frontal, avanço, posição). Implementada a **2ª tentativa** (`0f49ea1`): gira de volta, desloca o eixo meia `ajuste_2a_tentativa` e repete.
+5. A diagonal do S aborta com "rumo perdido 10,1°" por toque leve na parede: limite da diagonal subiu para 18° (`e0d2bd6`).
 6. **ToF direito caiu sozinho** (voltou ao endereço 0x29: a alimentação do módulo piscou); `tofrec` recupera. Suspeitei do cálculo dos planos e **estava errada**: caiu com o robô parado, sem cálculo.
 7. **Motor direito com arrasto intermitente** (corrida 51: 7,2 V contra 3,1 V na ré; depois de limpar os motores, 3,5 / 3,5 V). Teste de 10 giros em piso livre mostrou as rodas simétricas; 5 retas em malha aberta deram deriva de -4 a +15 mm (ruído de posicionar à mão).
 8. Ajustes de calib (`alvo_lateral_dir_mm` -8, `alvo_pos_esq_mm` 0, `curva_dir_fora` 8, `ajuste_2a_tentativa` 24) levaram a 4 corridas seguidas (40 a 43) e depois a 49, 50, 52, 53.
