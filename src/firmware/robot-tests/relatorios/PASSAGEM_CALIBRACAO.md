@@ -1,5 +1,17 @@
 # Passagem da calibração (noite de 21/11/2026)
 
+## RESUMO PARA QUEM HERDA O FIRMWARE (leia isto primeiro)
+**Estado:** o robô **completa a serpentina 4x4** (~52 s) com o firmware `fase1-entrega-4` (tag `pista-21-11`, calib15, 60 chaves), mas **raspa na parede direita** na saída das curvas. O calib final está na seção 2 e já está gravado na memória do robô.
+
+**O que fazer, nesta ordem (decisão do operador; detalhes na seção 7):**
+1. **Calibrar a cada curva para ficar reto e centralizado** (Tarefa 2): depois de cada curva, medir pelas paredes, corrigir rumo e deslocamento lateral, repetir no máximo 2 vezes; aceitar com |E-D| <= 6 mm e rumo <= 1,5°. É o que resolve o arrasto.
+2. **Remover a curva contínua do projeto** (Tarefa 1): ficam só o **arco parado com ré** e a **curva em S** (gira ~70°, diagonal, completa); a **reta contínua** continua. Tabela de arquivos, 8 chaves e testes a apagar na seção 7. Faça a Tarefa 2 antes ou junto: `curva_continua=0` sozinho piorou.
+3. Reiniciar o ToF que cai **durante** a reta (hoje só parado), aviso de desequilíbrio de tensão das rodas, reduzir o tempo do boot (4 planos x 8-12 s).
+4. Com as outras equipes: cabo da bateria, motor/caixa e pneu direitos (estrutura), alimentação do ToF direito (energia). Os documentos de cada equipe foram atualizados em 21/11 (`PARA_EQUIPE_*.md`).
+
+**Como operar:** ponte BLE e `t.py` pelo **Python do Windows**; depois de um erro, `python t.py reiniciar` (~45 s); gravar **só com a bateria fora**; conferir com `python t.py E0 --auto` (60 chaves); rodar `tofrec` e `tofmon 60` antes de cada sessão. Seção 4.
+**Onde está tudo:** `LEIA-ME.md` na raiz do pacote (`passagem-2026-11-21.zip`): documentos, logs de todas as corridas, firmware gravado, repositório (bundle) e a conversa da sessão. Hashes antigos de commit: tabela na seção 9 (o histórico foi reescrito).
+
 Documento para quem assumir a calibração do robô. Leia este arquivo primeiro; os detalhes estão em `auditoria/AUDITORIA-2026-11-21.md` (raiz do
 repositório, seção 9), `CALIBRACAO.md` (diário, uma linha por mudança) e `AJUSTES_FINAIS.md`.
 
