@@ -10,9 +10,20 @@ menu "Rato Borrachudo"
             Os ToF já estão como stub (sem paredes), então a corrida percorre o
             labirinto aberto até o objetivo. NUNCA ligar na placa do robô.
 
+    config RATO_PROTOBOARD
+        bool "Montagem em protoboard (mapa de pinos de 25/11)"
+        depends on IDF_TARGET_ESP32S3
+        default n
+        help
+            Mapa de pinos da montagem em protoboard: tudo na barra J1 da DevKit,
+            botão de largada no BOOT da própria placa (GPIO 0), sem LEDs
+            (include/adapters/BoardPins.hpp). Desligada, vale o mapa do robô
+            anterior. NÃO gravar um mapa numa montagem feita pelo outro: há saídas
+            que cairiam em chaves ligadas ao GND.
+
     config RATO_FIOS_MOTORES_TROCADOS
         bool "Fios dos motores trocados (robô montado na bancada)"
-        depends on IDF_TARGET_ESP32S3
+        depends on IDF_TARGET_ESP32S3 && !RATO_PROTOBOARD
         default y
         help
             No robô montado na bancada, os fios dos motores foram soldados trocados em

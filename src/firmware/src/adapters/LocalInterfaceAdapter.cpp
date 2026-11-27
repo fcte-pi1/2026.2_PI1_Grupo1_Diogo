@@ -87,17 +87,32 @@ void initBuzzer() {
     }
 }
 
+// Uma montagem pode não ter os LEDs (protoboard: GPIO_NUM_NC).
+void setLed(gpio_num_t pin, uint32_t level) {
+    if (pin != GPIO_NUM_NC) {
+        gpio_set_level(pin, level);
+    }
+}
+
 }  // namespace
 
 void LocalInterfaceAdapter::begin() {
-    const gpio_config_t output{
-        .pin_bit_mask = (1ULL << pins::kLedReady) | (1ULL << pins::kLedError),
-        .mode = GPIO_MODE_OUTPUT,
-        .pull_up_en = GPIO_PULLUP_DISABLE,
-        .pull_down_en = GPIO_PULLDOWN_DISABLE,
-        .intr_type = GPIO_INTR_DISABLE,
-    };
-    gpio_config(&output);
+    uint64_t ledMask = 0;
+    for (const gpio_num_t pin : {pins::kLedReady, pins::kLedError}) {
+        if (pin != GPIO_NUM_NC) {
+            ledMask |= 1ULL << static_cast<unsigned>(pin);
+        }
+    }
+    if (ledMask != 0) {
+        const gpio_config_t output{
+            .pin_bit_mask = ledMask,
+            .mode = GPIO_MODE_OUTPUT,
+            .pull_up_en = GPIO_PULLUP_DISABLE,
+            .pull_down_en = GPIO_PULLDOWN_DISABLE,
+            .intr_type = GPIO_INTR_DISABLE,
+        };
+        gpio_config(&output);
+    }
 
     const gpio_config_t input{
         .pin_bit_mask = (1ULL << pins::kButton),
@@ -116,15 +131,15 @@ bool LocalInterfaceAdapter::buttonPressed() const {
 }
 
 void LocalInterfaceAdapter::signalReady() {
-    gpio_set_level(pins::kLedReady, 1);
-    gpio_set_level(pins::kLedError, 0);
+    setLed(pins::kLedReady, 1);
+    setLed(pins::kLedError, 0);
     playPattern(domain::BuzzerPattern::Ready);
 }
 
-void LocalInterfaceAdapter::signalRunning() { gpio_set_level(pins::kLedReady, 1); }
+void LocalInterfaceAdapter::signalRunning() { setLed(pins::kLedReady, 1); }
 
 void LocalInterfaceAdapter::signalError() {
-    gpio_set_level(pins::kLedError, 1);
+    setLed(pins::kLedError, 1);
     playPattern(domain::BuzzerPattern::Alarm);  // 3 bips e depois silêncio (RF-9, RF-55)
 }
 

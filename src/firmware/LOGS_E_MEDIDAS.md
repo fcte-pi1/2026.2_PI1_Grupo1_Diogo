@@ -271,15 +271,7 @@ O que depende do robô montado e do piso fica na memória do robô (NVS) e é tr
 | `ganho_parede` | Pulsos equivalentes por mm fora do centro no termo da parede (RF-44). O termo controla o RUMO (de primeira ordem, não oscila) | 0,8 | 0 a 6 |
 | `max_parede` | Teto do termo da parede em pulsos (16 = ~5,6 mm entre as rodas, ~1,2 graus de rumo) | 16 | 0 a 120 |
 | `folga_arco` | Folga da quina de fora do arco à parede da frente: `F inicial = raio do canto de fora + folga - ToF até o eixo`. O modelo de 20/11 (`domain/ArcClearance`) mostra que com o robô real (frente 100, largura 112) a janela em que o arco cabe é de -24 a -4 mm; com 20 mm o plano fica em -23 (colado no limite de trás), com 12 mm em -15 (perto do ótimo, -16). Afinar na pista | 12 mm | 0 a 40 |
-| `curva_continua` | 1 = com `reta_continua=1`, a curva é um arco sem parar dentro da reta (20/11) | 1 | 0 ou 1 |
-| `antecipa_arco` | O arco da curva contínua começa este tanto antes da borda da célula da curva (o modelo dá a maior folga em 16) | 16 mm | 0 a 30 |
 | `arco_esq_atraso` | Curva à esquerda: mm a mais antes de começar o arco (+ = mais tarde, perto da parede da frente; - = mais cedo). Em uso em 20/11: -14 | 0 mm | -20 a 20 |
-| `curva_cont_vel` | Velocidade do eixo no arco da curva contínua (a reta chega a ~130 e freia até ela) | 80 mm/s | 30 a 150 |
-| `curva_cont_bitola` | Bitola do arco com o robô andando (a do giro parado, 74,2, não vale) | 100 mm | 60 a 140 |
-| `curva_cont_ganho` | mm de diferença entre as rodas por grau de erro do giroscópio no arco | 1,0 | 0 a 3 |
-| `curva_cont_giro_max` | Teto dessa correção | 30 mm | 0 a 60 |
-| `curva_cont_trava` | Erro do giroscópio em relação ao planejado que vale como arco preso | 20 graus | 5 a 45 |
-| `curva_cont_freio` | O arco para este tanto antes dos 90 graus (o robô ainda gira ao frear) | 4 graus | 0 a 15 |
 | `desfazer_tensao_fora` | Desfazer de um arco travado (ré pelo mesmo arco): tensão da roda de fora. Em uso: 3,6 | 2,8 V | 1 a 5 |
 | `desfazer_tensao_dentro` | O mesmo, roda de dentro. Em uso: 2,2 | 1,6 V | 0,5 a 4 |
 | `desfazer_tempo` | Tempo máximo do desfazer | 2,4 s | 0,5 a 4 |
@@ -312,7 +304,12 @@ a X mm` mostra o resultado). Linhas novas no log:
 - `curva: freio: esta curva freou X graus antes do alvo e girou Y depois; aprendeu (proxima: arco A,
   pivo P)`: só com o autoajuste ligado, depois de cada curva.
 
-A chave da memória do robô muda quando a lista de chaves muda (`calib15` desde 21/11, 60 chaves). Na primeira vez que liga com
+**Curva contínua retirada (23/11, `AJUSTES_FINAIS.md`, Tarefa 1):** saíram as 8 chaves `curva_continua`, `antecipa_arco`,
+`curva_cont_vel`, `curva_cont_bitola`, `curva_cont_ganho`, `curva_cont_giro_max`, `curva_cont_trava` e `curva_cont_freio`, o comando
+`curvac d|e [N]` e as linhas `curva continua a ...` e `curva continua travou ...`. Ficam só o arco parado com ré e a curva em S; a reta
+contínua continua, e o trecho que chega a uma curva para no centro da célula da curva. O relatório `CURVA_CONTINUA_20_11.md` fica como histórico.
+
+A chave da memória do robô muda quando a lista de chaves muda (`calib16` desde 23/11, 52 chaves; antes `calib15`, 60). Na primeira vez que liga com
 um firmware de chave nova, **o robô volta aos padrões**: reaplicar o calib em uso (roteiro em
 `BATERIA_TESTES_21_11.md`, seção 2) e rodar o E0.
 

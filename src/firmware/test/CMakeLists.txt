@@ -20,7 +20,6 @@ add_executable(firmware_tests
     simulation/SimulatedRobot.hpp
     use_cases/NavigatorTest.cpp
     use_cases/ContinuousRunTest.cpp
-    use_cases/ContinuousTurnTest.cpp
     use_cases/SerpentineMazeTest.cpp
     use_cases/TrackMaze0911Test.cpp
     use_cases/TrackMazeCornersTest.cpp
@@ -41,7 +40,6 @@ add_executable(firmware_tests
     controller/VoltageSlewTest.cpp
     controller/HeadingFusionTest.cpp
     controller/RunProfileTest.cpp
-    controller/PathMoveTest.cpp
     controller/OffsetFilterTest.cpp
     simulation/MotorPlant.hpp
     protocol/ProtocolV1Test.cpp
@@ -62,12 +60,14 @@ add_executable(firmware_tests
     domain/WallPositionTest.cpp
     domain/DynamicFrontStopTest.cpp
     domain/GyroBiasTrackerTest.cpp
+    domain/ThermalWatchTest.cpp
     domain/SweptFootprintTest.cpp
     domain/WheelStallTest.cpp
     domain/BridgeDriveTest.cpp
     drivers/Vl53l1xTest.cpp
     adapters/BoardPinsAssembledTest.cpp
     adapters/BoardPinsSchematicTest.cpp
+    adapters/BoardPinsProtoTest.cpp
 )
 
 target_include_directories(firmware_tests PRIVATE

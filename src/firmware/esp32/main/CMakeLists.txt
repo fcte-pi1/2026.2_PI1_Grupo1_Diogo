@@ -27,7 +27,6 @@ idf_component_register(
         "${CORE_ROOT}/src/drivers/Vl53l1x.cpp"
         "${CORE_ROOT}/src/domain/MotorVoltage.cpp"
         "${CORE_ROOT}/src/controller/RunProfile.cpp"
-        "${CORE_ROOT}/src/controller/PathMove.cpp"
         "${CORE_ROOT}/src/controller/TrapezoidProfile.cpp"
         "${CORE_ROOT}/src/controller/WheelLoop.cpp"
         "${CORE_ROOT}/src/controller/StraightMove.cpp"
@@ -57,7 +56,7 @@ idf_component_register(
     INCLUDE_DIRS "${CORE_ROOT}/include"
     # esp_app_format: versão e data do firmware no comando "diag" (esp_app_desc.h).
     # nvs_flash: valores do comando "calib" gravados na memória do robô.
-    REQUIRES driver esp_driver_i2c esp_driver_pcnt esp_driver_ledc esp_rom esp_timer
+    REQUIRES driver esp_driver_i2c esp_driver_pcnt esp_driver_ledc esp_driver_tsens esp_rom esp_timer
              esp_app_format nvs_flash esp-nimble-cpp)
 
 target_compile_features(${COMPONENT_LIB} PUBLIC cxx_std_17)

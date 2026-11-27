@@ -37,7 +37,12 @@
 #include "domain/Pid.hpp"
 #include "domain/RobotParameters.hpp"
 #include "domain/SensorHealthMonitor.hpp"
+#include "domain/ThermalWatch.hpp"
 #include "driver/gpio.h"
+#include "soc/soc_caps.h"
+#if SOC_TEMP_SENSOR_SUPPORTED
+#include "driver/temperature_sensor.h"
+#endif
 #include "esp_app_desc.h"
 #include "esp_err.h"
 #include "esp_log.h"
@@ -82,13 +87,19 @@ adapters::Drv8833MotionAdapter gMotion{gImu};
 #endif
 adapters::BleTelemetryAdapter gBle;
 
+// Vigia de temperatura e corrente (23/11, thermalTask): os sensores do I²C só podem ser lidos depois do begin() da
+// navegação; a última temperatura da ESP fica aqui, em centésimos de grau, para o `saude`.
+constexpr int32_t kNoEspTemp = -1000000;
+std::atomic<bool> gSensorsReady{false};
+std::atomic<int32_t> gEspTempCenti{kNoEspTemp};
+
 #if !CONFIG_RATO_BANCADA
 // ---- Calibração trocável pelo BLE (16/11), gravada na NVS ----
 // O que depende do robô montado e do piso (medidas do corpo, escala do giroscópio, freio das
 // curvas, parada pela parede da frente...) fica em domain::Calibration. O comando `calib` troca
 // os valores sem regravar o firmware; eles valem a partir do boot seguinte também.
 constexpr char kCalibNamespace[] = "rato";
-constexpr char kCalibKey[] = "calib15";  // mude o número se a struct mudar de formato (calib1: 13 campos)
+constexpr char kCalibKey[] = "calib16";  // mude o número se a struct mudar de formato (calib1: 13 campos)
 
 domain::Calibration defaultCalibration() {
     domain::Calibration calibration;
@@ -367,19 +378,6 @@ void onBleCommand(const std::string& command) {
         if (command == "re") maneuver = M::Reverse;  // uma célula de ré (saída de beco)
         gRemoteStop = false;  // zera aqui, e não ao começar: um "parar" que chegue depois vale
         gTestManeuver = static_cast<int>(maneuver);
-    } else if (command == "curvac d" || command == "curvac e" || command.rfind("curvac d ", 0) == 0 ||
-               command.rfind("curvac e ", 0) == 0) {
-        // `curvac d|e [N]` (20/11): anda N células (1 a 8, padrão 1) e vira na última SEM parar (curva contínua),
-        // terminando no centro da célula seguinte à curva.
-        const int cells = command.size() > 9 ? std::atoi(command.c_str() + 9) : 1;
-        if (cells >= 1 && cells <= 8) {
-            using M = adapters::Drv8833MotionAdapter::Maneuver;
-            gTestRunCells = cells;
-            gRemoteStop = false;
-            gTestManeuver = static_cast<int>(command[7] == 'd' ? M::RunTurnRight : M::RunTurnLeft);
-        } else {
-            ESP_LOGW("teste", "curvac d|e N: N de 1 a 8 (veio '%s')", command.c_str());
-        }
     } else if (command.rfind("re ", 0) == 0) {
         // `re N` (20/11): N células de ré num movimento só, de 2 a 8.
         const int cells = std::atoi(command.c_str() + 3);
@@ -580,12 +578,13 @@ void logHealth() {
     }
     ESP_LOGI("diag",
              "saude 1/2: ligado ha %lu s, reset=%s, bat=%.2f V, heap livre=%u min=%u, giro desvio "
-             "em uso=%.3f graus/s (%s), ble perdidos: linhas=%d eventos=%d pedacos=%u",
+             "em uso=%.3f graus/s (%s), ble perdidos: linhas=%d eventos=%d pedacos=%u, temp esp=%.1f C",
              uptimeSeconds(), resetReasonText(), gPower.busVoltageV(),
              static_cast<unsigned>(esp_get_free_heap_size()),
              static_cast<unsigned>(esp_get_minimum_free_heap_size()), gMotion.gyroBias(),
              gMotion.gyroBiasMeasured() ? "medido" : "nunca medido", gDroppedLogLines.load(),
-             gDroppedEvents.load(), adapters::BleTelemetryAdapter::droppedChunks());
+             gDroppedEvents.load(), adapters::BleTelemetryAdapter::droppedChunks(),
+             gEspTempCenti.load() == kNoEspTemp ? -99.0 : gEspTempCenti.load() / 100.0);
     drainLog();
     ESP_LOGI("diag",
              "saude 2/2: i2c erros tof E=%u F=%u D=%u imu=%u ina=%u | lentas E=%u F=%u D=%u (pior "
@@ -970,6 +969,38 @@ void toggleOrientation(const domain::MazeSetup& boot, domain::MazeSetup& setup) 
                                 : domain::BuzzerPattern::Landscape);
 }
 
+// Contagem entre o toque no botão e a largada (25/11): na protoboard o botão é o BOOT, na própria
+// ESP, e a mão precisa sair antes da conferência do canto e da medida do desvio do giroscópio.
+constexpr int kStartCountdownS = 5;
+
+// Um bip por segundo e um longo no fim. Um novo toque no botão (curto ou longo) ou o comando "parar"
+// cancela. Devolve true se pode largar.
+bool countdownBeforeStart() {
+    const long startMs = nowMs();
+    int announced = kStartCountdownS + 1;
+    domain::ButtonGesture gesture(gLocal.buttonPressed());
+    for (long elapsedMs = 0; elapsedMs < kStartCountdownS * 1000L; elapsedMs = nowMs() - startMs) {
+        const int remaining = kStartCountdownS - static_cast<int>(elapsedMs / 1000);
+        if (remaining < announced) {
+            announced = remaining;
+            ESP_LOGI(kTag, "largada em %d s", remaining);
+            gLocal.beep(2000, 80);
+        }
+        if (gesture.update(gLocal.buttonPressed(), static_cast<uint32_t>(nowMs())) !=
+            domain::ButtonEvent::None) {
+            return false;
+        }
+#if CONFIG_RATO_LOG_RETA
+        if (gRemoteStop.load()) {
+            return false;
+        }
+#endif
+        vTaskDelay(pdMS_TO_TICKS(10));
+    }
+    gLocal.beep(2600, 500);
+    return true;
+}
+
 void writeState(const telemetry::Snapshot& raw) {
     telemetry::Snapshot state = raw;
     state.position = gReport.position(raw.position);
@@ -995,6 +1026,7 @@ void navigationTask(void*) {
     gSensor.begin(gI2c.handle());
     gImu.begin(gI2c.handle());
     gPower.begin(gI2c.handle());
+    gSensorsReady = true;  // a thermalTask já pode ler o MPU6050 e o INA219
     gLocal.begin();
     gDip.begin();
     gMotion.begin();
@@ -1123,6 +1155,11 @@ void navigationTask(void*) {
         }
 #endif
         ESP_LOGI(kTag, "botao de largada acionado");
+        if (!countdownBeforeStart()) {
+            ESP_LOGW(kTag, "largada cancelada na contagem");
+            --runIndex;  // não houve corrida
+            continue;
+        }
         session.start();
 
 #if CONFIG_RATO_BANCADA
@@ -1192,8 +1229,6 @@ void navigationTask(void*) {
 #if !CONFIG_RATO_BANCADA
         // Reta contínua (20/11): trechos retos num movimento só (`calib reta_continua`, padrão 1).
         navigator.setContinuousRuns(gMotion.calibration().continuousRun >= 0.5);
-        navigator.setContinuousTurns(gMotion.calibration().continuousRun >= 0.5 &&
-                                     gMotion.calibration().continuousTurn >= 0.5);
 #endif
 
         // Limite de bateria fraca pelo `calib bateria_minima` (padrão 6,6 V). Nos testes de 20/11 o INA219 do robô lê ~1,7 V
@@ -1341,14 +1376,8 @@ void navigationTask(void*) {
                 const use_cases::StepReport& r = navigator.lastStep();
                 const domain::Position now = navigator.getPosition();
                 char runText[64] = "";
-                int runUsed = 0;
                 if (r.cells > 1) {
-                    runUsed = std::snprintf(runText, sizeof runText, " (%d celulas)", r.cells);
-                }
-                if (r.runTurn != use_cases::StepAction::None && runUsed >= 0 &&
-                    runUsed < static_cast<int>(sizeof runText)) {
-                    std::snprintf(runText + runUsed, sizeof runText - static_cast<size_t>(runUsed),
-                                  " (curva %s sem parar)", use_cases::stepActionName(r.runTurn));
+                    std::snprintf(runText, sizeof runText, " (%d celulas)", r.cells);
                 }
                 ESP_LOGI("nav",
                          "passo %d: cel (l%d,c%d) rumo %c | tof E=%d (%s) F=%d (%s) D=%d (%s) | "
@@ -1615,6 +1644,69 @@ void telemetryTask(void*) {
     }
 }
 
+#if !CONFIG_RATO_BANCADA
+// ===================== Vigia de temperatura e corrente (baixa prioridade) =====
+// 23/11 (domain::ThermalWatch): uma amostra por segundo da temperatura da ESP32-S3 (sensor interno), da do MPU6050
+// e da corrente do INA219. SÓ REGISTRA no log (decisão do operador): `termico: esp=.. imu=.. corrente=..` a cada
+// 10 s e, quando um alarme começa ou acaba, `termico: ALARME ...` / `termico: fim do alarme ...`. O sensor interno
+// mede o chip: um curto longe dele aparece antes (e melhor) na corrente.
+void thermalTask(void*) {
+    while (!gSensorsReady.load()) {
+        vTaskDelay(pdMS_TO_TICKS(200));
+    }
+#if SOC_TEMP_SENSOR_SUPPORTED
+    temperature_sensor_handle_t tsens = nullptr;
+    const temperature_sensor_config_t tsensConfig = TEMPERATURE_SENSOR_CONFIG_DEFAULT(-10, 80);
+    if (temperature_sensor_install(&tsensConfig, &tsens) != ESP_OK || temperature_sensor_enable(tsens) != ESP_OK) {
+        ESP_LOGW("termico", "sensor de temperatura da ESP nao iniciou: so o MPU6050 e a corrente");
+        tsens = nullptr;
+    }
+#endif
+    domain::ThermalWatch watch;
+    unsigned tick = 0;
+    char names[96];
+    while (true) {
+        domain::ThermalSample sample;
+        sample.timeS = static_cast<double>(esp_timer_get_time()) / 1e6;
+#if SOC_TEMP_SENSOR_SUPPORTED
+        float espC = 0.0f;
+        if (tsens != nullptr && temperature_sensor_get_celsius(tsens, &espC) == ESP_OK) {
+            sample.espC = espC;
+            sample.espValid = true;
+            gEspTempCenti = static_cast<int32_t>(std::lround(espC * 100.0f));
+        }
+#endif
+        if (const auto imu = gImu.readAll()) {
+            sample.imuC = imu->temperatureC;
+            sample.imuValid = true;
+        }
+        const unsigned powerErrors = gPower.readErrors();
+        sample.currentA = std::fabs(gPower.currentA());  // um curto pode aparecer com o sinal trocado
+        sample.currentValid = gPower.readErrors() == powerErrors;
+
+        const domain::ThermalReport report = watch.add(sample);
+        const double esp = sample.espValid ? sample.espC : -99.0;
+        const double imu = sample.imuValid ? sample.imuC : -99.0;
+        const double amps = sample.currentValid ? sample.currentA : -1.0;
+        if (report.raised != 0) {
+            domain::describeThermalAlarms(report.raised, names, sizeof names);
+            ESP_LOGW("termico",
+                     "ALARME %s: esp=%.1f C (subiu %.1f em 10 s) imu=%.1f C (subiu %.1f) corrente=%.2f A",
+                     names, esp, report.espRiseC, imu, report.imuRiseC, amps);
+        }
+        if (report.cleared != 0) {
+            domain::describeThermalAlarms(report.cleared, names, sizeof names);
+            ESP_LOGI("termico", "fim do alarme %s: esp=%.1f C imu=%.1f C corrente=%.2f A", names, esp, imu, amps);
+        }
+        if (++tick % 10 == 0) {
+            domain::describeThermalAlarms(report.active, names, sizeof names);
+            ESP_LOGI("termico", "esp=%.1f C imu=%.1f C corrente=%.2f A | alarmes: %s", esp, imu, amps, names);
+        }
+        vTaskDelay(pdMS_TO_TICKS(1000));
+    }
+}
+#endif
+
 }  // namespace
 
 extern "C" void app_main() {
@@ -1637,4 +1729,8 @@ extern "C" void app_main() {
                  app->idf_ver);
     }
     xTaskCreatePinnedToCore(telemetryTask, "telemetry", 6144, nullptr, 1, nullptr, 0);
+#if !CONFIG_RATO_BANCADA
+    // 4 kB: cada linha de log passa por um buffer de 320 bytes na pilha (mirrorLogToBle).
+    xTaskCreatePinnedToCore(thermalTask, "termico", 8192, nullptr, 1, nullptr, 0);
+#endif
 }

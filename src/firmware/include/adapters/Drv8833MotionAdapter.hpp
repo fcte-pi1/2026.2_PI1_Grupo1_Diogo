@@ -43,16 +43,6 @@ private:
     int runAsked_{0};
     int runStopCell_{0};
     double runOffsetMm_{0.0};
-    // Curva contínua (20/11): até qual célula já perguntou se vira, a curva pedida (None = nenhuma), em qual
-    // célula, se travou, o rumo ao começar o arco e o quanto o giroscópio marcou no arco (graus, + = esquerda).
-    int runTurnAsked_{0};
-    ports::RunTurn runTurn_{ports::RunTurn::None};
-    int runTurnCell_{0};
-    bool runTurnJammed_{false};
-    double runTurnStartHeadingDeg_{0.0};
-    double runTurnGyroDeg_{0.0};
-    // Depois de um trecho que terminou virando: o ajuste fino, ou, se o arco travou, desfaz e vira parado.
-    void finishRunTurn();
     char runName_[32]{};  // só o reposicionamento para girar: o frontal lê abaixo do mínimo
     // Alvo lateral da centralização, mm para a direita do centro (0 = centro). Na curva à direita o recuo mira para a esquerda:
     // a roda de dentro engancha na ponta da parede da direita se o robô passa centrado ou à direita (20/11).
@@ -198,7 +188,7 @@ public:
     // "re" (10/11): uma célula de ré, como na saída de um beco.
     enum class Maneuver {
         None, TurnLeft, TurnRight, ArcLeft, ArcRight, PivotLeft, PivotRight, Advance, Reverse, AdvanceRun,
-        ReverseRun, RunTurnLeft, RunTurnRight
+        ReverseRun
     };
     // `cells`: só para AdvanceRun (comando `andar N`): N células num trecho contínuo, sempre seguindo.
     void testManeuver(Maneuver maneuver, int cells = 1);

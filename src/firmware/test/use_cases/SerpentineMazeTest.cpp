@@ -53,7 +53,7 @@ MazeMap serpentine() {
     return truth;
 }
 
-// Robô simulado que anda trechos sem parar e vira sem parar (como o firmware com reta e curva contínuas).
+// Robô simulado que anda trechos sem parar (como o firmware com a reta contínua) e vira parado no centro da célula.
 class FlowingRobot final : public ports::ISensorPort, public ports::IMotionPort {
 public:
     FlowingRobot(const MazeMap& truth, Position start, Direction heading) : robot_(truth, start, heading) {}
@@ -65,15 +65,9 @@ public:
         while (moved < maxCells) {
             robot_.advanceCell();
             ++moved;
-            const ports::RunTurn turn = observer.turnIn(moved, 114.0);
-            if (turn != ports::RunTurn::None) {
-                turn == ports::RunTurn::Left ? robot_.turnLeft() : robot_.turnRight();
-                robot_.advanceCell();
-                ++continuousTurns;
-                return moved;
-            }
             if (moved >= maxCells || !observer.continuePast(moved, 59.15)) break;
         }
+        ++runs;
         return moved;
     }
     void reverseCell() override { robot_.reverseCell(); }
@@ -81,7 +75,7 @@ public:
     void turnRight() override { robot_.turnRight(); ++stoppedTurns; }
     void turnAround() override { robot_.turnAround(); }
     [[nodiscard]] const SimulatedRobot& robot() const { return robot_; }
-    int continuousTurns{0};
+    int runs{0};          // trechos de várias células num movimento só
     int stoppedTurns{0};
 
 private:
@@ -99,16 +93,16 @@ TEST(SerpentineMaze, CellByCellTheNavigatorReachesTheGoalWithoutHittingWalls) {
     EXPECT_EQ(robot.position(), (Position{0, 3}));
 }
 
-// Como nas corridas: reta e curva contínuas ligadas. O caminho é o mesmo dos logs (frente 3, ré do beco, curvas em S da serpentina)
-// e termina no objetivo, sem bater.
-TEST(SerpentineMaze, WithContinuousRunsAndTurnsTheRunMatchesTheLogsAndArrives) {
+// Como nas corridas, com a reta contínua ligada e SEM curva contínua (Tarefa 1 do AJUSTES_FINAIS, 23/11): o trecho reto para
+// no centro da célula da curva e toda curva sai parada. O caminho é o mesmo dos logs (frente 3, ré do beco, curvas da
+// serpentina) e termina no objetivo, sem bater.
+TEST(SerpentineMaze, WithContinuousRunsEveryTurnIsStoppedAtTheTurnCellCenter) {
     const MazeMap truth = serpentine();
     MazeMap known(4, 4);
     known.initKnownPerimeter();
     FlowingRobot robot(truth, {3, 0}, Direction::North);
     Navigator navigator(known, robot, robot, {3, 0}, Direction::North, {{0, 3}});
     navigator.setContinuousRuns(true);
-    navigator.setContinuousTurns(true);
     navigator.step();
     EXPECT_EQ(navigator.getPosition(), (Position{0, 0}));  // passo 1: frente 3 células até o beco
     EXPECT_EQ(navigator.lastStep().cells, 3);
@@ -117,7 +111,8 @@ TEST(SerpentineMaze, WithContinuousRunsAndTurnsTheRunMatchesTheLogsAndArrives) {
     EXPECT_TRUE(navigator.run(40));
     EXPECT_EQ(robot.robot().wallHits(), 0);
     EXPECT_EQ(robot.robot().position(), (Position{0, 3}));
-    EXPECT_GT(robot.continuousTurns, 0);  // a curva sem parar do passo 6 dos logs
+    EXPECT_GT(robot.runs, 0);          // a reta contínua continua valendo
+    EXPECT_GT(robot.stoppedTurns, 0);  // as curvas da serpentina saem paradas, no centro da célula
 }
 
 }  // namespace

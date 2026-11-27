@@ -47,6 +47,54 @@ constexpr gpio_num_t kDip3 = GPIO_NUM_23;
 // Interrupção da MPU-6050 (não usada; o firmware faz polling)
 constexpr gpio_num_t kImuInt = GPIO_NUM_39;
 
+#elif CONFIG_RATO_PROTOBOARD
+
+// Mapa da montagem em PROTOBOARD (25/11, ESP32-S3-N16R8). Na protoboard, a barra J1 (3V3, 3V3, RST,
+// 4, 5...) fica com um furo livre por pino; a barra J3 (GND, TX, RX, 1, 2...) fica sem furo livre e só
+// é alcançada por jumpers retos postos ANTES da ESP, por baixo dela, até as fileiras livres acima dela
+// (lado do USB; o lado da antena fica livre de fios). Só as vias 1 e 2 do DIP vão para a J3 (GPIO 21 e
+// 47, os mais perto dessas fileiras). Nenhum pino de strapping (0, 3, 45, 46) leva fio, fora o botão
+// BOOT da própria placa. Proibidos: 35-37 (PSRAM octal), 19-20 (USB), 43-44 (log), 48 (LED RGB).
+// Sem LEDs. Guia de montagem: docs da equipe (pinagem da protoboard, 25/11).
+
+// Barramento I²C (compartilhado: ToF + MPU-6050 + INA219)
+constexpr gpio_num_t kI2cSda = GPIO_NUM_8;
+constexpr gpio_num_t kI2cScl = GPIO_NUM_9;
+
+// XSHUT dos ToF (1 GPIO por sensor, para reendereçamento sequencial)
+constexpr gpio_num_t kTofFrontXshut = GPIO_NUM_10;
+constexpr gpio_num_t kTofLeftXshut = GPIO_NUM_11;
+constexpr gpio_num_t kTofRightXshut = GPIO_NUM_18;
+
+// DRV8833 (o STBY/SLP fica fixo no 3V3)
+constexpr gpio_num_t kMotorLeftIn1 = GPIO_NUM_4;
+constexpr gpio_num_t kMotorLeftIn2 = GPIO_NUM_5;
+constexpr gpio_num_t kMotorRightIn1 = GPIO_NUM_6;
+constexpr gpio_num_t kMotorRightIn2 = GPIO_NUM_7;
+
+// Encoders em quadratura. O direito fica em 15/16, e não em 3/46: são pinos de strapping, e um
+// encoder segurando o 46 em nível alto pode impedir a gravação.
+constexpr gpio_num_t kEncLeftA = GPIO_NUM_13;
+constexpr gpio_num_t kEncLeftB = GPIO_NUM_14;
+constexpr gpio_num_t kEncRightA = GPIO_NUM_15;
+constexpr gpio_num_t kEncRightB = GPIO_NUM_16;
+
+// Interface local
+constexpr gpio_num_t kLedReady = GPIO_NUM_NC;  // sem LED
+constexpr gpio_num_t kLedError = GPIO_NUM_NC;  // sem LED
+constexpr gpio_num_t kBuzzer = GPIO_NUM_12;
+constexpr bool kBuzzerActiveHigh = true;       // BC547 NPN, como no robô: nível alto liga
+constexpr gpio_num_t kButton = GPIO_NUM_0;     // botão BOOT da DevKit (não segurar ao ligar)
+
+// DIP switch de 3 vias: vias 1 e 2 = tipo de labirinto; via 3 = canto de partida. As vias 1 e 2 estão
+// na barra J3, por jumper sob a ESP; o 3 e o 46 (strapping) ficam sem fio.
+constexpr gpio_num_t kDip1 = GPIO_NUM_21;
+constexpr gpio_num_t kDip2 = GPIO_NUM_47;
+constexpr gpio_num_t kDip3 = GPIO_NUM_17;
+
+// Interrupção da MPU-6050: não ligada
+constexpr gpio_num_t kImuInt = GPIO_NUM_NC;
+
 #else
 
 // Mapa de pinos do "Rato Borrachudo" (ESP32-S3-N16R8). Ponto único de verdade.
@@ -115,7 +163,12 @@ constexpr gpio_num_t kImuInt = GPIO_NUM_42;  // INT_MPU (pino 39)
 // Sentido das rodas: cada roda deve ver "positivo = para a frente". Se o teste no chassi (itens 3.9
 // e 3.10 do roteiro) mostrar o contrário, troque UMA constante: o comando `inverter` do firmware
 // de diagnóstico acha a combinação certa sem recompilar.
-#if CONFIG_RATO_FIOS_MOTORES_TROCADOS
+#if CONFIG_RATO_PROTOBOARD
+// A CONFIRMAR na protoboard, com as rodas no ar: cada motor e cada encoder deve ver "positivo =
+// para a frente". Se o esquerdo vier ao contrário, mude aqui; o direito, troque IN1/IN2 ou A/B acima.
+constexpr bool kInvertLeftMotor = false;
+constexpr bool kInvertLeftEncoder = false;
+#elif CONFIG_RATO_FIOS_MOTORES_TROCADOS
 // Robô montado na bancada, conferido em 07/11 com uma roda por vez:
 // - motores: o esquerdo vai para a frente com IN1 (pino 16) e o direito com o pino 5, que já está
 //   como IN1 da roda direita acima. Nenhum dos dois precisa ser invertido no código;
@@ -135,6 +188,8 @@ constexpr bool kInvertLeftEncoder = true;  // contagem do encoder esquerdo
 // Mapa de pinos dos motores ativo, para o log do boot mostrar qual build está gravado na placa.
 #if CONFIG_IDF_TARGET_ESP32
 constexpr const char* kMotorWiringName = "bancada (ESP32 classico)";
+#elif CONFIG_RATO_PROTOBOARD
+constexpr const char* kMotorWiringName = "protoboard (25/11)";
 #elif CONFIG_RATO_FIOS_MOTORES_TROCADOS
 constexpr const char* kMotorWiringName = "fios trocados (robo montado na bancada)";
 #else
