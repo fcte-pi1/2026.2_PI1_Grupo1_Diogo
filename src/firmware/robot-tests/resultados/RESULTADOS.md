@@ -4619,3 +4619,336 @@ Calibração em uso depois de gravar o firmware novo (calib). Comando(s): calib.
 - PASSOU: centralizar = 1.0 (esperado 1.0)
 - PASSOU: ganho_rumo = 1.0 (esperado 1.0)
 
+## H6 (tentativa 1) — FALHOU — 12:55:09
+
+Cada roda sozinha, nos dois sentidos. Comando(s): rodas.
+
+- FALHOU: o teste não chegou ao fim (sem resposta do robô, ou interrompido)
+- FALHOU: o comando rodas não terminou
+
+- nota sobre o H6 (12:57:05): Tentativa 1 invalida: o robo nao recebia comandos (a ponte ficou com a conexao presa depois do boot 0791fb; as rodas NAO giraram). Reiniciei so a ponte e o saude voltou a responder (zero erros, bat 8.24 V). Repetir o H6.
+
+## H6 (tentativa 2) — FALHOU — 12:57:40
+
+Cada roda sozinha, nos dois sentidos. Comando(s): rodas.
+
+- dado: rodas: roda E para frente: parte com 1.8 V | 3 V: 1050 pulsos/s (370 mm/s) 0.09 A | 6 V: 2236 pulsos/s (789 mm/s) 0.10 A | encoder: 2208 pulsos, sentido certo | outra roda: 0 pulsos
+- dado: rodas: roda E para tras: parte com 0.6 V | 3 V: -1052 pulsos/s (-371 mm/s) 0.09 A | 6 V: -2248 pulsos/s (-793 mm/s) 0.09 A | encoder: -2176 pulsos, sentido certo | outra roda: 0 pulsos
+- dado: rodas: roda D para frente: parte com 2.4 V | 3 V: 594 pulsos/s (210 mm/s) 0.10 A | 6 V: 1937 pulsos/s (683 mm/s) 0.10 A | encoder: 1738 pulsos, sentido certo | outra roda: 0 pulsos
+- dado: rodas: roda D para tras: parte com 3.0 V | 3 V: -542 pulsos/s (-191 mm/s) 0.10 A | 6 V: -1899 pulsos/s (-670 mm/s) 0.11 A | encoder: -1683 pulsos, sentido certo | outra roda: 0 pulsos
+- FALHOU: rodas: a 6 V de 1899 a 2248 pulsos/s (dif 16%, limite 25%); partida de 0.6 a 3.0 V (limites 3.5 V e dif 1.0 V); bat=8.26 V -> PROBLEMA (ver a linha 'rodas: problemas' acima)
+
+- nota sobre o H6 (12:57:54): Tentativa 2: roda DIREITA mais dura que a esquerda. 6 V: E 2236/2248 vs D 1937/1899 pulsos/s (dif 16%); 3 V: E ~1050 vs D 594/542 (~45% menos); tensao de partida E 0.6-1.8 V vs D 2.4-3.0 V (dif 2.4 V, limite 1.0 V). Corrente 0.09-0.11 A, sem reinicio, bat 8.26 V, encoders no sentido certo. Em 19/11 era a esquerda a mais fraca (5.4%): inverteu. Compativel com o aviso da passagem de 21/11 (N20 direito as vezes pesa). Classificacao: hardware mecanico (motor/caixa/pneu direito).
+
+- calibração (23/11 13:40:56): gravado no robô: eixo_ate_frente=100 largura_frente=112 eixo_ate_tof_frente=88 tof_lado_ao_centro=55.5
+
+- calibração (23/11 13:41:05): gravado no robô: escala_giro=1.0 freio_pivo=4 centralizar=1 ganho_rumo=1.0
+
+- calibração (23/11 13:41:10): gravado no robô: ganho_parede=3 max_parede=35 folga_arco=18 arco_esq_atraso=-14
+
+- calibração (23/11 13:41:15): gravado no robô: desfazer_tensao_fora=3.6 desfazer_tensao_dentro=2.2 ajuste_2a_tentativa=24 ajuste_fino_min=0.4
+
+## E0 (tentativa 1) — FALHOU — 13:42:36
+
+Calibração em uso depois de gravar o firmware novo (calib). Comando(s): calib.
+
+- FALHOU: 46 chaves do calib no log (esperado 52)
+- PASSOU: eixo_ate_frente = 100.0 (esperado 100.0)
+- PASSOU: largura_frente = 112.0 (esperado 112.0)
+- PASSOU: eixo_ate_tof_frente = 88.0 (esperado 88.0)
+- PASSOU: largura_com_rodas = 108.0 (esperado 108.0)
+- PASSOU: tof_lado_ao_centro = 55.5 (esperado 55.5)
+- PASSOU: tof_lado_a_frente_do_eixo = 59.15 (esperado 59.15)
+- PASSOU: cabo_frente_mm = 0.0 (esperado 0.0)
+- PASSOU: preset_cad = 0.0 (esperado 0.0)
+- PASSOU: escala_giro = 1.0 (esperado 1.0)
+- FALHOU: freio_arco = None: esperado 2.6. Memória antiga? Rode 'calib padrao' e reaplique ganho_rumo e centralizar
+- FALHOU: freio_pivo = None: esperado 4.0. Memória antiga? Rode 'calib padrao' e reaplique ganho_rumo e centralizar
+- FALHOU: modo_curva = None: esperado 0.0. Memória antiga? Rode 'calib padrao' e reaplique ganho_rumo e centralizar
+- PASSOU: freio_uma_roda = 2.6 (esperado 2.6)
+- PASSOU: autoajuste_freio = 0.0 (esperado 0.0)
+- PASSOU: parada_frente = 35.0 (esperado 35.0)
+- PASSOU: tof_na_reta = 1.0 (esperado 1.0)
+- PASSOU: rampa_tensao = 50.0 (esperado 50.0)
+- PASSOU: fusao_rumo = 0.0 (esperado 0.0)
+- PASSOU: reancorar_parede = 0.0 (esperado 0.0)
+- PASSOU: parada_dinamica = 0.0 (esperado 0.0)
+- PASSOU: vies_giro = 0.0 (esperado 0.0)
+- PASSOU: reta_continua = 1.0 (esperado 1.0)
+- PASSOU: largura_corredor = 168.0 (esperado 168.0)
+- PASSOU: ganho_parede = 3.0 (esperado 3.0)
+- PASSOU: max_parede = 35.0 (esperado 35.0)
+- PASSOU: folga_arco = 18.0 (esperado 18.0)
+- PASSOU: arco_esq_atraso = -14.0 (esperado -14.0)
+- PASSOU: desfazer_tensao_fora = 3.6 (esperado 3.6)
+- PASSOU: desfazer_tensao_dentro = 2.2 (esperado 2.2)
+- PASSOU: desfazer_tempo = 2.4 (esperado 2.4)
+- FALHOU: recuo_sem_parede = None: esperado 90.0. Memória antiga? Rode 'calib padrao' e reaplique ganho_rumo e centralizar
+- FALHOU: ajuste_2a_tentativa = None: esperado 24.0. Memória antiga? Rode 'calib padrao' e reaplique ganho_rumo e centralizar
+- FALHOU: trava_frente_ate = None: esperado 52.0. Memória antiga? Rode 'calib padrao' e reaplique ganho_rumo e centralizar
+- PASSOU: arco_quase_pronto = 78.0 (esperado 78.0)
+- PASSOU: ajuste_fino_min = 0.4 (esperado 0.4)
+- PASSOU: ajuste_fino_max = 15.0 (esperado 15.0)
+- PASSOU: alvo_lateral_dir_mm = -8.0 (esperado -8.0)
+- PASSOU: alvo_pos_esq_mm = 0.0 (esperado 0.0)
+- PASSOU: curva_dir_fora = 8.0 (esperado 8.0)
+- PASSOU: rumo_max_mm = 6.0 (esperado 6.0)
+- PASSOU: rumo_max_lateral = 8.0 (esperado 8.0)
+- PASSOU: giro_aberto = 1.0 (esperado 1.0)
+- PASSOU: lado_aberto_mm = 150.0 (esperado 150.0)
+- PASSOU: cabo_esq_mm = 10.0 (esperado 10.0)
+- PASSOU: giro_s_beta_max = 25.0 (esperado 25.0)
+- PASSOU: giro_s_folga = 3.0 (esperado 3.0)
+- PASSOU: giro_s_incerteza = 10.0 (esperado 10.0)
+- PASSOU: re_vel = 70.0 (esperado 70.0)
+- PASSOU: re_acel = 120.0 (esperado 120.0)
+- PASSOU: bateria_minima = 5.5 (esperado 5.5)
+- PASSOU: centralizar = 1.0 (esperado 1.0)
+- PASSOU: ganho_rumo = 1.0 (esperado 1.0)
+
+## E0 (tentativa 2) — FALHOU — 13:42:48
+
+Calibração em uso depois de gravar o firmware novo (calib). Comando(s): calib.
+
+- FALHOU: 48 chaves do calib no log (esperado 52)
+- PASSOU: eixo_ate_frente = 100.0 (esperado 100.0)
+- PASSOU: largura_frente = 112.0 (esperado 112.0)
+- PASSOU: eixo_ate_tof_frente = 88.0 (esperado 88.0)
+- PASSOU: largura_com_rodas = 108.0 (esperado 108.0)
+- PASSOU: tof_lado_ao_centro = 55.5 (esperado 55.5)
+- FALHOU: tof_lado_a_frente_do_eixo = None: esperado 59.15. Memória antiga? Rode 'calib padrao' e reaplique ganho_rumo e centralizar
+- PASSOU: cabo_frente_mm = 0.0 (esperado 0.0)
+- PASSOU: preset_cad = 0.0 (esperado 0.0)
+- PASSOU: escala_giro = 1.0 (esperado 1.0)
+- PASSOU: freio_arco = 2.6 (esperado 2.6)
+- PASSOU: freio_pivo = 4.0 (esperado 4.0)
+- PASSOU: modo_curva = 0.0 (esperado 0.0)
+- PASSOU: freio_uma_roda = 2.6 (esperado 2.6)
+- PASSOU: autoajuste_freio = 0.0 (esperado 0.0)
+- PASSOU: parada_frente = 35.0 (esperado 35.0)
+- PASSOU: tof_na_reta = 1.0 (esperado 1.0)
+- PASSOU: rampa_tensao = 50.0 (esperado 50.0)
+- PASSOU: fusao_rumo = 0.0 (esperado 0.0)
+- PASSOU: reancorar_parede = 0.0 (esperado 0.0)
+- PASSOU: parada_dinamica = 0.0 (esperado 0.0)
+- PASSOU: vies_giro = 0.0 (esperado 0.0)
+- PASSOU: reta_continua = 1.0 (esperado 1.0)
+- PASSOU: largura_corredor = 168.0 (esperado 168.0)
+- PASSOU: ganho_parede = 3.0 (esperado 3.0)
+- PASSOU: max_parede = 35.0 (esperado 35.0)
+- PASSOU: folga_arco = 18.0 (esperado 18.0)
+- PASSOU: arco_esq_atraso = -14.0 (esperado -14.0)
+- PASSOU: desfazer_tensao_fora = 3.6 (esperado 3.6)
+- FALHOU: desfazer_tensao_dentro = None: esperado 2.2. Memória antiga? Rode 'calib padrao' e reaplique ganho_rumo e centralizar
+- FALHOU: desfazer_tempo = None: esperado 2.4. Memória antiga? Rode 'calib padrao' e reaplique ganho_rumo e centralizar
+- FALHOU: recuo_sem_parede = None: esperado 90.0. Memória antiga? Rode 'calib padrao' e reaplique ganho_rumo e centralizar
+- PASSOU: ajuste_2a_tentativa = 24.0 (esperado 24.0)
+- PASSOU: trava_frente_ate = 52.0 (esperado 52.0)
+- PASSOU: arco_quase_pronto = 78.0 (esperado 78.0)
+- PASSOU: ajuste_fino_min = 0.4 (esperado 0.4)
+- PASSOU: ajuste_fino_max = 15.0 (esperado 15.0)
+- PASSOU: alvo_lateral_dir_mm = -8.0 (esperado -8.0)
+- PASSOU: alvo_pos_esq_mm = 0.0 (esperado 0.0)
+- PASSOU: curva_dir_fora = 8.0 (esperado 8.0)
+- PASSOU: rumo_max_mm = 6.0 (esperado 6.0)
+- PASSOU: rumo_max_lateral = 8.0 (esperado 8.0)
+- PASSOU: giro_aberto = 1.0 (esperado 1.0)
+- PASSOU: lado_aberto_mm = 150.0 (esperado 150.0)
+- PASSOU: cabo_esq_mm = 10.0 (esperado 10.0)
+- PASSOU: giro_s_beta_max = 25.0 (esperado 25.0)
+- PASSOU: giro_s_folga = 3.0 (esperado 3.0)
+- PASSOU: giro_s_incerteza = 10.0 (esperado 10.0)
+- PASSOU: re_vel = 70.0 (esperado 70.0)
+- PASSOU: re_acel = 120.0 (esperado 120.0)
+- PASSOU: bateria_minima = 5.5 (esperado 5.5)
+- PASSOU: centralizar = 1.0 (esperado 1.0)
+- PASSOU: ganho_rumo = 1.0 (esperado 1.0)
+
+- nota sobre o E0 (13:43:00): 23/11, firmware 97eaadd-dirty (Tarefa 1, calib16, 52 chaves) gravado pelo WSL as 13:37, compilado 13:10:33. Calib reaplicado em 6 comandos. Nenhuma das duas rodadas do E0 trouxe as 52 linhas (46 e 48: o BLE perde linhas, ja avisado na passagem), mas as chaves que faltaram em uma passaram na outra ou no calib-ver: todas as 52 vistas e com o valor esperado. Resultado do E0 = FALHOU so por linhas perdidas, nao por valor errado.
+
+## H1 (tentativa 1) — PASSOU — 13:43:55
+
+Diagnóstico geral do hardware. Comando(s): diag.
+
+- PASSOU: diag: fim: OK
+- PASSOU: firmware gravado: versão 97eaadd-dirty, compilado em Nov 23 2026 13:10:33; base do repositório 97eaadd (com mudanças ainda sem commit, o normal para código copiado). Confira que a data e a hora são as da compilação que você acabou de fazer
+
+## H2 (tentativa 1) — PASSOU — 13:44:27
+
+ToF parados por 30 s. Comando(s): tofmon 30.
+
+- PASSOU: tofmon: OK: nenhuma falha
+- dado: ToF E: 327 medidas, 0 falhas, média 943.0 mm (804 a 1271)
+- dado: ToF F: 327 medidas, 0 falhas, média 93.3 mm (89 a 100)
+- dado: ToF D: 327 medidas, 0 falhas, média 276.0 mm (268 a 284)
+
+## H8 (tentativa 1) — PASSOU — 13:44:28
+
+Contadores de erro depois do bloco H. Comando(s): saude.
+
+- PASSOU: motivo do último reset: LIGOU (poweron)
+- PASSOU: bateria 8.19 V (mínimo 7,0)
+- PASSOU: BLE perdidos: linhas=0 eventos=0 pedaços=0
+- PASSOU: erros de I2C desde que ligou: ToF E=0 F=0 D=0 IMU=0 INA=0
+- PASSOU: ToF: quedas 0/0/0, reinícios 0/0/0, reinícios falhos 0/0/0 (E/F/D)
+
+## H6 (tentativa 3) — FALHOU — 13:45:21
+
+Cada roda sozinha, nos dois sentidos. Comando(s): rodas.
+
+- dado: rodas: roda E para frente: parte com 1.8 V | 3 V: 1054 pulsos/s (372 mm/s) 0.09 A | 6 V: 2260 pulsos/s (797 mm/s) 0.09 A | encoder: 2227 pulsos, sentido certo | outra roda: 0 pulsos
+- dado: rodas: roda E para tras: parte com 0.6 V | 3 V: -1064 pulsos/s (-375 mm/s) 0.09 A | 6 V: -2264 pulsos/s (-799 mm/s) 0.09 A | encoder: -2205 pulsos, sentido certo | outra roda: 0 pulsos
+- dado: rodas: roda D para frente: parte com 3.8 V | 3 V: 0 pulsos/s (0 mm/s) 0.12 A | 6 V: 1614 pulsos/s (569 mm/s) 0.12 A | encoder: 1083 pulsos, sentido certo | outra roda: 0 pulsos
+- dado: rodas: roda D para tras: NAO partiu ate 4.0 V | 3 V: 0 pulsos/s (0 mm/s) 0.11 A | 6 V: -1576 pulsos/s (-556 mm/s) 0.12 A | encoder: -1051 pulsos, sentido certo | outra roda: 0 pulsos
+- FALHOU: rodas: a 6 V de 1576 a 2264 pulsos/s (dif 30%, limite 25%); partida de 0.6 a 3.8 V (limites 3.5 V e dif 1.0 V); bat=8.16 V -> PROBLEMA (ver a linha 'rodas: problemas' acima)
+
+- nota sobre o H6 (13:45:29): Tentativa 3 (23/11, depois da limpeza das rodas): PIOROU. Roda D: parte com 3.8 V para frente e NAO parte ate 4.0 V para tras; a 3 V fica parada (0 pulsos/s) com 0.11-0.12 A; a 6 V 1576-1614 pulsos/s contra E 2260-2264 (dif 30%, limite 25%). Roda E normal (parte com 0.6-1.8 V, 0.09 A). Corrente maior na D com a roda presa = atrito mecanico (motor N20/caixa/pneu direito), nao fio solto. Tentativa 2 (antes da limpeza): D parte com 2.4-3.0 V, 6 V 1899-1937. Segunda falha do H6 no dia: pelo protocolo, parar o bloco H. Hardware: estrutura (motor/caixa/pneu direito).
+
+- nota sobre o H6 (13:48:02): CORRECAO da nota anterior: as rodas NAO foram limpas (operador, 23/11); a tentativa 3 nao e 'depois da limpeza'. Entre a tentativa 2 (12:57) e a 3 (~13:55) ninguem mexeu na roda direita e ela piorou sozinha: a roda D e intermitente/variavel (parte com 2.4-3.0 V numa hora e com 3.8 V / nao parte na outra). Isso bate com o aviso da passagem de 21/11 ('o motor direito as vezes pesa').
+
+## H4 (tentativa 1) — PASSOU — 13:54:14
+
+Giroscópio parado por 3 minutos, logo depois de ligar. Comando(s): giro.
+
+- PASSOU: 7 de 7 leituras do giroscópio
+- PASSOU: aos 52 s: média -0.089 graus/s, variação 0.64 (limite 3,0), temp 48.5 C
+- PASSOU: aos 84 s: média -0.084 graus/s, variação 0.80 (limite 3,0), temp 48.4 C
+- PASSOU: aos 116 s: média -0.083 graus/s, variação 0.83 (limite 3,0), temp 48.5 C
+- PASSOU: aos 147 s: média -0.091 graus/s, variação 0.70 (limite 3,0), temp 48.9 C
+- PASSOU: aos 179 s: média -0.090 graus/s, variação 0.76 (limite 3,0), temp 48.6 C
+- PASSOU: aos 211 s: média -0.079 graus/s, variação 0.67 (limite 3,0), temp 48.6 C
+- PASSOU: aos 242 s: média -0.077 graus/s, variação 0.55 (limite 3,0), temp 48.5 C
+- PASSOU: desvio entre -0.09 e -0.08 graus/s (limite ±25)
+- dado: mudança do desvio nos 3 min: 0.01 graus/s (o firmware desconta o desvio; anote para a equipe)
+
+## H8 (tentativa 2) — FALHOU — 13:54:39
+
+Contadores de erro depois do bloco H. Comando(s): saude.
+
+- PASSOU: motivo do último reset: LIGOU (poweron)
+- FALHOU: bateria 6.55 V (mínimo 7,0)
+- PASSOU: BLE perdidos: linhas=0 eventos=0 pedaços=0
+- PASSOU: erros de I2C desde que ligou: ToF E=0 F=0 D=0 IMU=0 INA=0
+- PASSOU: ToF: quedas 0/0/0, reinícios 0/0/0, reinícios falhos 0/0/0 (E/F/D)
+
+- nota sobre o H8 (13:57:15): 23/11 tentativa 2: FALHOU so pela bateria: INA219 leu 6.55 V (minimo 7.0) enquanto o medidor mediu 8.19 V nos terminais. Historico do INA219 hoje: 8.19 V (13:40, igual ao medidor), 8.16 (H6), 6.65 logo apos religar a bateria as 13:51, 7.03, 6.55. Zero erros de I2C/ToF/BLE, tofmon 60 s sem falha. Hipotese: queda de tensao entre a bateria e a placa (contato ruim no conector JST/balancim apos religar) ou leitura instavel do INA219. H4 PASSOU (desvio -0.09 graus/s, mudanca 0.01 em 3 min).
+
+## E0 (tentativa 3) — FALHOU — 16:59:32
+
+Calibração em uso depois de gravar o firmware novo (calib). Comando(s): calib.
+
+- FALHOU: o teste não chegou ao fim (sem resposta do robô, ou interrompido)
+- FALHOU: 0 chaves do calib no log (esperado 52)
+- FALHOU: eixo_ate_frente = None: esperado 100.0. Memória antiga? Rode 'calib padrao' e reaplique ganho_rumo e centralizar
+- FALHOU: largura_frente = None: esperado 112.0. Memória antiga? Rode 'calib padrao' e reaplique ganho_rumo e centralizar
+- FALHOU: eixo_ate_tof_frente = None: esperado 88.0. Memória antiga? Rode 'calib padrao' e reaplique ganho_rumo e centralizar
+- FALHOU: largura_com_rodas = None: esperado 108.0. Memória antiga? Rode 'calib padrao' e reaplique ganho_rumo e centralizar
+- FALHOU: tof_lado_ao_centro = None: esperado 55.5. Memória antiga? Rode 'calib padrao' e reaplique ganho_rumo e centralizar
+- FALHOU: tof_lado_a_frente_do_eixo = None: esperado 59.15. Memória antiga? Rode 'calib padrao' e reaplique ganho_rumo e centralizar
+- FALHOU: cabo_frente_mm = None: esperado 0.0. Memória antiga? Rode 'calib padrao' e reaplique ganho_rumo e centralizar
+- FALHOU: preset_cad = None: esperado 0.0. Memória antiga? Rode 'calib padrao' e reaplique ganho_rumo e centralizar
+- FALHOU: escala_giro = None: esperado 1.0. Memória antiga? Rode 'calib padrao' e reaplique ganho_rumo e centralizar
+- FALHOU: freio_arco = None: esperado 2.6. Memória antiga? Rode 'calib padrao' e reaplique ganho_rumo e centralizar
+- FALHOU: freio_pivo = None: esperado 4.0. Memória antiga? Rode 'calib padrao' e reaplique ganho_rumo e centralizar
+- FALHOU: modo_curva = None: esperado 0.0. Memória antiga? Rode 'calib padrao' e reaplique ganho_rumo e centralizar
+- FALHOU: freio_uma_roda = None: esperado 2.6. Memória antiga? Rode 'calib padrao' e reaplique ganho_rumo e centralizar
+- FALHOU: autoajuste_freio = None: esperado 0.0. Memória antiga? Rode 'calib padrao' e reaplique ganho_rumo e centralizar
+- FALHOU: parada_frente = None: esperado 35.0. Memória antiga? Rode 'calib padrao' e reaplique ganho_rumo e centralizar
+- FALHOU: tof_na_reta = None: esperado 1.0. Memória antiga? Rode 'calib padrao' e reaplique ganho_rumo e centralizar
+- FALHOU: rampa_tensao = None: esperado 50.0. Memória antiga? Rode 'calib padrao' e reaplique ganho_rumo e centralizar
+- FALHOU: fusao_rumo = None: esperado 0.0. Memória antiga? Rode 'calib padrao' e reaplique ganho_rumo e centralizar
+- FALHOU: reancorar_parede = None: esperado 0.0. Memória antiga? Rode 'calib padrao' e reaplique ganho_rumo e centralizar
+- FALHOU: parada_dinamica = None: esperado 0.0. Memória antiga? Rode 'calib padrao' e reaplique ganho_rumo e centralizar
+- FALHOU: vies_giro = None: esperado 0.0. Memória antiga? Rode 'calib padrao' e reaplique ganho_rumo e centralizar
+- FALHOU: reta_continua = None: esperado 1.0. Memória antiga? Rode 'calib padrao' e reaplique ganho_rumo e centralizar
+- FALHOU: largura_corredor = None: esperado 168.0. Memória antiga? Rode 'calib padrao' e reaplique ganho_rumo e centralizar
+- FALHOU: ganho_parede = None: esperado 3.0. Memória antiga? Rode 'calib padrao' e reaplique ganho_rumo e centralizar
+- FALHOU: max_parede = None: esperado 35.0. Memória antiga? Rode 'calib padrao' e reaplique ganho_rumo e centralizar
+- FALHOU: folga_arco = None: esperado 18.0. Memória antiga? Rode 'calib padrao' e reaplique ganho_rumo e centralizar
+- FALHOU: arco_esq_atraso = None: esperado -14.0. Memória antiga? Rode 'calib padrao' e reaplique ganho_rumo e centralizar
+- FALHOU: desfazer_tensao_fora = None: esperado 3.6. Memória antiga? Rode 'calib padrao' e reaplique ganho_rumo e centralizar
+- FALHOU: desfazer_tensao_dentro = None: esperado 2.2. Memória antiga? Rode 'calib padrao' e reaplique ganho_rumo e centralizar
+- FALHOU: desfazer_tempo = None: esperado 2.4. Memória antiga? Rode 'calib padrao' e reaplique ganho_rumo e centralizar
+- FALHOU: recuo_sem_parede = None: esperado 90.0. Memória antiga? Rode 'calib padrao' e reaplique ganho_rumo e centralizar
+- FALHOU: ajuste_2a_tentativa = None: esperado 24.0. Memória antiga? Rode 'calib padrao' e reaplique ganho_rumo e centralizar
+- FALHOU: trava_frente_ate = None: esperado 52.0. Memória antiga? Rode 'calib padrao' e reaplique ganho_rumo e centralizar
+- FALHOU: arco_quase_pronto = None: esperado 78.0. Memória antiga? Rode 'calib padrao' e reaplique ganho_rumo e centralizar
+- FALHOU: ajuste_fino_min = None: esperado 0.4. Memória antiga? Rode 'calib padrao' e reaplique ganho_rumo e centralizar
+- FALHOU: ajuste_fino_max = None: esperado 15.0. Memória antiga? Rode 'calib padrao' e reaplique ganho_rumo e centralizar
+- FALHOU: alvo_lateral_dir_mm = None: esperado -8.0. Memória antiga? Rode 'calib padrao' e reaplique ganho_rumo e centralizar
+- FALHOU: alvo_pos_esq_mm = None: esperado 0.0. Memória antiga? Rode 'calib padrao' e reaplique ganho_rumo e centralizar
+- FALHOU: curva_dir_fora = None: esperado 8.0. Memória antiga? Rode 'calib padrao' e reaplique ganho_rumo e centralizar
+- FALHOU: rumo_max_mm = None: esperado 6.0. Memória antiga? Rode 'calib padrao' e reaplique ganho_rumo e centralizar
+- FALHOU: rumo_max_lateral = None: esperado 8.0. Memória antiga? Rode 'calib padrao' e reaplique ganho_rumo e centralizar
+- FALHOU: giro_aberto = None: esperado 1.0. Memória antiga? Rode 'calib padrao' e reaplique ganho_rumo e centralizar
+- FALHOU: lado_aberto_mm = None: esperado 150.0. Memória antiga? Rode 'calib padrao' e reaplique ganho_rumo e centralizar
+- FALHOU: cabo_esq_mm = None: esperado 10.0. Memória antiga? Rode 'calib padrao' e reaplique ganho_rumo e centralizar
+- FALHOU: giro_s_beta_max = None: esperado 25.0. Memória antiga? Rode 'calib padrao' e reaplique ganho_rumo e centralizar
+- FALHOU: giro_s_folga = None: esperado 3.0. Memória antiga? Rode 'calib padrao' e reaplique ganho_rumo e centralizar
+- FALHOU: giro_s_incerteza = None: esperado 10.0. Memória antiga? Rode 'calib padrao' e reaplique ganho_rumo e centralizar
+- FALHOU: re_vel = None: esperado 70.0. Memória antiga? Rode 'calib padrao' e reaplique ganho_rumo e centralizar
+- FALHOU: re_acel = None: esperado 120.0. Memória antiga? Rode 'calib padrao' e reaplique ganho_rumo e centralizar
+- FALHOU: bateria_minima = None: esperado 5.5. Memória antiga? Rode 'calib padrao' e reaplique ganho_rumo e centralizar
+- FALHOU: centralizar = None: esperado 1.0. Memória antiga? Rode 'calib padrao' e reaplique ganho_rumo e centralizar
+- FALHOU: ganho_rumo = None: esperado 1.0. Memória antiga? Rode 'calib padrao' e reaplique ganho_rumo e centralizar
+
+## E0 (tentativa 4) — FALHOU — 15:43:29
+
+Calibração em uso depois de gravar o firmware novo (calib). Comando(s): calib.
+
+- FALHOU: 49 chaves do calib no log (esperado 52)
+- PASSOU: eixo_ate_frente = 100.0 (esperado 100.0)
+- PASSOU: largura_frente = 112.0 (esperado 112.0)
+- PASSOU: eixo_ate_tof_frente = 88.0 (esperado 88.0)
+- PASSOU: largura_com_rodas = 108.0 (esperado 108.0)
+- PASSOU: tof_lado_ao_centro = 55.5 (esperado 55.5)
+- PASSOU: tof_lado_a_frente_do_eixo = 59.15 (esperado 59.15)
+- PASSOU: cabo_frente_mm = 0.0 (esperado 0.0)
+- PASSOU: preset_cad = 0.0 (esperado 0.0)
+- PASSOU: escala_giro = 1.0 (esperado 1.0)
+- PASSOU: freio_arco = 2.6 (esperado 2.6)
+- PASSOU: freio_pivo = 4.0 (esperado 4.0)
+- PASSOU: modo_curva = 0.0 (esperado 0.0)
+- PASSOU: freio_uma_roda = 2.6 (esperado 2.6)
+- PASSOU: autoajuste_freio = 0.0 (esperado 0.0)
+- PASSOU: parada_frente = 35.0 (esperado 35.0)
+- PASSOU: tof_na_reta = 1.0 (esperado 1.0)
+- PASSOU: rampa_tensao = 50.0 (esperado 50.0)
+- PASSOU: fusao_rumo = 0.0 (esperado 0.0)
+- PASSOU: reancorar_parede = 0.0 (esperado 0.0)
+- PASSOU: parada_dinamica = 0.0 (esperado 0.0)
+- PASSOU: vies_giro = 0.0 (esperado 0.0)
+- PASSOU: reta_continua = 1.0 (esperado 1.0)
+- PASSOU: largura_corredor = 168.0 (esperado 168.0)
+- PASSOU: ganho_parede = 3.0 (esperado 3.0)
+- PASSOU: max_parede = 35.0 (esperado 35.0)
+- PASSOU: folga_arco = 18.0 (esperado 18.0)
+- PASSOU: arco_esq_atraso = -14.0 (esperado -14.0)
+- PASSOU: desfazer_tensao_fora = 3.6 (esperado 3.6)
+- PASSOU: desfazer_tensao_dentro = 2.2 (esperado 2.2)
+- PASSOU: desfazer_tempo = 2.4 (esperado 2.4)
+- PASSOU: recuo_sem_parede = 90.0 (esperado 90.0)
+- PASSOU: ajuste_2a_tentativa = 24.0 (esperado 24.0)
+- PASSOU: trava_frente_ate = 52.0 (esperado 52.0)
+- PASSOU: arco_quase_pronto = 78.0 (esperado 78.0)
+- PASSOU: ajuste_fino_min = 0.4 (esperado 0.4)
+- PASSOU: ajuste_fino_max = 15.0 (esperado 15.0)
+- PASSOU: alvo_lateral_dir_mm = -8.0 (esperado -8.0)
+- PASSOU: alvo_pos_esq_mm = 0.0 (esperado 0.0)
+- FALHOU: curva_dir_fora = None: esperado 8.0. Memória antiga? Rode 'calib padrao' e reaplique ganho_rumo e centralizar
+- FALHOU: rumo_max_mm = None: esperado 6.0. Memória antiga? Rode 'calib padrao' e reaplique ganho_rumo e centralizar
+- FALHOU: rumo_max_lateral = None: esperado 8.0. Memória antiga? Rode 'calib padrao' e reaplique ganho_rumo e centralizar
+- PASSOU: giro_aberto = 1.0 (esperado 1.0)
+- PASSOU: lado_aberto_mm = 150.0 (esperado 150.0)
+- PASSOU: cabo_esq_mm = 10.0 (esperado 10.0)
+- PASSOU: giro_s_beta_max = 25.0 (esperado 25.0)
+- PASSOU: giro_s_folga = 3.0 (esperado 3.0)
+- PASSOU: giro_s_incerteza = 10.0 (esperado 10.0)
+- PASSOU: re_vel = 70.0 (esperado 70.0)
+- PASSOU: re_acel = 120.0 (esperado 120.0)
+- PASSOU: bateria_minima = 5.5 (esperado 5.5)
+- PASSOU: centralizar = 1.0 (esperado 1.0)
+- PASSOU: ganho_rumo = 1.0 (esperado 1.0)
+
+- nota sobre o E0 (15:44:34): 25/11 ESP nova MAC 68:9d:d2:c2:d0:74 (fora do robo, so USB), firmware teste-v3 recompilado (pilha termico 8192, calib nos padroes). Boot estavel, BLE conectado. E0 t4 FALHOU so por perda de linhas no BLE (49/52); curva_dir_fora=8, rumo_max_mm=6 e rumo_max_lateral=8 confirmadas em nova leitura: 52/52 corretas. Nada testado no robo.
+

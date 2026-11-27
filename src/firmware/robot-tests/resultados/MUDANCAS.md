@@ -130,3 +130,145 @@ Sintoma (operador): "anda um pouco, para, anda um pouco, para". Diagnóstico com
 - Modelo do arco (`domain/ArcClearance`, 5 testes): robô real (frente 100, largura 112, cabo à esquerda) numa curva em L de 168 mm. Janela longitudinal que cabe: -24 a -4 mm (o projeto antigo: -24 a +8); lateral +-26 mm (com o cabo: -16 a +26); num corredor de 153 mm só +-8 mm. O plano antigo (folga 20 mm) começava a -23 mm, colado no limite de trás.
 - Chave `folga_arco` (padrão 12 mm => início a -15 mm, perto do ótimo de -16). A memória do robô passa a calib7 (reaplicar centralizar=1, ganho_rumo=0.6, ganho_parede=3, max_parede=50, eixo_ate_frente=100, eixo_ate_tof_frente=98, largura_frente=112, tof_lado_ao_centro=55.5 depois de gravar).
 - NADA disto foi testado no robô. O modelo é uma reconstrução do arco (raio 90, quarto de círculo em volta do canto de dentro) e precisa ser validado na pista com `virar d` em A2 e A4 variando `folga_arco` (20 / 12 / 8).
+
+## Mudança 14 (23/11, branch `feat/testes-pista-diogo`): Tarefa 1 do `AJUSTES_FINAIS.md`, remover a curva contínua
+Pedido e aprovado pelo operador, feito por partes, sem commit. Base: `97eaadd`. Motivo: decisão do operador (21/11) de deixar só
+o arco parado com ré e a curva em S; a reta contínua fica. Aviso do próprio `AJUSTES_FINAIS.md`: `curva_continua=0` sozinho piorou
+as corridas de 21/11 (0 de 3); a Tarefa 2 (calibrar a cada curva) é o que corrige.
+
+Antes de começar (23/11, robô apoiado, firmware `fase1-entrega-4-g264ef77`): H6 FALHOU por hardware (roda direita mais dura:
+partida E 0,6-1,8 V x D 2,4-3,0 V, limite de diferença 1,0 V; a 6 V E 2236-2248 x D 1899-1937 pulsos/s). Operador limpando as rodas.
+
+**Parte 1 (teste primeiro):** `test/use_cases/SerpentineMazeTest.cpp`: o teste `WithContinuousRunsAndTurnsTheRunMatchesTheLogsAndArrives`
+(ligava a curva contínua e exigia uma curva sem parar) virou `WithContinuousRunsEveryTurnIsStoppedAtTheTurnCellCenter`: só a reta
+contínua, mesmo caminho dos logs, chega sem bater, toda curva parada. O teste célula a célula ficou. Host 430/430.
+
+**Parte 2 (Navigator):**
+- `include/use_cases/Navigator.hpp`: saem `StepReport::runTurn`, `continuousTurns_`, `runTurn_`, `turnInRun()` e `setContinuousTurns()`.
+- `src/use_cases/Navigator.cpp`: sai `RunObserver::turnIn`; o trecho contínuo vale só com `maxCells > 1` (era `maxCells > 1 || continuousTurns_`);
+  sai o ramo que terminava o trecho virando; sai `Navigator::turnInRun`.
+- `src/main.cpp`: sai `navigator.setContinuousTurns(...)` e o texto " (curva X sem parar)" da linha `nav: passo`.
+- `test/use_cases/ContinuousTurnTest.cpp` apagado (5 testes) e tirado de `test/CMakeLists.txt`; o robô simulado da serpentina não vira mais sem parar.
+- Host 425/425 sem aviso; build da placa (calibração, `CONFIG_RATO_LOG_RETA=y`) sem aviso.
+- `RunTurn` e `IStraightRunObserver::turnIn` (`include/ports/MotionPort.hpp`) ficam até a parte 3: o `Drv8833MotionAdapter` ainda os usa.
+
+**Parte 3 (adaptador dos motores, porta e PathMove):**
+- `src/adapters/Drv8833MotionAdapter.cpp`: saem as constantes `kRunTurnDecisionMm`, `kRunTurnLateMm`, `kRunTurnMaxStartFixDeg`, `kDegToRad`,
+  `kRunTurnJamFailure` e o `#include "controller/PathMove.hpp"`; o caso `RunTurnLeft/RunTurnRight` do `testManeuver`; em `advanceCells`, uma
+  célula só vai sempre para `advanceCell()` (era só com `curva_continua=0`) e sai o fim por `finishRunTurn`; sai `finishRunTurn()` inteira;
+  em `straight()`, saem as variáveis `path*`, o tempo-limite do arco, o giroscópio só do arco, o ramo da trajetória do arco, a decisão de
+  virar no trecho (`turnIn`), a soma do giro depois de frear o arco e a linha de log `curva continua a ...`. A reta e a reta contínua ficam iguais.
+- `include/adapters/Drv8833MotionAdapter.hpp`: saem `runTurnAsked_`, `runTurn_`, `runTurnCell_`, `runTurnJammed_`, `runTurnStartHeadingDeg_`,
+  `runTurnGyroDeg_`, `finishRunTurn()` e as manobras `RunTurnLeft/RunTurnRight` (eram as últimas do enum: as outras não mudam de número).
+- `src/main.cpp`: sai o comando BLE `curvac d|e [N]`.
+- `include/ports/MotionPort.hpp`: saem `enum class RunTurn` e `IStraightRunObserver::turnIn`.
+- Apagados `include/controller/PathMove.hpp`, `src/controller/PathMove.cpp` e `test/controller/PathMoveTest.cpp` (8 testes; nada mais usava o
+  `PathMove`), e tirados de `CMakeLists.txt`, `esp32/main/CMakeLists.txt` e `test/CMakeLists.txt`.
+- Host 417/417 sem aviso; build da placa (calibração) sem aviso. As 8 chaves do `calib` ainda existem (parte 4).
+
+**Parte 4 (calibração, `t.py` e documentação):**
+- `include/domain/Calibration.hpp`: saem os campos `continuousTurn` (`curva_continua`, padrão 1), `continuousArcLeadMm` (`antecipa_arco`, 16),
+  `runTurnSpeedMmPerS` (`curva_cont_vel`, 80), `runTurnTrackMm` (`curva_cont_bitola`, 100), `runTurnHeadingGain` (`curva_cont_ganho`, 1,0),
+  `runTurnSteerMaxMm` (`curva_cont_giro_max`, 30), `runTurnJamDeg` (`curva_cont_trava`, 20) e `runTurnGyroBrakeDeg` (`curva_cont_freio`, 4);
+  `kCalibrationFieldCount` 60 -> 52.
+- `src/domain/Calibration.cpp`: saem as 8 linhas dessas chaves da tabela `kFields`.
+- `src/main.cpp:91`: `kCalibKey` `"calib15"` -> `"calib16"`. **Na primeira vez que ligar com este firmware o robô volta aos padrões** e o calib
+  tem de ser reaplicado (seção 2 da `PASSAGEM_CALIBRACAO.md`, sem `antecipa_arco=12` e `curva_continua`).
+- `test/domain/CalibrationTest.cpp`: o número de chaves esperado 60 -> 52.
+- `robot-tests/suite/checks/sensors.py`: o `EXPECTED_CALIBRATION` do E0 perde as 8 chaves (52; o E0 esperava `antecipa_arco` 12 e `curva_continua` 1).
+- `robot-tests/suite/catalog/novelties.py`: saem os testes E16a/E16b (`curvac d|e`) e o import de `check_run_turn`.
+- `robot-tests/suite/checks/motion.py`: saem `_RUN_TURN` e `check_run_turn`.
+- `LOGS_E_MEDIDAS.md`: saem as 8 linhas da tabela do `calib`; nota da retirada; a chave da memória passa a `calib16`, 52 chaves.
+- Host 417/417 sem aviso; build da placa (calibração) sem aviso; o `t.py` importa e lista os testes sem os E16.
+
+**Parte 5 (fechamento):**
+- Nenhuma referência à curva contínua no código (só dois comentários que registram a retirada).
+- As duas builds da placa sem nenhum aviso: calibração (`esp32/build/teste-v3`, `CONFIG_RATO_LOG_RETA=y`, log `build.log`) e prova
+  (`esp32/build/prova`, `CONFIG_RATO_LOG_RETA` desligado, log `build-prova.log`); nas duas `CONFIG_RATO_FIOS_MOTORES_TROCADOS=y` e
+  `RATO_BANCADA`, `RATO_CENTRALIZAR_PAREDES` e `RATO_SLOW_DECAY` desligados. Grava-se a de calibração.
+- Calib gravado no robô antes de regravar (log do boot de 23/11, chaves ALTERADO, `calib15`): 22 chaves. Depois de gravar (`calib16`, tudo
+  em padrão) reaplicar as 21 que continuam existindo (sai só `antecipa_arco=12`), no máximo 4 por comando:
+  1. `eixo_ate_frente=100 largura_frente=112 eixo_ate_tof_frente=88 tof_lado_ao_centro=55.5`
+  2. `escala_giro=1.0 freio_pivo=4 centralizar=1 ganho_rumo=1.0`
+  3. `ganho_parede=3 max_parede=35 folga_arco=18 arco_esq_atraso=-14`
+  4. `desfazer_tensao_fora=3.6 desfazer_tensao_dentro=2.2 ajuste_2a_tentativa=24 ajuste_fino_min=0.4`
+  5. `alvo_lateral_dir_mm=-8 curva_dir_fora=8 rumo_max_lateral=8 giro_aberto=1`
+  6. `bateria_minima=5.5`
+  Depois: `python t.py E0 --auto` (52 chaves; `cabo_esq_mm` fica no padrão 10, como estava).
+
+## Mudança 15 (23/11, branch `feat/testes-pista-diogo`): vigia de temperatura e corrente (`ThermalWatch`)
+Pedido do operador: medir a temperatura da ESP32-S3 para detectar curtos por subida súbita. Decisões do operador: **só registrar no
+log** (não para os motores), com os três sinais (temperatura da ESP, temperatura do MPU6050 e corrente do INA219), em partes, sem commit.
+Aviso registrado: o sensor interno mede o próprio chip; um curto longe dele (motor, ponte H, ToF) chega devagar ou não chega. O sinal
+rápido para um curto é a corrente.
+
+**Parte 1 (lógica pura, TDD):**
+- Novo `include/domain/ThermalWatch.hpp` (só cabeçalho, como o `GyroBiasTracker`: a lista de fontes da placa não muda). Alarmes em bits:
+  subida da ESP, ESP quente, subida do MPU, MPU quente, corrente alta. `raised`/`cleared` avisam só na mudança (o log não repete a cada
+  amostra). Leitura inválida fica de fora e não entra na janela.
+- Limites (constantes, não chaves do `calib`, para não subir a `calib16` e perder a calibração de novo), **proposta a confirmar**:
+  subida de 3 C em 10 s; ESP acima de 75 C; MPU acima de 70 C; corrente acima de 1,5 A por 0,5 s.
+- Novo `test/domain/ThermalWatchTest.cpp` (8 testes) e a entrada em `test/CMakeLists.txt`. Host 425/425 sem aviso.
+
+**Parte 2 (leitura na placa e log; só registra, não para motores):**
+- `include/domain/ThermalWatch.hpp`: `describeThermalAlarms()` (os nomes dos alarmes para o log), com teste (`AlarmNamesForTheLog`).
+- `src/main.cpp`: includes `domain/ThermalWatch.hpp`, `soc/soc_caps.h` e `driver/temperature_sensor.h` (só com `SOC_TEMP_SENSOR_SUPPORTED`);
+  globais `gSensorsReady` e `gEspTempCenti`; `gSensorsReady = true` logo depois do `gPower.begin()` da navegação; nova tarefa
+  `thermalTask` (4 kB, prioridade 1, núcleo 0, fora da bancada): 1 amostra/s da ESP (faixa -10 a 80 C), do MPU6050 (`readAll`) e do
+  INA219 (|corrente|; inválida se o contador de erros subiu); linhas `termico: esp=.. C imu=.. C corrente=.. A | alarmes: ..` a cada 10 s,
+  `termico: ALARME <nomes>: ...` (W) quando um alarme começa e `termico: fim do alarme ...` quando acaba. O `saude 1/2` ganha no fim
+  `, temp esp=X C` (-99 sem leitura; a expressão do `t.py` continua casando).
+- `esp32/main/CMakeLists.txt`: `esp_driver_tsens` no `REQUIRES`.
+- O MPU6050 e o INA219 passam a ser lidos também por esta tarefa (o INA219 já era lido pela telemetria; o driver de I²C serializa o barramento).
+- Host 426/426 sem aviso; builds da placa (calibração e prova) sem aviso. A `calib16` não muda: a calibração do robô continua.
+
+## Mudança 16 (23/11): a calibração do robô passa a ser o padrão do firmware
+Pedido do operador: a ESP foi trocada (memória vazia), o Bluetooth não conectava e o firmware não aceita `calib` pelo cabo.
+- `include/domain/Calibration.hpp`: padrões trocados pelos valores em uso no robô: eixo_ate_frente 100, largura_frente 112,
+  eixo_ate_tof_frente 88, tof_lado_ao_centro 55,5, escala_giro 1,0, freio_pivo 4, centralizar 1, ganho_rumo 1,0, ganho_parede 3,
+  max_parede 35, folga_arco 18, arco_esq_atraso -14, desfazer_tensao_fora 3,6, desfazer_tensao_dentro 2,2, ajuste_2a_tentativa 24,
+  ajuste_fino_min 0,4, alvo_lateral_dir_mm -8, curva_dir_fora 8, rumo_max_lateral 8, giro_aberto 1, bateria_minima 5,5.
+- Host: **29 testes falham** porque ainda esperam os padrões antigos (grupos Calibration, RobotModel, WallPosition, PivotClearance,
+  PivotPlan, LateralPose*, SweptFootprint, WallCenteringConfigFromCalibration). Testes não alterados: falta decisão do operador.
+- 25/11: conferido numa ESP nova pelo BLE, 52/52 chaves corretas.
+- Atenção: são medidas do corpo antigo. Na montagem em protoboard (Mudança 18) as medidas do corpo precisam ser refeitas.
+
+## Mudança 17 (23/11): estouro de pilha da tarefa do vigia de temperatura (erro da Mudança 15)
+- Sintoma: `***ERROR*** A stack overflow in task termico has been detected`, a ESP reiniciava sem parar (BLE não conectava).
+- `src/main.cpp`: pilha da `thermalTask` de 4096 para 8192. Boot estável depois (conferido na serial em 23/11 e 25/11).
+
+## Mudança 18 (25/11, pedido do operador): montagem em protoboard e contagem antes da largada
+Compilada e testada no computador. 25/11: gravada na ESP principal (MAC 68:9d:d2:c2:d0:74), solta, só no USB: G3 (boot estável,
+mapa "protoboard (25/11)") e G4 (botão BOOT, contagem 5 a 1 de 1 em 1 s, auto-teste reprovando só pela falta dos sensores)
+passaram. **Ainda não testada com as peças ligadas.**
+- Opção de compilação nova `RATO_PROTOBOARD` (`esp32/main/Kconfig.projbuild`), desligada por padrão;
+  `RATO_FIOS_MOTORES_TROCADOS` passa a depender dela desligada. Defaults da build: `esp32/build/proto.defaults` (ignorado pelo git:
+  CONFIG_RATO_PROTOBOARD=y e CONFIG_RATO_LOG_RETA=y; os demais desligados).
+- `include/adapters/BoardPins.hpp`: mapa da protoboard (tudo na barra J1 da DevKit): motores E 4/5 e D 6/7; encoders E 13/14 e
+  D 15/16; SDA 8, SCL 9; XSHUT frente 10, esquerdo 11, direito 18; buzzer 12; DIP 3, 46, 17; botão = BOOT (GPIO 0); sem LEDs;
+  INT da MPU solto. Sentido de motores e encoders A CONFIRMAR com as rodas no ar. O mapa do robô anterior não muda.
+- `src/adapters/LocalInterfaceAdapter.cpp`: LEDs em `GPIO_NUM_NC` não são configurados nem acionados.
+- `src/main.cpp`: contagem de 5 s entre o toque no botão (ou `largar`) e a largada, um bip por segundo e um longo no fim; um novo
+  toque ou `parar` cancela. Vale em todas as builds.
+- Novo `test/adapters/BoardPinsProtoTest.cpp` (4 testes). Host: 401 passam e os 29 da Mudança 16 falham (430 no total).
+- Sensores ToF: chegou a ser escrito um driver para o VL53L0X; o operador decidiu voltar aos VL53L1X (a estrutura foi feita para
+  eles). O adaptador e o `diag` voltaram ao original; o driver ficou fora do repositório (pasta temporária da sessão).
+- Builds `proto` e `teste-v3` sem erro. Sem commit.
+
+## Bancada 25/11: ToF antigos (VL53L1X) um a um na protoboard
+ESP reserva (MAC c4:9e:7e:14:9a:48), firmware `proto` da Mudança 18, só USB, sensor na posição frontal (VIN 3V3, SDA 8, SCL 9,
+XSHUT 10). Logs: `resultados/logs/tofmon_sensor1.log` e `tofmon_sensor2.log` (ignorados pelo git).
+- Sensor 1: **não aprovado.** Reconhecido; em `tofmon 60` mediu só nos segundos 1-2 e 32-34 (38 medidas, 1 erro de I2C). Antes
+  disso houve cabo puxado e pino errado. Causa (sensor ou mau contato) ainda não separada: repetir com os fios firmes.
+- Sensor 2: **passou** no `tofmon 60`: 661 de 661 medidas válidas, 60 a 66 mm (média 63,3). Exatidão contra régua não conferida.
+- Sensor 3: **passou** no `tofmon 60`: 646 de 646 medidas válidas, 127 a 136 mm (média 131,3), 0 erros de I2C. Exatidão contra régua não conferida. Log `tofmon_sensor3.log`.
+
+## Mudança 19 (25/11, pedido do operador): pinagem da protoboard usando também a barra escondida
+Na protoboard, a barra J1 (3V3, 3V3, RST, 4, 5...) fica com um furo livre por pino; a J3 (GND, TX, RX, 1, 2...) fica sem furo
+livre e só é alcançada por jumpers retos postos antes da ESP, por baixo dela, até as fileiras livres acima dela (lado do USB).
+- `include/adapters/BoardPins.hpp` (bloco `RATO_PROTOBOARD`): DIP via 1 de GPIO 3 para **GPIO 21** e via 2 de GPIO 46 para
+  **GPIO 47** (os dois pinos da J3 mais perto das fileiras livres). Via 3 continua no 17. As 3 vias são obrigatórias e ficam.
+  Com isso nenhum pino de strapping (0, 3, 45, 46) leva fio, fora o botão BOOT da placa. O resto do mapa não muda.
+- `test/adapters/BoardPinsProtoTest.cpp`: só J1 mais os pinos 21 e 47 da J3; nenhum strapping nem proibido (19-20 USB,
+  35-37 PSRAM octal, 43-44 log, 48 LED RGB).
+- Host: os 4 testes do mapa passam; continuam as 29 falhas da Mudança 16. Build `proto` sem erro. Não gravada. Sem commit.
